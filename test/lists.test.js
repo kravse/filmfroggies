@@ -54,12 +54,12 @@ function listsFixture() {
 }
 
 test("the three preset lists are fixed, in tab order", () => {
-  assert.deepEqual(LIST_IDS, ["favourites", "watchlist", "watched"]);
+  assert.deepEqual(LIST_IDS, ["watched", "favourites", "watchlist"]);
   assert.deepEqual(
     PRESET_LISTS.map((preset) => preset.name),
-    ["Favourites", "Watchlist", "Watched"],
+    ["Watched", "Favourites", "Watchlist"],
   );
-  assert.equal(DEFAULT_LIST_ID, FAVOURITES_ID);
+  assert.equal(DEFAULT_LIST_ID, WATCHED_ID);
 });
 
 test("isListId accepts only the presets", () => {

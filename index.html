@@ -214,15 +214,6 @@
               <button
                 type="button"
                 class="add-list-option"
-                data-list-id="favourites"
-                aria-pressed="false"
-              >
-                <span class="add-list-icon" aria-hidden="true">★</span>
-                <span class="add-list-name">Favourites</span>
-              </button>
-              <button
-                type="button"
-                class="add-list-option"
                 data-list-id="watched"
                 aria-pressed="false"
               >
@@ -243,6 +234,18 @@
                   </svg>
                 </span>
                 <span class="add-list-name">Watchlist</span>
+              </button>
+            </div>
+            <div class="add-movie-watched-options" id="add-movie-watched-options" hidden>
+              <button
+                type="button"
+                class="add-movie-favourite-toggle"
+                id="add-movie-favourite-toggle"
+                aria-pressed="false"
+                aria-label="Add to favourites"
+              >
+                <span class="add-movie-favourite-icon" aria-hidden="true">★</span>
+                Favourite
               </button>
             </div>
             <div class="user-rating-field" id="add-movie-rating-field">

@@ -37,7 +37,7 @@ The token is stored in your browser's `localStorage` under `moviecollector-tmdb-
 
 ### The three lists
 
-Tabs under the search box switch between three fixed lists — **Favourites**, **Watchlist**, and **Watched** — each showing its own count. They are statuses rather than collections, so there is nothing to create, rename, or delete.
+Tabs under the search box switch between three fixed lists — **Watched**, **Favourites**, and **Watchlist** — each showing its own count. They are statuses rather than collections, so there is nothing to create, rename, or delete.
 
 Two rules govern how they relate, and both follow from what the words mean:
 

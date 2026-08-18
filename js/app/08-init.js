@@ -41,6 +41,7 @@ addMovieBack.addEventListener("click", () => {
   searchInput.focus();
 });
 addMovieListPicker.addEventListener("click", onAddListOptionClick);
+addMovieFavouriteToggle.addEventListener("click", onAddMovieFavouriteToggleClick);
 addMovieSubmit.addEventListener("click", confirmAddMovie);
 addMovieRatingSlider.addEventListener("input", onAddMovieRatingSliderInput);
 

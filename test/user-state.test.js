@@ -30,10 +30,10 @@ test("defaultUserState starts on local storage with the three preset lists", () 
   const state = defaultUserState();
   assert.equal(state.version, USER_STATE_VERSION);
   assert.equal(state.storageMode, "local");
-  assert.equal(state.activeListId, "favourites");
+  assert.equal(state.activeListId, "watched");
   assert.deepEqual(
     state.lists.map((list) => list.id),
-    ["favourites", "watchlist", "watched"],
+    ["watched", "favourites", "watchlist"],
   );
   assert.equal(state.updatedAt, null);
   assert.deepEqual(state.ratings, {});
@@ -66,7 +66,7 @@ test("normalizeUserState falls back when the active list id is not a preset", ()
     lists: [{ id: "watchlist", name: "Watchlist", movieIds: [1] }],
     activeListId: "some-old-custom-list",
   });
-  assert.equal(state.activeListId, "favourites");
+  assert.equal(state.activeListId, "watched");
 });
 
 test("normalizeUserState keeps a valid preset as the active list", () => {
@@ -82,7 +82,8 @@ test("normalizeUserState cleans movie ids inside lists", () => {
   const state = normalizeUserState({
     lists: [{ id: "favourites", name: "Favourites", movieIds: [5, 5, "6", -1] }],
   });
-  assert.deepEqual(state.lists[0].movieIds, [5, 6]);
+  const favourites = state.lists.find((list) => list.id === "favourites");
+  assert.deepEqual(favourites.movieIds, [5, 6]);
 });
 
 test("normalizeUserState normalizes ratings to movies in lists", () => {
@@ -113,7 +114,7 @@ test("parseUserState returns null for empty or malformed input", () => {
 test("parseUserState survives a partially corrupted payload", () => {
   const parsed = parseUserState('{"lists":"broken","activeListId":42}');
   assert.equal(parsed.lists.length, 3);
-  assert.equal(parsed.activeListId, "favourites");
+  assert.equal(parsed.activeListId, "watched");
 });
 
 test("parseUserState migrates a payload written before the preset lists", () => {
@@ -132,12 +133,12 @@ test("parseUserState migrates a payload written before the preset lists", () => 
   // favourite is promoted into watched.
   assert.deepEqual(
     parsed.lists.map((list) => list.id),
-    ["favourites", "watchlist", "watched"],
+    ["watched", "favourites", "watchlist"],
   );
   assert.deepEqual(parsed.lists[0].movieIds, [603]);
-  assert.deepEqual(parsed.lists[1].movieIds, []);
-  assert.deepEqual(parsed.lists[2].movieIds, [603]);
-  assert.equal(parsed.activeListId, "favourites");
+  assert.deepEqual(parsed.lists[1].movieIds, [603]);
+  assert.deepEqual(parsed.lists[2].movieIds, []);
+  assert.equal(parsed.activeListId, "watched");
   assert.equal(parsed.preferences.viewMode, "list");
 });
 

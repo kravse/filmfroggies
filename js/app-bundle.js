@@ -29,6 +29,8 @@ const addMovieSubmit = document.getElementById("add-movie-submit");
 const addMovieRatingSlider = document.getElementById("add-movie-rating-slider");
 const addMovieRatingValue = document.getElementById("add-movie-rating-value");
 const addMovieRatingField = document.getElementById("add-movie-rating-field");
+const addMovieWatchedOptions = document.getElementById("add-movie-watched-options");
+const addMovieFavouriteToggle = document.getElementById("add-movie-favourite-toggle");
 const addMovieBack = document.getElementById("add-movie-back");
 
 const viewModeCycleBtn = document.getElementById("view-mode-cycle");
@@ -466,13 +468,15 @@ const appLists = (function () {
   const WATCHED_ID = "watched";
 
   const PRESET_LISTS = [
+    { id: WATCHED_ID, name: "Watched" },
     { id: FAVOURITES_ID, name: "Favourites" },
     { id: WATCHLIST_ID, name: "Watchlist" },
-    { id: WATCHED_ID, name: "Watched" },
   ];
 
   const LIST_IDS = PRESET_LISTS.map((preset) => preset.id);
-  const DEFAULT_LIST_ID = FAVOURITES_ID;
+  const DEFAULT_LIST_ID = WATCHED_ID;
+  /** Most-specific status first; independent of tab order. */
+  const STATUS_PRIORITY = [FAVOURITES_ID, WATCHED_ID, WATCHLIST_ID];
 
   function isListId(listId) {
     return LIST_IDS.includes(listId);
@@ -554,11 +558,17 @@ const appLists = (function () {
 
   /**
    * The most specific status for a movie, for a single-value badge or picker.
-   * Preset order does the work: favourited outranks merely watched, and a
+   * STATUS_PRIORITY does the work: favourited outranks merely watched, and a
    * watchlisted movie is in no other list.
    */
   function primaryListIdForMovie(lists, movieId) {
-    return findListIdsForMovie(lists, movieId)[0] || null;
+    const holding = new Set(findListIdsForMovie(lists, movieId));
+    for (const listId of STATUS_PRIORITY) {
+      if (holding.has(listId)) {
+        return listId;
+      }
+    }
+    return null;
   }
 
   function applyMembership(lists, movieId, addTo, removeFrom) {
@@ -1980,7 +1990,7 @@ async function hydrateMovies(ids, handlers = {}) {
 
 /**
  * TMDB search and add flow. The floating + button opens a sheet: search first,
- * then pick Favourites / Watched / Watchlist (pre-selected from the active tab).
+ * then pick Watched (optionally starred) or Watchlist.
  */
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -1993,6 +2003,7 @@ let suggestIndex = -1;
 let suggestRequestToken = 0;
 let pendingAddResult = null;
 let selectedAddListId = null;
+let addMovieFavourite = false;
 let pendingAddRating = null;
 let addMovieRatingTouched = false;
 
@@ -2026,18 +2037,30 @@ function onAddMovieRatingSliderInput() {
 }
 
 function canRateWhileAdding(listId) {
-  return listId != null && listId !== appLists.WATCHLIST_ID;
+  return listId === appLists.WATCHED_ID;
 }
 
-function syncAddMovieRatingVisibility() {
-  if (!addMovieRatingField) {
+function syncAddMovieFavouriteToggle() {
+  if (!addMovieFavouriteToggle) {
     return;
   }
-  const canRate = canRateWhileAdding(selectedAddListId);
-  addMovieRatingField.hidden = !canRate;
-  if (!canRate) {
+  addMovieFavouriteToggle.setAttribute("aria-pressed", String(addMovieFavourite));
+  addMovieFavouriteToggle.classList.toggle("is-active", addMovieFavourite);
+}
+
+function syncAddMoviePickStep() {
+  const watched = selectedAddListId === appLists.WATCHED_ID;
+  if (addMovieWatchedOptions) {
+    addMovieWatchedOptions.hidden = !watched;
+  }
+  if (addMovieRatingField) {
+    addMovieRatingField.hidden = !watched;
+  }
+  if (!watched) {
+    addMovieFavourite = false;
     resetAddMovieRatingControls();
   }
+  syncAddMovieFavouriteToggle();
 }
 
 function isAddMovieDialogOpen() {
@@ -2187,6 +2210,7 @@ function updateAddMovieHint() {
 function showAddSearchStep() {
   pendingAddResult = null;
   selectedAddListId = null;
+  addMovieFavourite = false;
   resetAddMovieRatingControls();
   addMovieSearchStep.hidden = false;
   addMoviePickStep.hidden = true;
@@ -2219,21 +2243,32 @@ function updateAddListPickerSelection(listId) {
 
 function showAddPickStep(result) {
   pendingAddResult = result;
-  selectedAddListId = userState.activeListId;
+  selectedAddListId = appLists.DEFAULT_LIST_ID;
+  addMovieFavourite = false;
   resetAddMovieRatingControls();
   addMovieSearchStep.hidden = true;
   addMoviePickStep.hidden = false;
   renderAddMoviePicked(result);
   updateAddListPickerSelection(selectedAddListId);
-  syncAddMovieRatingVisibility();
+  syncAddMoviePickStep();
   addMovieSubmit.focus({ preventScroll: true });
+}
+
+function resolveAddTargetListId() {
+  if (selectedAddListId === appLists.WATCHLIST_ID) {
+    return appLists.WATCHLIST_ID;
+  }
+  if (addMovieFavourite) {
+    return appLists.FAVOURITES_ID;
+  }
+  return appLists.WATCHED_ID;
 }
 
 function confirmAddMovie() {
   if (!pendingAddResult || !selectedAddListId) {
     return;
   }
-  addMovieToList(pendingAddResult, selectedAddListId, pendingAddRating);
+  addMovieToList(pendingAddResult, resolveAddTargetListId(), pendingAddRating);
 }
 
 function openAddMovieDialog() {
@@ -2340,12 +2375,20 @@ function onAddListOptionClick(event) {
     return;
   }
   const listId = button.dataset.listId;
-  if (!appLists.isListId(listId)) {
+  if (listId !== appLists.WATCHED_ID && listId !== appLists.WATCHLIST_ID) {
     return;
   }
   selectedAddListId = listId;
   updateAddListPickerSelection(listId);
-  syncAddMovieRatingVisibility();
+  syncAddMoviePickStep();
+}
+
+function onAddMovieFavouriteToggleClick() {
+  if (selectedAddListId !== appLists.WATCHED_ID) {
+    return;
+  }
+  addMovieFavourite = !addMovieFavourite;
+  syncAddMovieFavouriteToggle();
 }
 
 /* ===== Cards, skeletons, and the main grid render ===== */
@@ -3451,6 +3494,7 @@ addMovieBack.addEventListener("click", () => {
   searchInput.focus();
 });
 addMovieListPicker.addEventListener("click", onAddListOptionClick);
+addMovieFavouriteToggle.addEventListener("click", onAddMovieFavouriteToggleClick);
 addMovieSubmit.addEventListener("click", confirmAddMovie);
 addMovieRatingSlider.addEventListener("input", onAddMovieRatingSliderInput);
 

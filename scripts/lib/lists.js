@@ -22,13 +22,15 @@ const WATCHLIST_ID = "watchlist";
 const WATCHED_ID = "watched";
 
 const PRESET_LISTS = [
+  { id: WATCHED_ID, name: "Watched" },
   { id: FAVOURITES_ID, name: "Favourites" },
   { id: WATCHLIST_ID, name: "Watchlist" },
-  { id: WATCHED_ID, name: "Watched" },
 ];
 
 const LIST_IDS = PRESET_LISTS.map((preset) => preset.id);
-const DEFAULT_LIST_ID = FAVOURITES_ID;
+const DEFAULT_LIST_ID = WATCHED_ID;
+/** Most-specific status first; independent of tab order. */
+const STATUS_PRIORITY = [FAVOURITES_ID, WATCHED_ID, WATCHLIST_ID];
 
 function isListId(listId) {
   return LIST_IDS.includes(listId);
@@ -110,11 +112,17 @@ function findListIdsForMovie(lists, movieId) {
 
 /**
  * The most specific status for a movie, for a single-value badge or picker.
- * Preset order does the work: favourited outranks merely watched, and a
+ * STATUS_PRIORITY does the work: favourited outranks merely watched, and a
  * watchlisted movie is in no other list.
  */
 function primaryListIdForMovie(lists, movieId) {
-  return findListIdsForMovie(lists, movieId)[0] || null;
+  const holding = new Set(findListIdsForMovie(lists, movieId));
+  for (const listId of STATUS_PRIORITY) {
+    if (holding.has(listId)) {
+      return listId;
+    }
+  }
+  return null;
 }
 
 function applyMembership(lists, movieId, addTo, removeFrom) {
