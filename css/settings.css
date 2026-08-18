@@ -10,6 +10,11 @@
   padding: 1rem;
 }
 
+/* Above movie detail (z-index 90) when opened from an overlay. */
+.sheet-dialog--stacked {
+  z-index: 100;
+}
+
 .sheet-backdrop {
   position: absolute;
   inset: 0;

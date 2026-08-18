@@ -45,6 +45,21 @@ function onAddMovieRatingSliderInput() {
   syncAddMovieRatingDisplay();
 }
 
+function canRateWhileAdding(listId) {
+  return listId != null && listId !== appLists.WATCHLIST_ID;
+}
+
+function syncAddMovieRatingVisibility() {
+  if (!addMovieRatingField) {
+    return;
+  }
+  const canRate = canRateWhileAdding(selectedAddListId);
+  addMovieRatingField.hidden = !canRate;
+  if (!canRate) {
+    resetAddMovieRatingControls();
+  }
+}
+
 function isAddMovieDialogOpen() {
   return addMovieDialog && !addMovieDialog.hidden;
 }
@@ -230,6 +245,7 @@ function showAddPickStep(result) {
   addMoviePickStep.hidden = false;
   renderAddMoviePicked(result);
   updateAddListPickerSelection(selectedAddListId);
+  syncAddMovieRatingVisibility();
   addMovieSubmit.focus({ preventScroll: true });
 }
 
@@ -260,7 +276,7 @@ function addMovieToList(result, listId, rating) {
   if (!updateLists(nextLists)) {
     return;
   }
-  if (rating != null) {
+  if (rating != null && canRateWhileAdding(listId)) {
     updateRatings(appRatings.setRating(userState.ratings, result.id, rating));
   }
   persistUserState();
@@ -349,4 +365,5 @@ function onAddListOptionClick(event) {
   }
   selectedAddListId = listId;
   updateAddListPickerSelection(listId);
+  syncAddMovieRatingVisibility();
 }
