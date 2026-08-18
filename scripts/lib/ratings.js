@@ -48,6 +48,28 @@ function sliderValueFromRating(rating) {
   return Math.round((normalized - MIN_RATING) * 10);
 }
 
+/** Value shown in mobile rating dropdowns; unrated uses the slider default (7). */
+function ratingSelectDisplayValue(rating) {
+  const normalized = normalizeRating(rating);
+  if (normalized != null) {
+    return formatUserRating(normalized);
+  }
+  return formatUserRating(ratingFromSliderValue(DEFAULT_SLIDER_VALUE));
+}
+
+/** `<option>` markup for mobile rating dropdowns (1–10 in 0.1 steps). */
+function ratingSelectInnerHtml(selectedRating) {
+  const displayValue = ratingSelectDisplayValue(selectedRating);
+  let html = "";
+  for (let step = SLIDER_MIN; step <= SLIDER_MAX; step++) {
+    const rating = MIN_RATING + step / 10;
+    const label = formatUserRating(rating);
+    const isSelected = label === displayValue;
+    html += `<option value="${label}"${isSelected ? " selected" : ""}>${label}</option>`;
+  }
+  return html;
+}
+
 function collectMovieIds(lists) {
   const ids = new Set();
   if (!Array.isArray(lists)) {
@@ -139,6 +161,8 @@ module.exports = {
   formatUserRating,
   ratingFromSliderValue,
   sliderValueFromRating,
+  ratingSelectDisplayValue,
+  ratingSelectInnerHtml,
   collectMovieIds,
   normalizeRatings,
   getRating,

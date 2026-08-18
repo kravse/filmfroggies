@@ -87,26 +87,29 @@
     padding: 1.1rem 1.15rem 1.15rem;
   }
 
+  .rating-control-slider,
   .user-rating-slider,
   .detail-rating-slider {
-    min-height: 3rem;
+    display: none;
   }
 
-  .user-rating-slider::-webkit-slider-thumb,
-  .detail-rating-slider::-webkit-slider-thumb {
-    width: 1.85rem;
-    height: 1.85rem;
-    margin-top: -0.725rem;
+  .rating-control-select,
+  .user-rating-select,
+  .detail-rating-select {
+    display: block;
   }
 
-  .user-rating-slider::-moz-range-thumb,
-  .detail-rating-slider::-moz-range-thumb {
-    width: 1.85rem;
-    height: 1.85rem;
+  .user-rating-scale,
+  .detail-rating-scale {
+    display: none;
   }
 
   .detail-rating-slider-wrap {
     padding: 0.55rem 0;
+  }
+
+  .detail-rating-slider-wrap .rating-control {
+    flex: 1 1 100%;
   }
 
   .detail-rating-btn {

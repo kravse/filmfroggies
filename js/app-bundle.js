@@ -27,6 +27,8 @@ const addMoviePicked = document.getElementById("add-movie-picked");
 const addMovieListPicker = document.getElementById("add-movie-list-picker");
 const addMovieSubmit = document.getElementById("add-movie-submit");
 const addMovieRatingSlider = document.getElementById("add-movie-rating-slider");
+const addMovieRatingSelect = document.getElementById("add-movie-rating-select");
+const addMovieRatingClear = document.getElementById("add-movie-rating-clear");
 const addMovieRatingValue = document.getElementById("add-movie-rating-value");
 const addMovieRatingField = document.getElementById("add-movie-rating-field");
 const addMovieWatchedOptions = document.getElementById("add-movie-watched-options");
@@ -851,6 +853,28 @@ const appRatings = (function () {
     return Math.round((normalized - MIN_RATING) * 10);
   }
 
+  /** Value shown in mobile rating dropdowns; unrated uses the slider default (7). */
+  function ratingSelectDisplayValue(rating) {
+    const normalized = normalizeRating(rating);
+    if (normalized != null) {
+      return formatUserRating(normalized);
+    }
+    return formatUserRating(ratingFromSliderValue(DEFAULT_SLIDER_VALUE));
+  }
+
+  /** `<option>` markup for mobile rating dropdowns (1–10 in 0.1 steps). */
+  function ratingSelectInnerHtml(selectedRating) {
+    const displayValue = ratingSelectDisplayValue(selectedRating);
+    let html = "";
+    for (let step = SLIDER_MIN; step <= SLIDER_MAX; step++) {
+      const rating = MIN_RATING + step / 10;
+      const label = formatUserRating(rating);
+      const isSelected = label === displayValue;
+      html += `<option value="${label}"${isSelected ? " selected" : ""}>${label}</option>`;
+    }
+    return html;
+  }
+
   function collectMovieIds(lists) {
     const ids = new Set();
     if (!Array.isArray(lists)) {
@@ -942,6 +966,8 @@ const appRatings = (function () {
     formatUserRating,
     ratingFromSliderValue,
     sliderValueFromRating,
+    ratingSelectDisplayValue,
+    ratingSelectInnerHtml,
     normalizeRatings,
     getRating,
     setRating,
@@ -2101,6 +2127,12 @@ function resetAddMovieRatingControls() {
   pendingAddRating = null;
   addMovieRatingTouched = false;
   addMovieRatingSlider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
+  if (addMovieRatingSelect) {
+    addMovieRatingSelect.value = appRatings.ratingSelectDisplayValue(null);
+  }
+  if (addMovieRatingClear) {
+    addMovieRatingClear.hidden = true;
+  }
   addMovieRatingValue.textContent = "—";
   addMovieRatingValue.classList.add("is-empty");
   addMovieRatingField?.classList.remove("is-active");
@@ -2112,18 +2144,54 @@ function syncAddMovieRatingDisplay() {
     addMovieRatingValue.classList.add("is-empty");
     addMovieRatingField?.classList.remove("is-active");
     pendingAddRating = null;
+    addMovieRatingSlider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
+    if (addMovieRatingSelect) {
+      addMovieRatingSelect.value = appRatings.ratingSelectDisplayValue(null);
+    }
+    if (addMovieRatingClear) {
+      addMovieRatingClear.hidden = true;
+    }
     return;
   }
   addMovieRatingField?.classList.add("is-active");
-  const rating = appRatings.ratingFromSliderValue(Number(addMovieRatingSlider.value));
+  if (addMovieRatingClear) {
+    addMovieRatingClear.hidden = false;
+  }
+  const rating =
+    pendingAddRating ?? appRatings.ratingFromSliderValue(Number(addMovieRatingSlider.value));
   pendingAddRating = rating;
   addMovieRatingValue.textContent = appRatings.formatUserRating(rating);
   addMovieRatingValue.classList.remove("is-empty");
+  addMovieRatingSlider.value = String(appRatings.sliderValueFromRating(rating));
+  if (addMovieRatingSelect) {
+    addMovieRatingSelect.value = appRatings.formatUserRating(rating);
+  }
 }
 
 function onAddMovieRatingSliderInput() {
   addMovieRatingTouched = true;
+  pendingAddRating = appRatings.ratingFromSliderValue(Number(addMovieRatingSlider.value));
   syncAddMovieRatingDisplay();
+}
+
+function onAddMovieRatingSelectChange() {
+  if (!addMovieRatingSelect) {
+    return;
+  }
+  addMovieRatingTouched = true;
+  pendingAddRating = appRatings.normalizeRating(addMovieRatingSelect.value);
+  syncAddMovieRatingDisplay();
+}
+
+function clearAddMovieRating() {
+  resetAddMovieRatingControls();
+}
+
+function initAddMovieRatingSelect() {
+  if (!addMovieRatingSelect) {
+    return;
+  }
+  addMovieRatingSelect.innerHTML = appRatings.ratingSelectInnerHtml(null);
 }
 
 function syncAddMovieFavouriteToggle() {
@@ -2873,17 +2941,24 @@ function detailUserRatingBlockHtml(movieId) {
     </div>
     <div class="detail-rating-slider-wrap">
       <span class="detail-rating-scale" aria-hidden="true">1</span>
-      <input
-        type="range"
-        class="detail-rating-slider"
-        id="detail-rating-slider"
-        min="0"
-        max="90"
-        step="1"
-        value="${sliderValue}"
-        aria-label="My rating from 1 to 10"
-        aria-valuetext="${rating == null ? "Not rated" : appRatings.formatUserRating(rating)}"
-      />
+      <div class="rating-control">
+        <input
+          type="range"
+          class="detail-rating-slider rating-control-slider"
+          id="detail-rating-slider"
+          min="0"
+          max="90"
+          step="1"
+          value="${sliderValue}"
+          aria-label="My rating from 1 to 10"
+          aria-valuetext="${rating == null ? "Not rated" : appRatings.formatUserRating(rating)}"
+        />
+        <select
+          class="detail-rating-select rating-control-select"
+          id="detail-rating-select"
+          aria-label="My rating from 1 to 10"
+        >${appRatings.ratingSelectInnerHtml(rating)}</select>
+      </div>
       <span class="detail-rating-scale" aria-hidden="true">10</span>
     </div>
     <div class="detail-rating-editor-actions">
@@ -2911,10 +2986,20 @@ function syncDetailRatingDisplay(rating) {
 
   const slider = document.getElementById("detail-rating-slider");
   if (slider) {
+    slider.value = String(
+      rating == null
+        ? appRatings.DEFAULT_SLIDER_VALUE
+        : appRatings.sliderValueFromRating(rating),
+    );
     slider.setAttribute(
       "aria-valuetext",
       rating == null ? "Not rated" : appRatings.formatUserRating(rating),
     );
+  }
+
+  const select = document.getElementById("detail-rating-select");
+  if (select) {
+    select.value = appRatings.ratingSelectDisplayValue(rating);
   }
 
   const clearBtn = document.getElementById("detail-rating-clear");
@@ -2951,7 +3036,14 @@ function openDetailRatingEditor() {
   detailRatingEditorSnapshot = appRatings.getRating(userState.ratings, detailMovieId);
   detailRatingEditorOpen = true;
   syncDetailRatingEditorVisibility();
-  document.getElementById("detail-rating-slider")?.focus({ preventScroll: true });
+  focusDetailRatingControl();
+}
+
+function focusDetailRatingControl() {
+  const mobile = window.matchMedia("(max-width: 640px)").matches;
+  const select = document.getElementById("detail-rating-select");
+  const slider = document.getElementById("detail-rating-slider");
+  (mobile ? select : slider)?.focus({ preventScroll: true });
 }
 
 function closeDetailRatingEditor() {
@@ -2975,10 +3067,6 @@ function cancelDetailRatingEditor() {
     updateRatings(nextRatings);
     persistUserState();
     applyHydratedRecord(detailMovieId, { skipDetail: true });
-  }
-  const slider = document.getElementById("detail-rating-slider");
-  if (slider) {
-    slider.value = String(appRatings.sliderValueFromRating(snapshot));
   }
   syncDetailRatingDisplay(snapshot);
   detailRatingEditorOpen = false;
@@ -3013,6 +3101,17 @@ function onDetailRatingSliderInput(event) {
   syncDetailRatingDisplay(rating);
 }
 
+function onDetailRatingSelectChange(event) {
+  if (detailMovieId == null) {
+    return;
+  }
+  const rating = appRatings.normalizeRating(event.target.value);
+  if (!updateRatings(appRatings.setRating(userState.ratings, detailMovieId, rating))) {
+    return;
+  }
+  syncDetailRatingDisplay(rating);
+}
+
 function clearDetailRating() {
   if (detailMovieId == null) {
     return;
@@ -3022,10 +3121,6 @@ function clearDetailRating() {
   }
   persistUserState();
   applyHydratedRecord(detailMovieId, { skipDetail: true });
-  const slider = document.getElementById("detail-rating-slider");
-  if (slider) {
-    slider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
-  }
   syncDetailRatingDisplay(null);
 }
 
@@ -3588,7 +3683,10 @@ addMovieBack.addEventListener("click", () => {
 addMovieListPicker.addEventListener("click", onAddListOptionClick);
 addMovieFavouriteToggle.addEventListener("click", onAddMovieFavouriteToggleClick);
 addMovieSubmit.addEventListener("click", confirmAddMovie);
+initAddMovieRatingSelect();
 bindRangeSliderLiveInput(addMovieRatingSlider, onAddMovieRatingSliderInput);
+addMovieRatingSelect?.addEventListener("change", onAddMovieRatingSelectChange);
+addMovieRatingClear?.addEventListener("click", clearAddMovieRating);
 
 /* --- Grid --- */
 
@@ -3718,6 +3816,11 @@ detailDialog.addEventListener("click", (event) => {
 delegateRangeSliderLiveInput(detailDialog, "detail-rating-slider", onDetailRatingSliderInput);
 detailDialog.addEventListener("change", (event) => {
   if (event.target.id === "detail-rating-slider") {
+    commitDetailRating();
+    return;
+  }
+  if (event.target.id === "detail-rating-select") {
+    onDetailRatingSelectChange(event);
     commitDetailRating();
   }
 });

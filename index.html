@@ -253,20 +253,30 @@
                 <span class="user-rating-label">Your rating</span>
                 <output class="user-rating-value is-empty" id="add-movie-rating-value" for="add-movie-rating-slider">—</output>
               </div>
-              <input
-                type="range"
-                class="user-rating-slider"
-                id="add-movie-rating-slider"
-                min="0"
-                max="90"
-                step="1"
-                value="60"
-                aria-label="Your rating from 1 to 10 (optional)"
-              />
+              <div class="rating-control">
+                <input
+                  type="range"
+                  class="user-rating-slider rating-control-slider"
+                  id="add-movie-rating-slider"
+                  min="0"
+                  max="90"
+                  step="1"
+                  value="60"
+                  aria-label="Your rating from 1 to 10 (optional)"
+                />
+                <select
+                  class="user-rating-select rating-control-select"
+                  id="add-movie-rating-select"
+                  aria-label="Your rating from 1 to 10 (optional)"
+                ></select>
+              </div>
               <div class="user-rating-scale" aria-hidden="true">
                 <span>1</span>
                 <span>10</span>
               </div>
+              <button type="button" class="user-rating-clear-btn" id="add-movie-rating-clear" hidden>
+                Clear rating
+              </button>
             </div>
             <div class="add-movie-pick-actions">
               <button type="button" class="add-movie-back" id="add-movie-back">

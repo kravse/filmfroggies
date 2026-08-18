@@ -78,17 +78,24 @@ function detailUserRatingBlockHtml(movieId) {
     </div>
     <div class="detail-rating-slider-wrap">
       <span class="detail-rating-scale" aria-hidden="true">1</span>
-      <input
-        type="range"
-        class="detail-rating-slider"
-        id="detail-rating-slider"
-        min="0"
-        max="90"
-        step="1"
-        value="${sliderValue}"
-        aria-label="My rating from 1 to 10"
-        aria-valuetext="${rating == null ? "Not rated" : appRatings.formatUserRating(rating)}"
-      />
+      <div class="rating-control">
+        <input
+          type="range"
+          class="detail-rating-slider rating-control-slider"
+          id="detail-rating-slider"
+          min="0"
+          max="90"
+          step="1"
+          value="${sliderValue}"
+          aria-label="My rating from 1 to 10"
+          aria-valuetext="${rating == null ? "Not rated" : appRatings.formatUserRating(rating)}"
+        />
+        <select
+          class="detail-rating-select rating-control-select"
+          id="detail-rating-select"
+          aria-label="My rating from 1 to 10"
+        >${appRatings.ratingSelectInnerHtml(rating)}</select>
+      </div>
       <span class="detail-rating-scale" aria-hidden="true">10</span>
     </div>
     <div class="detail-rating-editor-actions">
@@ -116,10 +123,20 @@ function syncDetailRatingDisplay(rating) {
 
   const slider = document.getElementById("detail-rating-slider");
   if (slider) {
+    slider.value = String(
+      rating == null
+        ? appRatings.DEFAULT_SLIDER_VALUE
+        : appRatings.sliderValueFromRating(rating),
+    );
     slider.setAttribute(
       "aria-valuetext",
       rating == null ? "Not rated" : appRatings.formatUserRating(rating),
     );
+  }
+
+  const select = document.getElementById("detail-rating-select");
+  if (select) {
+    select.value = appRatings.ratingSelectDisplayValue(rating);
   }
 
   const clearBtn = document.getElementById("detail-rating-clear");
@@ -156,7 +173,14 @@ function openDetailRatingEditor() {
   detailRatingEditorSnapshot = appRatings.getRating(userState.ratings, detailMovieId);
   detailRatingEditorOpen = true;
   syncDetailRatingEditorVisibility();
-  document.getElementById("detail-rating-slider")?.focus({ preventScroll: true });
+  focusDetailRatingControl();
+}
+
+function focusDetailRatingControl() {
+  const mobile = window.matchMedia("(max-width: 640px)").matches;
+  const select = document.getElementById("detail-rating-select");
+  const slider = document.getElementById("detail-rating-slider");
+  (mobile ? select : slider)?.focus({ preventScroll: true });
 }
 
 function closeDetailRatingEditor() {
@@ -180,10 +204,6 @@ function cancelDetailRatingEditor() {
     updateRatings(nextRatings);
     persistUserState();
     applyHydratedRecord(detailMovieId, { skipDetail: true });
-  }
-  const slider = document.getElementById("detail-rating-slider");
-  if (slider) {
-    slider.value = String(appRatings.sliderValueFromRating(snapshot));
   }
   syncDetailRatingDisplay(snapshot);
   detailRatingEditorOpen = false;
@@ -218,6 +238,17 @@ function onDetailRatingSliderInput(event) {
   syncDetailRatingDisplay(rating);
 }
 
+function onDetailRatingSelectChange(event) {
+  if (detailMovieId == null) {
+    return;
+  }
+  const rating = appRatings.normalizeRating(event.target.value);
+  if (!updateRatings(appRatings.setRating(userState.ratings, detailMovieId, rating))) {
+    return;
+  }
+  syncDetailRatingDisplay(rating);
+}
+
 function clearDetailRating() {
   if (detailMovieId == null) {
     return;
@@ -227,10 +258,6 @@ function clearDetailRating() {
   }
   persistUserState();
   applyHydratedRecord(detailMovieId, { skipDetail: true });
-  const slider = document.getElementById("detail-rating-slider");
-  if (slider) {
-    slider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
-  }
   syncDetailRatingDisplay(null);
 }
 

@@ -198,6 +198,11 @@ button.detail-rating-chip.is-rated[aria-expanded="true"] {
   touch-action: pan-x;
 }
 
+.detail-rating-slider-wrap .rating-control {
+  flex: 1;
+  min-width: 0;
+}
+
 .detail-rating-scale {
   flex: none;
   min-width: 1.35rem;

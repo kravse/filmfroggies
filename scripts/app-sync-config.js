@@ -96,6 +96,8 @@ const APP_SYNC_ENTRIES = [
       "formatUserRating",
       "ratingFromSliderValue",
       "sliderValueFromRating",
+      "ratingSelectDisplayValue",
+      "ratingSelectInnerHtml",
       "normalizeRatings",
       "getRating",
       "setRating",

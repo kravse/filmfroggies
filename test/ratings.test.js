@@ -6,6 +6,8 @@ const {
   formatUserRating,
   ratingFromSliderValue,
   sliderValueFromRating,
+  ratingSelectDisplayValue,
+  ratingSelectInnerHtml,
   normalizeRatings,
   getRating,
   setRating,
@@ -41,6 +43,24 @@ test("slider helpers round-trip ratings", () => {
   assert.equal(ratingFromSliderValue(60), 7);
   assert.equal(sliderValueFromRating(7.3), 63);
   assert.equal(sliderValueFromRating(null), DEFAULT_SLIDER_VALUE);
+});
+
+test("ratingSelectDisplayValue falls back to the slider default when unrated", () => {
+  assert.equal(ratingSelectDisplayValue(null), "7");
+  assert.equal(ratingSelectDisplayValue(8.4), "8.4");
+});
+
+test("ratingSelectInnerHtml lists 0.1 steps from 1 to 10 without an unrated option", () => {
+  const unrated = ratingSelectInnerHtml(null);
+  assert.doesNotMatch(unrated, />—</);
+  assert.match(unrated, /value="7" selected/);
+  assert.match(unrated, />1</);
+  assert.match(unrated, />7\.3</);
+  assert.match(unrated, />10</);
+
+  const rated = ratingSelectInnerHtml(7.3);
+  assert.match(rated, /value="7\.3" selected/);
+  assert.doesNotMatch(rated, /value="7" selected/);
 });
 
 test("normalizeRatings keeps only valid ratings for movies in lists", () => {

@@ -52,6 +52,39 @@
   color: var(--accent);
 }
 
+.rating-control {
+  width: 100%;
+}
+
+.rating-control-slider {
+  width: 100%;
+}
+
+.rating-control-select {
+  display: none;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.65rem 3.75rem 0.65rem 0.85rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--panel);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 7.5 10 12.5 15 7.5' stroke='%236c7686' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1.15rem center;
+  background-size: 1rem 1rem;
+  color: var(--text);
+  font-family: var(--ui-font);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.user-rating-field.is-active .rating-control-select {
+  border-color: var(--accent-border);
+  background-color: var(--panel);
+}
+
 .user-rating-slider {
   width: 100%;
   min-height: 2.5rem;
@@ -124,9 +157,24 @@
   font-variant-numeric: tabular-nums;
 }
 
-.user-rating-clear {
+.user-rating-clear-btn {
+  display: none;
   margin-top: 0.55rem;
-  padding-inline: 0.55rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--ui-font);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.user-rating-clear-btn:not([hidden]) {
+  display: block;
+}
+
+.user-rating-clear-btn:hover {
+  color: var(--danger);
 }
 
 .card-user-rating {

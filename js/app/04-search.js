@@ -21,6 +21,12 @@ function resetAddMovieRatingControls() {
   pendingAddRating = null;
   addMovieRatingTouched = false;
   addMovieRatingSlider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
+  if (addMovieRatingSelect) {
+    addMovieRatingSelect.value = appRatings.ratingSelectDisplayValue(null);
+  }
+  if (addMovieRatingClear) {
+    addMovieRatingClear.hidden = true;
+  }
   addMovieRatingValue.textContent = "—";
   addMovieRatingValue.classList.add("is-empty");
   addMovieRatingField?.classList.remove("is-active");
@@ -32,18 +38,54 @@ function syncAddMovieRatingDisplay() {
     addMovieRatingValue.classList.add("is-empty");
     addMovieRatingField?.classList.remove("is-active");
     pendingAddRating = null;
+    addMovieRatingSlider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
+    if (addMovieRatingSelect) {
+      addMovieRatingSelect.value = appRatings.ratingSelectDisplayValue(null);
+    }
+    if (addMovieRatingClear) {
+      addMovieRatingClear.hidden = true;
+    }
     return;
   }
   addMovieRatingField?.classList.add("is-active");
-  const rating = appRatings.ratingFromSliderValue(Number(addMovieRatingSlider.value));
+  if (addMovieRatingClear) {
+    addMovieRatingClear.hidden = false;
+  }
+  const rating =
+    pendingAddRating ?? appRatings.ratingFromSliderValue(Number(addMovieRatingSlider.value));
   pendingAddRating = rating;
   addMovieRatingValue.textContent = appRatings.formatUserRating(rating);
   addMovieRatingValue.classList.remove("is-empty");
+  addMovieRatingSlider.value = String(appRatings.sliderValueFromRating(rating));
+  if (addMovieRatingSelect) {
+    addMovieRatingSelect.value = appRatings.formatUserRating(rating);
+  }
 }
 
 function onAddMovieRatingSliderInput() {
   addMovieRatingTouched = true;
+  pendingAddRating = appRatings.ratingFromSliderValue(Number(addMovieRatingSlider.value));
   syncAddMovieRatingDisplay();
+}
+
+function onAddMovieRatingSelectChange() {
+  if (!addMovieRatingSelect) {
+    return;
+  }
+  addMovieRatingTouched = true;
+  pendingAddRating = appRatings.normalizeRating(addMovieRatingSelect.value);
+  syncAddMovieRatingDisplay();
+}
+
+function clearAddMovieRating() {
+  resetAddMovieRatingControls();
+}
+
+function initAddMovieRatingSelect() {
+  if (!addMovieRatingSelect) {
+    return;
+  }
+  addMovieRatingSelect.innerHTML = appRatings.ratingSelectInnerHtml(null);
 }
 
 function syncAddMovieFavouriteToggle() {
