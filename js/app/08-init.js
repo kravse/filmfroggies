@@ -154,21 +154,30 @@ detailDialog.addEventListener("click", (event) => {
     closeDetail();
     return;
   }
-  if (event.target.id === "detail-rating-summary") {
+  if (event.target.closest("#detail-rating-summary")) {
     toggleDetailRatingEditor();
     return;
   }
-  if (event.target.id === "detail-rating-done") {
+  if (event.target.closest("#detail-rating-done")) {
     closeDetailRatingEditor();
     return;
   }
-  if (event.target.id === "detail-rating-clear") {
+  if (event.target.closest("#detail-rating-cancel")) {
+    cancelDetailRatingEditor();
+    return;
+  }
+  if (event.target.closest("#detail-rating-clear")) {
     clearDetailRating();
   }
 });
 detailDialog.addEventListener("input", (event) => {
   if (event.target.id === "detail-rating-slider") {
     onDetailRatingSliderInput(event);
+  }
+});
+detailDialog.addEventListener("change", (event) => {
+  if (event.target.id === "detail-rating-slider") {
+    commitDetailRating();
   }
 });
 detailActions.addEventListener("click", (event) => {
@@ -310,7 +319,7 @@ document.addEventListener("keydown", (event) => {
     }
     if (detailMovieId != null) {
       if (detailRatingEditorOpen) {
-        closeDetailRatingEditor();
+        cancelDetailRatingEditor();
         return;
       }
       closeDetail();

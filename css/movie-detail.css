@@ -107,11 +107,14 @@
   padding: 0.2rem 0.6rem;
 }
 
+.detail-rating-block {
+  margin: 0 0 1rem;
+}
+
 .detail-rating-row {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  margin: 0 0 0.85rem;
 }
 
 .detail-rating-label {
@@ -123,6 +126,13 @@
 
 button.detail-rating-chip {
   cursor: pointer;
+  min-height: 2rem;
+  padding: 0.35rem 0.75rem;
+  touch-action: manipulation;
+}
+
+#detail-rating-summary-value {
+  pointer-events: none;
 }
 
 button.detail-rating-chip:hover,
@@ -130,52 +140,150 @@ button.detail-rating-chip[aria-expanded="true"] {
   filter: brightness(1.08);
 }
 
+button.detail-rating-chip.is-rated {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-dim);
+}
+
+button.detail-rating-chip.is-rated:hover,
+button.detail-rating-chip.is-rated[aria-expanded="true"] {
+  filter: brightness(1.1);
+}
+
 .detail-rating-editor {
-  margin: -0.55rem 0 0.85rem;
-  max-width: min(100%, 18rem);
+  padding: 1rem 1.1rem 1.05rem;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  touch-action: none;
 }
 
-.detail-rating-slider {
-  width: 100%;
-  margin: 0;
-  accent-color: var(--accent);
-  cursor: pointer;
+.detail-rating-editor-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
 }
 
-.detail-rating-editor-foot {
+.detail-rating-editor-title {
+  font-family: var(--ui-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.detail-rating-editor-value {
+  font-family: var(--display-font);
+  font-size: 2.15rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.detail-rating-editor-value.is-empty {
+  font-size: 1.5rem;
+  color: var(--muted-dim);
+}
+
+.detail-rating-slider-wrap {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 0.35rem;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .detail-rating-scale {
   flex: none;
+  min-width: 1.35rem;
   font-family: var(--ui-font);
-  font-size: 0.64rem;
+  font-size: 0.78rem;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: var(--muted-dim);
-}
-
-.detail-rating-link {
-  background: none;
-  border: none;
-  padding: 0;
-  font-family: var(--ui-font);
-  font-size: 0.72rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  text-align: center;
   color: var(--muted);
+}
+
+.detail-rating-slider {
+  flex: 1;
+  width: 100%;
+  height: 1.35rem;
+  margin: 0;
+  accent-color: var(--accent);
   cursor: pointer;
+  touch-action: none;
 }
 
-.detail-rating-link:hover {
-  color: var(--accent);
+.detail-rating-editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
-#detail-rating-clear:hover {
+.detail-rating-editor-actions-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.detail-rating-btn {
+  font-family: var(--ui-font);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.95rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  border: 1px solid var(--border-strong);
+  background: var(--panel-raised);
+  color: var(--text);
+}
+
+.detail-rating-btn--ghost {
+  background: transparent;
+  color: var(--muted);
+}
+
+.detail-rating-btn--ghost:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.detail-rating-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #17130a;
+  font-weight: 600;
+}
+
+.detail-rating-btn--primary:hover {
+  filter: brightness(1.06);
+}
+
+.detail-rating-btn--clear {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.detail-rating-btn--clear:hover {
   color: var(--danger);
+}
+
+.detail-rating-btn--clear[hidden] + .detail-rating-editor-actions-main {
+  margin-left: 0;
+  width: 100%;
+  justify-content: flex-end;
 }
 
 .movie-detail-overview {

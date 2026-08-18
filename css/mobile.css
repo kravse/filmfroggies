@@ -83,6 +83,37 @@
     font-size: 1.3rem;
   }
 
+  button.detail-rating-chip {
+    min-height: 2.75rem;
+    min-width: 4.5rem;
+    padding: 0.45rem 0.85rem;
+  }
+
+  .detail-rating-editor {
+    padding: 1.1rem 1.15rem 1.15rem;
+  }
+
+  .detail-rating-editor-value {
+    font-size: 2.5rem;
+  }
+
+  .detail-rating-slider {
+    height: 1.75rem;
+  }
+
+  .detail-rating-btn {
+    min-height: 2.75rem;
+    padding: 0.65rem 1.1rem;
+  }
+
+  .detail-rating-editor-actions-main {
+    gap: 0.65rem;
+  }
+
+  .detail-rating-btn--primary {
+    min-width: 5.5rem;
+  }
+
   .movie-detail-nav {
     top: auto;
     bottom: 4.5rem;

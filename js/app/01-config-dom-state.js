@@ -93,6 +93,8 @@ const movieErrors = new Set();
 let gridViewMode = "cards";
 let detailMovieId = null;
 let detailRatingEditorOpen = false;
+/** Rating saved when the editor opens; Cancel restores this value. */
+let detailRatingEditorSnapshot = null;
 let pendingRemoveMovieId = null;
 let tmdbCredential = "";
 

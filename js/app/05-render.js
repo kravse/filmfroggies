@@ -193,14 +193,14 @@ function render() {
 }
 
 /** Patches one row after hydration so the rest of the grid stays untouched. */
-function applyHydratedRecord(movieId) {
+function applyHydratedRecord(movieId, options = {}) {
   const row = grid.querySelector(`.movie-row[data-movie-id="${movieId}"]`);
   if (!row) {
     return;
   }
   row.innerHTML = rowInnerHtml(movieId);
   bindPosterImages(row);
-  if (detailMovieId === movieId) {
+  if (!options.skipDetail && detailMovieId === movieId) {
     renderDetail();
   }
 }
@@ -275,7 +275,7 @@ function removeMovieFromCollection(movieId) {
 }
 
 function refreshMovieRating(movieId) {
-  applyHydratedRecord(movieId);
+  applyHydratedRecord(movieId, { skipDetail: true });
   if (detailMovieId === movieId) {
     syncDetailRatingDisplay(appRatings.getRating(userState.ratings, movieId));
   }
