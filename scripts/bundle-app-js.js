@@ -1,0 +1,104 @@
+#!/usr/bin/env node
+/**
+ * Concatenates js/app/ partials into js/app-bundle.js for a single script tag.
+ *
+ * Load order matters: every partial shares one IIFE scope opened by
+ * 01-config-dom-state.js and closed by 08-init.js. Generated 00-* modules must
+ * come before the partials that read them.
+ */
+const fs = require("fs");
+const path = require("path");
+const { syncAllAppModules } = require("./sync-app-module");
+
+const ROOT = path.join(__dirname, "..");
+const APP_DIR = path.join(ROOT, "js", "app");
+
+const PARTS = [
+  {
+    file: "01-config-dom-state.js",
+    title: "Configuration, DOM references, and mutable state",
+  },
+  {
+    file: "00-app-card-html.js",
+    title: "Card HTML helpers (generated from scripts/lib/card-html.js)",
+  },
+  {
+    file: "00-app-tmdb.js",
+    title: "TMDB request and response helpers (generated from scripts/lib/tmdb.js)",
+  },
+  {
+    file: "00-app-lists.js",
+    title: "List operations (generated from scripts/lib/lists.js)",
+  },
+  {
+    file: "00-app-user-state.js",
+    title: "User state persistence (generated from scripts/lib/user-state.js)",
+  },
+  {
+    file: "00-app-gist-sync.js",
+    title: "GitHub Gist sync helpers (generated from scripts/lib/gist-sync.js)",
+  },
+  {
+    file: "00-app-reorder.js",
+    title: "Reorder and overlap math (generated from scripts/lib/reorder.js)",
+  },
+  {
+    file: "00-app-pointer-reorder.js",
+    title: "Pointer drag helpers (generated from scripts/lib/pointer-reorder.js)",
+  },
+  {
+    file: "03-user-state.js",
+    title: "User state runtime, localStorage, and Gist storage mode",
+  },
+  {
+    file: "03-tmdb-client.js",
+    title: "TMDB client: credential, Cache API wrapper, hydration pool",
+  },
+  {
+    file: "04-search.js",
+    title: "Search box, TMDB autocomplete, and add-to-list",
+  },
+  {
+    file: "05-render.js",
+    title: "Cards, skeletons, and the main grid render",
+  },
+  {
+    file: "06-dialogs.js",
+    title: "Detail overlay, settings, and about dialogs",
+  },
+  {
+    file: "07-reorder.js",
+    title: "Drag reorder for list rows and grid cards",
+  },
+  {
+    file: "08-init.js",
+    title: "Event wiring and startup",
+  },
+];
+
+function writeBundle() {
+  const ordered = PARTS.map((part) => path.join(APP_DIR, part.file));
+  const missing = ordered.filter((file) => !fs.existsSync(file));
+  if (missing.length) {
+    throw new Error(
+      `Missing app partials: ${missing.map((file) => path.basename(file)).join(", ")}`,
+    );
+  }
+  const bundle = PARTS.map((part, index) => {
+    const source = fs.readFileSync(ordered[index], "utf8").trimEnd();
+    return `/* ===== ${part.title} ===== */\n\n${source}`;
+  }).join("\n\n");
+  fs.writeFileSync(path.join(ROOT, "js", "app-bundle.js"), `${bundle}\n`);
+}
+
+function bundleAppJs() {
+  syncAllAppModules();
+  writeBundle();
+}
+
+if (require.main === module) {
+  bundleAppJs();
+  console.log(`Wrote ${PARTS.length} files under js/app/ and js/app-bundle.js`);
+}
+
+module.exports = { bundleAppJs, PARTS, writeBundle };

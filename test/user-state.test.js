@@ -1,0 +1,129 @@
+const { test } = require("node:test");
+const assert = require("node:assert/strict");
+
+const {
+  USER_STATE_KEY,
+  TMDB_AUTH_KEY,
+  GIST_SYNC_KEY,
+  USER_STATE_VERSION,
+  defaultUserState,
+  normalizePreferences,
+  normalizeUserState,
+  parseUserState,
+  serializeUserState,
+  touchUserState,
+} = require("../scripts/lib/user-state");
+
+test("storage keys are distinct so credentials never ride along with state", () => {
+  assert.equal(USER_STATE_KEY, "moviecollector-user-state");
+  assert.equal(TMDB_AUTH_KEY, "moviecollector-tmdb-auth");
+  assert.equal(GIST_SYNC_KEY, "moviecollector-gist-sync");
+  assert.equal(new Set([USER_STATE_KEY, TMDB_AUTH_KEY, GIST_SYNC_KEY]).size, 3);
+});
+
+test("defaultUserState starts on local storage with the three preset lists", () => {
+  const state = defaultUserState();
+  assert.equal(state.version, USER_STATE_VERSION);
+  assert.equal(state.storageMode, "local");
+  assert.equal(state.activeListId, "favourites");
+  assert.deepEqual(
+    state.lists.map((list) => list.id),
+    ["favourites", "watchlist", "watched"],
+  );
+  assert.equal(state.updatedAt, null);
+});
+
+test("the serialized payload carries no credential fields", () => {
+  const json = serializeUserState(defaultUserState());
+  assert.equal(json.includes("token"), false);
+  assert.equal(json.includes("apiKey"), false);
+  assert.equal(json.includes("tmdb"), false);
+});
+
+test("normalizePreferences rejects an unknown view mode", () => {
+  assert.deepEqual(normalizePreferences({ viewMode: "carousel" }), {
+    viewMode: "cards",
+  });
+  assert.deepEqual(normalizePreferences({ viewMode: "list" }), {
+    viewMode: "list",
+  });
+});
+
+test("normalizeUserState falls back when the active list id is not a preset", () => {
+  const state = normalizeUserState({
+    lists: [{ id: "watchlist", name: "Watchlist", movieIds: [1] }],
+    activeListId: "some-old-custom-list",
+  });
+  assert.equal(state.activeListId, "favourites");
+});
+
+test("normalizeUserState keeps a valid preset as the active list", () => {
+  assert.equal(normalizeUserState({ activeListId: "watched" }).activeListId, "watched");
+});
+
+test("normalizeUserState rejects an unknown storage mode", () => {
+  assert.equal(normalizeUserState({ storageMode: "dropbox" }).storageMode, "local");
+  assert.equal(normalizeUserState({ storageMode: "gist" }).storageMode, "gist");
+});
+
+test("normalizeUserState cleans movie ids inside lists", () => {
+  const state = normalizeUserState({
+    lists: [{ id: "favourites", name: "Favourites", movieIds: [5, 5, "6", -1] }],
+  });
+  assert.deepEqual(state.lists[0].movieIds, [5, 6]);
+});
+
+test("parseUserState round-trips a serialized state", () => {
+  const original = normalizeUserState({
+    lists: [{ id: "favourites", name: "Favourites", movieIds: [603, 27205] }],
+    activeListId: "favourites",
+    preferences: { viewMode: "list" },
+  });
+  const parsed = parseUserState(serializeUserState(original));
+  assert.deepEqual(parsed, original);
+});
+
+test("parseUserState returns null for empty or malformed input", () => {
+  assert.equal(parseUserState(""), null);
+  assert.equal(parseUserState(null), null);
+  assert.equal(parseUserState("{not json"), null);
+  assert.equal(parseUserState("[1,2,3]".replace("[", "").replace("]", "")), null);
+});
+
+test("parseUserState survives a partially corrupted payload", () => {
+  const parsed = parseUserState('{"lists":"broken","activeListId":42}');
+  assert.equal(parsed.lists.length, 3);
+  assert.equal(parsed.activeListId, "favourites");
+});
+
+test("parseUserState migrates a payload written before the preset lists", () => {
+  const legacy = JSON.stringify({
+    version: 1,
+    lists: [
+      { id: "favourites", name: "Favourites", movieIds: [603] },
+      { id: "sci-fi", name: "Sci-Fi", movieIds: [78, 603] },
+    ],
+    activeListId: "sci-fi",
+    preferences: { viewMode: "list" },
+  });
+  const parsed = parseUserState(legacy);
+
+  // The custom list is dropped, favourites survives, and the surviving
+  // favourite is promoted into watched.
+  assert.deepEqual(
+    parsed.lists.map((list) => list.id),
+    ["favourites", "watchlist", "watched"],
+  );
+  assert.deepEqual(parsed.lists[0].movieIds, [603]);
+  assert.deepEqual(parsed.lists[1].movieIds, []);
+  assert.deepEqual(parsed.lists[2].movieIds, [603]);
+  assert.equal(parsed.activeListId, "favourites");
+  assert.equal(parsed.preferences.viewMode, "list");
+});
+
+test("touchUserState stamps updatedAt without mutating the input", () => {
+  const state = defaultUserState();
+  const touched = touchUserState(state, new Date("2026-08-18T12:00:00.000Z"));
+  assert.equal(touched.updatedAt, "2026-08-18T12:00:00.000Z");
+  assert.equal(state.updatedAt, null);
+});

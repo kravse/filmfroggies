@@ -1,0 +1,323 @@
+/**
+ * Detail overlay, settings, and about dialogs.
+ *
+ * The overlay is the only routed surface: it deep-links as `#movie/{id}` and
+ * is driven by history state, so back and forward behave as expected.
+ */
+
+const TMDB_MOVIE_URL = "https://www.themoviedb.org/movie/";
+
+/* --- Detail overlay --- */
+
+function detailMetaChips(record) {
+  const chips = [];
+  const year = appCardHtml.formatYear(record.releaseDate);
+  const runtime = appCardHtml.formatRuntime(record.runtime);
+  const rating = appCardHtml.formatRating(record.voteAverage);
+
+  if (year) {
+    chips.push(`<span class="meta-chip">${year}</span>`);
+  }
+  if (runtime) {
+    chips.push(`<span class="meta-chip">${runtime}</span>`);
+  }
+  if (rating) {
+    chips.push(`<span class="meta-chip meta-chip--rating">★ ${rating}</span>`);
+  }
+  for (const genre of record.genres) {
+    chips.push(`<span class="meta-chip">${appCardHtml.escapeHtml(genre)}</span>`);
+  }
+  return chips.join("");
+}
+
+function detailCreditsHtml(record) {
+  const rows = [];
+  const directors = appCardHtml.joinNames(record.directors);
+  const cast = appCardHtml.joinNames(record.cast);
+
+  if (directors) {
+    rows.push(
+      `<div><strong>${record.directors.length > 1 ? "Directors" : "Director"}:</strong> ${appCardHtml.escapeHtml(directors)}</div>`,
+    );
+  }
+  if (cast) {
+    rows.push(`<div><strong>Cast:</strong> ${appCardHtml.escapeHtml(cast)}</div>`);
+  }
+  return rows.join("");
+}
+
+function renderDetail() {
+  if (detailMovieId == null) {
+    return;
+  }
+
+  const ids = activeMovieIds();
+  const index = ids.indexOf(detailMovieId);
+  const record = movieById.get(detailMovieId);
+
+  detailEyebrow.textContent =
+    index >= 0 ? `${index + 1} of ${ids.length}` : "Not in this list";
+  detailPrevBtn.disabled = index <= 0;
+  detailNextBtn.disabled = index < 0 || index >= ids.length - 1;
+
+  if (!record) {
+    let heading = "Loading…";
+    let note = "";
+    if (!hasCredential()) {
+      heading = "No TMDB credential";
+      note = "Open Settings and paste your TMDB credential to load this movie.";
+    } else if (movieErrors.has(detailMovieId)) {
+      heading = "Could not load this movie";
+      note = "TMDB did not return details. Check your credential and connection.";
+    }
+    detailPoster.innerHTML = `<div class="placeholder"></div>`;
+    detailBody.innerHTML = `<h2 class="movie-detail-title" id="movie-detail-title">${heading}</h2>
+<p class="movie-detail-overview">${note}</p>`;
+  } else {
+    detailPoster.innerHTML = posterHtml(record, appTmdb.POSTER_SIZES.detail);
+    detailBody.innerHTML = `<h2 class="movie-detail-title" id="movie-detail-title">${appCardHtml.escapeHtml(record.title)}</h2>
+${record.tagline ? `<p class="movie-detail-tagline">${appCardHtml.escapeHtml(record.tagline)}</p>` : ""}
+<div class="movie-detail-meta">${detailMetaChips(record)}</div>
+<p class="movie-detail-overview">${appCardHtml.escapeHtml(record.overview || "No overview available.")}</p>
+<div class="movie-detail-credits">${detailCreditsHtml(record)}</div>`;
+  }
+
+  const inCollection = appLists.findListIdsForMovie(userState.lists, detailMovieId).length > 0;
+  const onWatchlist = appLists.isOnWatchlist(userState.lists, detailMovieId);
+  const watched = appLists.isWatched(userState.lists, detailMovieId);
+  const favourited = appLists.isFavourited(userState.lists, detailMovieId);
+
+  const leftActions = [];
+  if (inCollection && onWatchlist) {
+    leftActions.push(
+      `<button type="button" class="detail-watch-btn" id="detail-watch">Mark as watched</button>`,
+    );
+  }
+  if (inCollection && watched) {
+    const label = favourited ? "Remove from favourites" : "Add to favourites";
+    leftActions.push(
+      `<button type="button" class="detail-favourite-btn${favourited ? " is-active" : ""}" id="detail-favourite" aria-label="${label}" aria-pressed="${favourited}" title="${label}">&#9733;</button>`,
+    );
+  }
+
+  const removeBtn = inCollection
+    ? `<button type="button" class="detail-remove-btn" id="detail-remove">Remove movie</button>`
+    : "";
+
+  detailActions.innerHTML = `<div class="detail-actions-left">${leftActions.join("")}</div>
+<div class="detail-actions-right">${removeBtn}
+<a class="detail-link" href="${TMDB_MOVIE_URL}${detailMovieId}" target="_blank" rel="noopener noreferrer">View on TMDB</a></div>`;
+}
+
+function openDetail(movieId, options = {}) {
+  const id = Number(movieId);
+  if (!Number.isInteger(id) || id <= 0) {
+    return;
+  }
+
+  detailMovieId = id;
+  detailDialog.hidden = false;
+  document.body.classList.add("movie-detail-open");
+  renderDetail();
+  detailCloseBtn.focus({ preventScroll: true });
+
+  if (options.pushHistory !== false) {
+    history.pushState({ detailMovieId: id }, "", `#movie/${id}`);
+  }
+
+  if (!movieById.has(id)) {
+    hydrateMovies([id], {
+      onRecord: applyHydratedRecord,
+      onUpdate: applyHydratedRecord,
+    });
+  }
+}
+
+function closeDetail(options = {}) {
+  if (detailMovieId == null) {
+    return;
+  }
+  const hadHistoryEntry = history.state?.detailMovieId != null;
+  detailMovieId = null;
+  detailDialog.hidden = true;
+  document.body.classList.remove("movie-detail-open");
+
+  if (options.popHistory !== false && hadHistoryEntry) {
+    history.back();
+  }
+}
+
+function stepDetail(delta) {
+  const ids = activeMovieIds();
+  const index = ids.indexOf(detailMovieId);
+  const nextIndex = index + delta;
+  if (index < 0 || nextIndex < 0 || nextIndex >= ids.length) {
+    return;
+  }
+  detailMovieId = ids[nextIndex];
+  history.replaceState({ detailMovieId }, "", `#movie/${detailMovieId}`);
+  renderDetail();
+  if (!movieById.has(detailMovieId)) {
+    hydrateMovies([detailMovieId], {
+      onRecord: applyHydratedRecord,
+      onUpdate: applyHydratedRecord,
+    });
+  }
+}
+
+function movieIdFromHash() {
+  const match = /^#movie\/(\d+)$/.exec(window.location.hash || "");
+  return match ? Number(match[1]) : null;
+}
+
+/** Single source of truth for the overlay on load, back, and forward. */
+function syncDetailFromLocation() {
+  const id = movieIdFromHash();
+  if (id == null) {
+    closeDetail({ popHistory: false });
+    return;
+  }
+  if (id !== detailMovieId) {
+    openDetail(id, { pushHistory: false });
+  }
+}
+
+/* --- Settings --- */
+
+function refreshSettings() {
+  tmdbKeyInput.value = "";
+  setStatus(
+    tmdbKeyStatus,
+    hasCredential() ? "Read access token saved." : "No token saved.",
+    hasCredential() ? "ok" : null,
+  );
+
+  const usingGist = userState.storageMode === "gist";
+  storageModeLocal.checked = !usingGist;
+  storageModeGist.checked = usingGist;
+  gistFields.hidden = !usingGist;
+  gistTokenInput.value = "";
+  setStatus(
+    gistStatus,
+    appGistSync.isConnectedGistConfig(gistConfig)
+      ? `Connected to Gist ${gistConfig.gistId.slice(0, 8)}…`
+      : "Not connected.",
+    appGistSync.isConnectedGistConfig(gistConfig) ? "ok" : null,
+  );
+  setStatus(cacheStatus, "");
+}
+
+function openSettings() {
+  refreshSettings();
+  settingsDialog.hidden = false;
+  tmdbKeyInput.focus({ preventScroll: true });
+}
+
+function closeSettings() {
+  settingsDialog.hidden = true;
+}
+
+async function onSaveCredential() {
+  const value = tmdbKeyInput.value.trim();
+
+  // Reject the wrong credential shape before storing it, so a mistyped or v3
+  // value never becomes the reason every later request fails.
+  const problem = appTmdb.describeCredentialProblem(value);
+  if (problem) {
+    setStatus(tmdbKeyStatus, problem, "error");
+    return;
+  }
+
+  saveCredential(value);
+  refreshSettings();
+  render();
+  setStatus(tmdbKeyStatus, "Checking with TMDB…", null);
+  tmdbKeySave.disabled = true;
+
+  try {
+    await verifyCredential();
+    refreshSettings();
+    hydrateActiveList();
+  } catch (error) {
+    // The credential stays saved so it can be corrected rather than retyped.
+    setStatus(tmdbKeyStatus, `Saved, but TMDB rejected it. ${error.message}`, "error");
+  } finally {
+    tmdbKeySave.disabled = false;
+  }
+}
+
+function onClearCredential() {
+  saveCredential("");
+  movieById.clear();
+  movieErrors.clear();
+  refreshSettings();
+  render();
+}
+
+async function onClearCache() {
+  const cleared = await clearMovieCache();
+  movieById.clear();
+  movieErrors.clear();
+  setStatus(
+    cacheStatus,
+    cleared ? "Cache cleared. Reloading movie data…" : "Nothing cached.",
+    "ok",
+  );
+  render();
+  hydrateActiveList();
+}
+
+function onStorageModeChange(mode) {
+  if (mode === "gist") {
+    userState = { ...userState, storageMode: "gist" };
+    gistFields.hidden = false;
+    persistUserState({ sync: false });
+    refreshSettings();
+    return;
+  }
+  disconnectGist();
+  gistFields.hidden = true;
+  refreshSettings();
+}
+
+async function onConnectGist() {
+  const token = gistTokenInput.value.trim();
+  setStatus(gistStatus, "Connecting to GitHub…", null);
+  gistConnectBtn.disabled = true;
+  try {
+    const result = await connectGist(token);
+    if (!result.ok) {
+      setStatus(gistStatus, result.error, "error");
+      return;
+    }
+    setStatus(
+      gistStatus,
+      result.action === "adopt"
+        ? "Connected. Loaded the lists already in your Gist."
+        : "Connected. Created a new private Gist for your lists.",
+      "ok",
+    );
+    gistTokenInput.value = "";
+    setViewMode(gridViewMode);
+    render();
+    hydrateActiveList();
+  } finally {
+    gistConnectBtn.disabled = false;
+  }
+}
+
+function onDisconnectGist() {
+  disconnectGist();
+  refreshSettings();
+}
+
+/* --- About --- */
+
+function openAbout() {
+  aboutDialog.hidden = false;
+  aboutClose.focus({ preventScroll: true });
+}
+
+function closeAbout() {
+  aboutDialog.hidden = true;
+}

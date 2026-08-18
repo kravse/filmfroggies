@@ -1,0 +1,15 @@
+{
+  "name": "moviecollector",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Search TMDB and collect movies into ordered lists. Static site; lists live in the browser.",
+  "scripts": {
+    "serve": "node server.js",
+    "bundle": "node scripts/bundle-app-js.js",
+    "test": "node --test \"test/*.test.js\"",
+    "build": "node build.js"
+  },
+  "devDependencies": {
+    "express": "^4.21.2"
+  }
+}

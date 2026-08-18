@@ -1,0 +1,107 @@
+---
+description: Movie collector project layout, CSS/JS structure, and workflow conventions
+alwaysApply: true
+---
+
+# Movie collector project conventions
+
+Personal TMDB-backed movie list site. Keep changes small, match existing patterns, and prefer plain Node/HTML/CSS over new libraries or bundlers.
+
+## Hard constraints
+
+These are deliberate design decisions, not gaps to fill:
+
+- **No edit layer.** You search and add. TMDB's titles, overviews, and posters are what render. Do not add an override store, edit dialog, or compaction logic.
+- **Nothing local writes data.** The browser is the only writer, into `localStorage` and optionally a GitHub Gist. `server.js` is a read-only static file server for local viewing and exposes no API.
+- **Only ids are persisted.** The user state holds lists of TMDB ids in display order. Movie records are never duplicated into storage; they are rehydrated from TMDB through the Cache API wrapper.
+- **Three fixed lists, no custom lists.** Favourites, Watchlist, and Watched are statuses defined by `PRESET_LISTS` in `scripts/lib/lists.js`. Do not add list creation, renaming, deletion, or reordering of the lists themselves.
+- **Two list invariants, enforced on read.** Favourites is a subset of Watched, and Watchlist is disjoint from both. `assignMovieToList` and `removeMovieFromList` in `scripts/lib/lists.js` are the only ways to change membership, and `normalizeLists` repairs any stored payload that violates either rule. Never add or remove ids from a `movieIds` array directly, and do not introduce a fourth state.
+- **Only the v4 TMDB read access token is accepted.** Validated by JWT shape in `scripts/lib/tmdb.js`; the v3 `api_key` query path was removed deliberately. The credential travels only in the `Authorization` header, never in a URL.
+- **Routing is hash-only.** The single deep link is `#movie/{id}`. No path routes, no SPA fallback, no `_redirects`.
+- **Search is add-only.** The search box queries TMDB to find movies to add; it does not filter your list.
+- **No sort modes.** The order of `movieIds` is the only order, which is why drag reorder needs no gate.
+
+## Layout
+
+| Path | Role |
+|------|------|
+| `index.html` | UI shell (loads `js/app-bundle.js`) |
+| `js/app/` | App source partials; `npm run bundle` → `js/app-bundle.js` |
+| `js/app/00-*.js` | **Generated** from `scripts/lib/` — never hand-edit |
+| `css/` | All styles — no inline `<style>` in `index.html` |
+| `scripts/lib/` | Pure CommonJS domain logic, one concern per file |
+| `test/` | Node tests (`npm test`) |
+| `server.js` | Read-only static server (`npm run serve`) |
+| `build.js` → `build/` | Static deploy output (`npm run build`) |
+
+## JavaScript
+
+Vanilla JS. **CommonJS** in `scripts/` and `test/`. No bundler, no TypeScript, no frameworks.
+
+`js/app/` partials share **one IIFE scope**, opened by `01-config-dom-state.js` and closed by `08-init.js`. Top-level `const`/`let`/`function` in one partial is visible to every later partial. Load order is the `PARTS` array in [`scripts/bundle-app-js.js`](../../scripts/bundle-app-js.js).
+
+Numeric prefixes signal layering:
+
+| Prefix | Role |
+|--------|------|
+| `00-*` | Generated namespaces from `scripts/lib/` |
+| `01-*` | Config, DOM refs, mutable state (opens the IIFE) |
+| `03-*` | User state and the TMDB client |
+| `04-*` | Search |
+| `05-*` | Render |
+| `06-*` | Dialogs |
+| `07-*` | Drag reorder |
+| `08-*` | Event wiring and startup (closes the IIFE) |
+
+**Domain logic belongs in `scripts/lib/`** as pure CommonJS, tested under `test/`, then mirrored into `js/app/00-*.js` by `npm run bundle`. Add the module to [`scripts/app-sync-config.js`](../../scripts/app-sync-config.js) with its export list. Do not leave behavior-only logic untested in `js/app/` alone.
+
+For a lib module that depends on another, use runtime detection so it works in both environments:
+
+```js
+function getLists() {
+  if (typeof appLists !== "undefined") {
+    return appLists;
+  }
+  return require("./lists");
+}
+```
+
+After editing anything under `scripts/lib/` or `js/app/`, run `npm run bundle`.
+
+## CSS
+
+Styles live in `css/`, linked from `index.html` in this order (load order matters):
+
+1. `variables.css` — `:root` custom properties
+2. `base.css` — reset, body, layout primitives
+3. `header.css` — header, search, toolbar
+4. `settings.css` — settings and about dialogs, footer bar
+5. `cards.css` — grid, cards, skeletons, list view, drag states
+6. `movie-detail.css` — detail overlay
+7. `mobile.css` — `@media (max-width: 640px)` overrides
+
+Canonical order: `VIEWER_CSS_FILES` in [`scripts/css-manifest.js`](../../scripts/css-manifest.js). Keep the `index.html` link tags in sync. Put new styles in the most specific existing file; add a file only for a distinct UI surface.
+
+## Tests
+
+**Always add or update tests** when changing `scripts/lib/` logic, data transforms, or non-trivial state machines. Skip only for purely visual/CSS tweaks or copy edits.
+
+- Runner: Node built-in `node:test` + `node:assert/strict` — no new test frameworks
+- Command: `npm test`
+- Location: `test/<topic>.test.js`
+- Tests `require()` the `scripts/lib/` module directly, never the generated partial
+
+## Security
+
+- The TMDB credential and the Gist PAT live in `localStorage` under their own keys and are **never** written into the Gist payload.
+- Never commit an API key. There is no key in the repo and there must not be one.
+- Only the query string is user-derived in TMDB URLs; hosts are hardcoded constants. Validate `poster_path` before interpolating it into an image URL.
+- Every network call sets an explicit timeout.
+
+## General editing principles
+
+- Minimize diff scope; don't refactor unrelated code
+- Match naming, formatting, and abstractions of surrounding files
+- Comments only for non-obvious logic
+- Update `README.md` when scripts, layout, or major features change
+- Run `npm test` and `npm run bundle` before finishing

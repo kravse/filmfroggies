@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Movie collector</title>
+    <meta
+      name="description"
+      content="Search TMDB and collect movies into ordered lists."
+    />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Load order matters — canonical list in scripts/css-manifest.js -->
+    <link rel="stylesheet" href="css/fonts.css" />
+    <link rel="stylesheet" href="css/variables.css" />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/header.css" />
+    <link rel="stylesheet" href="css/settings.css" />
+    <link rel="stylesheet" href="css/cards.css" />
+    <link rel="stylesheet" href="css/movie-detail.css" />
+    <link rel="stylesheet" href="css/mobile.css" />
+  </head>
+  <body>
+    <header>
+      <div class="header-top">
+        <div class="header-brand">
+          <img
+            class="header-logo"
+            src="images/projector.png"
+            alt=""
+            width="72"
+            height="72"
+          />
+          <div class="header-titles">
+            <h1 class="header-title">Movie collector</h1>
+            <p class="header-subtitle" id="list-subtitle">Your movie lists</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="search-row">
+          <div class="search-wrap">
+            <div class="search-combobox" id="search-combobox">
+              <input
+                id="search"
+                type="search"
+                placeholder="Search movies to add…"
+                aria-label="Search movies to add"
+                autocomplete="off"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-controls="search-suggest"
+                aria-expanded="false"
+              />
+              <span class="search-spinner" id="search-spinner" hidden></span>
+              <button
+                type="button"
+                class="search-clear"
+                id="search-clear"
+                aria-label="Clear search"
+                hidden
+              >
+                &times;
+              </button>
+            </div>
+            <ul
+              id="search-suggest"
+              class="search-suggest"
+              role="listbox"
+              aria-label="Movie search results"
+              hidden
+            ></ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="catalog-toolbar">
+        <nav
+          class="list-tabs"
+          id="list-tabs"
+          role="tablist"
+          aria-label="Movie lists"
+        ></nav>
+        <div class="toolbar-right">
+          <div class="view-mode-switch" role="group" aria-label="View mode">
+            <button
+              type="button"
+              id="view-mode-cards"
+              class="view-mode-btn"
+              aria-label="Grid view"
+              aria-pressed="true"
+            >
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                <rect x="1" y="1" width="6" height="6" rx="1" fill="currentColor" />
+                <rect x="9" y="1" width="6" height="6" rx="1" fill="currentColor" />
+                <rect x="1" y="9" width="6" height="6" rx="1" fill="currentColor" />
+                <rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              id="view-mode-list"
+              class="view-mode-btn"
+              aria-label="List view"
+              aria-pressed="false"
+            >
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                <rect x="1" y="2" width="14" height="2" rx="0.5" fill="currentColor" />
+                <rect x="1" y="7" width="14" height="2" rx="0.5" fill="currentColor" />
+                <rect x="1" y="12" width="14" height="2" rx="0.5" fill="currentColor" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="grid" id="grid"></div>
+      <div class="empty-state" id="empty-state" hidden></div>
+    </main>
+
+    <footer class="attribution-bar">
+      <button type="button" id="settings-btn" class="bar-btn" aria-label="Settings">
+        Settings
+      </button>
+      <button type="button" id="about-btn" class="bar-btn">About</button>
+    </footer>
+
+    <!-- Settings -->
+    <div id="settings-dialog" class="sheet-dialog" hidden>
+      <div class="sheet-backdrop" data-close-settings></div>
+      <div
+        class="sheet-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="settings-title">Settings</h2>
+          <button
+            type="button"
+            id="settings-close"
+            class="icon-btn"
+            aria-label="Close settings"
+          >
+            &times;
+          </button>
+        </div>
+        <div class="sheet-scroll">
+          <section class="sheet-section">
+            <h3>TMDB API Read Access Token</h3>
+            <p class="sheet-note">
+              From
+              <a
+                href="https://www.themoviedb.org/settings/api"
+                target="_blank"
+                rel="noopener noreferrer"
+                >your TMDB API settings</a
+              >, copy the long <strong>API Read Access Token</strong> — not the
+              shorter API Key, which this app does not use. Stored in this browser
+              only, sent only to TMDB, and never included in Gist sync.
+            </p>
+            <div class="field-row">
+              <input
+                type="password"
+                id="tmdb-key-input"
+                placeholder="eyJhbGciOiJIUzI1NiJ9…"
+                aria-label="TMDB API Read Access Token"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button type="button" id="tmdb-key-save" class="primary-btn">
+                Save
+              </button>
+            </div>
+            <div class="field-row">
+              <button type="button" id="tmdb-key-clear" class="ghost-btn">
+                Clear token
+              </button>
+              <span class="status-text" id="tmdb-key-status"></span>
+            </div>
+          </section>
+
+          <section class="sheet-section">
+            <h3>Collection storage</h3>
+            <div class="radio-row">
+              <label>
+                <input
+                  type="radio"
+                  name="storage-mode"
+                  value="local"
+                  id="storage-mode-local"
+                />
+                This device only
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="storage-mode"
+                  value="gist"
+                  id="storage-mode-gist"
+                />
+                Sync with GitHub Gist
+              </label>
+            </div>
+            <div id="gist-fields" hidden>
+              <p class="sheet-note">
+                Use a throwaway GitHub account with a fine-grained token limited to
+                gist read/write. The token stays in this browser and is never written
+                into the Gist.
+              </p>
+              <div class="field-row">
+                <input
+                  type="password"
+                  id="gist-token-input"
+                  placeholder="GitHub personal access token"
+                  aria-label="GitHub personal access token"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <button type="button" id="gist-connect" class="primary-btn">
+                  Connect
+                </button>
+              </div>
+              <div class="field-row">
+                <button type="button" id="gist-clear" class="ghost-btn">
+                  Disconnect
+                </button>
+                <span class="status-text" id="gist-status"></span>
+              </div>
+            </div>
+          </section>
+
+          <section class="sheet-section">
+            <h3>Cache</h3>
+            <p class="sheet-note">
+              Movie data is cached in this browser and refreshed in the background on
+              every visit. Clearing it only costs one slower load.
+            </p>
+            <div class="field-row">
+              <button type="button" id="cache-clear" class="ghost-btn">
+                Clear cached movie data
+              </button>
+              <span class="status-text" id="cache-status"></span>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <!-- About -->
+    <div id="about-dialog" class="sheet-dialog" hidden>
+      <div class="sheet-backdrop" data-close-about></div>
+      <div
+        class="sheet-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="about-title"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="about-title">About</h2>
+          <button
+            type="button"
+            id="about-close"
+            class="icon-btn"
+            aria-label="Close about"
+          >
+            &times;
+          </button>
+        </div>
+        <div class="sheet-scroll">
+          <section class="sheet-section">
+            <p>
+              Search TMDB, add movies to ordered lists, and browse them as a grid, a
+              list, or a full detail view. Your lists stay in this browser unless you
+              connect Gist sync.
+            </p>
+            <p class="attribution-statement">
+              This product uses the TMDB API but is not endorsed or certified by TMDB.
+            </p>
+            <p class="sheet-note">
+              Movie metadata and images come from
+              <a href="https://www.themoviedb.org/" rel="noopener noreferrer" target="_blank"
+                >The Movie Database</a
+              >. This project is not affiliated with TMDB.
+            </p>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <!-- Movie detail overlay -->
+    <div id="movie-detail-dialog" class="movie-detail-dialog" hidden>
+      <div class="movie-detail-backdrop" data-close-detail></div>
+      <button
+        type="button"
+        id="movie-detail-prev"
+        class="movie-detail-nav movie-detail-nav--prev"
+        aria-label="Previous movie"
+      >
+        &#8249;
+      </button>
+      <button
+        type="button"
+        id="movie-detail-next"
+        class="movie-detail-nav movie-detail-nav--next"
+        aria-label="Next movie"
+      >
+        &#8250;
+      </button>
+      <div
+        class="movie-detail-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="movie-detail-title"
+      >
+        <div class="movie-detail-toolbar">
+          <span class="movie-detail-eyebrow" id="movie-detail-eyebrow"></span>
+          <button
+            type="button"
+            id="movie-detail-close"
+            class="icon-btn"
+            aria-label="Close movie detail"
+          >
+            &times;
+          </button>
+        </div>
+        <div class="movie-detail-scroll" id="movie-detail-scroll">
+          <div class="movie-detail-poster" id="movie-detail-poster"></div>
+          <div class="movie-detail-body" id="movie-detail-body"></div>
+        </div>
+        <div class="movie-detail-actions" id="movie-detail-actions"></div>
+      </div>
+    </div>
+
+    <!-- Remove confirmation -->
+    <div id="remove-confirm-dialog" class="sheet-dialog" hidden>
+      <div class="sheet-backdrop" data-close-remove-confirm></div>
+      <div
+        class="sheet-panel confirm-panel"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="remove-confirm-title"
+        aria-describedby="remove-confirm-message"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="remove-confirm-title">Remove movie</h2>
+        </div>
+        <div class="sheet-scroll">
+          <p id="remove-confirm-message" class="confirm-message"></p>
+        </div>
+        <div class="confirm-actions">
+          <button type="button" id="remove-confirm-cancel" class="ghost-btn">
+            Cancel
+          </button>
+          <button type="button" id="remove-confirm-ok" class="primary-btn confirm-danger">
+            Remove
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/app-bundle.js"></script>
+  </body>
+</html>
