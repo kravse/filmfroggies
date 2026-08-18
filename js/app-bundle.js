@@ -771,7 +771,7 @@ const appGistSync = (function () {
    * the payload.
    */
 
-  const GIST_STATE_FILENAME = "state.json";
+  const GIST_STATE_FILENAME = "moviecollector-state.json";
   const GITHUB_API = "https://api.github.com";
   const GIST_DESCRIPTION = "Movie collector sync";
 
@@ -868,7 +868,7 @@ const appGistSync = (function () {
         return {
           ok: false,
           error:
-            "Found an existing sync Gist but could not read state.json. Your Gist was not changed.",
+            "Found an existing sync Gist but could not read moviecollector-state.json. Your Gist was not changed.",
         };
       }
       return { ok: true, action: "adopt", gistId, nextState: remoteState };

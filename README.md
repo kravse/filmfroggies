@@ -57,7 +57,7 @@ That leaves three states a movie can be in: on the watchlist, watched, or watche
 | `moviecollector-hosted-session` | Opaque hosted-access session token (Netlify only; not synced) |
 | `moviecollector-gist-sync` | GitHub Gist credentials (`token`, `gistId`) when connected |
 
-**Gist sync security:** the PAT is stored in `localStorage`. Use a throwaway GitHub account and a fine-grained PAT limited to gist read/write. Neither the PAT nor the TMDB credential is written into the synced Gist file.
+**Gist sync security:** the PAT is stored in `localStorage`. Use a throwaway GitHub account and a fine-grained PAT limited to gist read/write. Neither the PAT nor the TMDB credential is written into the synced Gist file. The Gist is private, titled **Movie collector sync**, and holds a single file: `moviecollector-state.json`.
 
 ## Deploy
 
