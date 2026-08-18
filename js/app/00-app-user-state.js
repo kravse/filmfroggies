@@ -15,14 +15,27 @@ const appUserState = (function () {
   const HOSTED_SESSION_KEY = "moviecollector-hosted-session";
   const USER_STATE_VERSION = 1;
 
-  const VIEW_MODES = new Set(["cards", "list"]);
+  const VIEW_MODES = new Set(["cards", "detail", "list"]);
   const STORAGE_MODES = new Set(["local", "gist"]);
 
   function getLists() {
     if (typeof appLists !== "undefined") {
       return appLists;
     }
-    return require("./lists");
+    if (typeof require === "function") {
+      return require("./lists");
+    }
+    throw new Error("appLists is not available");
+  }
+
+  function getRatings() {
+    if (typeof appRatings !== "undefined") {
+      return appRatings;
+    }
+    if (typeof require === "function") {
+      return require("./ratings");
+    }
+    throw new Error("appRatings is not available");
   }
 
   function defaultPreferences() {
@@ -38,6 +51,7 @@ const appUserState = (function () {
       lists: lists.defaultLists(),
       activeListId: lists.DEFAULT_LIST_ID,
       preferences: defaultPreferences(),
+      ratings: {},
     };
   }
 
@@ -58,15 +72,18 @@ const appUserState = (function () {
       return base;
     }
 
+    const normalizedLists = lists.normalizeLists(raw.lists);
+
     return {
       version: USER_STATE_VERSION,
       updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : null,
       storageMode: STORAGE_MODES.has(raw.storageMode) ? raw.storageMode : "local",
-      lists: lists.normalizeLists(raw.lists),
+      lists: normalizedLists,
       activeListId: lists.isListId(raw.activeListId)
         ? raw.activeListId
         : lists.DEFAULT_LIST_ID,
       preferences: normalizePreferences(raw.preferences),
+      ratings: getRatings().normalizeRatings(raw.ratings, normalizedLists),
     };
   }
 

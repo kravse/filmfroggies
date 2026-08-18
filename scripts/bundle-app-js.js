@@ -27,8 +27,16 @@ const PARTS = [
     title: "TMDB request and response helpers (generated from scripts/lib/tmdb.js)",
   },
   {
+    file: "00-app-poster-cache.js",
+    title: "Poster cache helpers (generated from scripts/lib/poster-cache.js)",
+  },
+  {
     file: "00-app-lists.js",
     title: "List operations (generated from scripts/lib/lists.js)",
+  },
+  {
+    file: "00-app-ratings.js",
+    title: "User movie ratings (generated from scripts/lib/ratings.js)",
   },
   {
     file: "00-app-user-state.js",

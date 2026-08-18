@@ -17,8 +17,21 @@ const searchSuggest = document.getElementById("search-suggest");
 const searchClearBtn = document.getElementById("search-clear");
 const searchSpinner = document.getElementById("search-spinner");
 
-const viewModeCardsBtn = document.getElementById("view-mode-cards");
-const viewModeListBtn = document.getElementById("view-mode-list");
+const addMovieFab = document.getElementById("add-movie-fab");
+const addMovieDialog = document.getElementById("add-movie-dialog");
+const addMovieClose = document.getElementById("add-movie-close");
+const addMovieHint = document.getElementById("add-movie-hint");
+const addMovieSearchStep = document.getElementById("add-movie-search-step");
+const addMoviePickStep = document.getElementById("add-movie-pick-step");
+const addMoviePicked = document.getElementById("add-movie-picked");
+const addMovieListPicker = document.getElementById("add-movie-list-picker");
+const addMovieSubmit = document.getElementById("add-movie-submit");
+const addMovieRatingSlider = document.getElementById("add-movie-rating-slider");
+const addMovieRatingValue = document.getElementById("add-movie-rating-value");
+const addMovieRatingEnabled = document.getElementById("add-movie-rating-enabled");
+const addMovieBack = document.getElementById("add-movie-back");
+
+const viewModeCycleBtn = document.getElementById("view-mode-cycle");
 const grid = document.getElementById("grid");
 const emptyState = document.getElementById("empty-state");
 
@@ -81,6 +94,7 @@ const movieErrors = new Set();
 
 let gridViewMode = "cards";
 let detailMovieId = null;
+let detailRatingEditorOpen = false;
 let pendingRemoveMovieId = null;
 let tmdbCredential = "";
 
@@ -196,7 +210,8 @@ const appTmdb = (function () {
 
   const POSTER_SIZES = {
     suggest: "w92",
-    card: "w342",
+    card: "w185",
+    detailGrid: "w342",
     detail: "w500",
   };
 
@@ -384,6 +399,39 @@ const appTmdb = (function () {
     buildImageUrl,
     normalizeSearchResults,
     normalizeMovie,
+  };
+})();
+
+/* ===== Poster cache helpers (generated from scripts/lib/poster-cache.js) ===== */
+
+/* Generated from scripts/lib/poster-cache.js — run npm run bundle */
+
+const appPosterCache = (function () {
+  /**
+   * Poster URL validation for the browser Cache API layer.
+   *
+   * Only https://image.tmdb.org paths built by buildImageUrl are cacheable.
+   */
+
+  const POSTER_CACHE_NAME = "moviecollector-posters-v1";
+  const POSTER_HOST = "image.tmdb.org";
+
+  function isPosterUrl(url) {
+    if (!url || typeof url !== "string") {
+      return false;
+    }
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === "https:" && parsed.hostname === POSTER_HOST;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  return {
+    POSTER_CACHE_NAME,
+    POSTER_HOST,
+    isPosterUrl,
   };
 })();
 
@@ -646,6 +694,159 @@ const appLists = (function () {
   };
 })();
 
+/* ===== User movie ratings (generated from scripts/lib/ratings.js) ===== */
+
+/* Generated from scripts/lib/ratings.js — run npm run bundle */
+
+const appRatings = (function () {
+  /**
+   * User-assigned movie ratings (1–10, one decimal). Stored beside list ids in
+   * user state, never in TMDB records.
+   */
+
+  const MIN_RATING = 1;
+  const MAX_RATING = 10;
+  const SLIDER_MIN = 0;
+  const SLIDER_MAX = 90;
+  const DEFAULT_SLIDER_VALUE = 60; // 7.0
+
+  function normalizeRating(value) {
+    if (value == null || value === "") {
+      return null;
+    }
+    const num = Number(value);
+    if (!Number.isFinite(num)) {
+      return null;
+    }
+    const clamped = Math.min(MAX_RATING, Math.max(MIN_RATING, num));
+    return Math.round(clamped * 10) / 10;
+  }
+
+  function formatUserRating(value) {
+    const normalized = normalizeRating(value);
+    if (normalized == null) {
+      return "";
+    }
+    if (Number.isInteger(normalized)) {
+      return String(normalized);
+    }
+    return normalized.toFixed(1);
+  }
+
+  function ratingFromSliderValue(sliderValue) {
+    const step = Number(sliderValue);
+    if (!Number.isInteger(step)) {
+      return null;
+    }
+    return normalizeRating(MIN_RATING + step / 10);
+  }
+
+  function sliderValueFromRating(rating) {
+    const normalized = normalizeRating(rating);
+    if (normalized == null) {
+      return DEFAULT_SLIDER_VALUE;
+    }
+    return Math.round((normalized - MIN_RATING) * 10);
+  }
+
+  function collectMovieIds(lists) {
+    const ids = new Set();
+    if (!Array.isArray(lists)) {
+      return ids;
+    }
+    for (const list of lists) {
+      if (!list || !Array.isArray(list.movieIds)) {
+        continue;
+      }
+      for (const id of list.movieIds) {
+        const movieId = Number(id);
+        if (Number.isInteger(movieId) && movieId > 0) {
+          ids.add(movieId);
+        }
+      }
+    }
+    return ids;
+  }
+
+  function normalizeRatings(raw, lists) {
+    const allowed = collectMovieIds(lists);
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      return {};
+    }
+
+    const next = {};
+    for (const [key, value] of Object.entries(raw)) {
+      const movieId = Number(key);
+      const rating = normalizeRating(value);
+      if (!Number.isInteger(movieId) || movieId <= 0 || rating == null) {
+        continue;
+      }
+      if (!allowed.has(movieId)) {
+        continue;
+      }
+      next[String(movieId)] = rating;
+    }
+    return next;
+  }
+
+  function getRating(ratings, movieId) {
+    const id = Number(movieId);
+    if (!ratings || typeof ratings !== "object" || !Number.isInteger(id) || id <= 0) {
+      return null;
+    }
+    return normalizeRating(ratings[String(id)]);
+  }
+
+  function setRating(ratings, movieId, rating) {
+    const id = Number(movieId);
+    if (!Number.isInteger(id) || id <= 0) {
+      return ratings || {};
+    }
+
+    const base = ratings && typeof ratings === "object" && !Array.isArray(ratings)
+      ? ratings
+      : {};
+    const key = String(id);
+    const normalized = rating == null ? null : normalizeRating(rating);
+    const current = getRating(base, id);
+
+    if (normalized === current) {
+      return base;
+    }
+
+    if (normalized == null) {
+      if (!(key in base)) {
+        return base;
+      }
+      const next = { ...base };
+      delete next[key];
+      return next;
+    }
+
+    return { ...base, [key]: normalized };
+  }
+
+  function removeRating(ratings, movieId) {
+    return setRating(ratings, movieId, null);
+  }
+
+  return {
+    MIN_RATING,
+    MAX_RATING,
+    SLIDER_MIN,
+    SLIDER_MAX,
+    DEFAULT_SLIDER_VALUE,
+    normalizeRating,
+    formatUserRating,
+    ratingFromSliderValue,
+    sliderValueFromRating,
+    normalizeRatings,
+    getRating,
+    setRating,
+    removeRating,
+  };
+})();
+
 /* ===== User state persistence (generated from scripts/lib/user-state.js) ===== */
 
 /* Generated from scripts/lib/user-state.js — run npm run bundle */
@@ -665,14 +866,27 @@ const appUserState = (function () {
   const HOSTED_SESSION_KEY = "moviecollector-hosted-session";
   const USER_STATE_VERSION = 1;
 
-  const VIEW_MODES = new Set(["cards", "list"]);
+  const VIEW_MODES = new Set(["cards", "detail", "list"]);
   const STORAGE_MODES = new Set(["local", "gist"]);
 
   function getLists() {
     if (typeof appLists !== "undefined") {
       return appLists;
     }
-    return require("./lists");
+    if (typeof require === "function") {
+      return require("./lists");
+    }
+    throw new Error("appLists is not available");
+  }
+
+  function getRatings() {
+    if (typeof appRatings !== "undefined") {
+      return appRatings;
+    }
+    if (typeof require === "function") {
+      return require("./ratings");
+    }
+    throw new Error("appRatings is not available");
   }
 
   function defaultPreferences() {
@@ -688,6 +902,7 @@ const appUserState = (function () {
       lists: lists.defaultLists(),
       activeListId: lists.DEFAULT_LIST_ID,
       preferences: defaultPreferences(),
+      ratings: {},
     };
   }
 
@@ -708,15 +923,18 @@ const appUserState = (function () {
       return base;
     }
 
+    const normalizedLists = lists.normalizeLists(raw.lists);
+
     return {
       version: USER_STATE_VERSION,
       updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : null,
       storageMode: STORAGE_MODES.has(raw.storageMode) ? raw.storageMode : "local",
-      lists: lists.normalizeLists(raw.lists),
+      lists: normalizedLists,
       activeListId: lists.isListId(raw.activeListId)
         ? raw.activeListId
         : lists.DEFAULT_LIST_ID,
       preferences: normalizePreferences(raw.preferences),
+      ratings: getRatings().normalizeRatings(raw.ratings, normalizedLists),
     };
   }
 
@@ -1075,6 +1293,23 @@ function persistUserState(options = {}) {
   }
 }
 
+function updateRatings(nextRatings) {
+  if (nextRatings === userState.ratings) {
+    return false;
+  }
+  userState = { ...userState, ratings: nextRatings };
+  return true;
+}
+
+function setMovieRating(movieId, rating) {
+  const nextRatings = appRatings.setRating(userState.ratings, movieId, rating);
+  if (!updateRatings(nextRatings)) {
+    return false;
+  }
+  persistUserState();
+  return true;
+}
+
 function updateLists(nextLists) {
   if (nextLists === userState.lists) {
     return false;
@@ -1083,15 +1318,38 @@ function updateLists(nextLists) {
   return true;
 }
 
+const VIEW_MODE_CYCLE = ["cards", "detail", "list"];
+
+const VIEW_MODE_LABELS = {
+  cards: "Card view",
+  detail: "Detail view",
+  list: "List view",
+};
+
+function nextViewMode(mode) {
+  const index = VIEW_MODE_CYCLE.indexOf(mode);
+  const next = index < 0 ? 0 : (index + 1) % VIEW_MODE_CYCLE.length;
+  return VIEW_MODE_CYCLE[next];
+}
+
+function syncViewModeButton() {
+  if (!viewModeCycleBtn) {
+    return;
+  }
+  viewModeCycleBtn.dataset.viewMode = gridViewMode;
+  viewModeCycleBtn.setAttribute("aria-label", VIEW_MODE_LABELS[gridViewMode]);
+}
+
 function setViewMode(mode) {
-  gridViewMode = mode === "list" ? "list" : "cards";
+  gridViewMode = appUserState.normalizePreferences({ viewMode: mode }).viewMode;
   userState = {
     ...userState,
     preferences: { ...userState.preferences, viewMode: gridViewMode },
   };
+  document.body.classList.toggle("view-mode-cards", gridViewMode === "cards");
+  document.body.classList.toggle("view-mode-detail", gridViewMode === "detail");
   document.body.classList.toggle("view-mode-list", gridViewMode === "list");
-  viewModeCardsBtn.setAttribute("aria-pressed", String(gridViewMode === "cards"));
-  viewModeListBtn.setAttribute("aria-pressed", String(gridViewMode === "list"));
+  syncViewModeButton();
 }
 
 /* --- Gist sync --- */
@@ -1260,6 +1518,9 @@ const HYDRATE_CONCURRENCY = 6;
 const searchMemo = new Map();
 
 let cachePromise;
+let posterCachePromise;
+/** Session map from remote poster URL to blob: object URL. */
+const posterBlobUrls = new Map();
 let hostedSessionToken = "";
 
 /* --- Credential --- */
@@ -1394,14 +1655,137 @@ function movieCacheKey(movieId) {
 
 async function clearMovieCache() {
   searchMemo.clear();
+  revokePosterBlobUrls();
   if (typeof caches === "undefined") {
     return false;
   }
   cachePromise = undefined;
+  posterCachePromise = undefined;
   try {
-    return await caches.delete(TMDB_CACHE_NAME);
+    const results = await Promise.all([
+      caches.delete(TMDB_CACHE_NAME),
+      caches.delete(appPosterCache.POSTER_CACHE_NAME),
+    ]);
+    return results.some(Boolean);
   } catch (_) {
     return false;
+  }
+}
+
+/* --- Poster cache --- */
+
+function openPosterCache() {
+  if (posterCachePromise === undefined) {
+    posterCachePromise =
+      typeof caches === "undefined"
+        ? Promise.resolve(null)
+        : caches.open(appPosterCache.POSTER_CACHE_NAME).catch(() => null);
+  }
+  return posterCachePromise;
+}
+
+function revokePosterBlobUrls() {
+  for (const objectUrl of posterBlobUrls.values()) {
+    URL.revokeObjectURL(objectUrl);
+  }
+  posterBlobUrls.clear();
+}
+
+async function fetchPoster(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(`Poster request failed (${response.status})`);
+    }
+    return response;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function revalidatePoster(url, cache) {
+  try {
+    const response = await fetchPoster(url);
+    const blob = await response.blob();
+    if (cache) {
+      await cache.put(
+        url,
+        new Response(blob, {
+          headers: { "content-type": blob.type || "image/jpeg" },
+        }),
+      );
+    }
+    const existing = posterBlobUrls.get(url);
+    if (existing) {
+      URL.revokeObjectURL(existing);
+    }
+    posterBlobUrls.set(url, URL.createObjectURL(blob));
+  } catch (_) {
+    /* Cached poster stays on screen. */
+  }
+}
+
+async function getPosterObjectUrl(url) {
+  if (!appPosterCache.isPosterUrl(url)) {
+    return url;
+  }
+  const cachedObjectUrl = posterBlobUrls.get(url);
+  if (cachedObjectUrl) {
+    return cachedObjectUrl;
+  }
+
+  const cache = await openPosterCache();
+  if (cache) {
+    const cached = await cache.match(url);
+    if (cached) {
+      const blob = await cached.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      posterBlobUrls.set(url, objectUrl);
+      revalidatePoster(url, cache);
+      return objectUrl;
+    }
+  }
+
+  const response = await fetchPoster(url);
+  const blob = await response.blob();
+  if (cache) {
+    await cache.put(
+      url,
+      new Response(blob, {
+        headers: { "content-type": blob.type || "image/jpeg" },
+      }),
+    );
+  }
+  const objectUrl = URL.createObjectURL(blob);
+  posterBlobUrls.set(url, objectUrl);
+  return objectUrl;
+}
+
+async function attachPosterImage(img) {
+  const url = img.getAttribute("data-poster-src");
+  if (!url) {
+    return;
+  }
+  try {
+    const displayUrl = await getPosterObjectUrl(url);
+    if (img.isConnected && img.getAttribute("data-poster-src") === url) {
+      img.src = displayUrl;
+    }
+  } catch (_) {
+    if (img.isConnected && img.getAttribute("data-poster-src") === url) {
+      img.src = url;
+    }
+  }
+}
+
+function bindPosterImages(root) {
+  if (!root) {
+    return;
+  }
+  for (const img of root.querySelectorAll("img[data-poster-src]:not([src])")) {
+    attachPosterImage(img);
   }
 }
 
@@ -1593,8 +1977,8 @@ async function hydrateMovies(ids, handlers = {}) {
 /* ===== Search box, TMDB autocomplete, and add-to-list ===== */
 
 /**
- * TMDB search box and autocomplete. Search finds movies to add; it never
- * filters the list you already have.
+ * TMDB search and add flow. The floating + button opens a sheet: search first,
+ * then pick Favourites / Watched / Watchlist (pre-selected from the active tab).
  */
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -1605,6 +1989,44 @@ let suggestResults = [];
 let suggestIndex = -1;
 /** Guards against a slow response overwriting a newer one. */
 let suggestRequestToken = 0;
+let pendingAddResult = null;
+let selectedAddListId = null;
+let pendingAddRating = null;
+
+function resetAddMovieRatingControls() {
+  pendingAddRating = null;
+  addMovieRatingEnabled.checked = false;
+  addMovieRatingSlider.disabled = true;
+  addMovieRatingSlider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
+  addMovieRatingValue.textContent = "—";
+  addMovieRatingValue.classList.add("is-empty");
+}
+
+function syncAddMovieRatingDisplay() {
+  if (!addMovieRatingEnabled.checked) {
+    addMovieRatingValue.textContent = "—";
+    addMovieRatingValue.classList.add("is-empty");
+    pendingAddRating = null;
+    return;
+  }
+  const rating = appRatings.ratingFromSliderValue(Number(addMovieRatingSlider.value));
+  pendingAddRating = rating;
+  addMovieRatingValue.textContent = appRatings.formatUserRating(rating);
+  addMovieRatingValue.classList.remove("is-empty");
+}
+
+function onAddMovieRatingEnabledChange() {
+  addMovieRatingSlider.disabled = !addMovieRatingEnabled.checked;
+  syncAddMovieRatingDisplay();
+}
+
+function onAddMovieRatingSliderInput() {
+  syncAddMovieRatingDisplay();
+}
+
+function isAddMovieDialogOpen() {
+  return addMovieDialog && !addMovieDialog.hidden;
+}
 
 function setSearchBusy(busy) {
   searchSpinner.hidden = !busy;
@@ -1635,7 +2057,7 @@ function suggestPosterHtml(result) {
   if (!url) {
     return `<span class="search-suggest-poster search-suggest-poster--empty"></span>`;
   }
-  return `<img class="search-suggest-poster" src="${url}" alt="" loading="lazy">`;
+  return `<img class="search-suggest-poster" data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy">`;
 }
 
 function renderSuggest() {
@@ -1648,8 +2070,6 @@ function renderSuggest() {
     .map((result, index) => {
       const year = appCardHtml.formatYear(result.releaseDate);
       const active = index === suggestIndex ? " active" : "";
-      // Show the movie's status rather than a bare "added" flag. Favourited
-      // outranks watched, so the badge names the most specific one.
       const statusId = appLists.primaryListIdForMovie(userState.lists, result.id);
       const status = statusId
         ? appLists.findList(userState.lists, statusId)
@@ -1669,6 +2089,7 @@ function renderSuggest() {
     .join("");
   searchSuggest.hidden = false;
   searchInput.setAttribute("aria-expanded", "true");
+  bindPosterImages(searchSuggest);
 }
 
 async function runSearch(query) {
@@ -1738,17 +2159,91 @@ function clearSearch() {
   hideSuggest();
 }
 
-/** Adds to the active list, moving the movie out of another list if needed. */
-function addMovieFromSuggestion(result) {
-  const nextLists = appLists.assignMovieToList(
-    userState.lists,
-    userState.activeListId,
-    result.id,
-  );
+function updateAddMovieHint() {
+  if (!addMovieHint) {
+    return;
+  }
+  addMovieHint.textContent = hasTmdbAccess()
+    ? "Search TMDB to find a movie to add."
+    : "Add a TMDB credential in Settings to search.";
+}
+
+function showAddSearchStep() {
+  pendingAddResult = null;
+  selectedAddListId = null;
+  resetAddMovieRatingControls();
+  addMovieSearchStep.hidden = false;
+  addMoviePickStep.hidden = true;
+}
+
+function pickedPosterHtml(result) {
+  const url = appTmdb.buildImageUrl(result.posterPath, appTmdb.POSTER_SIZES.suggest);
+  if (!url) {
+    return `<span class="add-movie-picked-poster add-movie-picked-poster--empty"></span>`;
+  }
+  return `<img class="add-movie-picked-poster" data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy">`;
+}
+
+function renderAddMoviePicked(result) {
+  const year = appCardHtml.formatYear(result.releaseDate);
+  addMoviePicked.innerHTML = `${pickedPosterHtml(result)}
+<div class="add-movie-picked-text">
+  <span class="add-movie-picked-title">${appCardHtml.escapeHtml(result.title)}</span>
+  <span class="add-movie-picked-meta">${year || "Year unknown"}</span>
+</div>`;
+  bindPosterImages(addMoviePicked);
+}
+
+function updateAddListPickerSelection(listId) {
+  addMovieListPicker.querySelectorAll(".add-list-option").forEach((button) => {
+    const selected = button.dataset.listId === listId;
+    button.setAttribute("aria-pressed", String(selected));
+  });
+}
+
+function showAddPickStep(result) {
+  pendingAddResult = result;
+  selectedAddListId = userState.activeListId;
+  resetAddMovieRatingControls();
+  addMovieSearchStep.hidden = true;
+  addMoviePickStep.hidden = false;
+  renderAddMoviePicked(result);
+  updateAddListPickerSelection(selectedAddListId);
+  addMovieSubmit.focus({ preventScroll: true });
+}
+
+function confirmAddMovie() {
+  if (!pendingAddResult || !selectedAddListId) {
+    return;
+  }
+  addMovieToList(pendingAddResult, selectedAddListId, pendingAddRating);
+}
+
+function openAddMovieDialog() {
+  updateAddMovieHint();
+  showAddSearchStep();
+  clearSearch();
+  addMovieDialog.hidden = false;
+  searchInput.focus();
+}
+
+function closeAddMovieDialog() {
+  addMovieDialog.hidden = true;
+  pendingAddResult = null;
+  clearSearch();
+  showAddSearchStep();
+}
+
+function addMovieToList(result, listId, rating) {
+  const nextLists = appLists.assignMovieToList(userState.lists, listId, result.id);
   if (!updateLists(nextLists)) {
     return;
   }
+  if (rating != null) {
+    updateRatings(appRatings.setRating(userState.ratings, result.id, rating));
+  }
   persistUserState();
+  closeAddMovieDialog();
   render();
   hydrateMovies([result.id], {
     onRecord: applyHydratedRecord,
@@ -1761,8 +2256,8 @@ function pickSuggestion(index) {
   if (!result) {
     return;
   }
-  addMovieFromSuggestion(result);
-  renderSuggest();
+  hideSuggest();
+  showAddPickStep(result);
 }
 
 function moveSuggestSelection(delta) {
@@ -1782,9 +2277,14 @@ function moveSuggestSelection(delta) {
 }
 
 function onSearchKeydown(event) {
+  if (!isAddMovieDialogOpen() || addMovieSearchStep.hidden) {
+    return;
+  }
+
   const isOpen = !searchSuggest.hidden && suggestResults.length > 0;
 
   if (event.key === "Escape") {
+    event.stopPropagation();
     if (isOpen) {
       event.preventDefault();
       hideSuggest();
@@ -1817,6 +2317,19 @@ function onSearchKeydown(event) {
   }
 }
 
+function onAddListOptionClick(event) {
+  const button = event.target.closest(".add-list-option");
+  if (!button || !pendingAddResult) {
+    return;
+  }
+  const listId = button.dataset.listId;
+  if (!appLists.isListId(listId)) {
+    return;
+  }
+  selectedAddListId = listId;
+  updateAddListPickerSelection(listId);
+}
+
 /* ===== Cards, skeletons, and the main grid render ===== */
 
 /**
@@ -1831,15 +2344,34 @@ function posterHtml(record, size) {
     const label = record ? appCardHtml.escapeHtml(record.title) : "";
     return `<div class="placeholder">${label}</div>`;
   }
-  return `<img src="${url}" alt="" loading="lazy" decoding="async">`;
+  return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async">`;
 }
 
-function cardMetaText(record) {
+function cardMetaText(record, movieId) {
   const parts = [
     appCardHtml.formatYear(record.releaseDate),
     appCardHtml.formatRuntime(record.runtime),
   ].filter(Boolean);
+  const userRating = appRatings.formatUserRating(
+    appRatings.getRating(userState.ratings, movieId),
+  );
+  if (userRating && gridViewMode === "list") {
+    parts.push(`<span class="card-meta-rating">${appCardHtml.escapeHtml(userRating)}</span>`);
+  }
   return parts.join(" · ");
+}
+
+function cardUserRatingHtml(movieId) {
+  if (gridViewMode !== "detail") {
+    return "";
+  }
+  const label = appRatings.formatUserRating(
+    appRatings.getRating(userState.ratings, movieId),
+  );
+  if (!label) {
+    return "";
+  }
+  return `<span class="card-user-rating" aria-label="Your rating ${appCardHtml.escapeHtml(label)}">${appCardHtml.escapeHtml(label)}</span>`;
 }
 
 /**
@@ -1847,8 +2379,11 @@ function cardMetaText(record) {
  * moves movies between lists from the card.
  */
 function cardActionsHtml(movieId) {
+  if (gridViewMode === "cards") {
+    return "";
+  }
   if (userState.activeListId === appLists.WATCHLIST_ID) {
-    return `<div class="card-actions"><button type="button" class="card-watch-btn">Watch</button></div>`;
+    return `<div class="card-actions"><button type="button" class="card-watch-btn" aria-label="Mark as watched" title="Mark as watched">&#10003;</button></div>`;
   }
   if (
     userState.activeListId === appLists.WATCHED_ID ||
@@ -1861,7 +2396,23 @@ function cardActionsHtml(movieId) {
   return "";
 }
 
+function cardPosterOnlyHtml(movieId) {
+  const record = movieById.get(movieId);
+  if (!record) {
+    const failed = movieErrors.has(movieId);
+    const body = failed
+      ? `<div class="placeholder">Could not load</div>`
+      : `<div class="placeholder"></div>`;
+    return `<div class="poster-wrap">${body}</div>`;
+  }
+  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}</div>`;
+}
+
 function cardInnerHtml(movieId) {
+  if (gridViewMode === "cards") {
+    return cardPosterOnlyHtml(movieId);
+  }
+
   const record = movieById.get(movieId);
 
   if (!record) {
@@ -1879,14 +2430,15 @@ function cardInnerHtml(movieId) {
   }
 
   return `<div class="poster-wrap">
-  ${posterHtml(record, appTmdb.POSTER_SIZES.card)}
+  ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
+  ${cardUserRatingHtml(movieId)}
   <button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>
   <button type="button" class="card-remove" aria-label="Remove ${appCardHtml.escapeHtml(record.title)}" title="Remove movie">&times;</button>
 </div>
 <div class="card-body">
   <div class="card-text">
     <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>
-    <div class="card-meta">${appCardHtml.escapeHtml(cardMetaText(record))}</div>
+    <div class="card-meta">${cardMetaText(record, movieId)}</div>
   </div>
   ${cardActionsHtml(movieId)}
 </div>`;
@@ -1932,9 +2484,12 @@ function updateListHeader() {
   if (count && !hasTmdbAccess()) {
     listSubtitleEl.textContent = "Add a TMDB credential in Settings to load details";
   } else if (count) {
-    listSubtitleEl.textContent = "Search to add · drag to reorder";
+    listSubtitleEl.textContent =
+      gridViewMode === "cards"
+        ? "+ Add a movie · tap a poster for details"
+        : "+ Add a movie · drag to reorder";
   } else {
-    listSubtitleEl.textContent = "Search TMDB to add a movie to this list";
+    listSubtitleEl.textContent = "Tap + Add a movie to start this list";
   }
 }
 
@@ -1958,13 +2513,14 @@ function renderEmptyState(count) {
   emptyState.hidden = false;
   const listName = activeList()?.name || "this list";
   emptyState.innerHTML = hasTmdbAccess()
-    ? `<strong>Nothing in ${appCardHtml.escapeHtml(listName)} yet</strong>Search for a movie above to add it here.`
+    ? `<strong>Nothing in ${appCardHtml.escapeHtml(listName)} yet</strong>Tap <strong>+ Add a movie</strong> to search and add one here.`
     : `<strong>Add your TMDB token</strong>Open Settings and paste your TMDB API Read Access Token to search and load movies.`;
 }
 
 function render() {
   const ids = activeMovieIds();
   grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
+  bindPosterImages(grid);
   renderListTabs();
   updateListHeader();
   renderEmptyState(ids.length);
@@ -1977,6 +2533,7 @@ function applyHydratedRecord(movieId) {
     return;
   }
   row.innerHTML = rowInnerHtml(movieId);
+  bindPosterImages(row);
   if (detailMovieId === movieId) {
     renderDetail();
   }
@@ -2039,13 +2596,23 @@ function toggleFavouriteMovie(movieId) {
 }
 
 function removeMovieFromCollection(movieId) {
-  if (!commitListChange(appLists.removeMovie(userState.lists, movieId))) {
+  const nextLists = appLists.removeMovie(userState.lists, movieId);
+  if (!updateLists(nextLists)) {
     return;
   }
+  updateRatings(appRatings.removeRating(userState.ratings, movieId));
+  persistUserState();
   if (detailMovieId === movieId) {
     closeDetail();
   }
   render();
+}
+
+function refreshMovieRating(movieId) {
+  applyHydratedRecord(movieId);
+  if (detailMovieId === movieId) {
+    syncDetailRatingDisplay(appRatings.getRating(userState.ratings, movieId));
+  }
 }
 
 function requestRemoveMovie(movieId) {
@@ -2097,7 +2664,7 @@ function detailMetaChips(record) {
     chips.push(`<span class="meta-chip">${runtime}</span>`);
   }
   if (rating) {
-    chips.push(`<span class="meta-chip meta-chip--rating">★ ${rating}</span>`);
+    chips.push(`<span class="meta-chip">★ ${rating}</span>`);
   }
   for (const genre of record.genres) {
     chips.push(`<span class="meta-chip">${appCardHtml.escapeHtml(genre)}</span>`);
@@ -2119,6 +2686,138 @@ function detailCreditsHtml(record) {
     rows.push(`<div><strong>Cast:</strong> ${appCardHtml.escapeHtml(cast)}</div>`);
   }
   return rows.join("");
+}
+
+function detailUserRatingRowHtml(movieId) {
+  const inCollection = appLists.findListIdsForMovie(userState.lists, movieId).length > 0;
+  if (!inCollection) {
+    return "";
+  }
+
+  const rating = appRatings.getRating(userState.ratings, movieId);
+  const valueText = rating == null ? "—" : appRatings.formatUserRating(rating);
+  const sliderValue = appRatings.sliderValueFromRating(rating);
+  const editorOpen = detailRatingEditorOpen;
+
+  return `<div class="detail-rating-row">
+  <span class="detail-rating-label">My Rating:</span>
+  <button
+    type="button"
+    class="detail-rating-chip meta-chip"
+    id="detail-rating-summary"
+    aria-expanded="${editorOpen}"
+    aria-controls="detail-rating-editor"
+    title="Edit my rating"
+  >★ <span id="detail-rating-summary-value">${appCardHtml.escapeHtml(valueText)}</span></button>
+</div>
+${detailUserRatingEditorHtml(movieId)}`;
+}
+
+function detailUserRatingEditorHtml(movieId) {
+  const inCollection = appLists.findListIdsForMovie(userState.lists, movieId).length > 0;
+  if (!inCollection) {
+    return "";
+  }
+
+  const rating = appRatings.getRating(userState.ratings, movieId);
+  const sliderValue = appRatings.sliderValueFromRating(rating);
+  const editorOpen = detailRatingEditorOpen;
+
+  return `<div class="detail-rating-editor" id="detail-rating-editor"${editorOpen ? "" : " hidden"}>
+  <input
+    type="range"
+    class="detail-rating-slider"
+    id="detail-rating-slider"
+    min="0"
+    max="90"
+    step="1"
+    value="${sliderValue}"
+    aria-label="My rating from 1 to 10"
+    aria-valuetext="${rating == null ? "Not rated" : appRatings.formatUserRating(rating)}"
+  />
+  <div class="detail-rating-editor-foot">
+    <span class="detail-rating-scale" aria-hidden="true">1</span>
+    <button type="button" class="detail-rating-link" id="detail-rating-clear"${rating == null ? " hidden" : ""}>Clear</button>
+    <button type="button" class="detail-rating-link" id="detail-rating-done">Done</button>
+    <span class="detail-rating-scale" aria-hidden="true">10</span>
+  </div>
+</div>`;
+}
+
+function syncDetailRatingDisplay(rating) {
+  const chipValue = document.getElementById("detail-rating-summary-value");
+  if (chipValue) {
+    chipValue.textContent = rating == null ? "—" : appRatings.formatUserRating(rating);
+  }
+
+  const slider = document.getElementById("detail-rating-slider");
+  if (slider) {
+    slider.setAttribute(
+      "aria-valuetext",
+      rating == null ? "Not rated" : appRatings.formatUserRating(rating),
+    );
+  }
+
+  const clearBtn = document.getElementById("detail-rating-clear");
+  if (clearBtn) {
+    clearBtn.hidden = rating == null;
+  }
+}
+
+function syncDetailRatingEditorVisibility() {
+  const summary = document.getElementById("detail-rating-summary");
+  const editor = document.getElementById("detail-rating-editor");
+  if (!summary || !editor) {
+    return;
+  }
+  summary.setAttribute("aria-expanded", String(detailRatingEditorOpen));
+  editor.hidden = !detailRatingEditorOpen;
+}
+
+function openDetailRatingEditor() {
+  detailRatingEditorOpen = true;
+  syncDetailRatingEditorVisibility();
+  document.getElementById("detail-rating-slider")?.focus({ preventScroll: true });
+}
+
+function closeDetailRatingEditor() {
+  detailRatingEditorOpen = false;
+  syncDetailRatingEditorVisibility();
+}
+
+function toggleDetailRatingEditor() {
+  if (detailRatingEditorOpen) {
+    closeDetailRatingEditor();
+    return;
+  }
+  openDetailRatingEditor();
+}
+
+function onDetailRatingSliderInput(event) {
+  if (detailMovieId == null) {
+    return;
+  }
+  const rating = appRatings.ratingFromSliderValue(Number(event.target.value));
+  if (!setMovieRating(detailMovieId, rating)) {
+    return;
+  }
+  applyHydratedRecord(detailMovieId);
+  syncDetailRatingDisplay(rating);
+}
+
+function clearDetailRating() {
+  if (detailMovieId == null) {
+    return;
+  }
+  if (!setMovieRating(detailMovieId, null)) {
+    return;
+  }
+  applyHydratedRecord(detailMovieId);
+  const slider = document.getElementById("detail-rating-slider");
+  if (slider) {
+    slider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
+  }
+  syncDetailRatingDisplay(null);
 }
 
 function renderDetail() {
@@ -2150,9 +2849,11 @@ function renderDetail() {
 <p class="movie-detail-overview">${note}</p>`;
   } else {
     detailPoster.innerHTML = posterHtml(record, appTmdb.POSTER_SIZES.detail);
+    bindPosterImages(detailPoster);
     detailBody.innerHTML = `<h2 class="movie-detail-title" id="movie-detail-title">${appCardHtml.escapeHtml(record.title)}</h2>
 ${record.tagline ? `<p class="movie-detail-tagline">${appCardHtml.escapeHtml(record.tagline)}</p>` : ""}
 <div class="movie-detail-meta">${detailMetaChips(record)}</div>
+${detailUserRatingRowHtml(detailMovieId)}
 <p class="movie-detail-overview">${appCardHtml.escapeHtml(record.overview || "No overview available.")}</p>
 <div class="movie-detail-credits">${detailCreditsHtml(record)}</div>`;
   }
@@ -2191,6 +2892,7 @@ function openDetail(movieId, options = {}) {
   }
 
   detailMovieId = id;
+  detailRatingEditorOpen = false;
   detailDialog.hidden = false;
   document.body.classList.add("movie-detail-open");
   renderDetail();
@@ -2214,6 +2916,7 @@ function closeDetail(options = {}) {
   }
   const hadHistoryEntry = history.state?.detailMovieId != null;
   detailMovieId = null;
+  detailRatingEditorOpen = false;
   detailDialog.hidden = true;
   document.body.classList.remove("movie-detail-open");
 
@@ -2230,6 +2933,7 @@ function stepDetail(delta) {
     return;
   }
   detailMovieId = ids[nextIndex];
+  detailRatingEditorOpen = false;
   history.replaceState({ detailMovieId }, "", `#movie/${detailMovieId}`);
   renderDetail();
   if (!movieById.has(detailMovieId)) {
@@ -2285,11 +2989,13 @@ function refreshSettings() {
 function openSettings() {
   refreshSettings();
   settingsDialog.hidden = false;
+  settingsBtn.setAttribute("aria-expanded", "true");
   tmdbKeyInput.focus({ preventScroll: true });
 }
 
 function closeSettings() {
   settingsDialog.hidden = true;
+  settingsBtn.setAttribute("aria-expanded", "false");
 }
 
 async function onSaveCredential() {
@@ -2390,11 +3096,13 @@ function onDisconnectGist() {
 
 function openAbout() {
   aboutDialog.hidden = false;
+  aboutBtn.setAttribute("aria-expanded", "true");
   aboutClose.focus({ preventScroll: true });
 }
 
 function closeAbout() {
   aboutDialog.hidden = true;
+  aboutBtn.setAttribute("aria-expanded", "false");
 }
 
 /* --- Hosted unlock (hidden) --- */
@@ -2645,14 +3353,28 @@ searchSuggest.addEventListener("click", (event) => {
   pickSuggestion(Number(item.dataset.suggestIndex));
 });
 
-document.addEventListener("click", (event) => {
+addMovieDialog.addEventListener("click", (event) => {
   if (
     !searchCombobox.contains(event.target) &&
     !searchSuggest.contains(event.target)
   ) {
     hideSuggest();
   }
+  if (event.target.closest("[data-close-add-movie]")) {
+    closeAddMovieDialog();
+  }
 });
+
+addMovieFab.addEventListener("click", openAddMovieDialog);
+addMovieClose.addEventListener("click", closeAddMovieDialog);
+addMovieBack.addEventListener("click", () => {
+  showAddSearchStep();
+  searchInput.focus();
+});
+addMovieListPicker.addEventListener("click", onAddListOptionClick);
+addMovieSubmit.addEventListener("click", confirmAddMovie);
+addMovieRatingEnabled.addEventListener("change", onAddMovieRatingEnabledChange);
+addMovieRatingSlider.addEventListener("input", onAddMovieRatingSliderInput);
 
 /* --- Grid --- */
 
@@ -2747,20 +3469,8 @@ listTabs.addEventListener("keydown", (event) => {
 
 /* --- Toolbar --- */
 
-viewModeCardsBtn.addEventListener("click", () => {
-  if (gridViewMode === "cards") {
-    return;
-  }
-  setViewMode("cards");
-  persistUserState();
-  render();
-});
-
-viewModeListBtn.addEventListener("click", () => {
-  if (gridViewMode === "list") {
-    return;
-  }
-  setViewMode("list");
+viewModeCycleBtn.addEventListener("click", () => {
+  setViewMode(nextViewMode(gridViewMode));
   persistUserState();
   render();
 });
@@ -2773,6 +3483,23 @@ detailNextBtn.addEventListener("click", () => stepDetail(1));
 detailDialog.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-detail")) {
     closeDetail();
+    return;
+  }
+  if (event.target.id === "detail-rating-summary") {
+    toggleDetailRatingEditor();
+    return;
+  }
+  if (event.target.id === "detail-rating-done") {
+    closeDetailRatingEditor();
+    return;
+  }
+  if (event.target.id === "detail-rating-clear") {
+    clearDetailRating();
+  }
+});
+detailDialog.addEventListener("input", (event) => {
+  if (event.target.id === "detail-rating-slider") {
+    onDetailRatingSliderInput(event);
   }
 });
 detailActions.addEventListener("click", (event) => {
@@ -2903,7 +3630,20 @@ document.addEventListener("keydown", (event) => {
       closeSettings();
       return;
     }
+    if (!addMovieDialog.hidden) {
+      if (!addMoviePickStep.hidden) {
+        showAddSearchStep();
+        searchInput.focus();
+      } else {
+        closeAddMovieDialog();
+      }
+      return;
+    }
     if (detailMovieId != null) {
+      if (detailRatingEditorOpen) {
+        closeDetailRatingEditor();
+        return;
+      }
       closeDetail();
     }
     return;

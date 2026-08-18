@@ -15,8 +15,21 @@ const searchSuggest = document.getElementById("search-suggest");
 const searchClearBtn = document.getElementById("search-clear");
 const searchSpinner = document.getElementById("search-spinner");
 
-const viewModeCardsBtn = document.getElementById("view-mode-cards");
-const viewModeListBtn = document.getElementById("view-mode-list");
+const addMovieFab = document.getElementById("add-movie-fab");
+const addMovieDialog = document.getElementById("add-movie-dialog");
+const addMovieClose = document.getElementById("add-movie-close");
+const addMovieHint = document.getElementById("add-movie-hint");
+const addMovieSearchStep = document.getElementById("add-movie-search-step");
+const addMoviePickStep = document.getElementById("add-movie-pick-step");
+const addMoviePicked = document.getElementById("add-movie-picked");
+const addMovieListPicker = document.getElementById("add-movie-list-picker");
+const addMovieSubmit = document.getElementById("add-movie-submit");
+const addMovieRatingSlider = document.getElementById("add-movie-rating-slider");
+const addMovieRatingValue = document.getElementById("add-movie-rating-value");
+const addMovieRatingEnabled = document.getElementById("add-movie-rating-enabled");
+const addMovieBack = document.getElementById("add-movie-back");
+
+const viewModeCycleBtn = document.getElementById("view-mode-cycle");
 const grid = document.getElementById("grid");
 const emptyState = document.getElementById("empty-state");
 
@@ -79,6 +92,7 @@ const movieErrors = new Set();
 
 let gridViewMode = "cards";
 let detailMovieId = null;
+let detailRatingEditorOpen = false;
 let pendingRemoveMovieId = null;
 let tmdbCredential = "";
 

@@ -4,9 +4,12 @@ const VIEWER_CSS_FILES = [
   "variables.css",
   "base.css",
   "header.css",
+  "attribution.css",
   "settings.css",
   "cards.css",
+  "ratings.css",
   "movie-detail.css",
+  "add-movie.css",
   "mobile.css",
 ];
 

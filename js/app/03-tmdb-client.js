@@ -17,6 +17,9 @@ const HYDRATE_CONCURRENCY = 6;
 const searchMemo = new Map();
 
 let cachePromise;
+let posterCachePromise;
+/** Session map from remote poster URL to blob: object URL. */
+const posterBlobUrls = new Map();
 let hostedSessionToken = "";
 
 /* --- Credential --- */
@@ -151,14 +154,137 @@ function movieCacheKey(movieId) {
 
 async function clearMovieCache() {
   searchMemo.clear();
+  revokePosterBlobUrls();
   if (typeof caches === "undefined") {
     return false;
   }
   cachePromise = undefined;
+  posterCachePromise = undefined;
   try {
-    return await caches.delete(TMDB_CACHE_NAME);
+    const results = await Promise.all([
+      caches.delete(TMDB_CACHE_NAME),
+      caches.delete(appPosterCache.POSTER_CACHE_NAME),
+    ]);
+    return results.some(Boolean);
   } catch (_) {
     return false;
+  }
+}
+
+/* --- Poster cache --- */
+
+function openPosterCache() {
+  if (posterCachePromise === undefined) {
+    posterCachePromise =
+      typeof caches === "undefined"
+        ? Promise.resolve(null)
+        : caches.open(appPosterCache.POSTER_CACHE_NAME).catch(() => null);
+  }
+  return posterCachePromise;
+}
+
+function revokePosterBlobUrls() {
+  for (const objectUrl of posterBlobUrls.values()) {
+    URL.revokeObjectURL(objectUrl);
+  }
+  posterBlobUrls.clear();
+}
+
+async function fetchPoster(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(`Poster request failed (${response.status})`);
+    }
+    return response;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function revalidatePoster(url, cache) {
+  try {
+    const response = await fetchPoster(url);
+    const blob = await response.blob();
+    if (cache) {
+      await cache.put(
+        url,
+        new Response(blob, {
+          headers: { "content-type": blob.type || "image/jpeg" },
+        }),
+      );
+    }
+    const existing = posterBlobUrls.get(url);
+    if (existing) {
+      URL.revokeObjectURL(existing);
+    }
+    posterBlobUrls.set(url, URL.createObjectURL(blob));
+  } catch (_) {
+    /* Cached poster stays on screen. */
+  }
+}
+
+async function getPosterObjectUrl(url) {
+  if (!appPosterCache.isPosterUrl(url)) {
+    return url;
+  }
+  const cachedObjectUrl = posterBlobUrls.get(url);
+  if (cachedObjectUrl) {
+    return cachedObjectUrl;
+  }
+
+  const cache = await openPosterCache();
+  if (cache) {
+    const cached = await cache.match(url);
+    if (cached) {
+      const blob = await cached.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      posterBlobUrls.set(url, objectUrl);
+      revalidatePoster(url, cache);
+      return objectUrl;
+    }
+  }
+
+  const response = await fetchPoster(url);
+  const blob = await response.blob();
+  if (cache) {
+    await cache.put(
+      url,
+      new Response(blob, {
+        headers: { "content-type": blob.type || "image/jpeg" },
+      }),
+    );
+  }
+  const objectUrl = URL.createObjectURL(blob);
+  posterBlobUrls.set(url, objectUrl);
+  return objectUrl;
+}
+
+async function attachPosterImage(img) {
+  const url = img.getAttribute("data-poster-src");
+  if (!url) {
+    return;
+  }
+  try {
+    const displayUrl = await getPosterObjectUrl(url);
+    if (img.isConnected && img.getAttribute("data-poster-src") === url) {
+      img.src = displayUrl;
+    }
+  } catch (_) {
+    if (img.isConnected && img.getAttribute("data-poster-src") === url) {
+      img.src = url;
+    }
+  }
+}
+
+function bindPosterImages(root) {
+  if (!root) {
+    return;
+  }
+  for (const img of root.querySelectorAll("img[data-poster-src]:not([src])")) {
+    attachPosterImage(img);
   }
 }
 

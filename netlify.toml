@@ -12,3 +12,8 @@
   from = "/api/tmdb"
   to = "/.netlify/functions/tmdb"
   status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"

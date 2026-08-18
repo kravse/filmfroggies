@@ -10,15 +10,34 @@ function posterHtml(record, size) {
     const label = record ? appCardHtml.escapeHtml(record.title) : "";
     return `<div class="placeholder">${label}</div>`;
   }
-  return `<img src="${url}" alt="" loading="lazy" decoding="async">`;
+  return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async">`;
 }
 
-function cardMetaText(record) {
+function cardMetaText(record, movieId) {
   const parts = [
     appCardHtml.formatYear(record.releaseDate),
     appCardHtml.formatRuntime(record.runtime),
   ].filter(Boolean);
+  const userRating = appRatings.formatUserRating(
+    appRatings.getRating(userState.ratings, movieId),
+  );
+  if (userRating && gridViewMode === "list") {
+    parts.push(`<span class="card-meta-rating">${appCardHtml.escapeHtml(userRating)}</span>`);
+  }
   return parts.join(" · ");
+}
+
+function cardUserRatingHtml(movieId) {
+  if (gridViewMode !== "detail") {
+    return "";
+  }
+  const label = appRatings.formatUserRating(
+    appRatings.getRating(userState.ratings, movieId),
+  );
+  if (!label) {
+    return "";
+  }
+  return `<span class="card-user-rating" aria-label="Your rating ${appCardHtml.escapeHtml(label)}">${appCardHtml.escapeHtml(label)}</span>`;
 }
 
 /**
@@ -26,8 +45,11 @@ function cardMetaText(record) {
  * moves movies between lists from the card.
  */
 function cardActionsHtml(movieId) {
+  if (gridViewMode === "cards") {
+    return "";
+  }
   if (userState.activeListId === appLists.WATCHLIST_ID) {
-    return `<div class="card-actions"><button type="button" class="card-watch-btn">Watch</button></div>`;
+    return `<div class="card-actions"><button type="button" class="card-watch-btn" aria-label="Mark as watched" title="Mark as watched">&#10003;</button></div>`;
   }
   if (
     userState.activeListId === appLists.WATCHED_ID ||
@@ -40,7 +62,23 @@ function cardActionsHtml(movieId) {
   return "";
 }
 
+function cardPosterOnlyHtml(movieId) {
+  const record = movieById.get(movieId);
+  if (!record) {
+    const failed = movieErrors.has(movieId);
+    const body = failed
+      ? `<div class="placeholder">Could not load</div>`
+      : `<div class="placeholder"></div>`;
+    return `<div class="poster-wrap">${body}</div>`;
+  }
+  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}</div>`;
+}
+
 function cardInnerHtml(movieId) {
+  if (gridViewMode === "cards") {
+    return cardPosterOnlyHtml(movieId);
+  }
+
   const record = movieById.get(movieId);
 
   if (!record) {
@@ -58,14 +96,15 @@ function cardInnerHtml(movieId) {
   }
 
   return `<div class="poster-wrap">
-  ${posterHtml(record, appTmdb.POSTER_SIZES.card)}
+  ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
+  ${cardUserRatingHtml(movieId)}
   <button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>
   <button type="button" class="card-remove" aria-label="Remove ${appCardHtml.escapeHtml(record.title)}" title="Remove movie">&times;</button>
 </div>
 <div class="card-body">
   <div class="card-text">
     <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>
-    <div class="card-meta">${appCardHtml.escapeHtml(cardMetaText(record))}</div>
+    <div class="card-meta">${cardMetaText(record, movieId)}</div>
   </div>
   ${cardActionsHtml(movieId)}
 </div>`;
@@ -111,9 +150,12 @@ function updateListHeader() {
   if (count && !hasTmdbAccess()) {
     listSubtitleEl.textContent = "Add a TMDB credential in Settings to load details";
   } else if (count) {
-    listSubtitleEl.textContent = "Search to add · drag to reorder";
+    listSubtitleEl.textContent =
+      gridViewMode === "cards"
+        ? "+ Add a movie · tap a poster for details"
+        : "+ Add a movie · drag to reorder";
   } else {
-    listSubtitleEl.textContent = "Search TMDB to add a movie to this list";
+    listSubtitleEl.textContent = "Tap + Add a movie to start this list";
   }
 }
 
@@ -137,13 +179,14 @@ function renderEmptyState(count) {
   emptyState.hidden = false;
   const listName = activeList()?.name || "this list";
   emptyState.innerHTML = hasTmdbAccess()
-    ? `<strong>Nothing in ${appCardHtml.escapeHtml(listName)} yet</strong>Search for a movie above to add it here.`
+    ? `<strong>Nothing in ${appCardHtml.escapeHtml(listName)} yet</strong>Tap <strong>+ Add a movie</strong> to search and add one here.`
     : `<strong>Add your TMDB token</strong>Open Settings and paste your TMDB API Read Access Token to search and load movies.`;
 }
 
 function render() {
   const ids = activeMovieIds();
   grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
+  bindPosterImages(grid);
   renderListTabs();
   updateListHeader();
   renderEmptyState(ids.length);
@@ -156,6 +199,7 @@ function applyHydratedRecord(movieId) {
     return;
   }
   row.innerHTML = rowInnerHtml(movieId);
+  bindPosterImages(row);
   if (detailMovieId === movieId) {
     renderDetail();
   }
@@ -218,13 +262,23 @@ function toggleFavouriteMovie(movieId) {
 }
 
 function removeMovieFromCollection(movieId) {
-  if (!commitListChange(appLists.removeMovie(userState.lists, movieId))) {
+  const nextLists = appLists.removeMovie(userState.lists, movieId);
+  if (!updateLists(nextLists)) {
     return;
   }
+  updateRatings(appRatings.removeRating(userState.ratings, movieId));
+  persistUserState();
   if (detailMovieId === movieId) {
     closeDetail();
   }
   render();
+}
+
+function refreshMovieRating(movieId) {
+  applyHydratedRecord(movieId);
+  if (detailMovieId === movieId) {
+    syncDetailRatingDisplay(appRatings.getRating(userState.ratings, movieId));
+  }
 }
 
 function requestRemoveMovie(movieId) {

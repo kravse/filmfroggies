@@ -22,7 +22,7 @@ function detailMetaChips(record) {
     chips.push(`<span class="meta-chip">${runtime}</span>`);
   }
   if (rating) {
-    chips.push(`<span class="meta-chip meta-chip--rating">★ ${rating}</span>`);
+    chips.push(`<span class="meta-chip">★ ${rating}</span>`);
   }
   for (const genre of record.genres) {
     chips.push(`<span class="meta-chip">${appCardHtml.escapeHtml(genre)}</span>`);
@@ -44,6 +44,138 @@ function detailCreditsHtml(record) {
     rows.push(`<div><strong>Cast:</strong> ${appCardHtml.escapeHtml(cast)}</div>`);
   }
   return rows.join("");
+}
+
+function detailUserRatingRowHtml(movieId) {
+  const inCollection = appLists.findListIdsForMovie(userState.lists, movieId).length > 0;
+  if (!inCollection) {
+    return "";
+  }
+
+  const rating = appRatings.getRating(userState.ratings, movieId);
+  const valueText = rating == null ? "—" : appRatings.formatUserRating(rating);
+  const sliderValue = appRatings.sliderValueFromRating(rating);
+  const editorOpen = detailRatingEditorOpen;
+
+  return `<div class="detail-rating-row">
+  <span class="detail-rating-label">My Rating:</span>
+  <button
+    type="button"
+    class="detail-rating-chip meta-chip"
+    id="detail-rating-summary"
+    aria-expanded="${editorOpen}"
+    aria-controls="detail-rating-editor"
+    title="Edit my rating"
+  >★ <span id="detail-rating-summary-value">${appCardHtml.escapeHtml(valueText)}</span></button>
+</div>
+${detailUserRatingEditorHtml(movieId)}`;
+}
+
+function detailUserRatingEditorHtml(movieId) {
+  const inCollection = appLists.findListIdsForMovie(userState.lists, movieId).length > 0;
+  if (!inCollection) {
+    return "";
+  }
+
+  const rating = appRatings.getRating(userState.ratings, movieId);
+  const sliderValue = appRatings.sliderValueFromRating(rating);
+  const editorOpen = detailRatingEditorOpen;
+
+  return `<div class="detail-rating-editor" id="detail-rating-editor"${editorOpen ? "" : " hidden"}>
+  <input
+    type="range"
+    class="detail-rating-slider"
+    id="detail-rating-slider"
+    min="0"
+    max="90"
+    step="1"
+    value="${sliderValue}"
+    aria-label="My rating from 1 to 10"
+    aria-valuetext="${rating == null ? "Not rated" : appRatings.formatUserRating(rating)}"
+  />
+  <div class="detail-rating-editor-foot">
+    <span class="detail-rating-scale" aria-hidden="true">1</span>
+    <button type="button" class="detail-rating-link" id="detail-rating-clear"${rating == null ? " hidden" : ""}>Clear</button>
+    <button type="button" class="detail-rating-link" id="detail-rating-done">Done</button>
+    <span class="detail-rating-scale" aria-hidden="true">10</span>
+  </div>
+</div>`;
+}
+
+function syncDetailRatingDisplay(rating) {
+  const chipValue = document.getElementById("detail-rating-summary-value");
+  if (chipValue) {
+    chipValue.textContent = rating == null ? "—" : appRatings.formatUserRating(rating);
+  }
+
+  const slider = document.getElementById("detail-rating-slider");
+  if (slider) {
+    slider.setAttribute(
+      "aria-valuetext",
+      rating == null ? "Not rated" : appRatings.formatUserRating(rating),
+    );
+  }
+
+  const clearBtn = document.getElementById("detail-rating-clear");
+  if (clearBtn) {
+    clearBtn.hidden = rating == null;
+  }
+}
+
+function syncDetailRatingEditorVisibility() {
+  const summary = document.getElementById("detail-rating-summary");
+  const editor = document.getElementById("detail-rating-editor");
+  if (!summary || !editor) {
+    return;
+  }
+  summary.setAttribute("aria-expanded", String(detailRatingEditorOpen));
+  editor.hidden = !detailRatingEditorOpen;
+}
+
+function openDetailRatingEditor() {
+  detailRatingEditorOpen = true;
+  syncDetailRatingEditorVisibility();
+  document.getElementById("detail-rating-slider")?.focus({ preventScroll: true });
+}
+
+function closeDetailRatingEditor() {
+  detailRatingEditorOpen = false;
+  syncDetailRatingEditorVisibility();
+}
+
+function toggleDetailRatingEditor() {
+  if (detailRatingEditorOpen) {
+    closeDetailRatingEditor();
+    return;
+  }
+  openDetailRatingEditor();
+}
+
+function onDetailRatingSliderInput(event) {
+  if (detailMovieId == null) {
+    return;
+  }
+  const rating = appRatings.ratingFromSliderValue(Number(event.target.value));
+  if (!setMovieRating(detailMovieId, rating)) {
+    return;
+  }
+  applyHydratedRecord(detailMovieId);
+  syncDetailRatingDisplay(rating);
+}
+
+function clearDetailRating() {
+  if (detailMovieId == null) {
+    return;
+  }
+  if (!setMovieRating(detailMovieId, null)) {
+    return;
+  }
+  applyHydratedRecord(detailMovieId);
+  const slider = document.getElementById("detail-rating-slider");
+  if (slider) {
+    slider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
+  }
+  syncDetailRatingDisplay(null);
 }
 
 function renderDetail() {
@@ -75,9 +207,11 @@ function renderDetail() {
 <p class="movie-detail-overview">${note}</p>`;
   } else {
     detailPoster.innerHTML = posterHtml(record, appTmdb.POSTER_SIZES.detail);
+    bindPosterImages(detailPoster);
     detailBody.innerHTML = `<h2 class="movie-detail-title" id="movie-detail-title">${appCardHtml.escapeHtml(record.title)}</h2>
 ${record.tagline ? `<p class="movie-detail-tagline">${appCardHtml.escapeHtml(record.tagline)}</p>` : ""}
 <div class="movie-detail-meta">${detailMetaChips(record)}</div>
+${detailUserRatingRowHtml(detailMovieId)}
 <p class="movie-detail-overview">${appCardHtml.escapeHtml(record.overview || "No overview available.")}</p>
 <div class="movie-detail-credits">${detailCreditsHtml(record)}</div>`;
   }
@@ -116,6 +250,7 @@ function openDetail(movieId, options = {}) {
   }
 
   detailMovieId = id;
+  detailRatingEditorOpen = false;
   detailDialog.hidden = false;
   document.body.classList.add("movie-detail-open");
   renderDetail();
@@ -139,6 +274,7 @@ function closeDetail(options = {}) {
   }
   const hadHistoryEntry = history.state?.detailMovieId != null;
   detailMovieId = null;
+  detailRatingEditorOpen = false;
   detailDialog.hidden = true;
   document.body.classList.remove("movie-detail-open");
 
@@ -155,6 +291,7 @@ function stepDetail(delta) {
     return;
   }
   detailMovieId = ids[nextIndex];
+  detailRatingEditorOpen = false;
   history.replaceState({ detailMovieId }, "", `#movie/${detailMovieId}`);
   renderDetail();
   if (!movieById.has(detailMovieId)) {
@@ -210,11 +347,13 @@ function refreshSettings() {
 function openSettings() {
   refreshSettings();
   settingsDialog.hidden = false;
+  settingsBtn.setAttribute("aria-expanded", "true");
   tmdbKeyInput.focus({ preventScroll: true });
 }
 
 function closeSettings() {
   settingsDialog.hidden = true;
+  settingsBtn.setAttribute("aria-expanded", "false");
 }
 
 async function onSaveCredential() {
@@ -315,11 +454,13 @@ function onDisconnectGist() {
 
 function openAbout() {
   aboutDialog.hidden = false;
+  aboutBtn.setAttribute("aria-expanded", "true");
   aboutClose.focus({ preventScroll: true });
 }
 
 function closeAbout() {
   aboutDialog.hidden = true;
+  aboutBtn.setAttribute("aria-expanded", "false");
 }
 
 /* --- Hosted unlock (hidden) --- */

@@ -1,11 +1,21 @@
 .grid {
   display: grid;
+}
+
+body.view-mode-cards .grid {
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+body.view-mode-detail .grid {
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 1rem;
+  align-items: stretch;
 }
 
 @media (min-width: 1001px) {
-  body:not(.view-mode-list) .grid {
+  body.view-mode-detail .grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
@@ -14,8 +24,8 @@
   min-width: 0;
 }
 
-/* Grid cards share one footprint: poster scales with width, body height is fixed. */
-body:not(.view-mode-list) {
+/* Detail grid: poster scales with width, body height is fixed. */
+body.view-mode-detail {
   --card-title-font: 0.92rem;
   --card-title-leading: 1.3;
   --card-title-lines: 2;
@@ -34,16 +44,19 @@ body:not(.view-mode-list) {
   --card-meta-block-height: calc(var(--card-meta-leading) * var(--card-meta-font));
 }
 
-body:not(.view-mode-list) .grid {
-  align-items: stretch;
-}
-
-body:not(.view-mode-list) .movie-row {
+body.view-mode-cards .movie-row,
+body.view-mode-detail .movie-row {
   height: 100%;
 }
 
-body:not(.view-mode-list) .card {
+body.view-mode-cards .card {
   height: 100%;
+  border-radius: var(--radius-sm);
+}
+
+body.view-mode-detail .card {
+  height: 100%;
+  border-radius: var(--radius);
 }
 
 .card {
@@ -110,16 +123,17 @@ body:not(.view-mode-list) .card {
 }
 
 /* Grid view: star / Watch sit top-right of the text block. */
-body:not(.view-mode-list) .card-body {
+body.view-mode-detail .card-body {
   flex: none;
   position: relative;
   flex-direction: column;
   align-items: stretch;
   box-sizing: border-box;
   min-height: var(--card-body-min-height);
+  padding: 0.55rem 0.65rem 0.7rem;
 }
 
-body:not(.view-mode-list) .card-text {
+body.view-mode-detail .card-text {
   flex: 1;
   min-height: calc(
     var(--card-title-block-height) + var(--card-text-gap) + var(--card-meta-block-height)
@@ -127,20 +141,20 @@ body:not(.view-mode-list) .card-text {
   padding-right: 1.85rem;
 }
 
-body:not(.view-mode-list) .card-actions {
+body.view-mode-detail .card-actions {
   position: absolute;
   top: 0.55rem;
   right: 0.65rem;
   margin: 0;
 }
 
-body:not(.view-mode-list) .card-title {
+body.view-mode-detail .card-title {
   font-size: var(--card-title-font);
   min-height: var(--card-title-block-height);
   max-height: var(--card-title-block-height);
 }
 
-body:not(.view-mode-list) .card-meta {
+body.view-mode-detail .card-meta {
   font-size: var(--card-meta-font);
   min-height: var(--card-meta-block-height);
   overflow: hidden;
@@ -230,21 +244,25 @@ body:not(.view-mode-list) .card-meta {
 }
 
 .card-watch-btn {
-  font-family: var(--ui-font);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
   background: var(--panel-raised);
   color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1;
   cursor: pointer;
-  padding: 0.25rem 0.55rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .card-watch-btn:hover {
-  color: var(--text);
+  color: var(--accent);
   border-color: var(--accent-border);
+  background: var(--accent-dim);
 }
 
 .card-grip,
@@ -316,7 +334,7 @@ body.reorder-active .card-grip {
   width: 85%;
 }
 
-body:not(.view-mode-list) .card.is-skeleton .card-title {
+body.view-mode-detail .card.is-skeleton .card-title {
   height: var(--card-title-block-height);
   min-height: var(--card-title-block-height);
   width: 85%;
@@ -327,7 +345,7 @@ body:not(.view-mode-list) .card.is-skeleton .card-title {
   width: 45%;
 }
 
-body:not(.view-mode-list) .card.is-skeleton .card-meta {
+body.view-mode-detail .card.is-skeleton .card-meta {
   height: var(--card-meta-block-height);
   min-height: var(--card-meta-block-height);
   width: 45%;

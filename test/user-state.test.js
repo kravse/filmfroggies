@@ -36,6 +36,7 @@ test("defaultUserState starts on local storage with the three preset lists", () 
     ["favourites", "watchlist", "watched"],
   );
   assert.equal(state.updatedAt, null);
+  assert.deepEqual(state.ratings, {});
 });
 
 test("the serialized payload carries no credential fields", () => {
@@ -48,6 +49,12 @@ test("the serialized payload carries no credential fields", () => {
 test("normalizePreferences rejects an unknown view mode", () => {
   assert.deepEqual(normalizePreferences({ viewMode: "carousel" }), {
     viewMode: "cards",
+  });
+  assert.deepEqual(normalizePreferences({ viewMode: "cards" }), {
+    viewMode: "cards",
+  });
+  assert.deepEqual(normalizePreferences({ viewMode: "detail" }), {
+    viewMode: "detail",
   });
   assert.deepEqual(normalizePreferences({ viewMode: "list" }), {
     viewMode: "list",
@@ -76,6 +83,14 @@ test("normalizeUserState cleans movie ids inside lists", () => {
     lists: [{ id: "favourites", name: "Favourites", movieIds: [5, 5, "6", -1] }],
   });
   assert.deepEqual(state.lists[0].movieIds, [5, 6]);
+});
+
+test("normalizeUserState normalizes ratings to movies in lists", () => {
+  const state = normalizeUserState({
+    lists: [{ id: "watchlist", name: "Watchlist", movieIds: [42] }],
+    ratings: { 42: 8.25, 99: 7 },
+  });
+  assert.deepEqual(state.ratings, { 42: 8.3 });
 });
 
 test("parseUserState round-trips a serialized state", () => {

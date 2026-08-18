@@ -1,0 +1,230 @@
+/* Floating add button and add-movie sheet */
+
+.add-movie-fab {
+  position: fixed;
+  right: 1rem;
+  bottom: calc(3.35rem + env(safe-area-inset-bottom, 0px));
+  z-index: 35;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.75rem 1.15rem;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent-dim), var(--panel-raised));
+  color: var(--text);
+  font-family: var(--ui-font);
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.add-movie-fab:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow:
+    0 14px 32px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+}
+
+.add-movie-fab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.add-movie-fab-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 1.15rem;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.add-movie-body {
+  overflow-y: auto;
+  padding: 0.85rem 1rem 1.25rem;
+}
+
+.add-movie-dialog .sheet-panel {
+  overflow: hidden;
+}
+
+.add-movie-dialog .search-suggest {
+  position: static;
+  top: auto;
+  left: auto;
+  right: auto;
+  margin-top: 0.35rem;
+  max-height: min(45vh, 360px);
+}
+
+.add-movie-hint {
+  margin: 0 0 0.75rem;
+  font-family: var(--ui-font);
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.add-movie-dialog .search-wrap {
+  width: 100%;
+}
+
+.add-movie-dialog .search-combobox {
+  padding: 0.15rem 0.55rem 0.15rem 0.85rem;
+}
+
+.add-movie-dialog #search {
+  font-size: 1rem;
+  padding: 0.65rem 0;
+}
+
+.add-movie-picked {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 1rem;
+  background: var(--panel-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.add-movie-picked-poster {
+  width: 44px;
+  height: 66px;
+  flex: none;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--placeholder);
+}
+
+.add-movie-picked-poster--empty {
+  display: block;
+}
+
+.add-movie-picked-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.add-movie-picked-title {
+  font-family: var(--ui-font);
+  font-size: 0.95rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.add-movie-picked-meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.add-movie-pick-label {
+  margin: 0 0 0.55rem;
+  font-family: var(--ui-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.add-list-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.add-list-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+  color: var(--text);
+  font-family: var(--ui-font);
+  font-size: 0.92rem;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.add-list-option:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-dim);
+}
+
+.add-list-option[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  box-shadow: 0 0 0 1px var(--accent-border) inset;
+}
+
+.add-list-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: none;
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--accent);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.add-list-icon-watchlist svg {
+  display: block;
+}
+
+.add-list-name {
+  flex: 1;
+}
+
+.add-movie-back {
+  margin-top: 0.85rem;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: var(--ui-font);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0.35rem 0;
+}
+
+.add-movie-back:hover {
+  color: var(--text);
+}
+
+.add-movie-pick-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.add-movie-pick-actions .primary-btn {
+  min-width: 8rem;
+}

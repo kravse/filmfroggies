@@ -28,6 +28,7 @@
 
   --radius: 12px;
   --radius-sm: 8px;
-  --layout-wide-max: 1000px;
+  --layout-wide-max: 1400px;
+  --layout-gutter: 1.25rem;
   --header-gap: 0.75rem;
 }

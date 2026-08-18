@@ -18,6 +18,9 @@ app.use(
   express.static(ROOT, {
     extensions: ["html"],
     setHeaders(res, filePath) {
+      if (!filePath.endsWith("robots.txt")) {
+        res.setHeader("X-Robots-Tag", "noindex, nofollow");
+      }
       if (filePath.endsWith("app-bundle.js") || filePath.endsWith(".css")) {
         res.setHeader("Cache-Control", "no-store");
       }

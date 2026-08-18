@@ -13,7 +13,8 @@ const appTmdb = (function () {
 
   const POSTER_SIZES = {
     suggest: "w92",
-    card: "w342",
+    card: "w185",
+    detailGrid: "w342",
     detail: "w500",
   };
 

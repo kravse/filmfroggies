@@ -4,18 +4,10 @@ header {
   z-index: 40;
   background: linear-gradient(180deg, var(--bg) 78%, rgba(14, 16, 20, 0.92));
   border-bottom: 1px solid var(--border);
-  padding: 0.9rem 1rem 0.75rem;
+  padding: 0.9rem 0 0.75rem;
   display: flex;
   flex-direction: column;
   gap: var(--header-gap);
-}
-
-.header-top,
-.controls,
-.catalog-toolbar {
-  width: 100%;
-  max-width: var(--layout-wide-max);
-  margin: 0 auto;
 }
 
 .header-top {
@@ -314,42 +306,46 @@ header {
   gap: 0.5rem;
 }
 
-.view-mode-switch {
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-}
-
 .view-mode-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.75rem;
+  width: auto;
   height: 1.75rem;
-  padding: 0;
+  padding: 0 0.55rem;
+  gap: 0.35rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--muted);
   cursor: pointer;
+  font-family: var(--ui-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
     color 0.15s ease;
 }
 
+.view-mode-label {
+  color: inherit;
+  line-height: 1;
+}
+
 .view-mode-btn:hover {
   color: var(--text);
-  border-color: var(--accent-border);
+  border-color: var(--border-strong);
+  background: var(--panel-raised);
 }
 
-.view-mode-btn[aria-pressed="true"] {
-  background: var(--accent-dim);
-  border-color: var(--accent-border);
-  color: var(--text);
-}
-
-.view-mode-btn svg {
-  display: block;
+.view-mode-btn .view-mode-icon {
+  display: none;
   flex: none;
+}
+
+.view-mode-btn[data-view-mode="cards"] .view-mode-icon--cards,
+.view-mode-btn[data-view-mode="detail"] .view-mode-icon--detail,
+.view-mode-btn[data-view-mode="list"] .view-mode-icon--list {
+  display: block;
 }

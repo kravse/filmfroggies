@@ -1,0 +1,53 @@
+body {
+  padding-bottom: calc(2.05rem + env(safe-area-inset-bottom, 0px));
+}
+
+.attribution-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.42rem 0.85rem calc(0.42rem + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border);
+  background: rgba(14, 16, 20, 0.94);
+  backdrop-filter: blur(6px);
+  font-family: var(--ui-font);
+}
+
+.attribution-bar-end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.bar-icon-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.1rem;
+  border: 0;
+  background: transparent;
+  color: rgba(232, 234, 237, 0.72);
+  cursor: pointer;
+  line-height: 0;
+  transition: color 0.15s ease;
+}
+
+.bar-icon-btn svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  display: block;
+}
+
+.bar-icon-btn:hover,
+.bar-icon-btn[aria-expanded="true"] {
+  color: var(--text);
+}

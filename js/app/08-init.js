@@ -22,14 +22,28 @@ searchSuggest.addEventListener("click", (event) => {
   pickSuggestion(Number(item.dataset.suggestIndex));
 });
 
-document.addEventListener("click", (event) => {
+addMovieDialog.addEventListener("click", (event) => {
   if (
     !searchCombobox.contains(event.target) &&
     !searchSuggest.contains(event.target)
   ) {
     hideSuggest();
   }
+  if (event.target.closest("[data-close-add-movie]")) {
+    closeAddMovieDialog();
+  }
 });
+
+addMovieFab.addEventListener("click", openAddMovieDialog);
+addMovieClose.addEventListener("click", closeAddMovieDialog);
+addMovieBack.addEventListener("click", () => {
+  showAddSearchStep();
+  searchInput.focus();
+});
+addMovieListPicker.addEventListener("click", onAddListOptionClick);
+addMovieSubmit.addEventListener("click", confirmAddMovie);
+addMovieRatingEnabled.addEventListener("change", onAddMovieRatingEnabledChange);
+addMovieRatingSlider.addEventListener("input", onAddMovieRatingSliderInput);
 
 /* --- Grid --- */
 
@@ -124,20 +138,8 @@ listTabs.addEventListener("keydown", (event) => {
 
 /* --- Toolbar --- */
 
-viewModeCardsBtn.addEventListener("click", () => {
-  if (gridViewMode === "cards") {
-    return;
-  }
-  setViewMode("cards");
-  persistUserState();
-  render();
-});
-
-viewModeListBtn.addEventListener("click", () => {
-  if (gridViewMode === "list") {
-    return;
-  }
-  setViewMode("list");
+viewModeCycleBtn.addEventListener("click", () => {
+  setViewMode(nextViewMode(gridViewMode));
   persistUserState();
   render();
 });
@@ -150,6 +152,23 @@ detailNextBtn.addEventListener("click", () => stepDetail(1));
 detailDialog.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-detail")) {
     closeDetail();
+    return;
+  }
+  if (event.target.id === "detail-rating-summary") {
+    toggleDetailRatingEditor();
+    return;
+  }
+  if (event.target.id === "detail-rating-done") {
+    closeDetailRatingEditor();
+    return;
+  }
+  if (event.target.id === "detail-rating-clear") {
+    clearDetailRating();
+  }
+});
+detailDialog.addEventListener("input", (event) => {
+  if (event.target.id === "detail-rating-slider") {
+    onDetailRatingSliderInput(event);
   }
 });
 detailActions.addEventListener("click", (event) => {
@@ -280,7 +299,20 @@ document.addEventListener("keydown", (event) => {
       closeSettings();
       return;
     }
+    if (!addMovieDialog.hidden) {
+      if (!addMoviePickStep.hidden) {
+        showAddSearchStep();
+        searchInput.focus();
+      } else {
+        closeAddMovieDialog();
+      }
+      return;
+    }
     if (detailMovieId != null) {
+      if (detailRatingEditorOpen) {
+        closeDetailRatingEditor();
+        return;
+      }
       closeDetail();
     }
     return;

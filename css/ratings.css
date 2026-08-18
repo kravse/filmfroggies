@@ -1,0 +1,121 @@
+/* User-assigned movie ratings (slider + discrete badges) */
+
+.user-rating-field {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+  font-family: var(--ui-font);
+}
+
+.user-rating-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.user-rating-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.user-rating-value {
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+.user-rating-value.is-empty {
+  color: var(--muted-dim);
+}
+
+.user-rating-slider {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.user-rating-slider:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.user-rating-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.25rem;
+  font-size: 0.64rem;
+  color: var(--muted-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.user-rating-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.user-rating-toggle input {
+  accent-color: var(--accent);
+}
+
+.user-rating-clear {
+  margin-top: 0.55rem;
+  padding-inline: 0.55rem;
+}
+
+.card-user-rating {
+  position: absolute;
+  left: 0.35rem;
+  bottom: 0.35rem;
+  z-index: 2;
+  padding: 0.12rem 0.38rem;
+  border-radius: 4px;
+  background: rgba(14, 16, 20, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(232, 234, 237, 0.82);
+  font-family: var(--ui-font);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  pointer-events: none;
+}
+
+body.view-mode-detail .card-user-rating {
+  left: 0.2rem;
+  bottom: 0.2rem;
+  padding: 0.06rem 0.28rem;
+  font-size: 0.58rem;
+  border-radius: 3px;
+}
+
+body.view-mode-list .card-user-rating {
+  position: static;
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.08rem 0.32rem;
+  vertical-align: baseline;
+  background: var(--panel-raised);
+  border-color: var(--border);
+  color: var(--muted);
+  font-size: 0.66rem;
+}
+
+body.view-mode-list .card-meta .card-user-rating {
+  margin-left: 0;
+}
+
+.card-meta-rating {
+  color: var(--muted-dim);
+}

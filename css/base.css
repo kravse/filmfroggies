@@ -17,7 +17,6 @@ body {
   font-size: 0.9375rem;
   line-height: 1.55;
   min-height: 100vh;
-  padding-bottom: 4rem;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -30,17 +29,23 @@ a {
   color: var(--accent);
 }
 
-main {
+.page-shell {
+  width: 100%;
   max-width: var(--layout-wide-max);
   margin: 0 auto;
-  padding: 1.25rem 1rem 2rem;
+  padding-inline: var(--layout-gutter);
+  box-sizing: border-box;
 }
 
-@media (min-width: 1001px) {
-  main {
-    padding-left: 0;
-    padding-right: 0;
-  }
+header .page-shell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--header-gap);
+}
+
+main.page-shell {
+  padding-top: 1.25rem;
+  padding-bottom: 2rem;
 }
 
 .empty-state {
@@ -67,8 +72,7 @@ main {
 
 .ghost-btn,
 .primary-btn,
-.icon-btn,
-.bar-btn {
+.icon-btn {
   font-family: var(--ui-font);
   cursor: pointer;
   border-radius: var(--radius-sm);

@@ -71,6 +71,23 @@ function persistUserState(options = {}) {
   }
 }
 
+function updateRatings(nextRatings) {
+  if (nextRatings === userState.ratings) {
+    return false;
+  }
+  userState = { ...userState, ratings: nextRatings };
+  return true;
+}
+
+function setMovieRating(movieId, rating) {
+  const nextRatings = appRatings.setRating(userState.ratings, movieId, rating);
+  if (!updateRatings(nextRatings)) {
+    return false;
+  }
+  persistUserState();
+  return true;
+}
+
 function updateLists(nextLists) {
   if (nextLists === userState.lists) {
     return false;
@@ -79,15 +96,38 @@ function updateLists(nextLists) {
   return true;
 }
 
+const VIEW_MODE_CYCLE = ["cards", "detail", "list"];
+
+const VIEW_MODE_LABELS = {
+  cards: "Card view",
+  detail: "Detail view",
+  list: "List view",
+};
+
+function nextViewMode(mode) {
+  const index = VIEW_MODE_CYCLE.indexOf(mode);
+  const next = index < 0 ? 0 : (index + 1) % VIEW_MODE_CYCLE.length;
+  return VIEW_MODE_CYCLE[next];
+}
+
+function syncViewModeButton() {
+  if (!viewModeCycleBtn) {
+    return;
+  }
+  viewModeCycleBtn.dataset.viewMode = gridViewMode;
+  viewModeCycleBtn.setAttribute("aria-label", VIEW_MODE_LABELS[gridViewMode]);
+}
+
 function setViewMode(mode) {
-  gridViewMode = mode === "list" ? "list" : "cards";
+  gridViewMode = appUserState.normalizePreferences({ viewMode: mode }).viewMode;
   userState = {
     ...userState,
     preferences: { ...userState.preferences, viewMode: gridViewMode },
   };
+  document.body.classList.toggle("view-mode-cards", gridViewMode === "cards");
+  document.body.classList.toggle("view-mode-detail", gridViewMode === "detail");
   document.body.classList.toggle("view-mode-list", gridViewMode === "list");
-  viewModeCardsBtn.setAttribute("aria-pressed", String(gridViewMode === "cards"));
-  viewModeListBtn.setAttribute("aria-pressed", String(gridViewMode === "list"));
+  syncViewModeButton();
 }
 
 /* --- Gist sync --- */
