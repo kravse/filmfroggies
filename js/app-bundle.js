@@ -28,7 +28,7 @@ const addMovieListPicker = document.getElementById("add-movie-list-picker");
 const addMovieSubmit = document.getElementById("add-movie-submit");
 const addMovieRatingSlider = document.getElementById("add-movie-rating-slider");
 const addMovieRatingValue = document.getElementById("add-movie-rating-value");
-const addMovieRatingEnabled = document.getElementById("add-movie-rating-enabled");
+const addMovieRatingField = document.getElementById("add-movie-rating-field");
 const addMovieBack = document.getElementById("add-movie-back");
 
 const viewModeCycleBtn = document.getElementById("view-mode-cycle");
@@ -1994,35 +1994,34 @@ let suggestRequestToken = 0;
 let pendingAddResult = null;
 let selectedAddListId = null;
 let pendingAddRating = null;
+let addMovieRatingTouched = false;
 
 function resetAddMovieRatingControls() {
   pendingAddRating = null;
-  addMovieRatingEnabled.checked = false;
-  addMovieRatingSlider.disabled = true;
+  addMovieRatingTouched = false;
   addMovieRatingSlider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
   addMovieRatingValue.textContent = "—";
   addMovieRatingValue.classList.add("is-empty");
+  addMovieRatingField?.classList.remove("is-active");
 }
 
 function syncAddMovieRatingDisplay() {
-  if (!addMovieRatingEnabled.checked) {
+  if (!addMovieRatingTouched) {
     addMovieRatingValue.textContent = "—";
     addMovieRatingValue.classList.add("is-empty");
+    addMovieRatingField?.classList.remove("is-active");
     pendingAddRating = null;
     return;
   }
+  addMovieRatingField?.classList.add("is-active");
   const rating = appRatings.ratingFromSliderValue(Number(addMovieRatingSlider.value));
   pendingAddRating = rating;
   addMovieRatingValue.textContent = appRatings.formatUserRating(rating);
   addMovieRatingValue.classList.remove("is-empty");
 }
 
-function onAddMovieRatingEnabledChange() {
-  addMovieRatingSlider.disabled = !addMovieRatingEnabled.checked;
-  syncAddMovieRatingDisplay();
-}
-
 function onAddMovieRatingSliderInput() {
+  addMovieRatingTouched = true;
   syncAddMovieRatingDisplay();
 }
 
@@ -3436,7 +3435,6 @@ addMovieBack.addEventListener("click", () => {
 });
 addMovieListPicker.addEventListener("click", onAddListOptionClick);
 addMovieSubmit.addEventListener("click", confirmAddMovie);
-addMovieRatingEnabled.addEventListener("change", onAddMovieRatingEnabledChange);
 addMovieRatingSlider.addEventListener("input", onAddMovieRatingSliderInput);
 
 /* --- Grid --- */

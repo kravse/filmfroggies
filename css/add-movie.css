@@ -205,7 +205,6 @@
 }
 
 .add-movie-back {
-  margin-top: 0.85rem;
   background: transparent;
   border: none;
   color: var(--muted);
@@ -213,6 +212,7 @@
   font-size: 0.82rem;
   cursor: pointer;
   padding: 0.35rem 0;
+  flex: none;
 }
 
 .add-movie-back:hover {
@@ -221,10 +221,13 @@
 
 .add-movie-pick-actions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   margin-top: 1rem;
 }
 
 .add-movie-pick-actions .primary-btn {
   min-width: 8rem;
+  flex: none;
 }

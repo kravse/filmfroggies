@@ -26,7 +26,7 @@ const addMovieListPicker = document.getElementById("add-movie-list-picker");
 const addMovieSubmit = document.getElementById("add-movie-submit");
 const addMovieRatingSlider = document.getElementById("add-movie-rating-slider");
 const addMovieRatingValue = document.getElementById("add-movie-rating-value");
-const addMovieRatingEnabled = document.getElementById("add-movie-rating-enabled");
+const addMovieRatingField = document.getElementById("add-movie-rating-field");
 const addMovieBack = document.getElementById("add-movie-back");
 
 const viewModeCycleBtn = document.getElementById("view-mode-cycle");

@@ -126,8 +126,6 @@
 
 button.detail-rating-chip {
   cursor: pointer;
-  min-height: 2rem;
-  padding: 0.35rem 0.75rem;
   touch-action: manipulation;
 }
 
@@ -177,16 +175,18 @@ button.detail-rating-chip.is-rated[aria-expanded="true"] {
 }
 
 .detail-rating-editor-value {
+  flex: none;
+  min-width: 3ch;
   font-family: var(--display-font);
   font-size: 2.15rem;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+  text-align: right;
   color: var(--accent);
 }
 
 .detail-rating-editor-value.is-empty {
-  font-size: 1.5rem;
   color: var(--muted-dim);
 }
 

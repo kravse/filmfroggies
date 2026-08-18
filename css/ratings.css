@@ -2,9 +2,19 @@
 
 .user-rating-field {
   margin-top: 0.85rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--border);
+  padding: 0.85rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
   font-family: var(--ui-font);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.user-rating-field.is-active {
+  background: var(--accent-dim);
+  border-color: var(--accent-border);
 }
 
 .user-rating-header {
@@ -22,10 +32,14 @@
   color: var(--muted-dim);
 }
 
+.user-rating-field.is-active .user-rating-label {
+  color: var(--muted);
+}
+
 .user-rating-value {
   font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
-  color: var(--text);
+  color: var(--muted);
   min-width: 2.5rem;
   text-align: right;
 }
@@ -34,11 +48,19 @@
   color: var(--muted-dim);
 }
 
+.user-rating-field.is-active .user-rating-value {
+  color: var(--accent);
+}
+
 .user-rating-slider {
   width: 100%;
   margin: 0;
-  accent-color: var(--accent);
+  accent-color: var(--muted-dim);
   cursor: pointer;
+}
+
+.user-rating-field.is-active .user-rating-slider {
+  accent-color: var(--accent);
 }
 
 .user-rating-slider:disabled {
@@ -53,20 +75,6 @@
   font-size: 0.64rem;
   color: var(--muted-dim);
   font-variant-numeric: tabular-nums;
-}
-
-.user-rating-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  margin-top: 0.55rem;
-  font-size: 0.82rem;
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.user-rating-toggle input {
-  accent-color: var(--accent);
 }
 
 .user-rating-clear {

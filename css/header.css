@@ -104,13 +104,22 @@ header {
 }
 
 .search-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
   background: transparent;
   border: none;
   color: var(--muted);
   cursor: pointer;
-  font-size: 1.25rem;
-  line-height: 1;
-  padding: 0 0.2rem;
+  padding: 0;
+  border-radius: var(--radius-sm);
+}
+
+.search-clear svg {
+  display: block;
 }
 
 .search-clear:hover {

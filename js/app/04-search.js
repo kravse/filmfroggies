@@ -14,35 +14,34 @@ let suggestRequestToken = 0;
 let pendingAddResult = null;
 let selectedAddListId = null;
 let pendingAddRating = null;
+let addMovieRatingTouched = false;
 
 function resetAddMovieRatingControls() {
   pendingAddRating = null;
-  addMovieRatingEnabled.checked = false;
-  addMovieRatingSlider.disabled = true;
+  addMovieRatingTouched = false;
   addMovieRatingSlider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
   addMovieRatingValue.textContent = "—";
   addMovieRatingValue.classList.add("is-empty");
+  addMovieRatingField?.classList.remove("is-active");
 }
 
 function syncAddMovieRatingDisplay() {
-  if (!addMovieRatingEnabled.checked) {
+  if (!addMovieRatingTouched) {
     addMovieRatingValue.textContent = "—";
     addMovieRatingValue.classList.add("is-empty");
+    addMovieRatingField?.classList.remove("is-active");
     pendingAddRating = null;
     return;
   }
+  addMovieRatingField?.classList.add("is-active");
   const rating = appRatings.ratingFromSliderValue(Number(addMovieRatingSlider.value));
   pendingAddRating = rating;
   addMovieRatingValue.textContent = appRatings.formatUserRating(rating);
   addMovieRatingValue.classList.remove("is-empty");
 }
 
-function onAddMovieRatingEnabledChange() {
-  addMovieRatingSlider.disabled = !addMovieRatingEnabled.checked;
-  syncAddMovieRatingDisplay();
-}
-
 function onAddMovieRatingSliderInput() {
+  addMovieRatingTouched = true;
   syncAddMovieRatingDisplay();
 }
 

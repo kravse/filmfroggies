@@ -144,10 +144,17 @@
           <button
             type="button"
             id="add-movie-close"
-            class="sheet-close"
+            class="icon-btn"
             aria-label="Close"
           >
-            &times;
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none">
+              <path
+                d="M6 6l8 8M14 6l-8 8"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+              />
+            </svg>
           </button>
         </div>
         <div class="sheet-body add-movie-body">
@@ -176,7 +183,14 @@
                   aria-label="Clear search"
                   hidden
                 >
-                  &times;
+                  <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none">
+                    <path
+                      d="M6 6l8 8M14 6l-8 8"
+                      stroke="currentColor"
+                      stroke-width="1.75"
+                      stroke-linecap="round"
+                    />
+                  </svg>
                 </button>
               </div>
               <ul
@@ -244,26 +258,21 @@
                 max="90"
                 step="1"
                 value="60"
-                disabled
-                aria-label="Your rating from 1 to 10"
+                aria-label="Your rating from 1 to 10 (optional)"
               />
               <div class="user-rating-scale" aria-hidden="true">
                 <span>1</span>
                 <span>10</span>
               </div>
-              <label class="user-rating-toggle">
-                <input type="checkbox" id="add-movie-rating-enabled" />
-                Rate this movie
-              </label>
             </div>
             <div class="add-movie-pick-actions">
+              <button type="button" class="add-movie-back" id="add-movie-back">
+                Back to search
+              </button>
               <button type="button" class="primary-btn" id="add-movie-submit">
                 Add to list
               </button>
             </div>
-            <button type="button" class="add-movie-back" id="add-movie-back">
-              Back to search
-            </button>
           </div>
         </div>
       </div>
@@ -340,7 +349,14 @@
             class="icon-btn"
             aria-label="Close settings"
           >
-            &times;
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none">
+              <path
+                d="M6 6l8 8M14 6l-8 8"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+              />
+            </svg>
           </button>
         </div>
         <div class="sheet-scroll">
@@ -462,7 +478,14 @@
             class="icon-btn"
             aria-label="Close about"
           >
-            &times;
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none">
+              <path
+                d="M6 6l8 8M14 6l-8 8"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+              />
+            </svg>
           </button>
         </div>
         <div class="sheet-scroll">
@@ -519,7 +542,14 @@
             class="icon-btn"
             aria-label="Close movie detail"
           >
-            &times;
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none">
+              <path
+                d="M6 6l8 8M14 6l-8 8"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+              />
+            </svg>
           </button>
         </div>
         <div class="movie-detail-scroll" id="movie-detail-scroll">

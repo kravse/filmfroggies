@@ -42,7 +42,6 @@ addMovieBack.addEventListener("click", () => {
 });
 addMovieListPicker.addEventListener("click", onAddListOptionClick);
 addMovieSubmit.addEventListener("click", confirmAddMovie);
-addMovieRatingEnabled.addEventListener("change", onAddMovieRatingEnabledChange);
 addMovieRatingSlider.addEventListener("input", onAddMovieRatingSliderInput);
 
 /* --- Grid --- */
