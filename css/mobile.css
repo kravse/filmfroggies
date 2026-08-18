@@ -192,6 +192,10 @@
     display: none;
   }
 
+  .sort-label {
+    display: none;
+  }
+
   .view-mode-btn {
     width: 1.75rem;
     height: 1.75rem;

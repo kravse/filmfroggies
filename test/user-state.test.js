@@ -49,15 +49,30 @@ test("the serialized payload carries no credential fields", () => {
 test("normalizePreferences rejects an unknown view mode and migrates list to cards", () => {
   assert.deepEqual(normalizePreferences({ viewMode: "carousel" }), {
     viewMode: "cards",
+    sort: "custom",
   });
   assert.deepEqual(normalizePreferences({ viewMode: "cards" }), {
     viewMode: "cards",
+    sort: "custom",
   });
   assert.deepEqual(normalizePreferences({ viewMode: "detail" }), {
     viewMode: "detail",
+    sort: "custom",
   });
   assert.deepEqual(normalizePreferences({ viewMode: "list" }), {
     viewMode: "cards",
+    sort: "custom",
+  });
+});
+
+test("normalizePreferences normalizes watched sort modes", () => {
+  assert.deepEqual(normalizePreferences({ sort: "year-desc" }), {
+    viewMode: "cards",
+    sort: "year-desc",
+  });
+  assert.deepEqual(normalizePreferences({ sort: "invalid" }), {
+    viewMode: "cards",
+    sort: "custom",
   });
 });
 

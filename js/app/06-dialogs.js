@@ -266,7 +266,7 @@ function renderDetail() {
     return;
   }
 
-  const ids = activeMovieIds();
+  const ids = displayMovieIds();
   const index = ids.indexOf(detailMovieId);
   const record = movieById.get(detailMovieId);
 
@@ -362,7 +362,7 @@ function closeDetail(options = {}) {
 }
 
 function stepDetail(delta) {
-  const ids = activeMovieIds();
+  const ids = displayMovieIds();
   const index = ids.indexOf(detailMovieId);
   const nextIndex = index + delta;
   if (index < 0 || nextIndex < 0 || nextIndex >= ids.length) {

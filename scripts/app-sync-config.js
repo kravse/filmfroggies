@@ -103,6 +103,23 @@ const APP_SYNC_ENTRIES = [
     ],
   },
   {
+    sources: [path.join(LIB, "sort.js")],
+    target: "00-app-sort.js",
+    globalName: "appSort",
+    header: "Generated from scripts/lib/sort.js — run npm run bundle",
+    exports: [
+      "SORT_MODES",
+      "DEFAULT_SORT",
+      "normalizeSort",
+      "isCustomSort",
+      "parseYear",
+      "buildOrderIndex",
+      "compareOrderTiebreak",
+      "sortMovieIds",
+      "formatSortCardHint",
+    ],
+  },
+  {
     sources: [path.join(LIB, "user-state.js")],
     target: "00-app-user-state.js",
     globalName: "appUserState",

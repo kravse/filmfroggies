@@ -32,8 +32,9 @@ The token is stored in your browser's `localStorage` under `moviecollector-tmdb-
 1. Type in the search box to get TMDB autocomplete. Arrow keys navigate, Enter or click adds the movie to the active list.
 2. Toggle **card** and **detail** view in the toolbar; the choice persists.
 3. Click any card to open the detail overlay — poster, year, runtime, genres, rating, director, cast, and overview. Arrow keys move between movies; Escape closes. Overlays deep-link as `#movie/{id}`.
-4. On **Watched** or **Watchlist**, tap **reorder** (bottom left) to unlock drag handles and reorder. Tap again to lock when finished.
-5. **Settings** stores your TMDB token and, optionally, connects GitHub Gist sync so lists follow you across devices.
+4. On **Watched**, use the **Sort** dropdown for display order (custom order, release year, fan rating, my rating, title). Sort never changes stored order; switch back to **Custom order** to drag-reorder. **Watchlist** is always manual order.
+5. On **Watched** or **Watchlist**, tap **reorder** (bottom left) to unlock drag handles when **Custom order** is selected. Tap again to lock when finished.
+6. **Settings** stores your TMDB token and, optionally, connects GitHub Gist sync so lists follow you across devices.
 
 ### The two lists
 

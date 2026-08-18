@@ -34,6 +34,8 @@ const addMovieRatingField = document.getElementById("add-movie-rating-field");
 const addMovieBack = document.getElementById("add-movie-back");
 
 const viewModeCycleBtn = document.getElementById("view-mode-cycle");
+const sortControl = document.getElementById("sort-control");
+const listSortSelect = document.getElementById("list-sort");
 const reorderModeBtn = document.getElementById("reorder-mode-btn");
 const grid = document.getElementById("grid");
 const emptyState = document.getElementById("empty-state");
@@ -115,6 +117,25 @@ function activeList() {
 
 function activeMovieIds() {
   return activeList()?.movieIds || [];
+}
+
+function isWatchedListActive() {
+  return userState?.activeListId === appLists.WATCHED_ID;
+}
+
+function usesCustomDisplayOrder() {
+  return !isWatchedListActive() || appSort.isCustomSort(userState.preferences.sort);
+}
+
+function displayMovieIds() {
+  const ids = activeMovieIds();
+  if (!isWatchedListActive()) {
+    return ids;
+  }
+  return appSort.sortMovieIds(ids, userState.preferences.sort, {
+    getRecord: (id) => movieById.get(id),
+    getUserRating: (id) => appRatings.getRating(userState.ratings, id),
+  });
 }
 
 function setStatus(element, message, tone) {
@@ -937,6 +958,221 @@ const appRatings = (function () {
   };
 })();
 
+/* ===== Watched list display sort (generated from scripts/lib/sort.js) ===== */
+
+/* Generated from scripts/lib/sort.js — run npm run bundle */
+
+const appSort = (function () {
+  /**
+   * Display-only sort for the Watched list. Stored `movieIds` order is untouched;
+   * custom order matches storage and is the only mode compatible with drag reorder.
+   */
+
+  const SORT_MODES = new Set([
+    "custom",
+    "year-asc",
+    "year-desc",
+    "rating-desc",
+    "rating-asc",
+    "user-rating-desc",
+    "user-rating-asc",
+    "title-asc",
+    "title-desc",
+  ]);
+
+  const DEFAULT_SORT = "custom";
+  const MISSING_SORT_HINT = "—";
+
+  function formatFanRating(voteAverage) {
+    const value = Number(voteAverage);
+    if (!Number.isFinite(value) || value <= 0) {
+      return null;
+    }
+    return value.toFixed(1);
+  }
+
+  function formatUserRatingHint(userRating) {
+    if (userRating == null || userRating === "") {
+      return null;
+    }
+    const value = Number(userRating);
+    if (!Number.isFinite(value)) {
+      return null;
+    }
+    if (Number.isInteger(value)) {
+      return String(value);
+    }
+    return value.toFixed(1);
+  }
+
+  function normalizeSort(raw, fallback = DEFAULT_SORT) {
+    if (raw && SORT_MODES.has(raw)) {
+      return raw;
+    }
+    return fallback;
+  }
+
+  function isCustomSort(mode) {
+    return normalizeSort(mode) === DEFAULT_SORT;
+  }
+
+  function parseYear(releaseDate) {
+    if (!releaseDate) {
+      return null;
+    }
+    const match = String(releaseDate).match(/\d{4}/);
+    return match ? match[0] : null;
+  }
+
+  function buildOrderIndex(movieIds) {
+    return new Map(movieIds.map((id, index) => [Number(id), index]));
+  }
+
+  function compareOrderTiebreak(a, b, orderIndex) {
+    const indexA = orderIndex.has(a) ? orderIndex.get(a) : a;
+    const indexB = orderIndex.has(b) ? orderIndex.get(b) : b;
+    if (indexA !== indexB) {
+      return indexA - indexB;
+    }
+    return a - b;
+  }
+
+  function compareNullableNumber(a, b, direction, tiebreak) {
+    const aMissing = a == null;
+    const bMissing = b == null;
+    if (aMissing && bMissing) {
+      return tiebreak();
+    }
+    if (aMissing) {
+      return 1;
+    }
+    if (bMissing) {
+      return -1;
+    }
+    if (a !== b) {
+      return direction === "asc" ? a - b : b - a;
+    }
+    return tiebreak();
+  }
+
+  function compareYear(a, b, direction, orderIndex, getRecord) {
+    const yearA = parseYear(getRecord(a)?.releaseDate);
+    const yearB = parseYear(getRecord(b)?.releaseDate);
+    if (yearA == null && yearB == null) {
+      return compareOrderTiebreak(a, b, orderIndex);
+    }
+    if (yearA == null) {
+      return 1;
+    }
+    if (yearB == null) {
+      return -1;
+    }
+    if (yearA !== yearB) {
+      return direction === "asc" ? yearA.localeCompare(yearB) : yearB.localeCompare(yearA);
+    }
+    return compareOrderTiebreak(a, b, orderIndex);
+  }
+
+  function sortMovieIds(movieIds, mode, context = {}) {
+    const normalized = normalizeSort(mode);
+    if (normalized === DEFAULT_SORT) {
+      return [...movieIds];
+    }
+
+    const orderIndex = buildOrderIndex(movieIds);
+    const getRecord = typeof context.getRecord === "function" ? context.getRecord : () => null;
+    const getUserRating =
+      typeof context.getUserRating === "function" ? context.getUserRating : () => null;
+    const tiebreak = (a, b) => compareOrderTiebreak(a, b, orderIndex);
+    const copy = [...movieIds];
+
+    if (normalized === "title-asc" || normalized === "title-desc") {
+      return copy.sort((a, b) => {
+        const cmp = (getRecord(a)?.title || "").localeCompare(getRecord(b)?.title || "");
+        if (cmp !== 0) {
+          return normalized === "title-asc" ? cmp : -cmp;
+        }
+        return tiebreak(a, b);
+      });
+    }
+
+    if (normalized === "year-asc" || normalized === "year-desc") {
+      const direction = normalized === "year-asc" ? "asc" : "desc";
+      return copy.sort((a, b) => compareYear(a, b, direction, orderIndex, getRecord));
+    }
+
+    if (normalized === "rating-asc" || normalized === "rating-desc") {
+      const direction = normalized === "rating-asc" ? "asc" : "desc";
+      return copy.sort((a, b) =>
+        compareNullableNumber(
+          getRecord(a)?.voteAverage,
+          getRecord(b)?.voteAverage,
+          direction,
+          () => tiebreak(a, b),
+        ),
+      );
+    }
+
+    if (normalized === "user-rating-asc" || normalized === "user-rating-desc") {
+      const direction = normalized === "user-rating-asc" ? "asc" : "desc";
+      return copy.sort((a, b) =>
+        compareNullableNumber(
+          getUserRating(a),
+          getUserRating(b),
+          direction,
+          () => tiebreak(a, b),
+        ),
+      );
+    }
+
+    return copy;
+  }
+
+  /** Short label for small-card view when Watched is sorted (not custom order). */
+  function formatSortCardHint(mode, context = {}) {
+    const normalized = normalizeSort(mode);
+    if (normalized === DEFAULT_SORT) {
+      return null;
+    }
+
+    const record = context.record;
+    if (!record) {
+      return null;
+    }
+
+    if (normalized === "year-asc" || normalized === "year-desc") {
+      return parseYear(record.releaseDate) || MISSING_SORT_HINT;
+    }
+
+    if (normalized === "rating-asc" || normalized === "rating-desc") {
+      return formatFanRating(record.voteAverage) || MISSING_SORT_HINT;
+    }
+
+    if (normalized === "user-rating-asc" || normalized === "user-rating-desc") {
+      return formatUserRatingHint(context.userRating) || MISSING_SORT_HINT;
+    }
+
+    if (normalized === "title-asc" || normalized === "title-desc") {
+      const title = String(record.title || "").trim();
+      return title || MISSING_SORT_HINT;
+    }
+
+    return null;
+  }
+
+  return {
+    SORT_MODES,
+    DEFAULT_SORT,
+    normalizeSort,
+    isCustomSort,
+    parseYear,
+    buildOrderIndex,
+    compareOrderTiebreak,
+    sortMovieIds,
+    formatSortCardHint,
+  };
+})();
+
 /* ===== User state persistence (generated from scripts/lib/user-state.js) ===== */
 
 /* Generated from scripts/lib/user-state.js — run npm run bundle */
@@ -979,8 +1215,18 @@ const appUserState = (function () {
     throw new Error("appRatings is not available");
   }
 
+  function getSort() {
+    if (typeof appSort !== "undefined") {
+      return appSort;
+    }
+    if (typeof require === "function") {
+      return require("./sort");
+    }
+    throw new Error("appSort is not available");
+  }
+
   function defaultPreferences() {
-    return { viewMode: "cards" };
+    return { viewMode: "cards", sort: getSort().DEFAULT_SORT };
   }
 
   function defaultUserState() {
@@ -1007,6 +1253,7 @@ const appUserState = (function () {
     }
     return {
       viewMode: VIEW_MODES.has(viewMode) ? viewMode : base.viewMode,
+      sort: getSort().normalizeSort(raw.sort, base.sort),
     };
   }
 
@@ -2518,9 +2765,6 @@ function cardMetaText(record) {
 }
 
 function cardUserRatingHtml(movieId) {
-  if (gridViewMode !== "detail") {
-    return "";
-  }
   const label = appRatings.formatUserRating(
     appRatings.getRating(userState.ratings, movieId),
   );
@@ -2528,6 +2772,37 @@ function cardUserRatingHtml(movieId) {
     return "";
   }
   return `<span class="card-user-rating" aria-label="Your rating ${appCardHtml.escapeHtml(label)}">${appCardHtml.escapeHtml(label)}</span>`;
+}
+
+function isFanRatingSortMode() {
+  const sortMode = userState?.preferences.sort;
+  return sortMode === "rating-asc" || sortMode === "rating-desc";
+}
+
+function cardFanRatingHtml(movieId) {
+  if (!isWatchedListActive() || usesCustomDisplayOrder() || !isFanRatingSortMode()) {
+    return "";
+  }
+  const record = movieById.get(movieId);
+  if (!record) {
+    return "";
+  }
+  const label = appCardHtml.formatRating(record.voteAverage);
+  const text = label || "—";
+  const emptyClass = label ? "" : " is-empty";
+  return `<span class="card-fan-rating${emptyClass}" aria-label="Fan rating ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
+}
+
+function cardPosterRatingsHtml(movieId) {
+  if (gridViewMode !== "detail") {
+    return "";
+  }
+  const fan = cardFanRatingHtml(movieId);
+  const user = cardUserRatingHtml(movieId);
+  if (!fan && !user) {
+    return "";
+  }
+  return `<div class="card-poster-ratings">${fan}${user}</div>`;
 }
 
 /**
@@ -2544,6 +2819,38 @@ function cardActionsHtml(movieId) {
   return "";
 }
 
+function cardSortHintHtml(movieId) {
+  if (
+    gridViewMode !== "cards" ||
+    !isWatchedListActive() ||
+    usesCustomDisplayOrder()
+  ) {
+    return "";
+  }
+  const sortMode = userState.preferences.sort;
+  const userRating = appRatings.getRating(userState.ratings, movieId);
+  const hint = appSort.formatSortCardHint(sortMode, {
+    record: movieById.get(movieId),
+    userRating,
+  });
+  if (!hint) {
+    return "";
+  }
+  const isUserRatingSort =
+    sortMode === "user-rating-asc" || sortMode === "user-rating-desc";
+  const isFanRatingSort = isFanRatingSortMode();
+  let className = "card-sort-hint";
+  if (isUserRatingSort) {
+    className += " is-user-rating";
+    if (userRating == null) {
+      className += " is-empty";
+    }
+  } else if (isFanRatingSort) {
+    className += " is-fan-rating";
+  }
+  return `<div class="${className}">${appCardHtml.escapeHtml(hint)}</div>`;
+}
+
 function cardPosterOnlyHtml(movieId) {
   const record = movieById.get(movieId);
   if (!record) {
@@ -2551,21 +2858,41 @@ function cardPosterOnlyHtml(movieId) {
     const body = failed
       ? `<div class="placeholder">Could not load</div>`
       : `<div class="placeholder"></div>`;
-    return `<div class="poster-wrap">${body}</div>`;
+    return `<div class="poster-wrap">${body}</div>${cardSortHintHtml(movieId)}`;
   }
   const grip = listShowsReorderGrip()
     ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>`
     : "";
-  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>`;
+  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>${cardSortHintHtml(movieId)}`;
 }
 
 function listShowsReorderGrip() {
-  return appLists.isListReorderable(userState.activeListId) && reorderModeActive;
+  return (
+    appLists.isListReorderable(userState.activeListId) &&
+    reorderModeActive &&
+    usesCustomDisplayOrder()
+  );
+}
+
+function syncSortControlUi() {
+  const show =
+    isWatchedListActive() && activeMovieIds().length > 0 && hasTmdbAccess();
+  if (sortControl) {
+    sortControl.hidden = !show;
+  }
+  if (listSortSelect) {
+    if (show) {
+      listSortSelect.value = userState.preferences.sort;
+      listSortSelect.disabled = reorderModeActive;
+    }
+  }
 }
 
 function syncReorderModeUi() {
   const canReorder =
-    appLists.isListReorderable(userState.activeListId) && activeMovieIds().length > 0;
+    appLists.isListReorderable(userState.activeListId) &&
+    activeMovieIds().length > 0 &&
+    usesCustomDisplayOrder();
   if (!canReorder) {
     reorderModeActive = false;
   }
@@ -2586,6 +2913,21 @@ function syncReorderModeUi() {
   }
   document.body.classList.toggle("reorder-mode", reorderModeActive);
   document.body.classList.toggle("order-locked", canReorder && orderLocked);
+  syncSortControlUi();
+}
+
+function setSortMode(mode) {
+  const next = appSort.normalizeSort(mode);
+  if (next === userState.preferences.sort) {
+    syncSortControlUi();
+    return;
+  }
+  userState = { ...userState, preferences: { ...userState.preferences, sort: next } };
+  if (!appSort.isCustomSort(next)) {
+    reorderModeActive = false;
+  }
+  persistUserState();
+  render();
 }
 
 function setReorderMode(active) {
@@ -2626,7 +2968,7 @@ function cardInnerHtml(movieId) {
 
   return `<div class="poster-wrap">
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
-  ${cardUserRatingHtml(movieId)}
+  ${cardPosterRatingsHtml(movieId)}
   ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
   <button type="button" class="card-remove" aria-label="Remove ${appCardHtml.escapeHtml(record.title)}" title="Remove movie">&times;</button>
 </div>
@@ -2675,13 +3017,10 @@ function updateListHeader() {
   if (count && !hasTmdbAccess()) {
     listSubtitleEl.textContent = "Add a TMDB credential in Settings to load details";
   } else if (count) {
-    if (userState.activeListId === appLists.WATCHED_ID) {
-      listSubtitleEl.textContent =
-        gridViewMode === "cards"
-          ? "+ Add a movie · tap a poster for details"
-          : "+ Add a movie · sorted by date added";
-    } else if (reorderModeActive) {
+    if (reorderModeActive) {
       listSubtitleEl.textContent = "+ Add a movie · drag to reorder";
+    } else if (!usesCustomDisplayOrder()) {
+      listSubtitleEl.textContent = "+ Add a movie · sorted view";
     } else {
       listSubtitleEl.textContent =
         gridViewMode === "cards"
@@ -2734,7 +3073,7 @@ function renderEmptyState(count) {
 }
 
 function render() {
-  const ids = activeMovieIds();
+  const ids = displayMovieIds();
   grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
   bindPosterImages(grid);
   renderListTabs();
@@ -2746,6 +3085,13 @@ function render() {
 
 /** Patches one row after hydration so the rest of the grid stays untouched. */
 function applyHydratedRecord(movieId, options = {}) {
+  if (isWatchedListActive() && !usesCustomDisplayOrder()) {
+    render();
+    if (!options.skipDetail && detailMovieId === movieId) {
+      renderDetail();
+    }
+    return;
+  }
   const row = grid.querySelector(`.movie-row[data-movie-id="${movieId}"]`);
   if (!row) {
     return;
@@ -2758,7 +3104,7 @@ function applyHydratedRecord(movieId, options = {}) {
 }
 
 function hydrateActiveList() {
-  return hydrateMovies(activeMovieIds(), {
+  return hydrateMovies(displayMovieIds(), {
     onRecord: applyHydratedRecord,
     onUpdate: applyHydratedRecord,
   });
@@ -2814,6 +3160,13 @@ function removeMovieFromCollection(movieId) {
 }
 
 function refreshMovieRating(movieId) {
+  if (isWatchedListActive() && !usesCustomDisplayOrder()) {
+    render();
+    if (detailMovieId === movieId) {
+      syncDetailRatingDisplay(appRatings.getRating(userState.ratings, movieId));
+    }
+    return;
+  }
   applyHydratedRecord(movieId, { skipDetail: true });
   if (detailMovieId === movieId) {
     syncDetailRatingDisplay(appRatings.getRating(userState.ratings, movieId));
@@ -3113,7 +3466,7 @@ function renderDetail() {
     return;
   }
 
-  const ids = activeMovieIds();
+  const ids = displayMovieIds();
   const index = ids.indexOf(detailMovieId);
   const record = movieById.get(detailMovieId);
 
@@ -3209,7 +3562,7 @@ function closeDetail(options = {}) {
 }
 
 function stepDetail(delta) {
-  const ids = activeMovieIds();
+  const ids = displayMovieIds();
   const index = ids.indexOf(detailMovieId);
   const nextIndex = index + delta;
   if (index < 0 || nextIndex < 0 || nextIndex >= ids.length) {
@@ -3747,6 +4100,9 @@ viewModeCycleBtn.addEventListener("click", () => {
   setViewMode(nextViewMode(gridViewMode));
   persistUserState();
   render();
+});
+listSortSelect?.addEventListener("change", () => {
+  setSortMode(listSortSelect.value);
 });
 reorderModeBtn?.addEventListener("click", toggleReorderMode);
 

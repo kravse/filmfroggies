@@ -39,6 +39,10 @@ const PARTS = [
     title: "User movie ratings (generated from scripts/lib/ratings.js)",
   },
   {
+    file: "00-app-sort.js",
+    title: "Watched list display sort (generated from scripts/lib/sort.js)",
+  },
+  {
     file: "00-app-user-state.js",
     title: "User state persistence (generated from scripts/lib/user-state.js)",
   },

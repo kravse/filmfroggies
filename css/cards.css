@@ -54,6 +54,36 @@ body.view-mode-cards .card {
   border-radius: var(--radius-sm);
 }
 
+body.view-mode-cards .card-sort-hint {
+  flex: none;
+  padding: 0.22rem 0.3rem 0.28rem;
+  font-family: var(--ui-font);
+  font-size: 0.62rem;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  text-align: center;
+  color: var(--muted);
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.view-mode-cards .card-sort-hint.is-user-rating {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+body.view-mode-cards .card-sort-hint.is-user-rating.is-empty {
+  color: var(--muted-dim);
+}
+
+body.view-mode-cards .card-sort-hint.is-fan-rating {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 body.view-mode-cards .card-grip {
   opacity: 1;
   width: 22px;

@@ -177,27 +177,52 @@
   color: var(--danger);
 }
 
-.card-user-rating {
+.card-poster-ratings {
   position: absolute;
   left: 0.35rem;
   bottom: 0.35rem;
   z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.22rem;
+  align-items: center;
+  max-width: calc(100% - 0.7rem);
+  pointer-events: none;
+}
+
+body.view-mode-detail .card-poster-ratings {
+  left: 0.2rem;
+  bottom: 0.2rem;
+  gap: 0.18rem;
+}
+
+.card-fan-rating,
+.card-user-rating {
   padding: 0.12rem 0.38rem;
   border-radius: 4px;
   background: rgba(14, 16, 20, 0.78);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(232, 234, 237, 0.82);
   font-family: var(--ui-font);
   font-size: 0.68rem;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
   line-height: 1.2;
-  pointer-events: none;
 }
 
+.card-fan-rating {
+  color: var(--muted);
+}
+
+.card-fan-rating.is-empty {
+  color: var(--muted-dim);
+}
+
+.card-user-rating {
+  color: var(--accent);
+}
+
+body.view-mode-detail .card-fan-rating,
 body.view-mode-detail .card-user-rating {
-  left: 0.2rem;
-  bottom: 0.2rem;
   padding: 0.06rem 0.28rem;
   font-size: 0.58rem;
   border-radius: 3px;

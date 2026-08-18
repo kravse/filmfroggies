@@ -19,7 +19,7 @@ These are deliberate design decisions, not gaps to fill:
 - **Only the v4 TMDB read access token is accepted.** Validated by JWT shape in `scripts/lib/tmdb.js`; the v3 `api_key` query path was removed deliberately. The credential travels only in the `Authorization` header, never in a URL.
 - **Routing is hash-only.** The single deep link is `#movie/{id}`. No path routes, no SPA fallback, no `_redirects`.
 - **Search is add-only.** The search box queries TMDB to find movies to add; it does not filter your list.
-- **No sort modes.** The order of `movieIds` is the only order, which is why drag reorder needs no gate.
+- **Watched-only display sort.** Optional sort modes apply only on the Watched tab and never rewrite stored order; Watchlist always uses custom order. Custom order is required for drag reorder.
 
 ## Layout
 

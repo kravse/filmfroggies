@@ -38,8 +38,18 @@ const appUserState = (function () {
     throw new Error("appRatings is not available");
   }
 
+  function getSort() {
+    if (typeof appSort !== "undefined") {
+      return appSort;
+    }
+    if (typeof require === "function") {
+      return require("./sort");
+    }
+    throw new Error("appSort is not available");
+  }
+
   function defaultPreferences() {
-    return { viewMode: "cards" };
+    return { viewMode: "cards", sort: getSort().DEFAULT_SORT };
   }
 
   function defaultUserState() {
@@ -66,6 +76,7 @@ const appUserState = (function () {
     }
     return {
       viewMode: VIEW_MODES.has(viewMode) ? viewMode : base.viewMode,
+      sort: getSort().normalizeSort(raw.sort, base.sort),
     };
   }
 

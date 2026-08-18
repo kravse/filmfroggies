@@ -32,6 +32,8 @@ const addMovieRatingField = document.getElementById("add-movie-rating-field");
 const addMovieBack = document.getElementById("add-movie-back");
 
 const viewModeCycleBtn = document.getElementById("view-mode-cycle");
+const sortControl = document.getElementById("sort-control");
+const listSortSelect = document.getElementById("list-sort");
 const reorderModeBtn = document.getElementById("reorder-mode-btn");
 const grid = document.getElementById("grid");
 const emptyState = document.getElementById("empty-state");
@@ -113,6 +115,25 @@ function activeList() {
 
 function activeMovieIds() {
   return activeList()?.movieIds || [];
+}
+
+function isWatchedListActive() {
+  return userState?.activeListId === appLists.WATCHED_ID;
+}
+
+function usesCustomDisplayOrder() {
+  return !isWatchedListActive() || appSort.isCustomSort(userState.preferences.sort);
+}
+
+function displayMovieIds() {
+  const ids = activeMovieIds();
+  if (!isWatchedListActive()) {
+    return ids;
+  }
+  return appSort.sortMovieIds(ids, userState.preferences.sort, {
+    getRecord: (id) => movieById.get(id),
+    getUserRating: (id) => appRatings.getRating(userState.ratings, id),
+  });
 }
 
 function setStatus(element, message, tone) {

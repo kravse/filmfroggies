@@ -69,6 +69,20 @@
           aria-label="Movie lists"
         ></nav>
         <div class="toolbar-right">
+          <div class="sort-control" id="sort-control" hidden>
+            <label class="sort-label" for="list-sort">Sort</label>
+            <select id="list-sort" aria-label="Sort watched movies">
+              <option value="custom">Custom order</option>
+              <option value="year-asc">Oldest first</option>
+              <option value="year-desc">Newest first</option>
+              <option value="rating-desc">Fan rating</option>
+              <option value="rating-asc">Fan rating (low)</option>
+              <option value="user-rating-desc">My rating</option>
+              <option value="user-rating-asc">My rating (low)</option>
+              <option value="title-asc">Title A–Z</option>
+              <option value="title-desc">Title Z–A</option>
+            </select>
+          </div>
           <button
             type="button"
             id="view-mode-cycle"
