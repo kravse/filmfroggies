@@ -193,7 +193,9 @@ function updateListHeader() {
           : "+ Add a movie · tap a card for details";
     }
   } else {
-    listSubtitleEl.textContent = "Tap + Add a movie to start this list";
+    listSubtitleEl.textContent = hasTmdbAccess()
+      ? "Search TMDB to add your first movie"
+      : "Add a TMDB credential in Settings to get started";
   }
 }
 
@@ -209,6 +211,12 @@ function setActiveList(listId) {
   hydrateActiveList();
 }
 
+function syncAddMovieFabVisibility(count) {
+  if (addMovieFab) {
+    addMovieFab.hidden = count === 0;
+  }
+}
+
 function renderEmptyState(count) {
   if (count) {
     emptyState.hidden = true;
@@ -217,9 +225,16 @@ function renderEmptyState(count) {
   }
   emptyState.hidden = false;
   const listName = activeList()?.name || "this list";
-  emptyState.innerHTML = hasTmdbAccess()
-    ? `<strong>Nothing in ${appCardHtml.escapeHtml(listName)} yet</strong>Tap <strong>+ Add a movie</strong> to search and add one here.`
-    : `<strong>Add your TMDB token</strong>Open Settings and paste your TMDB API Read Access Token to search and load movies.`;
+  if (!hasTmdbAccess()) {
+    emptyState.innerHTML = `<strong>Add your TMDB token</strong>Open Settings and paste your TMDB API Read Access Token to search and load movies.`;
+    return;
+  }
+  emptyState.innerHTML = `<strong>Nothing in ${appCardHtml.escapeHtml(listName)} yet</strong>
+<p class="empty-state-hint">Search TMDB to add your first movie.</p>
+<button type="button" class="empty-state-add-btn">
+  <span class="empty-state-add-icon" aria-hidden="true">+</span>
+  Add a movie
+</button>`;
 }
 
 function render() {
@@ -230,6 +245,7 @@ function render() {
   updateListHeader();
   syncReorderModeUi();
   renderEmptyState(ids.length);
+  syncAddMovieFabVisibility(ids.length);
 }
 
 /** Patches one row after hydration so the rest of the grid stays untouched. */

@@ -280,7 +280,9 @@ function updateAddListPickerSelection(listId) {
 
 function showAddPickStep(result) {
   pendingAddResult = result;
-  selectedAddListId = appLists.DEFAULT_LIST_ID;
+  selectedAddListId = appLists.isListId(userState.activeListId)
+    ? userState.activeListId
+    : appLists.DEFAULT_LIST_ID;
   resetAddMovieRatingControls();
   addMovieSearchStep.hidden = true;
   addMoviePickStep.hidden = false;

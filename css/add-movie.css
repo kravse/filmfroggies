@@ -1,5 +1,9 @@
 /* Floating add button and add-movie sheet */
 
+.add-movie-fab[hidden] {
+  display: none;
+}
+
 .add-movie-fab {
   position: fixed;
   right: 1rem;

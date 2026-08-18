@@ -35,6 +35,11 @@ addMovieDialog.addEventListener("click", (event) => {
 });
 
 addMovieFab.addEventListener("click", openAddMovieDialog);
+emptyState.addEventListener("click", (event) => {
+  if (event.target.closest(".empty-state-add-btn")) {
+    openAddMovieDialog();
+  }
+});
 addMovieClose.addEventListener("click", closeAddMovieDialog);
 addMovieBack.addEventListener("click", () => {
   showAddSearchStep();
