@@ -649,6 +649,33 @@
       </div>
     </div>
 
+    <!-- Mark as watched confirmation -->
+    <div id="watch-confirm-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
+      <div class="sheet-backdrop" data-close-watch-confirm></div>
+      <div
+        class="sheet-panel confirm-panel"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="watch-confirm-title"
+        aria-describedby="watch-confirm-message"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="watch-confirm-title">Mark as watched</h2>
+        </div>
+        <div class="sheet-scroll">
+          <p id="watch-confirm-message" class="confirm-message"></p>
+        </div>
+        <div class="confirm-actions">
+          <button type="button" id="watch-confirm-cancel" class="ghost-btn">
+            Cancel
+          </button>
+          <button type="button" id="watch-confirm-ok" class="primary-btn">
+            Mark watched
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Hidden hosted unlock (triple-click logo) -->
     <div id="hosted-unlock-dialog" class="sheet-dialog" hidden>
       <div class="sheet-backdrop" data-close-hosted-unlock></div>

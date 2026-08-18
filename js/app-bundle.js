@@ -76,6 +76,11 @@ const removeConfirmMessage = document.getElementById("remove-confirm-message");
 const removeConfirmCancel = document.getElementById("remove-confirm-cancel");
 const removeConfirmOk = document.getElementById("remove-confirm-ok");
 
+const watchConfirmDialog = document.getElementById("watch-confirm-dialog");
+const watchConfirmMessage = document.getElementById("watch-confirm-message");
+const watchConfirmCancel = document.getElementById("watch-confirm-cancel");
+const watchConfirmOk = document.getElementById("watch-confirm-ok");
+
 const hostedUnlockDialog = document.getElementById("hosted-unlock-dialog");
 const hostedUnlockInput = document.getElementById("hosted-unlock-input");
 const hostedUnlockStatus = document.getElementById("hosted-unlock-status");
@@ -104,6 +109,7 @@ let detailRatingEditorOpen = false;
 /** Rating saved when the editor opens; Cancel restores this value. */
 let detailRatingEditorSnapshot = null;
 let pendingRemoveMovieId = null;
+let pendingWatchMovieId = null;
 let tmdbCredential = "";
 
 /* --- Small shared helpers --- */
@@ -3143,6 +3149,29 @@ function watchMovie(movieId) {
   }
 }
 
+function requestWatchMovie(movieId) {
+  pendingWatchMovieId = Number(movieId);
+  const record = movieById.get(pendingWatchMovieId);
+  const title = record?.title || `Movie ${pendingWatchMovieId}`;
+  watchConfirmMessage.textContent = `Mark “${title}” as watched? It will move to your Watched list.`;
+  watchConfirmDialog.hidden = false;
+  watchConfirmCancel.focus({ preventScroll: true });
+}
+
+function closeWatchConfirm() {
+  pendingWatchMovieId = null;
+  watchConfirmDialog.hidden = true;
+}
+
+function confirmWatchMovie() {
+  const movieId = pendingWatchMovieId;
+  closeWatchConfirm();
+  if (movieId == null) {
+    return;
+  }
+  watchMovie(movieId);
+}
+
 function removeMovieFromCollection(movieId) {
   const nextLists = appLists.removeMovie(userState.lists, movieId);
   if (!updateLists(nextLists)) {
@@ -4018,7 +4047,7 @@ grid.addEventListener("click", (event) => {
   const watchBtn = event.target.closest(".card-watch-btn");
   if (watchBtn) {
     event.stopPropagation();
-    watchMovie(Number(watchBtn.closest("[data-movie-id]").dataset.movieId));
+    requestWatchMovie(Number(watchBtn.closest("[data-movie-id]").dataset.movieId));
     return;
   }
   if (event.target.closest(".card-grip")) {
@@ -4146,7 +4175,15 @@ detailActions.addEventListener("click", (event) => {
     return;
   }
   if (event.target.id === "detail-watch") {
-    watchMovie(detailMovieId);
+    requestWatchMovie(detailMovieId);
+  }
+});
+
+watchConfirmCancel.addEventListener("click", () => closeWatchConfirm());
+watchConfirmOk.addEventListener("click", () => confirmWatchMovie());
+watchConfirmDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-watch-confirm")) {
+    closeWatchConfirm();
   }
 });
 
@@ -4254,6 +4291,10 @@ document.addEventListener("keydown", (event) => {
     }
     if (!removeConfirmDialog.hidden) {
       closeRemoveConfirm();
+      return;
+    }
+    if (!watchConfirmDialog.hidden) {
+      closeWatchConfirm();
       return;
     }
     if (!aboutDialog.hidden) {

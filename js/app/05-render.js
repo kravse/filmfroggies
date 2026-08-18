@@ -400,6 +400,29 @@ function watchMovie(movieId) {
   }
 }
 
+function requestWatchMovie(movieId) {
+  pendingWatchMovieId = Number(movieId);
+  const record = movieById.get(pendingWatchMovieId);
+  const title = record?.title || `Movie ${pendingWatchMovieId}`;
+  watchConfirmMessage.textContent = `Mark “${title}” as watched? It will move to your Watched list.`;
+  watchConfirmDialog.hidden = false;
+  watchConfirmCancel.focus({ preventScroll: true });
+}
+
+function closeWatchConfirm() {
+  pendingWatchMovieId = null;
+  watchConfirmDialog.hidden = true;
+}
+
+function confirmWatchMovie() {
+  const movieId = pendingWatchMovieId;
+  closeWatchConfirm();
+  if (movieId == null) {
+    return;
+  }
+  watchMovie(movieId);
+}
+
 function removeMovieFromCollection(movieId) {
   const nextLists = appLists.removeMovie(userState.lists, movieId);
   if (!updateLists(nextLists)) {

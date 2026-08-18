@@ -74,6 +74,11 @@ const removeConfirmMessage = document.getElementById("remove-confirm-message");
 const removeConfirmCancel = document.getElementById("remove-confirm-cancel");
 const removeConfirmOk = document.getElementById("remove-confirm-ok");
 
+const watchConfirmDialog = document.getElementById("watch-confirm-dialog");
+const watchConfirmMessage = document.getElementById("watch-confirm-message");
+const watchConfirmCancel = document.getElementById("watch-confirm-cancel");
+const watchConfirmOk = document.getElementById("watch-confirm-ok");
+
 const hostedUnlockDialog = document.getElementById("hosted-unlock-dialog");
 const hostedUnlockInput = document.getElementById("hosted-unlock-input");
 const hostedUnlockStatus = document.getElementById("hosted-unlock-status");
@@ -102,6 +107,7 @@ let detailRatingEditorOpen = false;
 /** Rating saved when the editor opens; Cancel restores this value. */
 let detailRatingEditorSnapshot = null;
 let pendingRemoveMovieId = null;
+let pendingWatchMovieId = null;
 let tmdbCredential = "";
 
 /* --- Small shared helpers --- */

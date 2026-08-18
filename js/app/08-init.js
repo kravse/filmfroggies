@@ -64,7 +64,7 @@ grid.addEventListener("click", (event) => {
   const watchBtn = event.target.closest(".card-watch-btn");
   if (watchBtn) {
     event.stopPropagation();
-    watchMovie(Number(watchBtn.closest("[data-movie-id]").dataset.movieId));
+    requestWatchMovie(Number(watchBtn.closest("[data-movie-id]").dataset.movieId));
     return;
   }
   if (event.target.closest(".card-grip")) {
@@ -192,7 +192,15 @@ detailActions.addEventListener("click", (event) => {
     return;
   }
   if (event.target.id === "detail-watch") {
-    watchMovie(detailMovieId);
+    requestWatchMovie(detailMovieId);
+  }
+});
+
+watchConfirmCancel.addEventListener("click", () => closeWatchConfirm());
+watchConfirmOk.addEventListener("click", () => confirmWatchMovie());
+watchConfirmDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-watch-confirm")) {
+    closeWatchConfirm();
   }
 });
 
@@ -300,6 +308,10 @@ document.addEventListener("keydown", (event) => {
     }
     if (!removeConfirmDialog.hidden) {
       closeRemoveConfirm();
+      return;
+    }
+    if (!watchConfirmDialog.hidden) {
+      closeWatchConfirm();
       return;
     }
     if (!aboutDialog.hidden) {
