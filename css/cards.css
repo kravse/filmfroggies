@@ -131,7 +131,7 @@ body.view-mode-detail .card {
   min-width: 0;
 }
 
-/* Grid view: star / Watch sit top-right of the text block. */
+/* Grid view: Watch sits top-right of the text block on the watchlist tab. */
 body.view-mode-detail .card-body {
   flex: none;
   position: relative;
@@ -226,30 +226,6 @@ body.view-mode-detail .card-meta {
   align-items: center;
   gap: 0.35rem;
   flex: none;
-}
-
-.card-favourite-btn {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: 1px solid var(--border-strong);
-  background: var(--panel-raised);
-  color: var(--muted-dim);
-  font-size: 0.95rem;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0;
-}
-
-.card-favourite-btn.is-active {
-  color: var(--accent);
-  border-color: var(--accent-border);
-  background: var(--accent-dim);
-}
-
-.card-favourite-btn:hover {
-  color: var(--accent);
-  border-color: var(--accent-border);
 }
 
 .card-watch-btn {

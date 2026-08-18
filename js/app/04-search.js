@@ -1,6 +1,6 @@
 /**
  * TMDB search and add flow. The floating + button opens a sheet: search first,
- * then pick Watched (optionally starred) or Watchlist.
+ * then pick Watched or Watchlist.
  */
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -13,7 +13,6 @@ let suggestIndex = -1;
 let suggestRequestToken = 0;
 let pendingAddResult = null;
 let selectedAddListId = null;
-let addMovieFavourite = false;
 let pendingAddRating = null;
 let addMovieRatingTouched = false;
 
@@ -92,27 +91,14 @@ function initAddMovieRatingSelect() {
   addMovieRatingSelect.innerHTML = appRatings.ratingSelectInnerHtml(null, { includeUnrated: true });
 }
 
-function syncAddMovieFavouriteToggle() {
-  if (!addMovieFavouriteToggle) {
-    return;
-  }
-  addMovieFavouriteToggle.setAttribute("aria-pressed", String(addMovieFavourite));
-  addMovieFavouriteToggle.classList.toggle("is-active", addMovieFavourite);
-}
-
 function syncAddMoviePickStep() {
   const watched = selectedAddListId === appLists.WATCHED_ID;
-  if (addMovieWatchedOptions) {
-    addMovieWatchedOptions.hidden = !watched;
-  }
   if (addMovieRatingField) {
     addMovieRatingField.hidden = !watched;
   }
   if (!watched) {
-    addMovieFavourite = false;
     resetAddMovieRatingControls();
   }
-  syncAddMovieFavouriteToggle();
 }
 
 function isAddMovieDialogOpen() {
@@ -262,7 +248,6 @@ function updateAddMovieHint() {
 function showAddSearchStep() {
   pendingAddResult = null;
   selectedAddListId = null;
-  addMovieFavourite = false;
   resetAddMovieRatingControls();
   addMovieSearchStep.hidden = false;
   addMoviePickStep.hidden = true;
@@ -296,7 +281,6 @@ function updateAddListPickerSelection(listId) {
 function showAddPickStep(result) {
   pendingAddResult = result;
   selectedAddListId = appLists.DEFAULT_LIST_ID;
-  addMovieFavourite = false;
   resetAddMovieRatingControls();
   addMovieSearchStep.hidden = true;
   addMoviePickStep.hidden = false;
@@ -306,23 +290,13 @@ function showAddPickStep(result) {
   addMovieSubmit.focus({ preventScroll: true });
 }
 
-function resolveAddTargetListId() {
-  if (selectedAddListId === appLists.WATCHLIST_ID) {
-    return appLists.WATCHLIST_ID;
-  }
-  if (addMovieFavourite) {
-    return appLists.FAVOURITES_ID;
-  }
-  return appLists.WATCHED_ID;
-}
-
 function confirmAddMovie() {
   if (!pendingAddResult || !selectedAddListId) {
     return;
   }
   const rating =
     selectedAddListId === appLists.WATCHED_ID ? pendingAddRating : null;
-  addMovieToList(pendingAddResult, resolveAddTargetListId(), rating);
+  addMovieToList(pendingAddResult, selectedAddListId, rating);
 }
 
 function openAddMovieDialog() {
@@ -439,12 +413,4 @@ function onAddListOptionClick(event) {
   selectedAddListId = listId;
   updateAddListPickerSelection(listId);
   syncAddMoviePickStep();
-}
-
-function onAddMovieFavouriteToggleClick() {
-  if (selectedAddListId !== appLists.WATCHED_ID) {
-    return;
-  }
-  addMovieFavourite = !addMovieFavourite;
-  syncAddMovieFavouriteToggle();
 }

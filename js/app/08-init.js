@@ -41,7 +41,6 @@ addMovieBack.addEventListener("click", () => {
   searchInput.focus();
 });
 addMovieListPicker.addEventListener("click", onAddListOptionClick);
-addMovieFavouriteToggle.addEventListener("click", onAddMovieFavouriteToggleClick);
 addMovieSubmit.addEventListener("click", confirmAddMovie);
 initAddMovieRatingSelect();
 bindRangeSliderLiveInput(addMovieRatingSlider, onAddMovieRatingSliderInput);
@@ -61,12 +60,6 @@ grid.addEventListener("click", (event) => {
   if (watchBtn) {
     event.stopPropagation();
     watchMovie(Number(watchBtn.closest("[data-movie-id]").dataset.movieId));
-    return;
-  }
-  const favouriteBtn = event.target.closest(".card-favourite-btn");
-  if (favouriteBtn) {
-    event.stopPropagation();
-    toggleFavouriteMovie(Number(favouriteBtn.closest("[data-movie-id]").dataset.movieId));
     return;
   }
   if (event.target.closest(".card-grip")) {
@@ -192,10 +185,6 @@ detailActions.addEventListener("click", (event) => {
   }
   if (event.target.id === "detail-watch") {
     watchMovie(detailMovieId);
-    return;
-  }
-  if (event.target.id === "detail-favourite") {
-    toggleFavouriteMovie(detailMovieId);
   }
 });
 

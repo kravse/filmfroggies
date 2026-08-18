@@ -204,51 +204,6 @@
   flex: 1;
 }
 
-.add-movie-watched-options {
-  margin-top: 0.5rem;
-}
-
-.add-movie-favourite-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  width: 100%;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--panel-raised);
-  color: var(--muted);
-  font-family: var(--ui-font);
-  font-size: 0.88rem;
-  cursor: pointer;
-  touch-action: manipulation;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease;
-}
-
-.add-movie-favourite-toggle:hover {
-  border-color: var(--accent-border);
-  color: var(--text);
-}
-
-.add-movie-favourite-toggle.is-active {
-  color: var(--accent);
-  border-color: var(--accent-border);
-  background: var(--accent-dim);
-}
-
-.add-movie-favourite-icon {
-  font-size: 1.05rem;
-  line-height: 1;
-}
-
-.add-movie-watched-options + .user-rating-field {
-  margin-top: 0.65rem;
-}
-
 .add-movie-back {
   background: transparent;
   border: none;

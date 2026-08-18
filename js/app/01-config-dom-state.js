@@ -29,8 +29,6 @@ const addMovieRatingSelect = document.getElementById("add-movie-rating-select");
 const addMovieRatingClear = document.getElementById("add-movie-rating-clear");
 const addMovieRatingValue = document.getElementById("add-movie-rating-value");
 const addMovieRatingField = document.getElementById("add-movie-rating-field");
-const addMovieWatchedOptions = document.getElementById("add-movie-watched-options");
-const addMovieFavouriteToggle = document.getElementById("add-movie-favourite-toggle");
 const addMovieBack = document.getElementById("add-movie-back");
 
 const viewModeCycleBtn = document.getElementById("view-mode-cycle");

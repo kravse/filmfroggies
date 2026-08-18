@@ -301,19 +301,11 @@ ${detailUserRatingBlockHtml(detailMovieId)}
 
   const inCollection = appLists.findListIdsForMovie(userState.lists, detailMovieId).length > 0;
   const onWatchlist = appLists.isOnWatchlist(userState.lists, detailMovieId);
-  const watched = appLists.isWatched(userState.lists, detailMovieId);
-  const favourited = appLists.isFavourited(userState.lists, detailMovieId);
 
   const leftActions = [];
   if (inCollection && onWatchlist) {
     leftActions.push(
       `<button type="button" class="detail-watch-btn" id="detail-watch">Mark as watched</button>`,
-    );
-  }
-  if (inCollection && watched) {
-    const label = favourited ? "Remove from favourites" : "Add to favourites";
-    leftActions.push(
-      `<button type="button" class="detail-favourite-btn${favourited ? " is-active" : ""}" id="detail-favourite" aria-label="${label}" aria-pressed="${favourited}" title="${label}">&#9733;</button>`,
     );
   }
 

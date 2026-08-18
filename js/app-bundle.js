@@ -31,8 +31,6 @@ const addMovieRatingSelect = document.getElementById("add-movie-rating-select");
 const addMovieRatingClear = document.getElementById("add-movie-rating-clear");
 const addMovieRatingValue = document.getElementById("add-movie-rating-value");
 const addMovieRatingField = document.getElementById("add-movie-rating-field");
-const addMovieWatchedOptions = document.getElementById("add-movie-watched-options");
-const addMovieFavouriteToggle = document.getElementById("add-movie-favourite-toggle");
 const addMovieBack = document.getElementById("add-movie-back");
 
 const viewModeCycleBtn = document.getElementById("view-mode-cycle");
@@ -539,46 +537,37 @@ const appPosterCache = (function () {
 
 const appLists = (function () {
   /**
-   * Three fixed lists, in tab order. There is deliberately no way to create,
+   * Two fixed lists, in tab order. There is deliberately no way to create,
    * rename, or delete one: these are statuses, not user-defined collections.
    *
-   * Two invariants define how they relate, and both are enforced on read as well
-   * as on write, so no stored or synced payload can violate them:
+   * One invariant defines how they relate, enforced on read as well as on write:
    *
-   *   1. Favourites is a subset of Watched. You cannot favourite something you
-   *      have not watched, so favouriting also marks it watched.
-   *   2. Watchlist is disjoint from both others. It means "not seen yet", which
-   *      is incompatible with having watched or favourited it.
-   *
-   * Together those collapse to three reachable states per movie: on the
-   * watchlist, watched, or watched and favourited.
+   *   Watchlist is disjoint from Watched. A movie is either unseen (watchlist)
+   *   or seen (watched), never both.
    *
    * `movieIds` carries membership and order in one array. Every function is pure
    * and returns new arrays.
    */
 
-  const FAVOURITES_ID = "favourites";
-  const WATCHLIST_ID = "watchlist";
   const WATCHED_ID = "watched";
+  const WATCHLIST_ID = "watchlist";
+  const LEGACY_FAVOURITES_ID = "favourites";
 
   const PRESET_LISTS = [
     { id: WATCHED_ID, name: "Watched" },
-    { id: FAVOURITES_ID, name: "Favourites" },
     { id: WATCHLIST_ID, name: "Watchlist" },
   ];
 
   const LIST_IDS = PRESET_LISTS.map((preset) => preset.id);
   const DEFAULT_LIST_ID = WATCHED_ID;
-  /** Most-specific status first; independent of tab order. */
-  const STATUS_PRIORITY = [FAVOURITES_ID, WATCHED_ID, WATCHLIST_ID];
+  const STATUS_PRIORITY = [WATCHED_ID, WATCHLIST_ID];
 
   function isListId(listId) {
     return LIST_IDS.includes(listId);
   }
 
-  /** Watched is append-only by date added; favourites and watchlist stay manually ordered. */
   function isListReorderable(listId) {
-    return listId !== WATCHED_ID;
+    return isListId(listId);
   }
 
   function normalizeMovieIds(raw) {
@@ -603,12 +592,11 @@ const appLists = (function () {
   }
 
   /**
-   * Rebuilds the three lists from stored data: preset order and names always
-   * win, unknown list ids are dropped, and both invariants are repaired.
+   * Rebuilds the two lists from stored data: preset order and names always win,
+   * unknown list ids are dropped, and the watchlist/watched invariant is repaired.
    *
-   * Where stored data contradicts itself, the repair keeps the stronger claim.
-   * Having watched something is a fact, so a movie in both Watchlist and
-   * Watched stays watched and leaves the watchlist.
+   * Legacy payloads with separate favourites and watched lists are merged into
+   * watched: former favourites keep their order, then any watched-only ids append.
    */
   function normalizeLists(raw) {
     const stored = Array.isArray(raw) ? raw : [];
@@ -617,25 +605,21 @@ const appLists = (function () {
       return normalizeMovieIds(match?.movieIds);
     };
 
-    const favourites = storedIds(FAVOURITES_ID);
-    const watchedStored = storedIds(WATCHED_ID);
-
-    // Invariant 1: anything favourited counts as watched.
-    const watched = [...watchedStored];
-    for (const id of favourites) {
+    const legacyFavourites = storedIds(LEGACY_FAVOURITES_ID);
+    const legacyWatched = storedIds(WATCHED_ID);
+    const watched = [...legacyFavourites];
+    for (const id of legacyWatched) {
       if (!watched.includes(id)) {
         watched.push(id);
       }
     }
 
-    // Invariant 2: the watchlist cannot hold anything already seen.
     const seen = new Set(watched);
     const watchlist = storedIds(WATCHLIST_ID).filter((id) => !seen.has(id));
 
     const byId = {
-      [FAVOURITES_ID]: favourites,
-      [WATCHLIST_ID]: watchlist,
       [WATCHED_ID]: watched,
+      [WATCHLIST_ID]: watchlist,
     };
     return PRESET_LISTS.map((preset) => ({ ...preset, movieIds: byId[preset.id] }));
   }
@@ -655,11 +639,6 @@ const appLists = (function () {
     return lists.filter((list) => list.movieIds.includes(id)).map((list) => list.id);
   }
 
-  /**
-   * The most specific status for a movie, for a single-value badge or picker.
-   * STATUS_PRIORITY does the work: favourited outranks merely watched, and a
-   * watchlisted movie is in no other list.
-   */
   function primaryListIdForMovie(lists, movieId) {
     const holding = new Set(findListIdsForMovie(lists, movieId));
     for (const listId of STATUS_PRIORITY) {
@@ -676,11 +655,7 @@ const appLists = (function () {
       const has = list.movieIds.includes(movieId);
       if (addTo.includes(list.id) && !has) {
         changed = true;
-        const nextIds =
-          list.id === WATCHED_ID
-            ? [movieId, ...list.movieIds]
-            : [...list.movieIds, movieId];
-        return { ...list, movieIds: nextIds };
+        return { ...list, movieIds: [...list.movieIds, movieId] };
       }
       if (removeFrom.includes(list.id) && has) {
         changed = true;
@@ -695,8 +670,8 @@ const appLists = (function () {
   }
 
   /**
-   * Sets a movie's status. Each target implies the memberships needed to keep
-   * both invariants true, so callers never have to reason about the others.
+   * Sets a movie's status. Each target clears the other list so callers never
+   * have to reason about the invariant themselves.
    */
   function assignMovieToList(lists, listId, movieId) {
     const id = Number(movieId);
@@ -704,36 +679,18 @@ const appLists = (function () {
       return lists;
     }
 
-    if (listId === FAVOURITES_ID) {
-      return applyMembership(lists, id, [FAVOURITES_ID, WATCHED_ID], [WATCHLIST_ID]);
-    }
     if (listId === WATCHED_ID) {
-      // Favourites is left alone: marking a favourite watched changes nothing.
       return applyMembership(lists, id, [WATCHED_ID], [WATCHLIST_ID]);
     }
-    return applyMembership(lists, id, [WATCHLIST_ID], [FAVOURITES_ID, WATCHED_ID]);
+    return applyMembership(lists, id, [WATCHLIST_ID], [WATCHED_ID]);
   }
 
-  /**
-   * Removes a movie from one list. Un-favouriting leaves it watched, but
-   * un-watching also drops the favourite, since a favourite must be watched.
-   */
   function removeMovieFromList(lists, listId, movieId) {
     const id = Number(movieId);
     if (!Number.isInteger(id) || !isListId(listId)) {
       return lists;
     }
-    const removeFrom =
-      listId === WATCHED_ID ? [WATCHED_ID, FAVOURITES_ID] : [listId];
-    return applyMembership(lists, id, [], removeFrom);
-  }
-
-  function isFavourited(lists, movieId) {
-    const id = Number(movieId);
-    if (!Number.isInteger(id)) {
-      return false;
-    }
-    return findList(lists, FAVOURITES_ID)?.movieIds.includes(id) ?? false;
+    return applyMembership(lists, id, [], [listId]);
   }
 
   function isWatched(lists, movieId) {
@@ -752,18 +709,6 @@ const appLists = (function () {
     return findList(lists, WATCHLIST_ID)?.movieIds.includes(id) ?? false;
   }
 
-  /** Toggles favourite for a watched movie; no-op on the watchlist. */
-  function toggleFavourite(lists, movieId) {
-    const id = Number(movieId);
-    if (!Number.isInteger(id) || id <= 0 || !isWatched(lists, id)) {
-      return lists;
-    }
-    if (isFavourited(lists, id)) {
-      return removeMovieFromList(lists, FAVOURITES_ID, id);
-    }
-    return assignMovieToList(lists, FAVOURITES_ID, id);
-  }
-
   /** Drops a movie from every list. */
   function removeMovie(lists, movieId) {
     const id = Number(movieId);
@@ -773,7 +718,6 @@ const appLists = (function () {
     return applyMembership(lists, id, [], LIST_IDS);
   }
 
-  /** Used by drag reorder to commit a new order for one list. Watched is not reorderable. */
   function replaceMovieIds(lists, listId, movieIds) {
     if (!isListReorderable(listId)) {
       return lists;
@@ -788,7 +732,6 @@ const appLists = (function () {
   }
 
   return {
-    FAVOURITES_ID,
     WATCHLIST_ID,
     WATCHED_ID,
     PRESET_LISTS,
@@ -802,12 +745,10 @@ const appLists = (function () {
     findList,
     findListIdsForMovie,
     primaryListIdForMovie,
-    isFavourited,
     isWatched,
     isOnWatchlist,
     assignMovieToList,
     removeMovieFromList,
-    toggleFavourite,
     removeMovie,
     replaceMovieIds,
   };
@@ -1078,13 +1019,18 @@ const appUserState = (function () {
 
     const normalizedLists = lists.normalizeLists(raw.lists);
 
+    let activeListId = raw.activeListId;
+    if (activeListId === "favourites") {
+      activeListId = lists.WATCHED_ID;
+    }
+
     return {
       version: USER_STATE_VERSION,
       updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : null,
       storageMode: STORAGE_MODES.has(raw.storageMode) ? raw.storageMode : "local",
       lists: normalizedLists,
-      activeListId: lists.isListId(raw.activeListId)
-        ? raw.activeListId
+      activeListId: lists.isListId(activeListId)
+        ? activeListId
         : lists.DEFAULT_LIST_ID,
       preferences: normalizePreferences(raw.preferences),
       ratings: getRatings().normalizeRatings(raw.ratings, normalizedLists),
@@ -2129,7 +2075,7 @@ async function hydrateMovies(ids, handlers = {}) {
 
 /**
  * TMDB search and add flow. The floating + button opens a sheet: search first,
- * then pick Watched (optionally starred) or Watchlist.
+ * then pick Watched or Watchlist.
  */
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -2142,7 +2088,6 @@ let suggestIndex = -1;
 let suggestRequestToken = 0;
 let pendingAddResult = null;
 let selectedAddListId = null;
-let addMovieFavourite = false;
 let pendingAddRating = null;
 let addMovieRatingTouched = false;
 
@@ -2221,27 +2166,14 @@ function initAddMovieRatingSelect() {
   addMovieRatingSelect.innerHTML = appRatings.ratingSelectInnerHtml(null, { includeUnrated: true });
 }
 
-function syncAddMovieFavouriteToggle() {
-  if (!addMovieFavouriteToggle) {
-    return;
-  }
-  addMovieFavouriteToggle.setAttribute("aria-pressed", String(addMovieFavourite));
-  addMovieFavouriteToggle.classList.toggle("is-active", addMovieFavourite);
-}
-
 function syncAddMoviePickStep() {
   const watched = selectedAddListId === appLists.WATCHED_ID;
-  if (addMovieWatchedOptions) {
-    addMovieWatchedOptions.hidden = !watched;
-  }
   if (addMovieRatingField) {
     addMovieRatingField.hidden = !watched;
   }
   if (!watched) {
-    addMovieFavourite = false;
     resetAddMovieRatingControls();
   }
-  syncAddMovieFavouriteToggle();
 }
 
 function isAddMovieDialogOpen() {
@@ -2391,7 +2323,6 @@ function updateAddMovieHint() {
 function showAddSearchStep() {
   pendingAddResult = null;
   selectedAddListId = null;
-  addMovieFavourite = false;
   resetAddMovieRatingControls();
   addMovieSearchStep.hidden = false;
   addMoviePickStep.hidden = true;
@@ -2425,7 +2356,6 @@ function updateAddListPickerSelection(listId) {
 function showAddPickStep(result) {
   pendingAddResult = result;
   selectedAddListId = appLists.DEFAULT_LIST_ID;
-  addMovieFavourite = false;
   resetAddMovieRatingControls();
   addMovieSearchStep.hidden = true;
   addMoviePickStep.hidden = false;
@@ -2435,23 +2365,13 @@ function showAddPickStep(result) {
   addMovieSubmit.focus({ preventScroll: true });
 }
 
-function resolveAddTargetListId() {
-  if (selectedAddListId === appLists.WATCHLIST_ID) {
-    return appLists.WATCHLIST_ID;
-  }
-  if (addMovieFavourite) {
-    return appLists.FAVOURITES_ID;
-  }
-  return appLists.WATCHED_ID;
-}
-
 function confirmAddMovie() {
   if (!pendingAddResult || !selectedAddListId) {
     return;
   }
   const rating =
     selectedAddListId === appLists.WATCHED_ID ? pendingAddRating : null;
-  addMovieToList(pendingAddResult, resolveAddTargetListId(), rating);
+  addMovieToList(pendingAddResult, selectedAddListId, rating);
 }
 
 function openAddMovieDialog() {
@@ -2570,14 +2490,6 @@ function onAddListOptionClick(event) {
   syncAddMoviePickStep();
 }
 
-function onAddMovieFavouriteToggleClick() {
-  if (selectedAddListId !== appLists.WATCHED_ID) {
-    return;
-  }
-  addMovieFavourite = !addMovieFavourite;
-  syncAddMovieFavouriteToggle();
-}
-
 /* ===== Cards, skeletons, and the main grid render ===== */
 
 /**
@@ -2617,8 +2529,8 @@ function cardUserRatingHtml(movieId) {
 }
 
 /**
- * Watchlist gets a Watch button; watched movies get a star toggle. Nothing else
- * moves movies between lists from the card.
+ * Watchlist gets a Watch button on detail view cards. Nothing else moves movies
+ * between lists from the card.
  */
 function cardActionsHtml(movieId) {
   if (gridViewMode === "cards") {
@@ -2626,14 +2538,6 @@ function cardActionsHtml(movieId) {
   }
   if (userState.activeListId === appLists.WATCHLIST_ID) {
     return `<div class="card-actions"><button type="button" class="card-watch-btn" aria-label="Mark as watched" title="Mark as watched">&#10003;</button></div>`;
-  }
-  if (
-    userState.activeListId === appLists.WATCHED_ID ||
-    userState.activeListId === appLists.FAVOURITES_ID
-  ) {
-    const active = appLists.isFavourited(userState.lists, movieId);
-    const label = active ? "Remove from favourites" : "Add to favourites";
-    return `<div class="card-actions"><button type="button" class="card-favourite-btn${active ? " is-active" : ""}" aria-label="${label}" title="${label}" aria-pressed="${active}">&#9733;</button></div>`;
   }
   return "";
 }
@@ -2867,19 +2771,6 @@ function commitListChange(nextLists) {
 
 function watchMovie(movieId) {
   if (!commitListChange(appLists.assignMovieToList(userState.lists, appLists.WATCHED_ID, movieId))) {
-    return;
-  }
-  if (detailMovieId === movieId && !activeMovieIds().includes(movieId)) {
-    closeDetail();
-  }
-  render();
-  if (detailMovieId === movieId) {
-    renderDetail();
-  }
-}
-
-function toggleFavouriteMovie(movieId) {
-  if (!commitListChange(appLists.toggleFavourite(userState.lists, movieId))) {
     return;
   }
   if (detailMovieId === movieId && !activeMovieIds().includes(movieId)) {
@@ -3239,19 +3130,11 @@ ${detailUserRatingBlockHtml(detailMovieId)}
 
   const inCollection = appLists.findListIdsForMovie(userState.lists, detailMovieId).length > 0;
   const onWatchlist = appLists.isOnWatchlist(userState.lists, detailMovieId);
-  const watched = appLists.isWatched(userState.lists, detailMovieId);
-  const favourited = appLists.isFavourited(userState.lists, detailMovieId);
 
   const leftActions = [];
   if (inCollection && onWatchlist) {
     leftActions.push(
       `<button type="button" class="detail-watch-btn" id="detail-watch">Mark as watched</button>`,
-    );
-  }
-  if (inCollection && watched) {
-    const label = favourited ? "Remove from favourites" : "Add to favourites";
-    leftActions.push(
-      `<button type="button" class="detail-favourite-btn${favourited ? " is-active" : ""}" id="detail-favourite" aria-label="${label}" aria-pressed="${favourited}" title="${label}">&#9733;</button>`,
     );
   }
 
@@ -3744,7 +3627,6 @@ addMovieBack.addEventListener("click", () => {
   searchInput.focus();
 });
 addMovieListPicker.addEventListener("click", onAddListOptionClick);
-addMovieFavouriteToggle.addEventListener("click", onAddMovieFavouriteToggleClick);
 addMovieSubmit.addEventListener("click", confirmAddMovie);
 initAddMovieRatingSelect();
 bindRangeSliderLiveInput(addMovieRatingSlider, onAddMovieRatingSliderInput);
@@ -3764,12 +3646,6 @@ grid.addEventListener("click", (event) => {
   if (watchBtn) {
     event.stopPropagation();
     watchMovie(Number(watchBtn.closest("[data-movie-id]").dataset.movieId));
-    return;
-  }
-  const favouriteBtn = event.target.closest(".card-favourite-btn");
-  if (favouriteBtn) {
-    event.stopPropagation();
-    toggleFavouriteMovie(Number(favouriteBtn.closest("[data-movie-id]").dataset.movieId));
     return;
   }
   if (event.target.closest(".card-grip")) {
@@ -3895,10 +3771,6 @@ detailActions.addEventListener("click", (event) => {
   }
   if (event.target.id === "detail-watch") {
     watchMovie(detailMovieId);
-    return;
-  }
-  if (event.target.id === "detail-favourite") {
-    toggleFavouriteMovie(detailMovieId);
   }
 });
 

@@ -26,14 +26,14 @@ test("storage keys are distinct so credentials never ride along with state", () 
   );
 });
 
-test("defaultUserState starts on local storage with the three preset lists", () => {
+test("defaultUserState starts on local storage with the two preset lists", () => {
   const state = defaultUserState();
   assert.equal(state.version, USER_STATE_VERSION);
   assert.equal(state.storageMode, "local");
   assert.equal(state.activeListId, "watched");
   assert.deepEqual(
     state.lists.map((list) => list.id),
-    ["watched", "favourites", "watchlist"],
+    ["watched", "watchlist"],
   );
   assert.equal(state.updatedAt, null);
   assert.deepEqual(state.ratings, {});
@@ -69,6 +69,15 @@ test("normalizeUserState falls back when the active list id is not a preset", ()
   assert.equal(state.activeListId, "watched");
 });
 
+test("normalizeUserState migrates legacy favourites tab to watched", () => {
+  const state = normalizeUserState({
+    lists: [{ id: "favourites", name: "Favourites", movieIds: [603] }],
+    activeListId: "favourites",
+  });
+  assert.equal(state.activeListId, "watched");
+  assert.deepEqual(state.lists[0].movieIds, [603]);
+});
+
 test("normalizeUserState keeps a valid preset as the active list", () => {
   assert.equal(normalizeUserState({ activeListId: "watched" }).activeListId, "watched");
 });
@@ -80,10 +89,10 @@ test("normalizeUserState rejects an unknown storage mode", () => {
 
 test("normalizeUserState cleans movie ids inside lists", () => {
   const state = normalizeUserState({
-    lists: [{ id: "favourites", name: "Favourites", movieIds: [5, 5, "6", -1] }],
+    lists: [{ id: "watched", name: "Watched", movieIds: [5, 5, "6", -1] }],
   });
-  const favourites = state.lists.find((list) => list.id === "favourites");
-  assert.deepEqual(favourites.movieIds, [5, 6]);
+  const watched = state.lists.find((list) => list.id === "watched");
+  assert.deepEqual(watched.movieIds, [5, 6]);
 });
 
 test("normalizeUserState normalizes ratings to movies in lists", () => {
@@ -96,8 +105,8 @@ test("normalizeUserState normalizes ratings to movies in lists", () => {
 
 test("parseUserState round-trips a serialized state", () => {
   const original = normalizeUserState({
-    lists: [{ id: "favourites", name: "Favourites", movieIds: [603, 27205] }],
-    activeListId: "favourites",
+    lists: [{ id: "watched", name: "Watched", movieIds: [603, 27205] }],
+    activeListId: "watched",
     preferences: { viewMode: "detail" },
   });
   const parsed = parseUserState(serializeUserState(original));
@@ -113,7 +122,7 @@ test("parseUserState returns null for empty or malformed input", () => {
 
 test("parseUserState survives a partially corrupted payload", () => {
   const parsed = parseUserState('{"lists":"broken","activeListId":42}');
-  assert.equal(parsed.lists.length, 3);
+  assert.equal(parsed.lists.length, 2);
   assert.equal(parsed.activeListId, "watched");
 });
 
@@ -129,15 +138,12 @@ test("parseUserState migrates a payload written before the preset lists", () => 
   });
   const parsed = parseUserState(legacy);
 
-  // The custom list is dropped, favourites survives, and the surviving
-  // favourite is promoted into watched.
   assert.deepEqual(
     parsed.lists.map((list) => list.id),
-    ["watched", "favourites", "watchlist"],
+    ["watched", "watchlist"],
   );
   assert.deepEqual(parsed.lists[0].movieIds, [603]);
-  assert.deepEqual(parsed.lists[1].movieIds, [603]);
-  assert.deepEqual(parsed.lists[2].movieIds, []);
+  assert.deepEqual(parsed.lists[1].movieIds, []);
   assert.equal(parsed.activeListId, "watched");
   assert.equal(parsed.preferences.viewMode, "cards");
 });

@@ -16,9 +16,8 @@ const {
 } = require("../scripts/lib/ratings");
 
 const sampleLists = [
-  { id: "favourites", name: "Favourites", movieIds: [1, 2] },
-  { id: "watchlist", name: "Watchlist", movieIds: [3] },
   { id: "watched", name: "Watched", movieIds: [1, 2] },
+  { id: "watchlist", name: "Watchlist", movieIds: [3] },
 ];
 
 test("normalizeRating clamps to one decimal between 1 and 10", () => {

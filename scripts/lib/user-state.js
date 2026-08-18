@@ -75,13 +75,18 @@ function normalizeUserState(raw) {
 
   const normalizedLists = lists.normalizeLists(raw.lists);
 
+  let activeListId = raw.activeListId;
+  if (activeListId === "favourites") {
+    activeListId = lists.WATCHED_ID;
+  }
+
   return {
     version: USER_STATE_VERSION,
     updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : null,
     storageMode: STORAGE_MODES.has(raw.storageMode) ? raw.storageMode : "local",
     lists: normalizedLists,
-    activeListId: lists.isListId(raw.activeListId)
-      ? raw.activeListId
+    activeListId: lists.isListId(activeListId)
+      ? activeListId
       : lists.DEFAULT_LIST_ID,
     preferences: normalizePreferences(raw.preferences),
     ratings: getRatings().normalizeRatings(raw.ratings, normalizedLists),

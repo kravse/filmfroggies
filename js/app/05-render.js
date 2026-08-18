@@ -35,8 +35,8 @@ function cardUserRatingHtml(movieId) {
 }
 
 /**
- * Watchlist gets a Watch button; watched movies get a star toggle. Nothing else
- * moves movies between lists from the card.
+ * Watchlist gets a Watch button on detail view cards. Nothing else moves movies
+ * between lists from the card.
  */
 function cardActionsHtml(movieId) {
   if (gridViewMode === "cards") {
@@ -44,14 +44,6 @@ function cardActionsHtml(movieId) {
   }
   if (userState.activeListId === appLists.WATCHLIST_ID) {
     return `<div class="card-actions"><button type="button" class="card-watch-btn" aria-label="Mark as watched" title="Mark as watched">&#10003;</button></div>`;
-  }
-  if (
-    userState.activeListId === appLists.WATCHED_ID ||
-    userState.activeListId === appLists.FAVOURITES_ID
-  ) {
-    const active = appLists.isFavourited(userState.lists, movieId);
-    const label = active ? "Remove from favourites" : "Add to favourites";
-    return `<div class="card-actions"><button type="button" class="card-favourite-btn${active ? " is-active" : ""}" aria-label="${label}" title="${label}" aria-pressed="${active}">&#9733;</button></div>`;
   }
   return "";
 }
@@ -285,19 +277,6 @@ function commitListChange(nextLists) {
 
 function watchMovie(movieId) {
   if (!commitListChange(appLists.assignMovieToList(userState.lists, appLists.WATCHED_ID, movieId))) {
-    return;
-  }
-  if (detailMovieId === movieId && !activeMovieIds().includes(movieId)) {
-    closeDetail();
-  }
-  render();
-  if (detailMovieId === movieId) {
-    renderDetail();
-  }
-}
-
-function toggleFavouriteMovie(movieId) {
-  if (!commitListChange(appLists.toggleFavourite(userState.lists, movieId))) {
     return;
   }
   if (detailMovieId === movieId && !activeMovieIds().includes(movieId)) {

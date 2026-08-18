@@ -32,27 +32,26 @@ The token is stored in your browser's `localStorage` under `moviecollector-tmdb-
 1. Type in the search box to get TMDB autocomplete. Arrow keys navigate, Enter or click adds the movie to the active list.
 2. Toggle **card** and **detail** view in the toolbar; the choice persists.
 3. Click any card to open the detail overlay — poster, year, runtime, genres, rating, director, cast, and overview. Arrow keys move between movies; Escape closes. Overlays deep-link as `#movie/{id}`.
-4. On **Favourites** or **Watchlist**, tap **Reorder** (bottom left) to show drag handles and reorder. Tap **Done** when finished. **Watched** is sorted by date added and cannot be reordered.
+4. On **Watched** or **Watchlist**, tap **reorder** (bottom left) to unlock drag handles and reorder. Tap again to lock when finished.
 5. **Settings** stores your TMDB token and, optionally, connects GitHub Gist sync so lists follow you across devices.
 
-### The three lists
+### The two lists
 
-Tabs under the search box switch between three fixed lists — **Watched**, **Favourites**, and **Watchlist** — each showing its own count. They are statuses rather than collections, so there is nothing to create, rename, or delete.
+Tabs under the search box switch between two fixed lists — **Watched** and **Watchlist** — each showing its own count. They are statuses rather than collections, so there is nothing to create, rename, or delete.
 
-Two rules govern how they relate, and both follow from what the words mean:
+One rule governs how they relate:
 
-- **Favourites is part of Watched.** You can't favourite a film you haven't seen, so favouriting also marks it watched. Favourited movies appear in the Watched tab with a star.
-- **Watchlist is separate from both.** It means "haven't seen this yet", which rules out having watched or favourited it. Putting something on the watchlist clears both; marking it watched or favouriting it takes it off the watchlist.
+- **Watchlist is disjoint from Watched.** It means "haven't seen this yet", which rules out having watched it. Putting something on the watchlist clears watched; marking it watched takes it off the watchlist.
 
-That leaves three states a movie can be in: on the watchlist, watched, or watched and favourited. Both rules are enforced when state is read, not only when it's written, so no synced or hand-edited payload can produce a contradiction.
+That leaves two states a movie can be in: on the watchlist, or watched. The rule is enforced when state is read, not only when it's written, so no synced or hand-edited payload can produce a contradiction.
 
-**Watchlist:** each card has a **Watch** button that marks the film as watched (it leaves this tab). **Watched** and **Favourites:** click the star to favourite or un-favourite. **Remove** (× on a card, or **Remove movie** in the detail overlay) drops the film from your entire collection after a confirmation.
+**Watchlist:** each card has a **Watch** button that marks the film as watched (it leaves this tab). **Remove** (× on a card, or **Remove movie** in the detail overlay) drops the film from your entire collection after a confirmation.
 
 ### Browser storage keys
 
 | Key | Contents |
 |-----|----------|
-| `moviecollector-user-state` | The three lists with their ordered `movieIds`, active list, view preference |
+| `moviecollector-user-state` | The two lists with their ordered `movieIds`, active list, view preference |
 | `moviecollector-tmdb-auth` | Your TMDB read access token only |
 | `moviecollector-hosted-session` | Opaque hosted-access session token (Netlify only; not synced) |
 | `moviecollector-gist-sync` | GitHub Gist credentials (`token`, `gistId`) when connected |
