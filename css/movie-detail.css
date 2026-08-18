@@ -370,21 +370,13 @@ button.detail-rating-chip.is-rated[aria-expanded="true"] {
 }
 
 .detail-watch-btn {
-  font-family: var(--ui-font);
-  background: var(--panel-raised);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  cursor: pointer;
-  font-size: 0.78rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 0.4rem 0.7rem;
+  background: rgba(14, 16, 20, 0.82);
 }
 
 .detail-watch-btn:hover {
   border-color: var(--accent-border);
   color: var(--accent);
+  background: var(--accent-dim);
 }
 
 .detail-remove-btn {

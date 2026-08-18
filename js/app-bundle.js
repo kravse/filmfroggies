@@ -2806,17 +2806,14 @@ function cardPosterRatingsHtml(movieId) {
 }
 
 /**
- * Watchlist gets a Watch button on detail view cards. Nothing else moves movies
- * between lists from the card.
+ * Watchlist gets a checkmark on the poster. Nothing else moves movies between
+ * lists from the card.
  */
-function cardActionsHtml(movieId) {
-  if (gridViewMode === "cards") {
+function watchlistWatchBtnHtml() {
+  if (userState.activeListId !== appLists.WATCHLIST_ID) {
     return "";
   }
-  if (userState.activeListId === appLists.WATCHLIST_ID) {
-    return `<div class="card-actions"><button type="button" class="card-watch-btn" aria-label="Mark as watched" title="Mark as watched">&#10003;</button></div>`;
-  }
-  return "";
+  return `<button type="button" class="card-watch-btn" aria-label="Mark as watched" title="Mark as watched">&#10003;</button>`;
 }
 
 function cardSortHintHtml(movieId) {
@@ -2863,7 +2860,7 @@ function cardPosterOnlyHtml(movieId) {
   const grip = listShowsReorderGrip()
     ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>`
     : "";
-  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>${cardSortHintHtml(movieId)}`;
+  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}${watchlistWatchBtnHtml()}</div>${cardSortHintHtml(movieId)}`;
 }
 
 function listShowsReorderGrip() {
@@ -2970,6 +2967,7 @@ function cardInnerHtml(movieId) {
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
   ${cardPosterRatingsHtml(movieId)}
   ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
+  ${watchlistWatchBtnHtml()}
   <button type="button" class="card-remove" aria-label="Remove ${appCardHtml.escapeHtml(record.title)}" title="Remove movie">&times;</button>
 </div>
 <div class="card-body">
@@ -2977,7 +2975,6 @@ function cardInnerHtml(movieId) {
     <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>
     <div class="card-meta">${cardMetaText(record)}</div>
   </div>
-  ${cardActionsHtml(movieId)}
 </div>`;
 }
 
@@ -3505,7 +3502,7 @@ ${detailUserRatingBlockHtml(detailMovieId)}
   const leftActions = [];
   if (inCollection && onWatchlist) {
     leftActions.push(
-      `<button type="button" class="detail-watch-btn" id="detail-watch">Mark as watched</button>`,
+      `<button type="button" class="card-watch-btn detail-watch-btn" id="detail-watch" aria-label="Mark as watched" title="Mark as watched">&#10003;</button>`,
     );
   }
 

@@ -161,7 +161,7 @@ body.view-mode-detail .card {
   min-width: 0;
 }
 
-/* Grid view: Watch sits top-right of the text block on the watchlist tab. */
+/* Detail grid: fixed-height text block under the poster. */
 body.view-mode-detail .card-body {
   flex: none;
   position: relative;
@@ -177,14 +177,6 @@ body.view-mode-detail .card-text {
   min-height: calc(
     var(--card-title-block-height) + var(--card-text-gap) + var(--card-meta-block-height)
   );
-  padding-right: 1.85rem;
-}
-
-body.view-mode-detail .card-actions {
-  position: absolute;
-  top: 0.55rem;
-  right: 0.65rem;
-  margin: 0;
 }
 
 body.view-mode-detail .card-title {
@@ -258,12 +250,14 @@ body.view-mode-detail .card-meta {
   flex: none;
 }
 
-.card-watch-btn {
+.poster-wrap .card-watch-btn {
+  position: absolute;
+  z-index: 3;
   width: 26px;
   height: 26px;
   border-radius: 50%;
   border: 1px solid var(--border-strong);
-  background: var(--panel-raised);
+  background: rgba(14, 16, 20, 0.82);
   color: var(--muted);
   font-size: 0.82rem;
   line-height: 1;
@@ -272,6 +266,37 @@ body.view-mode-detail .card-meta {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+body.view-mode-cards .poster-wrap .card-watch-btn {
+  top: auto;
+  bottom: 0.2rem;
+  right: 0.2rem;
+  width: 22px;
+  height: 22px;
+  font-size: 0.7rem;
+}
+
+body.view-mode-detail .poster-wrap .card-watch-btn {
+  bottom: 0.35rem;
+  right: 0.35rem;
+}
+
+.card-watch-btn {
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--panel-raised);
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
 }
 
 .card-watch-btn:hover {
@@ -399,7 +424,8 @@ body.reorder-active {
 }
 
 .movie-card-floating .card-remove,
-.movie-card-floating .card-actions {
+.movie-card-floating .card-actions,
+.movie-card-floating .card-watch-btn {
   display: none;
 }
 

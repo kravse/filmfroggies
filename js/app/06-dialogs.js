@@ -305,7 +305,7 @@ ${detailUserRatingBlockHtml(detailMovieId)}
   const leftActions = [];
   if (inCollection && onWatchlist) {
     leftActions.push(
-      `<button type="button" class="detail-watch-btn" id="detail-watch">Mark as watched</button>`,
+      `<button type="button" class="card-watch-btn detail-watch-btn" id="detail-watch" aria-label="Mark as watched" title="Mark as watched">&#10003;</button>`,
     );
   }
 
