@@ -3,7 +3,7 @@
 .add-movie-fab {
   position: fixed;
   right: 1rem;
-  bottom: calc(3.35rem + env(safe-area-inset-bottom, 0px));
+  bottom: var(--floating-action-bottom);
   z-index: 35;
   display: inline-flex;
   align-items: center;

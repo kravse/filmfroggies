@@ -202,23 +202,3 @@ body.view-mode-detail .card-user-rating {
   font-size: 0.58rem;
   border-radius: 3px;
 }
-
-body.view-mode-list .card-user-rating {
-  position: static;
-  display: inline-block;
-  margin-left: 0.35rem;
-  padding: 0.08rem 0.32rem;
-  vertical-align: baseline;
-  background: var(--panel-raised);
-  border-color: var(--border);
-  color: var(--muted);
-  font-size: 0.66rem;
-}
-
-body.view-mode-list .card-meta .card-user-rating {
-  margin-left: 0;
-}
-
-.card-meta-rating {
-  color: var(--muted-dim);
-}

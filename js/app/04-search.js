@@ -22,7 +22,7 @@ function resetAddMovieRatingControls() {
   addMovieRatingTouched = false;
   addMovieRatingSlider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
   if (addMovieRatingSelect) {
-    addMovieRatingSelect.value = appRatings.ratingSelectDisplayValue(null);
+    addMovieRatingSelect.value = "";
   }
   if (addMovieRatingClear) {
     addMovieRatingClear.hidden = true;
@@ -40,7 +40,7 @@ function syncAddMovieRatingDisplay() {
     pendingAddRating = null;
     addMovieRatingSlider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
     if (addMovieRatingSelect) {
-      addMovieRatingSelect.value = appRatings.ratingSelectDisplayValue(null);
+      addMovieRatingSelect.value = "";
     }
     if (addMovieRatingClear) {
       addMovieRatingClear.hidden = true;
@@ -72,6 +72,10 @@ function onAddMovieRatingSelectChange() {
   if (!addMovieRatingSelect) {
     return;
   }
+  if (addMovieRatingSelect.value === "") {
+    resetAddMovieRatingControls();
+    return;
+  }
   addMovieRatingTouched = true;
   pendingAddRating = appRatings.normalizeRating(addMovieRatingSelect.value);
   syncAddMovieRatingDisplay();
@@ -85,7 +89,7 @@ function initAddMovieRatingSelect() {
   if (!addMovieRatingSelect) {
     return;
   }
-  addMovieRatingSelect.innerHTML = appRatings.ratingSelectInnerHtml(null);
+  addMovieRatingSelect.innerHTML = appRatings.ratingSelectInnerHtml(null, { includeUnrated: true });
 }
 
 function syncAddMovieFavouriteToggle() {

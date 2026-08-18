@@ -39,6 +39,11 @@ const appLists = (function () {
     return LIST_IDS.includes(listId);
   }
 
+  /** Watched is append-only by date added; favourites and watchlist stay manually ordered. */
+  function isListReorderable(listId) {
+    return listId !== WATCHED_ID;
+  }
+
   function normalizeMovieIds(raw) {
     if (!Array.isArray(raw)) {
       return [];
@@ -134,7 +139,11 @@ const appLists = (function () {
       const has = list.movieIds.includes(movieId);
       if (addTo.includes(list.id) && !has) {
         changed = true;
-        return { ...list, movieIds: [...list.movieIds, movieId] };
+        const nextIds =
+          list.id === WATCHED_ID
+            ? [movieId, ...list.movieIds]
+            : [...list.movieIds, movieId];
+        return { ...list, movieIds: nextIds };
       }
       if (removeFrom.includes(list.id) && has) {
         changed = true;
@@ -227,8 +236,11 @@ const appLists = (function () {
     return applyMembership(lists, id, [], LIST_IDS);
   }
 
-  /** Used by drag reorder to commit a new order for one list. */
+  /** Used by drag reorder to commit a new order for one list. Watched is not reorderable. */
   function replaceMovieIds(lists, listId, movieIds) {
+    if (!isListReorderable(listId)) {
+      return lists;
+    }
     const target = findList(lists, listId);
     if (!target || movieIds === target.movieIds) {
       return lists;
@@ -246,6 +258,7 @@ const appLists = (function () {
     LIST_IDS,
     DEFAULT_LIST_ID,
     isListId,
+    isListReorderable,
     normalizeMovieIds,
     defaultLists,
     normalizeLists,

@@ -9,6 +9,7 @@ const {
   LIST_IDS,
   DEFAULT_LIST_ID,
   isListId,
+  isListReorderable,
   normalizeMovieIds,
   defaultLists,
   normalizeLists,
@@ -60,6 +61,12 @@ test("the three preset lists are fixed, in tab order", () => {
     ["Watched", "Favourites", "Watchlist"],
   );
   assert.equal(DEFAULT_LIST_ID, WATCHED_ID);
+});
+
+test("isListReorderable is false only for watched", () => {
+  assert.equal(isListReorderable(WATCHED_ID), false);
+  assert.equal(isListReorderable(FAVOURITES_ID), true);
+  assert.equal(isListReorderable(WATCHLIST_ID), true);
 });
 
 test("isListId accepts only the presets", () => {
@@ -160,7 +167,7 @@ test("primaryListIdForMovie prefers favourited over merely watched", () => {
 test("favouriting also marks a movie watched", () => {
   const next = assignMovieToList(listsFixture(), FAVOURITES_ID, 5);
   assert.deepEqual(idsIn(next, FAVOURITES_ID), [1, 5]);
-  assert.deepEqual(idsIn(next, WATCHED_ID), [1, 2, 5]);
+  assert.deepEqual(idsIn(next, WATCHED_ID), [5, 1, 2]);
   assertInvariants(next);
 });
 
@@ -168,7 +175,7 @@ test("favouriting a watchlisted movie takes it off the watchlist", () => {
   const next = assignMovieToList(listsFixture(), FAVOURITES_ID, 3);
   assert.deepEqual(idsIn(next, WATCHLIST_ID), []);
   assert.deepEqual(idsIn(next, FAVOURITES_ID), [1, 3]);
-  assert.deepEqual(idsIn(next, WATCHED_ID), [1, 2, 3]);
+  assert.deepEqual(idsIn(next, WATCHED_ID), [3, 1, 2]);
   assertInvariants(next);
 });
 
@@ -180,7 +187,7 @@ test("marking watched leaves an existing favourite alone", () => {
 test("marking a watchlisted movie watched moves it across", () => {
   const next = assignMovieToList(listsFixture(), WATCHED_ID, 3);
   assert.deepEqual(idsIn(next, WATCHLIST_ID), []);
-  assert.deepEqual(idsIn(next, WATCHED_ID), [1, 2, 3]);
+  assert.deepEqual(idsIn(next, WATCHED_ID), [3, 1, 2]);
   assert.deepEqual(idsIn(next, FAVOURITES_ID), [1]);
   assertInvariants(next);
 });
@@ -256,9 +263,15 @@ test("removeMovieFromList is a no-op when the movie is not in that list", () => 
   assert.equal(removeMovieFromList(lists, "custom", 1), lists);
 });
 
-test("replaceMovieIds commits a new order for one list only", () => {
-  const next = replaceMovieIds(listsFixture(), WATCHED_ID, [2, 1]);
-  assert.deepEqual(idsIn(next, WATCHED_ID), [2, 1]);
+test("replaceMovieIds ignores watched because it is not reorderable", () => {
+  const lists = listsFixture();
+  assert.equal(replaceMovieIds(lists, WATCHED_ID, [2, 1]), lists);
+});
+
+test("replaceMovieIds commits a new order for reorderable lists", () => {
+  const next = replaceMovieIds(listsFixture(), FAVOURITES_ID, [2, 1]);
+  assert.deepEqual(idsIn(next, FAVOURITES_ID), [2, 1]);
+  assert.deepEqual(idsIn(next, WATCHED_ID), [1, 2]);
   assert.deepEqual(idsIn(next, WATCHLIST_ID), [3]);
 });
 
@@ -269,9 +282,9 @@ test("replaceMovieIds ignores an unknown list", () => {
 
 test("replaceMovieIds copies the array so later mutation cannot leak in", () => {
   const order = [2, 1];
-  const next = replaceMovieIds(listsFixture(), WATCHED_ID, order);
+  const next = replaceMovieIds(listsFixture(), FAVOURITES_ID, order);
   order.push(999);
-  assert.deepEqual(idsIn(next, WATCHED_ID), [2, 1]);
+  assert.deepEqual(idsIn(next, FAVOURITES_ID), [2, 1]);
 });
 
 test("isFavourited, isWatched, and isOnWatchlist reflect membership", () => {

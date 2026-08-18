@@ -58,13 +58,19 @@ function ratingSelectDisplayValue(rating) {
 }
 
 /** `<option>` markup for mobile rating dropdowns (1–10 in 0.1 steps). */
-function ratingSelectInnerHtml(selectedRating) {
-  const displayValue = ratingSelectDisplayValue(selectedRating);
+function ratingSelectInnerHtml(selectedRating, options) {
+  const includeUnrated = options?.includeUnrated === true;
+  const selected = normalizeRating(selectedRating);
   let html = "";
+  if (includeUnrated) {
+    html += `<option value=""${selected == null ? " selected" : ""}>—</option>`;
+  }
+  const displayValue =
+    selected != null ? formatUserRating(selected) : ratingSelectDisplayValue(null);
   for (let step = SLIDER_MIN; step <= SLIDER_MAX; step++) {
     const rating = MIN_RATING + step / 10;
     const label = formatUserRating(rating);
-    const isSelected = label === displayValue;
+    const isSelected = selected != null ? label === formatUserRating(selected) : !includeUnrated && label === displayValue;
     html += `<option value="${label}"${isSelected ? " selected" : ""}>${label}</option>`;
   }
   return html;

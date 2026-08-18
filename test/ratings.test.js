@@ -63,6 +63,17 @@ test("ratingSelectInnerHtml lists 0.1 steps from 1 to 10 without an unrated opti
   assert.doesNotMatch(rated, /value="7" selected/);
 });
 
+test("ratingSelectInnerHtml can include an unrated option for add-movie", () => {
+  const unrated = ratingSelectInnerHtml(null, { includeUnrated: true });
+  assert.match(unrated, /value="" selected>—</);
+  assert.doesNotMatch(unrated, /value="7" selected/);
+
+  const rated = ratingSelectInnerHtml(8.2, { includeUnrated: true });
+  assert.match(rated, /value="8\.2" selected/);
+  assert.match(rated, />—</);
+  assert.doesNotMatch(rated, /value="" selected/);
+});
+
 test("normalizeRatings keeps only valid ratings for movies in lists", () => {
   const normalized = normalizeRatings(
     { 1: 8.5, 2: "7", 3: 11, 4: 6, 5: 2.25 },

@@ -96,12 +96,11 @@ function updateLists(nextLists) {
   return true;
 }
 
-const VIEW_MODE_CYCLE = ["cards", "detail", "list"];
+const VIEW_MODE_CYCLE = ["cards", "detail"];
 
 const VIEW_MODE_LABELS = {
   cards: "Card view",
   detail: "Detail view",
-  list: "List view",
 };
 
 function nextViewMode(mode) {
@@ -126,7 +125,6 @@ function setViewMode(mode) {
   };
   document.body.classList.toggle("view-mode-cards", gridViewMode === "cards");
   document.body.classList.toggle("view-mode-detail", gridViewMode === "detail");
-  document.body.classList.toggle("view-mode-list", gridViewMode === "list");
   syncViewModeButton();
 }
 

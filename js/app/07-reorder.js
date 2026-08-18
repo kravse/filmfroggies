@@ -1,11 +1,7 @@
 /**
- * Drag reorder for both views, ported from arkham's want-list engine.
+ * Drag reorder for card grid views, ported from arkham's want-list engine.
  *
- * One lift-and-drop implementation drives a vertical list and a 2D card grid;
- * only the lifted element, the drop-target selector, and the floating class
- * differ. Targets are chosen by overlap area, which is what makes the same
- * code work in a grid where row hit testing would fall apart.
- *
+ * Targets are chosen by overlap area so the same code works in the 2D card grid.
  * There is no gate: the stored order is the only order, so nothing can
  * disagree with what was dragged.
  */
@@ -13,22 +9,13 @@
 const EDGE_SCROLL_ZONE = 72;
 const EDGE_SCROLL_SPEED = 18;
 
-let dragState = null;
+const LIFT_CONFIG = {
+  liftSelector: ".card",
+  targetSelector: ".movie-row--card .card",
+  floatingClass: "movie-card-floating",
+};
 
-function getLiftConfig() {
-  if (gridViewMode === "list") {
-    return {
-      liftSelector: ".movie-row",
-      targetSelector: ".movie-row:not(.movie-row--card)",
-      floatingClass: "movie-row-floating",
-    };
-  }
-  return {
-    liftSelector: ".card",
-    targetSelector: ".movie-row--card .card",
-    floatingClass: "movie-card-floating",
-  };
-}
+let dragState = null;
 
 function elementMovieId(element) {
   return Number(element?.dataset?.movieId);
@@ -59,13 +46,15 @@ function autoScrollForPointer(clientY) {
 }
 
 function onGripPointerDown(event) {
-  const handle = event.target.closest(".card-grip, .row-grip");
+  if (!appLists.isListReorderable(userState.activeListId) || !reorderModeActive) {
+    return;
+  }
+  const handle = event.target.closest(".card-grip");
   if (!handle || dragState || (event.pointerType === "mouse" && event.button !== 0)) {
     return;
   }
 
-  const config = getLiftConfig();
-  const source = handle.closest(config.liftSelector);
+  const source = handle.closest(LIFT_CONFIG.liftSelector);
   const movieId = elementMovieId(source);
   if (!source || !Number.isInteger(movieId)) {
     return;
@@ -74,7 +63,7 @@ function onGripPointerDown(event) {
   event.preventDefault();
   const rect = source.getBoundingClientRect();
   const floatEl = source.cloneNode(true);
-  floatEl.classList.add(config.floatingClass);
+  floatEl.classList.add(LIFT_CONFIG.floatingClass);
   floatEl.style.position = "fixed";
   floatEl.style.left = `${rect.left}px`;
   floatEl.style.top = `${rect.top}px`;
@@ -90,7 +79,6 @@ function onGripPointerDown(event) {
   dragState = {
     pointerId: event.pointerId,
     handle,
-    config,
     movieId,
     source,
     floatEl,
@@ -120,7 +108,7 @@ function onGripPointerMove(event) {
 
   // Rects are re-read every move so hydration or scrolling cannot desync them.
   const targets = appPointerReorder.collectTargetRects(
-    grid.querySelectorAll(dragState.config.targetSelector),
+    grid.querySelectorAll(LIFT_CONFIG.targetSelector),
     elementMovieId,
     (el) => el.getBoundingClientRect(),
   );
@@ -135,7 +123,7 @@ function onGripPointerMove(event) {
 
 function commitDrop(targetId) {
   const list = activeList();
-  if (!list || targetId == null) {
+  if (!list || targetId == null || !appLists.isListReorderable(list.id)) {
     return false;
   }
   const nextIds = appReorder.moveMovieId(list.movieIds, dragState.movieId, targetId);

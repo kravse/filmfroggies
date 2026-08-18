@@ -1,4 +1,8 @@
 @media (max-width: 640px) {
+  :root {
+    --floating-action-bottom: calc(3.15rem + env(safe-area-inset-bottom, 0px));
+  }
+
   header {
     padding: 0.7rem 0 0.6rem;
     gap: 0.6rem;
@@ -48,14 +52,6 @@
   .card-grip,
   .card-remove {
     opacity: 1;
-  }
-
-  body.view-mode-list .poster-wrap {
-    width: 48px;
-  }
-
-  body.view-mode-list .row-grip {
-    width: 40px;
   }
 
   .movie-detail-dialog {
@@ -146,7 +142,7 @@
 
   .add-movie-fab {
     right: 0.75rem;
-    bottom: calc(3.15rem + env(safe-area-inset-bottom, 0px));
+    bottom: var(--floating-action-bottom);
     width: 3rem;
     height: 3rem;
     padding: 0;
@@ -175,6 +171,12 @@
 
   .add-movie-fab-label {
     display: none;
+  }
+
+  .reorder-mode-btn {
+    left: 0.75rem;
+    padding: 0.3rem 1.35rem 0.3rem 0.5rem;
+    font-size: 0.68rem;
   }
 
   .search-suggest {

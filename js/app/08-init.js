@@ -69,7 +69,7 @@ grid.addEventListener("click", (event) => {
     toggleFavouriteMovie(Number(favouriteBtn.closest("[data-movie-id]").dataset.movieId));
     return;
   }
-  if (event.target.closest(".card-grip, .row-grip")) {
+  if (event.target.closest(".card-grip")) {
     return;
   }
 
@@ -146,6 +146,7 @@ viewModeCycleBtn.addEventListener("click", () => {
   persistUserState();
   render();
 });
+reorderModeBtn?.addEventListener("click", toggleReorderMode);
 
 /* --- Detail overlay --- */
 

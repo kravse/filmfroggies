@@ -34,6 +34,7 @@ const addMovieFavouriteToggle = document.getElementById("add-movie-favourite-tog
 const addMovieBack = document.getElementById("add-movie-back");
 
 const viewModeCycleBtn = document.getElementById("view-mode-cycle");
+const reorderModeBtn = document.getElementById("reorder-mode-btn");
 const grid = document.getElementById("grid");
 const emptyState = document.getElementById("empty-state");
 
@@ -95,6 +96,7 @@ const movieById = new Map();
 const movieErrors = new Set();
 
 let gridViewMode = "cards";
+let reorderModeActive = false;
 let detailMovieId = null;
 let detailRatingEditorOpen = false;
 /** Rating saved when the editor opens; Cancel restores this value. */

@@ -65,6 +65,7 @@ const APP_SYNC_ENTRIES = [
       "LIST_IDS",
       "DEFAULT_LIST_ID",
       "isListId",
+      "isListReorderable",
       "normalizeMovieIds",
       "defaultLists",
       "normalizeLists",

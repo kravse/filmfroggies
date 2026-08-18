@@ -13,17 +13,11 @@ function posterHtml(record, size) {
   return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async">`;
 }
 
-function cardMetaText(record, movieId) {
+function cardMetaText(record) {
   const parts = [
     appCardHtml.formatYear(record.releaseDate),
     appCardHtml.formatRuntime(record.runtime),
   ].filter(Boolean);
-  const userRating = appRatings.formatUserRating(
-    appRatings.getRating(userState.ratings, movieId),
-  );
-  if (userRating && gridViewMode === "list") {
-    parts.push(`<span class="card-meta-rating">${appCardHtml.escapeHtml(userRating)}</span>`);
-  }
   return parts.join(" · ");
 }
 
@@ -71,7 +65,54 @@ function cardPosterOnlyHtml(movieId) {
       : `<div class="placeholder"></div>`;
     return `<div class="poster-wrap">${body}</div>`;
   }
-  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}</div>`;
+  const grip = listShowsReorderGrip()
+    ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>`
+    : "";
+  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>`;
+}
+
+function listShowsReorderGrip() {
+  return appLists.isListReorderable(userState.activeListId) && reorderModeActive;
+}
+
+function syncReorderModeUi() {
+  const canReorder =
+    appLists.isListReorderable(userState.activeListId) && activeMovieIds().length > 0;
+  if (!canReorder) {
+    reorderModeActive = false;
+  }
+  const orderLocked = !reorderModeActive;
+  if (reorderModeBtn) {
+    reorderModeBtn.hidden = !canReorder;
+    reorderModeBtn.setAttribute("aria-pressed", String(orderLocked));
+    reorderModeBtn.classList.toggle("is-order-locked", orderLocked);
+    reorderModeBtn.classList.toggle("is-order-unlocked", !orderLocked);
+    const lockLabel = orderLocked ? "Reorder locked" : "Reorder unlocked";
+    const hint = orderLocked
+      ? " Tap to unlock and reorder."
+      : " Tap to lock order.";
+    reorderModeBtn.setAttribute("aria-label", `${lockLabel}.${hint}`);
+    reorderModeBtn.title = orderLocked
+      ? "Tap to unlock list order"
+      : "Tap to lock list order";
+  }
+  document.body.classList.toggle("reorder-mode", reorderModeActive);
+  document.body.classList.toggle("order-locked", canReorder && orderLocked);
+}
+
+function setReorderMode(active) {
+  const next = Boolean(active);
+  if (reorderModeActive === next) {
+    syncReorderModeUi();
+    return;
+  }
+  reorderModeActive = next;
+  syncReorderModeUi();
+  render();
+}
+
+function toggleReorderMode() {
+  setReorderMode(!reorderModeActive);
 }
 
 function cardInnerHtml(movieId) {
@@ -98,13 +139,13 @@ function cardInnerHtml(movieId) {
   return `<div class="poster-wrap">
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
   ${cardUserRatingHtml(movieId)}
-  <button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>
+  ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
   <button type="button" class="card-remove" aria-label="Remove ${appCardHtml.escapeHtml(record.title)}" title="Remove movie">&times;</button>
 </div>
 <div class="card-body">
   <div class="card-text">
     <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>
-    <div class="card-meta">${cardMetaText(record, movieId)}</div>
+    <div class="card-meta">${cardMetaText(record)}</div>
   </div>
   ${cardActionsHtml(movieId)}
 </div>`;
@@ -117,19 +158,15 @@ function rowInnerHtml(movieId) {
     : movieErrors.has(movieId)
       ? " is-error"
       : " is-skeleton";
-  const grip = record
-    ? `<button type="button" class="row-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>`
-    : "";
   const title = record ? appCardHtml.escapeHtml(record.title) : `Movie ${movieId}`;
 
-  return `${grip}<article class="card${stateClass}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
+  return `<article class="card${stateClass}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
 ${cardInnerHtml(movieId)}
 </article>`;
 }
 
 function rowHtml(movieId) {
-  const modifier = gridViewMode === "list" ? "" : " movie-row--card";
-  return `<div class="movie-row${modifier}" data-movie-id="${movieId}">${rowInnerHtml(movieId)}</div>`;
+  return `<div class="movie-row movie-row--card" data-movie-id="${movieId}">${rowInnerHtml(movieId)}</div>`;
 }
 
 /** Tabs are the only list switcher, and carry each list's count. */
@@ -150,10 +187,19 @@ function updateListHeader() {
   if (count && !hasTmdbAccess()) {
     listSubtitleEl.textContent = "Add a TMDB credential in Settings to load details";
   } else if (count) {
-    listSubtitleEl.textContent =
-      gridViewMode === "cards"
-        ? "+ Add a movie · tap a poster for details"
-        : "+ Add a movie · drag to reorder";
+    if (userState.activeListId === appLists.WATCHED_ID) {
+      listSubtitleEl.textContent =
+        gridViewMode === "cards"
+          ? "+ Add a movie · tap a poster for details"
+          : "+ Add a movie · sorted by date added";
+    } else if (reorderModeActive) {
+      listSubtitleEl.textContent = "+ Add a movie · drag to reorder";
+    } else {
+      listSubtitleEl.textContent =
+        gridViewMode === "cards"
+          ? "+ Add a movie · tap a poster for details"
+          : "+ Add a movie · tap a card for details";
+    }
   } else {
     listSubtitleEl.textContent = "Tap + Add a movie to start this list";
   }
@@ -164,6 +210,7 @@ function setActiveList(listId) {
     return;
   }
   userState = { ...userState, activeListId: listId };
+  reorderModeActive = false;
   persistUserState();
   closeDetail({ popHistory: false });
   render();
@@ -189,6 +236,7 @@ function render() {
   bindPosterImages(grid);
   renderListTabs();
   updateListHeader();
+  syncReorderModeUi();
   renderEmptyState(ids.length);
 }
 

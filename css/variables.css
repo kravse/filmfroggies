@@ -31,4 +31,5 @@
   --layout-wide-max: 1400px;
   --layout-gutter: 1.25rem;
   --header-gap: 0.75rem;
+  --floating-action-bottom: calc(3.35rem + env(safe-area-inset-bottom, 0px));
 }

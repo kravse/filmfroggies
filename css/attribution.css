@@ -51,3 +51,103 @@ body {
 .bar-icon-btn[aria-expanded="true"] {
   color: var(--text);
 }
+
+.reorder-mode-btn {
+  position: fixed;
+  left: 1rem;
+  bottom: var(--floating-action-bottom);
+  z-index: 31;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 0;
+  padding: 0.32rem 1.45rem 0.32rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(14, 16, 20, 0.72);
+  backdrop-filter: blur(4px);
+  color: var(--muted-dim);
+  font-family: var(--ui-font);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    color 0.15s ease,
+    filter 0.15s ease;
+}
+
+.reorder-mode-btn:hover {
+  color: var(--muted);
+  filter: none;
+}
+
+.reorder-mode-btn:focus-visible {
+  outline: 2px solid rgba(120, 200, 150, 0.45);
+  outline-offset: 1px;
+}
+
+.reorder-mode-btn.is-order-unlocked {
+  --order-badge-bg: rgba(72, 168, 118, 0.08);
+  --order-badge-border: rgba(120, 200, 150, 0.28);
+  --order-badge-accent: rgba(120, 200, 150, 0.55);
+  color: var(--muted);
+  background-color: var(--order-badge-bg);
+  border-color: var(--order-badge-border);
+  box-shadow: inset 2px 0 0 0 var(--order-badge-accent);
+}
+
+.reorder-mode-btn.is-order-locked {
+  --order-badge-bg: rgba(200, 92, 92, 0.06);
+  --order-badge-border: rgba(200, 110, 110, 0.26);
+  --order-badge-accent: rgba(220, 88, 88, 0.5);
+  color: var(--muted-dim);
+  background-color: var(--order-badge-bg);
+  border-color: var(--order-badge-border);
+  box-shadow: inset 2px 0 0 0 var(--order-badge-accent);
+}
+
+.reorder-mode-btn-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reorder-mode-btn-lock {
+  position: absolute;
+  right: 0.45rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: inherit;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.reorder-mode-btn.is-order-locked .reorder-mode-btn-lock,
+.reorder-mode-btn.is-order-unlocked .reorder-mode-btn-lock {
+  color: inherit;
+}
+
+.order-lock-icon {
+  width: 0.82rem;
+  height: 0.82rem;
+  display: block;
+}
+
+.reorder-mode-btn[aria-pressed="true"] .order-lock-icon--unlocked {
+  display: none;
+}
+
+.reorder-mode-btn[aria-pressed="false"] .order-lock-icon--locked {
+  display: none;
+}

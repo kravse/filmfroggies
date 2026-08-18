@@ -1,6 +1,6 @@
 # Movie collector
 
-Search [TMDB](https://www.themoviedb.org/), add movies to ordered lists, and browse them as a cover grid, a list, or a full detail overlay. No account and no backend — your lists live in the browser, with optional sync to a private GitHub Gist.
+Search [TMDB](https://www.themoviedb.org/), add movies to ordered lists, and browse them as a cover grid or a full detail overlay. No account and no backend — your lists live in the browser, with optional sync to a private GitHub Gist.
 
 ## How it works
 
@@ -30,9 +30,9 @@ The token is stored in your browser's `localStorage` under `moviecollector-tmdb-
 ## Using the site
 
 1. Type in the search box to get TMDB autocomplete. Arrow keys navigate, Enter or click adds the movie to the active list.
-2. Toggle **grid** and **list** view in the toolbar; the choice persists.
+2. Toggle **card** and **detail** view in the toolbar; the choice persists.
 3. Click any card to open the detail overlay — poster, year, runtime, genres, rating, director, cast, and overview. Arrow keys move between movies; Escape closes. Overlays deep-link as `#movie/{id}`.
-4. Drag the grip handle on a card or row to reorder. Reordering works in both views and saves immediately. The order you drag is the only order there is — there are no sort modes to disagree with it.
+4. On **Favourites** or **Watchlist**, tap **Reorder** (bottom left) to show drag handles and reorder. Tap **Done** when finished. **Watched** is sorted by date added and cannot be reordered.
 5. **Settings** stores your TMDB token and, optionally, connects GitHub Gist sync so lists follow you across devices.
 
 ### The three lists

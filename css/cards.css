@@ -54,6 +54,15 @@ body.view-mode-cards .card {
   border-radius: var(--radius-sm);
 }
 
+body.view-mode-cards .card-grip {
+  opacity: 1;
+  width: 22px;
+  height: 22px;
+  top: 0.2rem;
+  left: 0.2rem;
+  font-size: 0.7rem;
+}
+
 body.view-mode-detail .card {
   height: 100%;
   border-radius: var(--radius);
@@ -265,8 +274,7 @@ body.view-mode-detail .card-meta {
   background: var(--accent-dim);
 }
 
-.card-grip,
-.row-grip {
+.card-grip {
   border: 1px solid var(--border-strong);
   background: rgba(14, 16, 20, 0.82);
   color: var(--muted);
@@ -274,9 +282,6 @@ body.view-mode-detail .card-meta {
   touch-action: none;
   font-family: var(--ui-font);
   line-height: 1;
-}
-
-.card-grip {
   position: absolute;
   top: 0.35rem;
   left: 0.35rem;
@@ -291,21 +296,13 @@ body.view-mode-detail .card-meta {
 
 .card:hover .card-grip,
 .card-grip:focus-visible,
-body.reorder-active .card-grip {
+body.reorder-active .card-grip,
+body.reorder-mode .card-grip {
   opacity: 1;
 }
 
-.card-grip:active,
-.row-grip:active {
+.card-grip:active {
   cursor: grabbing;
-}
-
-.row-grip {
-  display: none;
-  flex: none;
-  width: 34px;
-  border-radius: var(--radius-sm);
-  font-size: 1rem;
 }
 
 /* --- Skeletons --- */
@@ -376,72 +373,6 @@ body.view-mode-detail .card.is-skeleton .card-meta {
   }
 }
 
-/* --- List view --- */
-
-body.view-mode-list .grid {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-body.view-mode-list .movie-row {
-  display: flex;
-  align-items: stretch;
-  gap: 0.5rem;
-}
-
-body.view-mode-list .row-grip {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-body.view-mode-list .card {
-  flex: 1;
-  flex-direction: row;
-  align-items: stretch;
-  min-width: 0;
-}
-
-body.view-mode-list .poster-wrap {
-  flex: none;
-  width: 60px;
-  aspect-ratio: 2 / 3;
-}
-
-body.view-mode-list .card-body {
-  flex: 1;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  padding: 0.6rem 0.8rem;
-  min-width: 0;
-}
-
-body.view-mode-list .card-text {
-  flex: 1;
-}
-
-body.view-mode-list .card-actions {
-  position: static;
-}
-
-body.view-mode-list .card-title {
-  -webkit-line-clamp: 1;
-  line-clamp: 1;
-  font-size: 1rem;
-}
-
-body.view-mode-list .card-grip {
-  display: none;
-}
-
-body.view-mode-list .card.is-skeleton .card-title {
-  height: 1rem;
-  width: 40%;
-}
-
 /* --- Drag reorder --- */
 
 body.reorder-active {
@@ -453,8 +384,7 @@ body.reorder-active {
   opacity: 0.28;
 }
 
-.movie-card-floating,
-.movie-row-floating {
+.movie-card-floating {
   z-index: 200;
   pointer-events: none;
   box-shadow: 0 20px 44px rgba(0, 0, 0, 0.6);
@@ -463,9 +393,7 @@ body.reorder-active {
 }
 
 .movie-card-floating .card-remove,
-.movie-row-floating .card-remove,
-.movie-card-floating .card-actions,
-.movie-row-floating .card-actions {
+.movie-card-floating .card-actions {
   display: none;
 }
 

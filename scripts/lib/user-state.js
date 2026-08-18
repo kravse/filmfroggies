@@ -12,7 +12,7 @@ const TMDB_AUTH_KEY = "moviecollector-tmdb-auth";
 const HOSTED_SESSION_KEY = "moviecollector-hosted-session";
 const USER_STATE_VERSION = 1;
 
-const VIEW_MODES = new Set(["cards", "detail", "list"]);
+const VIEW_MODES = new Set(["cards", "detail"]);
 const STORAGE_MODES = new Set(["local", "gist"]);
 
 function getLists() {
@@ -57,8 +57,12 @@ function normalizePreferences(raw) {
   if (!raw || typeof raw !== "object") {
     return base;
   }
+  let viewMode = raw.viewMode;
+  if (viewMode === "list") {
+    viewMode = "cards";
+  }
   return {
-    viewMode: VIEW_MODES.has(raw.viewMode) ? raw.viewMode : base.viewMode,
+    viewMode: VIEW_MODES.has(viewMode) ? viewMode : base.viewMode,
   };
 }
 

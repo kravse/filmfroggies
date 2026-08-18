@@ -104,17 +104,6 @@
               <rect x="9" y="9.5" width="6" height="1.5" rx="0.5" fill="currentColor" />
               <rect x="9" y="12" width="4.5" height="1" rx="0.5" fill="currentColor" />
             </svg>
-            <svg
-              class="view-mode-icon view-mode-icon--list"
-              viewBox="0 0 16 16"
-              width="14"
-              height="14"
-              aria-hidden="true"
-            >
-              <rect x="1" y="2" width="14" height="2" rx="0.5" fill="currentColor" />
-              <rect x="1" y="7" width="14" height="2" rx="0.5" fill="currentColor" />
-              <rect x="1" y="12" width="14" height="2" rx="0.5" fill="currentColor" />
-            </svg>
           </button>
         </div>
       </div>
@@ -290,6 +279,64 @@
         </div>
       </div>
     </div>
+
+    <button
+      type="button"
+      id="reorder-mode-btn"
+      class="reorder-mode-btn is-order-locked"
+      hidden
+      aria-pressed="true"
+      aria-label="Reorder locked. Tap to unlock and reorder."
+      title="Tap to unlock list order"
+    >
+      <span class="reorder-mode-btn-text">reorder</span>
+      <span class="reorder-mode-btn-lock" aria-hidden="true">
+        <svg
+          class="order-lock-icon order-lock-icon--unlocked"
+          viewBox="0 0 16 16"
+          fill="none"
+          aria-hidden="true"
+        >
+          <rect
+            x="4.5"
+            y="7"
+            width="7"
+            height="6"
+            rx="1.5"
+            stroke="currentColor"
+            stroke-width="1.25"
+          />
+          <path
+            d="M5.5 7V5.25a2.5 2.5 0 0 1 5 0"
+            stroke="currentColor"
+            stroke-width="1.25"
+            stroke-linecap="round"
+          />
+        </svg>
+        <svg
+          class="order-lock-icon order-lock-icon--locked"
+          viewBox="0 0 16 16"
+          fill="none"
+          aria-hidden="true"
+        >
+          <rect
+            x="4.5"
+            y="7"
+            width="7"
+            height="6"
+            rx="1.5"
+            stroke="currentColor"
+            stroke-width="1.25"
+          />
+          <path
+            d="M5.75 7V5.5a2.25 2.25 0 0 1 4.5 0V7"
+            stroke="currentColor"
+            stroke-width="1.25"
+            stroke-linecap="round"
+          />
+        </svg>
+      </span>
+    </button>
 
     <footer class="attribution-bar">
       <button

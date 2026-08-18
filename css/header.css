@@ -354,7 +354,6 @@ header {
 }
 
 .view-mode-btn[data-view-mode="cards"] .view-mode-icon--cards,
-.view-mode-btn[data-view-mode="detail"] .view-mode-icon--detail,
-.view-mode-btn[data-view-mode="list"] .view-mode-icon--list {
+.view-mode-btn[data-view-mode="detail"] .view-mode-icon--detail {
   display: block;
 }

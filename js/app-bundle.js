@@ -36,6 +36,7 @@ const addMovieFavouriteToggle = document.getElementById("add-movie-favourite-tog
 const addMovieBack = document.getElementById("add-movie-back");
 
 const viewModeCycleBtn = document.getElementById("view-mode-cycle");
+const reorderModeBtn = document.getElementById("reorder-mode-btn");
 const grid = document.getElementById("grid");
 const emptyState = document.getElementById("empty-state");
 
@@ -97,6 +98,7 @@ const movieById = new Map();
 const movieErrors = new Set();
 
 let gridViewMode = "cards";
+let reorderModeActive = false;
 let detailMovieId = null;
 let detailRatingEditorOpen = false;
 /** Rating saved when the editor opens; Cancel restores this value. */
@@ -574,6 +576,11 @@ const appLists = (function () {
     return LIST_IDS.includes(listId);
   }
 
+  /** Watched is append-only by date added; favourites and watchlist stay manually ordered. */
+  function isListReorderable(listId) {
+    return listId !== WATCHED_ID;
+  }
+
   function normalizeMovieIds(raw) {
     if (!Array.isArray(raw)) {
       return [];
@@ -669,7 +676,11 @@ const appLists = (function () {
       const has = list.movieIds.includes(movieId);
       if (addTo.includes(list.id) && !has) {
         changed = true;
-        return { ...list, movieIds: [...list.movieIds, movieId] };
+        const nextIds =
+          list.id === WATCHED_ID
+            ? [movieId, ...list.movieIds]
+            : [...list.movieIds, movieId];
+        return { ...list, movieIds: nextIds };
       }
       if (removeFrom.includes(list.id) && has) {
         changed = true;
@@ -762,8 +773,11 @@ const appLists = (function () {
     return applyMembership(lists, id, [], LIST_IDS);
   }
 
-  /** Used by drag reorder to commit a new order for one list. */
+  /** Used by drag reorder to commit a new order for one list. Watched is not reorderable. */
   function replaceMovieIds(lists, listId, movieIds) {
+    if (!isListReorderable(listId)) {
+      return lists;
+    }
     const target = findList(lists, listId);
     if (!target || movieIds === target.movieIds) {
       return lists;
@@ -781,6 +795,7 @@ const appLists = (function () {
     LIST_IDS,
     DEFAULT_LIST_ID,
     isListId,
+    isListReorderable,
     normalizeMovieIds,
     defaultLists,
     normalizeLists,
@@ -863,13 +878,19 @@ const appRatings = (function () {
   }
 
   /** `<option>` markup for mobile rating dropdowns (1–10 in 0.1 steps). */
-  function ratingSelectInnerHtml(selectedRating) {
-    const displayValue = ratingSelectDisplayValue(selectedRating);
+  function ratingSelectInnerHtml(selectedRating, options) {
+    const includeUnrated = options?.includeUnrated === true;
+    const selected = normalizeRating(selectedRating);
     let html = "";
+    if (includeUnrated) {
+      html += `<option value=""${selected == null ? " selected" : ""}>—</option>`;
+    }
+    const displayValue =
+      selected != null ? formatUserRating(selected) : ratingSelectDisplayValue(null);
     for (let step = SLIDER_MIN; step <= SLIDER_MAX; step++) {
       const rating = MIN_RATING + step / 10;
       const label = formatUserRating(rating);
-      const isSelected = label === displayValue;
+      const isSelected = selected != null ? label === formatUserRating(selected) : !includeUnrated && label === displayValue;
       html += `<option value="${label}"${isSelected ? " selected" : ""}>${label}</option>`;
     }
     return html;
@@ -994,7 +1015,7 @@ const appUserState = (function () {
   const HOSTED_SESSION_KEY = "moviecollector-hosted-session";
   const USER_STATE_VERSION = 1;
 
-  const VIEW_MODES = new Set(["cards", "detail", "list"]);
+  const VIEW_MODES = new Set(["cards", "detail"]);
   const STORAGE_MODES = new Set(["local", "gist"]);
 
   function getLists() {
@@ -1039,8 +1060,12 @@ const appUserState = (function () {
     if (!raw || typeof raw !== "object") {
       return base;
     }
+    let viewMode = raw.viewMode;
+    if (viewMode === "list") {
+      viewMode = "cards";
+    }
     return {
-      viewMode: VIEW_MODES.has(raw.viewMode) ? raw.viewMode : base.viewMode,
+      viewMode: VIEW_MODES.has(viewMode) ? viewMode : base.viewMode,
     };
   }
 
@@ -1446,12 +1471,11 @@ function updateLists(nextLists) {
   return true;
 }
 
-const VIEW_MODE_CYCLE = ["cards", "detail", "list"];
+const VIEW_MODE_CYCLE = ["cards", "detail"];
 
 const VIEW_MODE_LABELS = {
   cards: "Card view",
   detail: "Detail view",
-  list: "List view",
 };
 
 function nextViewMode(mode) {
@@ -1476,7 +1500,6 @@ function setViewMode(mode) {
   };
   document.body.classList.toggle("view-mode-cards", gridViewMode === "cards");
   document.body.classList.toggle("view-mode-detail", gridViewMode === "detail");
-  document.body.classList.toggle("view-mode-list", gridViewMode === "list");
   syncViewModeButton();
 }
 
@@ -2128,7 +2151,7 @@ function resetAddMovieRatingControls() {
   addMovieRatingTouched = false;
   addMovieRatingSlider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
   if (addMovieRatingSelect) {
-    addMovieRatingSelect.value = appRatings.ratingSelectDisplayValue(null);
+    addMovieRatingSelect.value = "";
   }
   if (addMovieRatingClear) {
     addMovieRatingClear.hidden = true;
@@ -2146,7 +2169,7 @@ function syncAddMovieRatingDisplay() {
     pendingAddRating = null;
     addMovieRatingSlider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
     if (addMovieRatingSelect) {
-      addMovieRatingSelect.value = appRatings.ratingSelectDisplayValue(null);
+      addMovieRatingSelect.value = "";
     }
     if (addMovieRatingClear) {
       addMovieRatingClear.hidden = true;
@@ -2178,6 +2201,10 @@ function onAddMovieRatingSelectChange() {
   if (!addMovieRatingSelect) {
     return;
   }
+  if (addMovieRatingSelect.value === "") {
+    resetAddMovieRatingControls();
+    return;
+  }
   addMovieRatingTouched = true;
   pendingAddRating = appRatings.normalizeRating(addMovieRatingSelect.value);
   syncAddMovieRatingDisplay();
@@ -2191,7 +2218,7 @@ function initAddMovieRatingSelect() {
   if (!addMovieRatingSelect) {
     return;
   }
-  addMovieRatingSelect.innerHTML = appRatings.ratingSelectInnerHtml(null);
+  addMovieRatingSelect.innerHTML = appRatings.ratingSelectInnerHtml(null, { includeUnrated: true });
 }
 
 function syncAddMovieFavouriteToggle() {
@@ -2568,17 +2595,11 @@ function posterHtml(record, size) {
   return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async">`;
 }
 
-function cardMetaText(record, movieId) {
+function cardMetaText(record) {
   const parts = [
     appCardHtml.formatYear(record.releaseDate),
     appCardHtml.formatRuntime(record.runtime),
   ].filter(Boolean);
-  const userRating = appRatings.formatUserRating(
-    appRatings.getRating(userState.ratings, movieId),
-  );
-  if (userRating && gridViewMode === "list") {
-    parts.push(`<span class="card-meta-rating">${appCardHtml.escapeHtml(userRating)}</span>`);
-  }
   return parts.join(" · ");
 }
 
@@ -2626,7 +2647,54 @@ function cardPosterOnlyHtml(movieId) {
       : `<div class="placeholder"></div>`;
     return `<div class="poster-wrap">${body}</div>`;
   }
-  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}</div>`;
+  const grip = listShowsReorderGrip()
+    ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>`
+    : "";
+  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>`;
+}
+
+function listShowsReorderGrip() {
+  return appLists.isListReorderable(userState.activeListId) && reorderModeActive;
+}
+
+function syncReorderModeUi() {
+  const canReorder =
+    appLists.isListReorderable(userState.activeListId) && activeMovieIds().length > 0;
+  if (!canReorder) {
+    reorderModeActive = false;
+  }
+  const orderLocked = !reorderModeActive;
+  if (reorderModeBtn) {
+    reorderModeBtn.hidden = !canReorder;
+    reorderModeBtn.setAttribute("aria-pressed", String(orderLocked));
+    reorderModeBtn.classList.toggle("is-order-locked", orderLocked);
+    reorderModeBtn.classList.toggle("is-order-unlocked", !orderLocked);
+    const lockLabel = orderLocked ? "Reorder locked" : "Reorder unlocked";
+    const hint = orderLocked
+      ? " Tap to unlock and reorder."
+      : " Tap to lock order.";
+    reorderModeBtn.setAttribute("aria-label", `${lockLabel}.${hint}`);
+    reorderModeBtn.title = orderLocked
+      ? "Tap to unlock list order"
+      : "Tap to lock list order";
+  }
+  document.body.classList.toggle("reorder-mode", reorderModeActive);
+  document.body.classList.toggle("order-locked", canReorder && orderLocked);
+}
+
+function setReorderMode(active) {
+  const next = Boolean(active);
+  if (reorderModeActive === next) {
+    syncReorderModeUi();
+    return;
+  }
+  reorderModeActive = next;
+  syncReorderModeUi();
+  render();
+}
+
+function toggleReorderMode() {
+  setReorderMode(!reorderModeActive);
 }
 
 function cardInnerHtml(movieId) {
@@ -2653,13 +2721,13 @@ function cardInnerHtml(movieId) {
   return `<div class="poster-wrap">
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
   ${cardUserRatingHtml(movieId)}
-  <button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>
+  ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
   <button type="button" class="card-remove" aria-label="Remove ${appCardHtml.escapeHtml(record.title)}" title="Remove movie">&times;</button>
 </div>
 <div class="card-body">
   <div class="card-text">
     <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>
-    <div class="card-meta">${cardMetaText(record, movieId)}</div>
+    <div class="card-meta">${cardMetaText(record)}</div>
   </div>
   ${cardActionsHtml(movieId)}
 </div>`;
@@ -2672,19 +2740,15 @@ function rowInnerHtml(movieId) {
     : movieErrors.has(movieId)
       ? " is-error"
       : " is-skeleton";
-  const grip = record
-    ? `<button type="button" class="row-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>`
-    : "";
   const title = record ? appCardHtml.escapeHtml(record.title) : `Movie ${movieId}`;
 
-  return `${grip}<article class="card${stateClass}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
+  return `<article class="card${stateClass}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
 ${cardInnerHtml(movieId)}
 </article>`;
 }
 
 function rowHtml(movieId) {
-  const modifier = gridViewMode === "list" ? "" : " movie-row--card";
-  return `<div class="movie-row${modifier}" data-movie-id="${movieId}">${rowInnerHtml(movieId)}</div>`;
+  return `<div class="movie-row movie-row--card" data-movie-id="${movieId}">${rowInnerHtml(movieId)}</div>`;
 }
 
 /** Tabs are the only list switcher, and carry each list's count. */
@@ -2705,10 +2769,19 @@ function updateListHeader() {
   if (count && !hasTmdbAccess()) {
     listSubtitleEl.textContent = "Add a TMDB credential in Settings to load details";
   } else if (count) {
-    listSubtitleEl.textContent =
-      gridViewMode === "cards"
-        ? "+ Add a movie · tap a poster for details"
-        : "+ Add a movie · drag to reorder";
+    if (userState.activeListId === appLists.WATCHED_ID) {
+      listSubtitleEl.textContent =
+        gridViewMode === "cards"
+          ? "+ Add a movie · tap a poster for details"
+          : "+ Add a movie · sorted by date added";
+    } else if (reorderModeActive) {
+      listSubtitleEl.textContent = "+ Add a movie · drag to reorder";
+    } else {
+      listSubtitleEl.textContent =
+        gridViewMode === "cards"
+          ? "+ Add a movie · tap a poster for details"
+          : "+ Add a movie · tap a card for details";
+    }
   } else {
     listSubtitleEl.textContent = "Tap + Add a movie to start this list";
   }
@@ -2719,6 +2792,7 @@ function setActiveList(listId) {
     return;
   }
   userState = { ...userState, activeListId: listId };
+  reorderModeActive = false;
   persistUserState();
   closeDetail({ popHistory: false });
   render();
@@ -2744,6 +2818,7 @@ function render() {
   bindPosterImages(grid);
   renderListTabs();
   updateListHeader();
+  syncReorderModeUi();
   renderEmptyState(ids.length);
 }
 
@@ -3463,13 +3538,9 @@ function confirmHostedLock() {
 /* ===== Drag reorder for list rows and grid cards ===== */
 
 /**
- * Drag reorder for both views, ported from arkham's want-list engine.
+ * Drag reorder for card grid views, ported from arkham's want-list engine.
  *
- * One lift-and-drop implementation drives a vertical list and a 2D card grid;
- * only the lifted element, the drop-target selector, and the floating class
- * differ. Targets are chosen by overlap area, which is what makes the same
- * code work in a grid where row hit testing would fall apart.
- *
+ * Targets are chosen by overlap area so the same code works in the 2D card grid.
  * There is no gate: the stored order is the only order, so nothing can
  * disagree with what was dragged.
  */
@@ -3477,22 +3548,13 @@ function confirmHostedLock() {
 const EDGE_SCROLL_ZONE = 72;
 const EDGE_SCROLL_SPEED = 18;
 
-let dragState = null;
+const LIFT_CONFIG = {
+  liftSelector: ".card",
+  targetSelector: ".movie-row--card .card",
+  floatingClass: "movie-card-floating",
+};
 
-function getLiftConfig() {
-  if (gridViewMode === "list") {
-    return {
-      liftSelector: ".movie-row",
-      targetSelector: ".movie-row:not(.movie-row--card)",
-      floatingClass: "movie-row-floating",
-    };
-  }
-  return {
-    liftSelector: ".card",
-    targetSelector: ".movie-row--card .card",
-    floatingClass: "movie-card-floating",
-  };
-}
+let dragState = null;
 
 function elementMovieId(element) {
   return Number(element?.dataset?.movieId);
@@ -3523,13 +3585,15 @@ function autoScrollForPointer(clientY) {
 }
 
 function onGripPointerDown(event) {
-  const handle = event.target.closest(".card-grip, .row-grip");
+  if (!appLists.isListReorderable(userState.activeListId) || !reorderModeActive) {
+    return;
+  }
+  const handle = event.target.closest(".card-grip");
   if (!handle || dragState || (event.pointerType === "mouse" && event.button !== 0)) {
     return;
   }
 
-  const config = getLiftConfig();
-  const source = handle.closest(config.liftSelector);
+  const source = handle.closest(LIFT_CONFIG.liftSelector);
   const movieId = elementMovieId(source);
   if (!source || !Number.isInteger(movieId)) {
     return;
@@ -3538,7 +3602,7 @@ function onGripPointerDown(event) {
   event.preventDefault();
   const rect = source.getBoundingClientRect();
   const floatEl = source.cloneNode(true);
-  floatEl.classList.add(config.floatingClass);
+  floatEl.classList.add(LIFT_CONFIG.floatingClass);
   floatEl.style.position = "fixed";
   floatEl.style.left = `${rect.left}px`;
   floatEl.style.top = `${rect.top}px`;
@@ -3554,7 +3618,6 @@ function onGripPointerDown(event) {
   dragState = {
     pointerId: event.pointerId,
     handle,
-    config,
     movieId,
     source,
     floatEl,
@@ -3584,7 +3647,7 @@ function onGripPointerMove(event) {
 
   // Rects are re-read every move so hydration or scrolling cannot desync them.
   const targets = appPointerReorder.collectTargetRects(
-    grid.querySelectorAll(dragState.config.targetSelector),
+    grid.querySelectorAll(LIFT_CONFIG.targetSelector),
     elementMovieId,
     (el) => el.getBoundingClientRect(),
   );
@@ -3599,7 +3662,7 @@ function onGripPointerMove(event) {
 
 function commitDrop(targetId) {
   const list = activeList();
-  if (!list || targetId == null) {
+  if (!list || targetId == null || !appLists.isListReorderable(list.id)) {
     return false;
   }
   const nextIds = appReorder.moveMovieId(list.movieIds, dragState.movieId, targetId);
@@ -3709,7 +3772,7 @@ grid.addEventListener("click", (event) => {
     toggleFavouriteMovie(Number(favouriteBtn.closest("[data-movie-id]").dataset.movieId));
     return;
   }
-  if (event.target.closest(".card-grip, .row-grip")) {
+  if (event.target.closest(".card-grip")) {
     return;
   }
 
@@ -3786,6 +3849,7 @@ viewModeCycleBtn.addEventListener("click", () => {
   persistUserState();
   render();
 });
+reorderModeBtn?.addEventListener("click", toggleReorderMode);
 
 /* --- Detail overlay --- */
 

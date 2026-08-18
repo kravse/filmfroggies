@@ -46,7 +46,7 @@ test("the serialized payload carries no credential fields", () => {
   assert.equal(json.includes("tmdb"), false);
 });
 
-test("normalizePreferences rejects an unknown view mode", () => {
+test("normalizePreferences rejects an unknown view mode and migrates list to cards", () => {
   assert.deepEqual(normalizePreferences({ viewMode: "carousel" }), {
     viewMode: "cards",
   });
@@ -57,7 +57,7 @@ test("normalizePreferences rejects an unknown view mode", () => {
     viewMode: "detail",
   });
   assert.deepEqual(normalizePreferences({ viewMode: "list" }), {
-    viewMode: "list",
+    viewMode: "cards",
   });
 });
 
@@ -98,7 +98,7 @@ test("parseUserState round-trips a serialized state", () => {
   const original = normalizeUserState({
     lists: [{ id: "favourites", name: "Favourites", movieIds: [603, 27205] }],
     activeListId: "favourites",
-    preferences: { viewMode: "list" },
+    preferences: { viewMode: "detail" },
   });
   const parsed = parseUserState(serializeUserState(original));
   assert.deepEqual(parsed, original);
@@ -139,7 +139,7 @@ test("parseUserState migrates a payload written before the preset lists", () => 
   assert.deepEqual(parsed.lists[1].movieIds, [603]);
   assert.deepEqual(parsed.lists[2].movieIds, []);
   assert.equal(parsed.activeListId, "watched");
-  assert.equal(parsed.preferences.viewMode, "list");
+  assert.equal(parsed.preferences.viewMode, "cards");
 });
 
 test("touchUserState stamps updatedAt without mutating the input", () => {
