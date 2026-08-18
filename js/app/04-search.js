@@ -46,10 +46,6 @@ function onAddMovieRatingSliderInput() {
   syncAddMovieRatingDisplay();
 }
 
-function canRateWhileAdding(listId) {
-  return listId === appLists.WATCHED_ID;
-}
-
 function syncAddMovieFavouriteToggle() {
   if (!addMovieFavouriteToggle) {
     return;
@@ -278,7 +274,9 @@ function confirmAddMovie() {
   if (!pendingAddResult || !selectedAddListId) {
     return;
   }
-  addMovieToList(pendingAddResult, resolveAddTargetListId(), pendingAddRating);
+  const rating =
+    selectedAddListId === appLists.WATCHED_ID ? pendingAddRating : null;
+  addMovieToList(pendingAddResult, resolveAddTargetListId(), rating);
 }
 
 function openAddMovieDialog() {
@@ -298,11 +296,15 @@ function closeAddMovieDialog() {
 
 function addMovieToList(result, listId, rating) {
   const nextLists = appLists.assignMovieToList(userState.lists, listId, result.id);
-  if (!updateLists(nextLists)) {
-    return;
+  const listsChanged = updateLists(nextLists);
+  let ratingsChanged = false;
+  if (rating != null) {
+    ratingsChanged = updateRatings(
+      appRatings.setRating(userState.ratings, result.id, rating),
+    );
   }
-  if (rating != null && canRateWhileAdding(listId)) {
-    updateRatings(appRatings.setRating(userState.ratings, result.id, rating));
+  if (!listsChanged && !ratingsChanged) {
+    return;
   }
   persistUserState();
   closeAddMovieDialog();
