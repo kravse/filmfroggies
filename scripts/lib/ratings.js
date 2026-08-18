@@ -57,7 +57,7 @@ function ratingSelectDisplayValue(rating) {
   return formatUserRating(ratingFromSliderValue(DEFAULT_SLIDER_VALUE));
 }
 
-/** `<option>` markup for mobile rating dropdowns (1–10 in 0.1 steps). */
+/** `<option>` markup for mobile rating dropdowns (10–1 in 0.1 steps, high to low). */
 function ratingSelectInnerHtml(selectedRating, options) {
   const includeUnrated = options?.includeUnrated === true;
   const selected = normalizeRating(selectedRating);
@@ -67,7 +67,7 @@ function ratingSelectInnerHtml(selectedRating, options) {
   }
   const displayValue =
     selected != null ? formatUserRating(selected) : ratingSelectDisplayValue(null);
-  for (let step = SLIDER_MIN; step <= SLIDER_MAX; step++) {
+  for (let step = SLIDER_MAX; step >= SLIDER_MIN; step--) {
     const rating = MIN_RATING + step / 10;
     const label = formatUserRating(rating);
     const isSelected = selected != null ? label === formatUserRating(selected) : !includeUnrated && label === displayValue;

@@ -49,13 +49,14 @@ test("ratingSelectDisplayValue falls back to the slider default when unrated", (
   assert.equal(ratingSelectDisplayValue(8.4), "8.4");
 });
 
-test("ratingSelectInnerHtml lists 0.1 steps from 1 to 10 without an unrated option", () => {
+test("ratingSelectInnerHtml lists 0.1 steps from 10 to 1 without an unrated option", () => {
   const unrated = ratingSelectInnerHtml(null);
   assert.doesNotMatch(unrated, />—</);
   assert.match(unrated, /value="7" selected/);
-  assert.match(unrated, />1</);
-  assert.match(unrated, />7\.3</);
   assert.match(unrated, />10</);
+  assert.match(unrated, />7\.3</);
+  assert.match(unrated, />1</);
+  assert.ok(unrated.indexOf('value="10"') < unrated.indexOf('value="1"'));
 
   const rated = ratingSelectInnerHtml(7.3);
   assert.match(rated, /value="7\.3" selected/);
