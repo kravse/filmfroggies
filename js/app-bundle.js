@@ -9,6 +9,7 @@
 
 const listSubtitleEl = document.getElementById("list-subtitle");
 const listTabs = document.getElementById("list-tabs");
+const headerLogo = document.getElementById("header-logo");
 
 const searchInput = document.getElementById("search");
 const searchCombobox = document.getElementById("search-combobox");
@@ -56,6 +57,16 @@ const removeConfirmDialog = document.getElementById("remove-confirm-dialog");
 const removeConfirmMessage = document.getElementById("remove-confirm-message");
 const removeConfirmCancel = document.getElementById("remove-confirm-cancel");
 const removeConfirmOk = document.getElementById("remove-confirm-ok");
+
+const hostedUnlockDialog = document.getElementById("hosted-unlock-dialog");
+const hostedUnlockInput = document.getElementById("hosted-unlock-input");
+const hostedUnlockStatus = document.getElementById("hosted-unlock-status");
+const hostedUnlockCancel = document.getElementById("hosted-unlock-cancel");
+const hostedUnlockSubmit = document.getElementById("hosted-unlock-submit");
+
+const hostedLockDialog = document.getElementById("hosted-lock-dialog");
+const hostedLockCancel = document.getElementById("hosted-lock-cancel");
+const hostedLockOk = document.getElementById("hosted-lock-ok");
 
 /* --- Mutable state --- */
 
@@ -651,6 +662,7 @@ const appUserState = (function () {
   const USER_STATE_KEY = "moviecollector-user-state";
   const GIST_SYNC_KEY = "moviecollector-gist-sync";
   const TMDB_AUTH_KEY = "moviecollector-tmdb-auth";
+  const HOSTED_SESSION_KEY = "moviecollector-hosted-session";
   const USER_STATE_VERSION = 1;
 
   const VIEW_MODES = new Set(["cards", "list"]);
@@ -735,6 +747,7 @@ const appUserState = (function () {
     USER_STATE_KEY,
     GIST_SYNC_KEY,
     TMDB_AUTH_KEY,
+    HOSTED_SESSION_KEY,
     USER_STATE_VERSION,
     defaultUserState,
     normalizePreferences,
@@ -1234,6 +1247,9 @@ function disconnectGist() {
  * Movie detail responses are cached under a synthetic key that omits the
  * credential, so the cache survives a credential change and never stores the
  * secret itself. Search is transient and only memoized for the session.
+ *
+ * On Netlify, an optional hosted session routes API calls through /api/tmdb so
+ * the read token stays server-side. Personal tokens in Settings still work.
  */
 
 const TMDB_CACHE_NAME = "moviecollector-tmdb-v1";
@@ -1244,6 +1260,7 @@ const HYDRATE_CONCURRENCY = 6;
 const searchMemo = new Map();
 
 let cachePromise;
+let hostedSessionToken = "";
 
 /* --- Credential --- */
 
@@ -1272,6 +1289,90 @@ function saveCredential(value) {
 
 function hasCredential() {
   return appTmdb.isReadAccessToken(tmdbCredential);
+}
+
+/* --- Hosted session (Netlify proxy) --- */
+
+function loadHostedSession() {
+  try {
+    hostedSessionToken = localStorage.getItem(appUserState.HOSTED_SESSION_KEY) || "";
+  } catch (_) {
+    hostedSessionToken = "";
+  }
+  return hostedSessionToken;
+}
+
+function saveHostedSession(token) {
+  hostedSessionToken = String(token || "").trim();
+  try {
+    if (hostedSessionToken) {
+      localStorage.setItem(appUserState.HOSTED_SESSION_KEY, hostedSessionToken);
+    } else {
+      localStorage.removeItem(appUserState.HOSTED_SESSION_KEY);
+    }
+  } catch (_) {
+    /* Same private-browsing caveat as the TMDB credential. */
+  }
+  return hostedSessionToken;
+}
+
+function clearHostedSession() {
+  return saveHostedSession("");
+}
+
+function hasHostedAccess() {
+  return Boolean(hostedSessionToken);
+}
+
+function hasTmdbAccess() {
+  return hasHostedAccess() || hasCredential();
+}
+
+function tmdbUrlToProxyRequest(url) {
+  const parsed = new URL(String(url));
+  const match = /^\/3(\/.+)$/.exec(parsed.pathname);
+  const path = match ? match[1] : parsed.pathname;
+  const searchParams = {};
+  for (const key of ["query", "language", "page", "include_adult", "append_to_response"]) {
+    const value = parsed.searchParams.get(key);
+    if (value != null && value !== "") {
+      searchParams[key] = value;
+    }
+  }
+  return { path, searchParams };
+}
+
+function buildProxyUrl(path, searchParams) {
+  const url = new URL("/api/tmdb", window.location.origin);
+  url.searchParams.set("path", path);
+  for (const [key, value] of Object.entries(searchParams || {})) {
+    url.searchParams.set(key, value);
+  }
+  return url.toString();
+}
+
+async function unlockHostedAccess(password) {
+  const response = await fetch("/api/auth", {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify({ password: String(password || "") }),
+  });
+  if (response.status === 503) {
+    throw new Error("Hosted access is not available on this host.");
+  }
+  if (!response.ok) {
+    throw new Error("Incorrect password.");
+  }
+  const body = await response.json();
+  if (!body?.token) {
+    throw new Error("Hosted access did not return a session.");
+  }
+  saveHostedSession(body.token);
+  await verifyCredential();
+}
+
+function lockHostedAccess() {
+  clearHostedSession();
 }
 
 /* --- Cache --- */
@@ -1307,7 +1408,7 @@ async function clearMovieCache() {
 /* --- Requests --- */
 
 async function fetchTmdb(url, options = {}) {
-  if (!hasCredential()) {
+  if (!hasTmdbAccess()) {
     throw new Error("No TMDB credential");
   }
 
@@ -1325,11 +1426,22 @@ async function fetchTmdb(url, options = {}) {
   }
 
   try {
-    const response = await fetch(
-      url,
-      appTmdb.buildRequestInit(tmdbCredential, { signal: controller.signal }),
-    );
+    let requestUrl = url;
+    let init = { signal: controller.signal, headers: { accept: "application/json" } };
+
+    if (hasHostedAccess()) {
+      const { path, searchParams } = tmdbUrlToProxyRequest(url);
+      requestUrl = buildProxyUrl(path, searchParams);
+      init.headers.authorization = `Bearer ${hostedSessionToken}`;
+    } else {
+      init = appTmdb.buildRequestInit(tmdbCredential, { signal: controller.signal });
+    }
+
+    const response = await fetch(requestUrl, init);
     if (!response.ok) {
+      if (hasHostedAccess() && response.status === 401) {
+        clearHostedSession();
+      }
       throw new Error(`TMDB request failed (${response.status})`);
     }
     return response;
@@ -1447,9 +1559,9 @@ async function searchMovies(query, options = {}) {
  * batch endpoint for arbitrary ids, so a long list is many small requests.
  */
 async function hydrateMovies(ids, handlers = {}) {
-  // Without a credential every request would fail, turning the whole grid into
+  // Without access every request would fail, turning the whole grid into
   // error cards. Leaving the skeletons up reads better and stays accurate.
-  if (!hasCredential()) {
+  if (!hasTmdbAccess()) {
     return;
   }
   const queue = ids.filter((id) => !movieById.has(id));
@@ -1475,7 +1587,7 @@ async function hydrateMovies(ids, handlers = {}) {
   }
 
   const workerCount = Math.min(HYDRATE_CONCURRENCY, pending.length);
-  await Promise.all(Array.from({ length: workerCount }, worker));
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
 }
 
 /* ===== Search box, TMDB autocomplete, and add-to-list ===== */
@@ -1607,7 +1719,7 @@ function onSearchInput() {
     return;
   }
 
-  if (!hasCredential()) {
+  if (!hasTmdbAccess()) {
     showSuggestMessage("Add a TMDB credential in Settings to search.");
     return;
   }
@@ -1817,7 +1929,7 @@ function renderListTabs() {
 
 function updateListHeader() {
   const count = activeMovieIds().length;
-  if (count && !hasCredential()) {
+  if (count && !hasTmdbAccess()) {
     listSubtitleEl.textContent = "Add a TMDB credential in Settings to load details";
   } else if (count) {
     listSubtitleEl.textContent = "Search to add · drag to reorder";
@@ -1845,7 +1957,7 @@ function renderEmptyState(count) {
   }
   emptyState.hidden = false;
   const listName = activeList()?.name || "this list";
-  emptyState.innerHTML = hasCredential()
+  emptyState.innerHTML = hasTmdbAccess()
     ? `<strong>Nothing in ${appCardHtml.escapeHtml(listName)} yet</strong>Search for a movie above to add it here.`
     : `<strong>Add your TMDB token</strong>Open Settings and paste your TMDB API Read Access Token to search and load movies.`;
 }
@@ -2026,7 +2138,7 @@ function renderDetail() {
   if (!record) {
     let heading = "Loading…";
     let note = "";
-    if (!hasCredential()) {
+    if (!hasTmdbAccess()) {
       heading = "No TMDB credential";
       note = "Open Settings and paste your TMDB credential to load this movie.";
     } else if (movieErrors.has(detailMovieId)) {
@@ -2283,6 +2395,52 @@ function openAbout() {
 
 function closeAbout() {
   aboutDialog.hidden = true;
+}
+
+/* --- Hosted unlock (hidden) --- */
+
+function openHostedUnlockDialog() {
+  hostedUnlockInput.value = "";
+  setStatus(hostedUnlockStatus, "");
+  hostedUnlockDialog.hidden = false;
+  hostedUnlockInput.focus({ preventScroll: true });
+}
+
+function closeHostedUnlockDialog() {
+  hostedUnlockDialog.hidden = true;
+  hostedUnlockInput.value = "";
+  setStatus(hostedUnlockStatus, "");
+}
+
+async function submitHostedUnlock() {
+  const password = hostedUnlockInput.value;
+  setStatus(hostedUnlockStatus, "Checking…", null);
+  hostedUnlockSubmit.disabled = true;
+  try {
+    await unlockHostedAccess(password);
+    closeHostedUnlockDialog();
+    render();
+    hydrateActiveList();
+  } catch (error) {
+    setStatus(hostedUnlockStatus, error.message, "error");
+  } finally {
+    hostedUnlockSubmit.disabled = false;
+  }
+}
+
+function openHostedLockDialog() {
+  hostedLockDialog.hidden = false;
+  hostedLockCancel.focus({ preventScroll: true });
+}
+
+function closeHostedLockDialog() {
+  hostedLockDialog.hidden = true;
+}
+
+function confirmHostedLock() {
+  lockHostedAccess();
+  closeHostedLockDialog();
+  render();
 }
 
 /* ===== Drag reorder for list rows and grid cards ===== */
@@ -2672,10 +2830,67 @@ aboutDialog.addEventListener("click", (event) => {
   }
 });
 
+/* --- Hidden hosted unlock (triple-click logo) --- */
+
+let logoClickCount = 0;
+let logoClickTimer = null;
+
+headerLogo.addEventListener("click", () => {
+  logoClickCount += 1;
+  if (logoClickTimer) {
+    clearTimeout(logoClickTimer);
+  }
+  logoClickTimer = setTimeout(() => {
+    logoClickCount = 0;
+    logoClickTimer = null;
+  }, 600);
+  if (logoClickCount < 3) {
+    return;
+  }
+  logoClickCount = 0;
+  clearTimeout(logoClickTimer);
+  logoClickTimer = null;
+  if (hasHostedAccess()) {
+    openHostedLockDialog();
+  } else {
+    openHostedUnlockDialog();
+  }
+});
+
+hostedUnlockCancel.addEventListener("click", () => closeHostedUnlockDialog());
+hostedUnlockSubmit.addEventListener("click", () => submitHostedUnlock());
+hostedUnlockInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    submitHostedUnlock();
+  }
+});
+hostedUnlockDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-hosted-unlock")) {
+    closeHostedUnlockDialog();
+  }
+});
+
+hostedLockCancel.addEventListener("click", () => closeHostedLockDialog());
+hostedLockOk.addEventListener("click", () => confirmHostedLock());
+hostedLockDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-hosted-lock")) {
+    closeHostedLockDialog();
+  }
+});
+
 /* --- Global keys --- */
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
+    if (!hostedUnlockDialog.hidden) {
+      closeHostedUnlockDialog();
+      return;
+    }
+    if (!hostedLockDialog.hidden) {
+      closeHostedLockDialog();
+      return;
+    }
     if (!removeConfirmDialog.hidden) {
       closeRemoveConfirm();
       return;
@@ -2708,6 +2923,7 @@ document.addEventListener("keydown", (event) => {
 
 function startApp() {
   loadCredential();
+  loadHostedSession();
   loadGistConfig();
   loadUserState();
   setViewMode(userState.preferences.viewMode);

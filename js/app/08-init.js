@@ -207,10 +207,67 @@ aboutDialog.addEventListener("click", (event) => {
   }
 });
 
+/* --- Hidden hosted unlock (triple-click logo) --- */
+
+let logoClickCount = 0;
+let logoClickTimer = null;
+
+headerLogo.addEventListener("click", () => {
+  logoClickCount += 1;
+  if (logoClickTimer) {
+    clearTimeout(logoClickTimer);
+  }
+  logoClickTimer = setTimeout(() => {
+    logoClickCount = 0;
+    logoClickTimer = null;
+  }, 600);
+  if (logoClickCount < 3) {
+    return;
+  }
+  logoClickCount = 0;
+  clearTimeout(logoClickTimer);
+  logoClickTimer = null;
+  if (hasHostedAccess()) {
+    openHostedLockDialog();
+  } else {
+    openHostedUnlockDialog();
+  }
+});
+
+hostedUnlockCancel.addEventListener("click", () => closeHostedUnlockDialog());
+hostedUnlockSubmit.addEventListener("click", () => submitHostedUnlock());
+hostedUnlockInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    submitHostedUnlock();
+  }
+});
+hostedUnlockDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-hosted-unlock")) {
+    closeHostedUnlockDialog();
+  }
+});
+
+hostedLockCancel.addEventListener("click", () => closeHostedLockDialog());
+hostedLockOk.addEventListener("click", () => confirmHostedLock());
+hostedLockDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-hosted-lock")) {
+    closeHostedLockDialog();
+  }
+});
+
 /* --- Global keys --- */
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
+    if (!hostedUnlockDialog.hidden) {
+      closeHostedUnlockDialog();
+      return;
+    }
+    if (!hostedLockDialog.hidden) {
+      closeHostedLockDialog();
+      return;
+    }
     if (!removeConfirmDialog.hidden) {
       closeRemoveConfirm();
       return;
@@ -243,6 +300,7 @@ document.addEventListener("keydown", (event) => {
 
 function startApp() {
   loadCredential();
+  loadHostedSession();
   loadGistConfig();
   loadUserState();
   setViewMode(userState.preferences.viewMode);

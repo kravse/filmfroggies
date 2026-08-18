@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const {
   USER_STATE_KEY,
   TMDB_AUTH_KEY,
+  HOSTED_SESSION_KEY,
   GIST_SYNC_KEY,
   USER_STATE_VERSION,
   defaultUserState,
@@ -17,8 +18,12 @@ const {
 test("storage keys are distinct so credentials never ride along with state", () => {
   assert.equal(USER_STATE_KEY, "moviecollector-user-state");
   assert.equal(TMDB_AUTH_KEY, "moviecollector-tmdb-auth");
+  assert.equal(HOSTED_SESSION_KEY, "moviecollector-hosted-session");
   assert.equal(GIST_SYNC_KEY, "moviecollector-gist-sync");
-  assert.equal(new Set([USER_STATE_KEY, TMDB_AUTH_KEY, GIST_SYNC_KEY]).size, 3);
+  assert.equal(
+    new Set([USER_STATE_KEY, TMDB_AUTH_KEY, HOSTED_SESSION_KEY, GIST_SYNC_KEY]).size,
+    4,
+  );
 });
 
 test("defaultUserState starts on local storage with the three preset lists", () => {

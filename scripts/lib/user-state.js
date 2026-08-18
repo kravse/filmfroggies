@@ -9,6 +9,7 @@
 const USER_STATE_KEY = "moviecollector-user-state";
 const GIST_SYNC_KEY = "moviecollector-gist-sync";
 const TMDB_AUTH_KEY = "moviecollector-tmdb-auth";
+const HOSTED_SESSION_KEY = "moviecollector-hosted-session";
 const USER_STATE_VERSION = 1;
 
 const VIEW_MODES = new Set(["cards", "list"]);
@@ -93,6 +94,7 @@ module.exports = {
   USER_STATE_KEY,
   GIST_SYNC_KEY,
   TMDB_AUTH_KEY,
+  HOSTED_SESSION_KEY,
   USER_STATE_VERSION,
   defaultUserState,
   normalizePreferences,

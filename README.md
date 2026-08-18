@@ -54,6 +54,7 @@ That leaves three states a movie can be in: on the watchlist, watched, or watche
 |-----|----------|
 | `moviecollector-user-state` | The three lists with their ordered `movieIds`, active list, view preference |
 | `moviecollector-tmdb-auth` | Your TMDB read access token only |
+| `moviecollector-hosted-session` | Opaque hosted-access session token (Netlify only; not synced) |
 | `moviecollector-gist-sync` | GitHub Gist credentials (`token`, `gistId`) when connected |
 
 **Gist sync security:** the PAT is stored in `localStorage`. Use a throwaway GitHub account and a fine-grained PAT limited to gist read/write. Neither the PAT nor the TMDB credential is written into the synced Gist file.
@@ -64,7 +65,33 @@ That leaves three states a movie can be in: on the watchlist, watched, or watche
 npm run build    # writes build/
 ```
 
-`build/` is a plain static directory — `index.html`, bundled CSS, the JS bundle, and a `noindex` robots file. Routing is hash-only, so no server rewrite rules are needed. Point any static host at it.
+`build/` is a plain static directory — `index.html`, bundled CSS, the JS bundle, `images/`, and a `noindex` robots file. Routing is hash-only, so no server rewrite rules are needed beyond what [`netlify.toml`](netlify.toml) provides for Netlify Functions.
+
+### Netlify (optional hosted TMDB access)
+
+For a personal deploy you can keep your TMDB read token on the server so casual visitors never see it. Set two environment variables in **Site configuration → Environment variables**:
+
+| Variable | Purpose |
+|----------|---------|
+| `TMDB_READ_TOKEN` | Your v4 TMDB API Read Access Token |
+| `HOSTED_SITE_PASSWORD` | Password for the hidden unlock flow |
+
+Build command: `npm run build`. Publish directory: `build`. Functions live in [`netlify/functions/`](netlify/functions/).
+
+**Hidden unlock:** triple-click the projector logo, enter the site password, and the browser stores an opaque session token (not the password). TMDB API calls then go through `/api/tmdb`; poster images still load directly from TMDB. Triple-click again when unlocked to lock hosted access on this browser.
+
+Casual visitors see the normal site — paste a TMDB token in Settings, or browse lists without search/hydration. The hosted path is intentionally undocumented in the UI.
+
+Threat model: obscurity for casual users, not anti-brute-force. Anyone who discovers the auth endpoint can attempt the password.
+
+### Local development
+
+| Command | Use |
+|---------|-----|
+| `npm run serve` | Static site only; use your own TMDB token in Settings |
+| `netlify dev` | Static site **and** `/api/auth` + `/api/tmdb` functions (install [Netlify CLI](https://docs.netlify.com/cli/get-started/)); env vars from Netlify or a local `.env` file (gitignored) |
+
+Point any other static host at `build/` if you are not using Netlify Functions.
 
 ## Project layout
 
@@ -78,6 +105,8 @@ npm run build    # writes build/
 | `test/` | Node tests |
 | `server.js` | Read-only static server for local viewing |
 | `build.js` | Static deploy build |
+| `netlify.toml` | Netlify build settings and `/api/*` redirects |
+| `netlify/functions/` | Hosted auth + TMDB proxy (Netlify only) |
 
 Vanilla HTML/CSS/JS — no TypeScript, no framework, no runtime dependencies. `express` is a devDependency used only by the local server.
 

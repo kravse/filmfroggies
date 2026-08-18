@@ -27,6 +27,7 @@
       <div class="header-top">
         <div class="header-brand">
           <img
+            id="header-logo"
             class="header-logo"
             src="images/projector.png"
             alt=""
@@ -359,6 +360,70 @@
           </button>
           <button type="button" id="remove-confirm-ok" class="primary-btn confirm-danger">
             Remove
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hidden hosted unlock (triple-click logo) -->
+    <div id="hosted-unlock-dialog" class="sheet-dialog" hidden>
+      <div class="sheet-backdrop" data-close-hosted-unlock></div>
+      <div
+        class="sheet-panel confirm-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="hosted-unlock-title"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="hosted-unlock-title">Unlock</h2>
+        </div>
+        <div class="sheet-scroll">
+          <div class="field-row">
+            <input
+              type="password"
+              id="hosted-unlock-input"
+              placeholder="Password"
+              aria-label="Password"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+          <span class="status-text" id="hosted-unlock-status"></span>
+        </div>
+        <div class="confirm-actions">
+          <button type="button" id="hosted-unlock-cancel" class="ghost-btn">
+            Cancel
+          </button>
+          <button type="button" id="hosted-unlock-submit" class="primary-btn">
+            Unlock
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="hosted-lock-dialog" class="sheet-dialog" hidden>
+      <div class="sheet-backdrop" data-close-hosted-lock></div>
+      <div
+        class="sheet-panel confirm-panel"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="hosted-lock-title"
+        aria-describedby="hosted-lock-message"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="hosted-lock-title">Lock access</h2>
+        </div>
+        <div class="sheet-scroll">
+          <p id="hosted-lock-message" class="confirm-message">
+            Lock hosted TMDB access on this browser?
+          </p>
+        </div>
+        <div class="confirm-actions">
+          <button type="button" id="hosted-lock-cancel" class="ghost-btn">
+            Cancel
+          </button>
+          <button type="button" id="hosted-lock-ok" class="primary-btn confirm-danger">
+            Lock
           </button>
         </div>
       </div>

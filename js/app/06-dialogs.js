@@ -63,7 +63,7 @@ function renderDetail() {
   if (!record) {
     let heading = "Loading…";
     let note = "";
-    if (!hasCredential()) {
+    if (!hasTmdbAccess()) {
       heading = "No TMDB credential";
       note = "Open Settings and paste your TMDB credential to load this movie.";
     } else if (movieErrors.has(detailMovieId)) {
@@ -320,4 +320,50 @@ function openAbout() {
 
 function closeAbout() {
   aboutDialog.hidden = true;
+}
+
+/* --- Hosted unlock (hidden) --- */
+
+function openHostedUnlockDialog() {
+  hostedUnlockInput.value = "";
+  setStatus(hostedUnlockStatus, "");
+  hostedUnlockDialog.hidden = false;
+  hostedUnlockInput.focus({ preventScroll: true });
+}
+
+function closeHostedUnlockDialog() {
+  hostedUnlockDialog.hidden = true;
+  hostedUnlockInput.value = "";
+  setStatus(hostedUnlockStatus, "");
+}
+
+async function submitHostedUnlock() {
+  const password = hostedUnlockInput.value;
+  setStatus(hostedUnlockStatus, "Checking…", null);
+  hostedUnlockSubmit.disabled = true;
+  try {
+    await unlockHostedAccess(password);
+    closeHostedUnlockDialog();
+    render();
+    hydrateActiveList();
+  } catch (error) {
+    setStatus(hostedUnlockStatus, error.message, "error");
+  } finally {
+    hostedUnlockSubmit.disabled = false;
+  }
+}
+
+function openHostedLockDialog() {
+  hostedLockDialog.hidden = false;
+  hostedLockCancel.focus({ preventScroll: true });
+}
+
+function closeHostedLockDialog() {
+  hostedLockDialog.hidden = true;
+}
+
+function confirmHostedLock() {
+  lockHostedAccess();
+  closeHostedLockDialog();
+  render();
 }

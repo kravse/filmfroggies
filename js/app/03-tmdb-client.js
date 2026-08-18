@@ -4,6 +4,9 @@
  * Movie detail responses are cached under a synthetic key that omits the
  * credential, so the cache survives a credential change and never stores the
  * secret itself. Search is transient and only memoized for the session.
+ *
+ * On Netlify, an optional hosted session routes API calls through /api/tmdb so
+ * the read token stays server-side. Personal tokens in Settings still work.
  */
 
 const TMDB_CACHE_NAME = "moviecollector-tmdb-v1";
@@ -14,6 +17,7 @@ const HYDRATE_CONCURRENCY = 6;
 const searchMemo = new Map();
 
 let cachePromise;
+let hostedSessionToken = "";
 
 /* --- Credential --- */
 
@@ -42,6 +46,90 @@ function saveCredential(value) {
 
 function hasCredential() {
   return appTmdb.isReadAccessToken(tmdbCredential);
+}
+
+/* --- Hosted session (Netlify proxy) --- */
+
+function loadHostedSession() {
+  try {
+    hostedSessionToken = localStorage.getItem(appUserState.HOSTED_SESSION_KEY) || "";
+  } catch (_) {
+    hostedSessionToken = "";
+  }
+  return hostedSessionToken;
+}
+
+function saveHostedSession(token) {
+  hostedSessionToken = String(token || "").trim();
+  try {
+    if (hostedSessionToken) {
+      localStorage.setItem(appUserState.HOSTED_SESSION_KEY, hostedSessionToken);
+    } else {
+      localStorage.removeItem(appUserState.HOSTED_SESSION_KEY);
+    }
+  } catch (_) {
+    /* Same private-browsing caveat as the TMDB credential. */
+  }
+  return hostedSessionToken;
+}
+
+function clearHostedSession() {
+  return saveHostedSession("");
+}
+
+function hasHostedAccess() {
+  return Boolean(hostedSessionToken);
+}
+
+function hasTmdbAccess() {
+  return hasHostedAccess() || hasCredential();
+}
+
+function tmdbUrlToProxyRequest(url) {
+  const parsed = new URL(String(url));
+  const match = /^\/3(\/.+)$/.exec(parsed.pathname);
+  const path = match ? match[1] : parsed.pathname;
+  const searchParams = {};
+  for (const key of ["query", "language", "page", "include_adult", "append_to_response"]) {
+    const value = parsed.searchParams.get(key);
+    if (value != null && value !== "") {
+      searchParams[key] = value;
+    }
+  }
+  return { path, searchParams };
+}
+
+function buildProxyUrl(path, searchParams) {
+  const url = new URL("/api/tmdb", window.location.origin);
+  url.searchParams.set("path", path);
+  for (const [key, value] of Object.entries(searchParams || {})) {
+    url.searchParams.set(key, value);
+  }
+  return url.toString();
+}
+
+async function unlockHostedAccess(password) {
+  const response = await fetch("/api/auth", {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify({ password: String(password || "") }),
+  });
+  if (response.status === 503) {
+    throw new Error("Hosted access is not available on this host.");
+  }
+  if (!response.ok) {
+    throw new Error("Incorrect password.");
+  }
+  const body = await response.json();
+  if (!body?.token) {
+    throw new Error("Hosted access did not return a session.");
+  }
+  saveHostedSession(body.token);
+  await verifyCredential();
+}
+
+function lockHostedAccess() {
+  clearHostedSession();
 }
 
 /* --- Cache --- */
@@ -77,7 +165,7 @@ async function clearMovieCache() {
 /* --- Requests --- */
 
 async function fetchTmdb(url, options = {}) {
-  if (!hasCredential()) {
+  if (!hasTmdbAccess()) {
     throw new Error("No TMDB credential");
   }
 
@@ -95,11 +183,22 @@ async function fetchTmdb(url, options = {}) {
   }
 
   try {
-    const response = await fetch(
-      url,
-      appTmdb.buildRequestInit(tmdbCredential, { signal: controller.signal }),
-    );
+    let requestUrl = url;
+    let init = { signal: controller.signal, headers: { accept: "application/json" } };
+
+    if (hasHostedAccess()) {
+      const { path, searchParams } = tmdbUrlToProxyRequest(url);
+      requestUrl = buildProxyUrl(path, searchParams);
+      init.headers.authorization = `Bearer ${hostedSessionToken}`;
+    } else {
+      init = appTmdb.buildRequestInit(tmdbCredential, { signal: controller.signal });
+    }
+
+    const response = await fetch(requestUrl, init);
     if (!response.ok) {
+      if (hasHostedAccess() && response.status === 401) {
+        clearHostedSession();
+      }
       throw new Error(`TMDB request failed (${response.status})`);
     }
     return response;
@@ -217,9 +316,9 @@ async function searchMovies(query, options = {}) {
  * batch endpoint for arbitrary ids, so a long list is many small requests.
  */
 async function hydrateMovies(ids, handlers = {}) {
-  // Without a credential every request would fail, turning the whole grid into
+  // Without access every request would fail, turning the whole grid into
   // error cards. Leaving the skeletons up reads better and stays accurate.
-  if (!hasCredential()) {
+  if (!hasTmdbAccess()) {
     return;
   }
   const queue = ids.filter((id) => !movieById.has(id));
@@ -245,5 +344,5 @@ async function hydrateMovies(ids, handlers = {}) {
   }
 
   const workerCount = Math.min(HYDRATE_CONCURRENCY, pending.length);
-  await Promise.all(Array.from({ length: workerCount }, worker));
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
 }

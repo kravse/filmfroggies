@@ -125,7 +125,7 @@ function onSearchInput() {
     return;
   }
 
-  if (!hasCredential()) {
+  if (!hasTmdbAccess()) {
     showSuggestMessage("Add a TMDB credential in Settings to search.");
     return;
   }

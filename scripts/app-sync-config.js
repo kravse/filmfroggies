@@ -83,6 +83,7 @@ const APP_SYNC_ENTRIES = [
       "USER_STATE_KEY",
       "GIST_SYNC_KEY",
       "TMDB_AUTH_KEY",
+      "HOSTED_SESSION_KEY",
       "USER_STATE_VERSION",
       "defaultUserState",
       "normalizePreferences",

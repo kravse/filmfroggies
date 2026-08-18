@@ -108,7 +108,7 @@ function renderListTabs() {
 
 function updateListHeader() {
   const count = activeMovieIds().length;
-  if (count && !hasCredential()) {
+  if (count && !hasTmdbAccess()) {
     listSubtitleEl.textContent = "Add a TMDB credential in Settings to load details";
   } else if (count) {
     listSubtitleEl.textContent = "Search to add · drag to reorder";
@@ -136,7 +136,7 @@ function renderEmptyState(count) {
   }
   emptyState.hidden = false;
   const listName = activeList()?.name || "this list";
-  emptyState.innerHTML = hasCredential()
+  emptyState.innerHTML = hasTmdbAccess()
     ? `<strong>Nothing in ${appCardHtml.escapeHtml(listName)} yet</strong>Search for a movie above to add it here.`
     : `<strong>Add your TMDB token</strong>Open Settings and paste your TMDB API Read Access Token to search and load movies.`;
 }

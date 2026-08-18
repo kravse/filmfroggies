@@ -7,6 +7,7 @@
 
 const listSubtitleEl = document.getElementById("list-subtitle");
 const listTabs = document.getElementById("list-tabs");
+const headerLogo = document.getElementById("header-logo");
 
 const searchInput = document.getElementById("search");
 const searchCombobox = document.getElementById("search-combobox");
@@ -54,6 +55,16 @@ const removeConfirmDialog = document.getElementById("remove-confirm-dialog");
 const removeConfirmMessage = document.getElementById("remove-confirm-message");
 const removeConfirmCancel = document.getElementById("remove-confirm-cancel");
 const removeConfirmOk = document.getElementById("remove-confirm-ok");
+
+const hostedUnlockDialog = document.getElementById("hosted-unlock-dialog");
+const hostedUnlockInput = document.getElementById("hosted-unlock-input");
+const hostedUnlockStatus = document.getElementById("hosted-unlock-status");
+const hostedUnlockCancel = document.getElementById("hosted-unlock-cancel");
+const hostedUnlockSubmit = document.getElementById("hosted-unlock-submit");
+
+const hostedLockDialog = document.getElementById("hosted-lock-dialog");
+const hostedLockCancel = document.getElementById("hosted-lock-cancel");
+const hostedLockOk = document.getElementById("hosted-lock-ok");
 
 /* --- Mutable state --- */
 
