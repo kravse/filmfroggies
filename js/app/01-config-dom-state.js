@@ -121,3 +121,93 @@ function setStatus(element, message, tone) {
   element.classList.toggle("is-ok", tone === "ok");
   element.classList.toggle("is-error", tone === "error");
 }
+
+/** Keeps range sliders responsive on touch devices during slow drags. */
+function bindRangeSliderLiveInput(slider, onInput) {
+  if (!slider) {
+    return;
+  }
+  const emit = () => onInput({ target: slider });
+  slider.addEventListener("input", emit);
+  slider.addEventListener("change", emit);
+  slider.addEventListener("pointerdown", (event) => {
+    if (typeof slider.setPointerCapture === "function") {
+      slider.setPointerCapture(event.pointerId);
+    }
+    emit();
+  });
+  slider.addEventListener("pointermove", (event) => {
+    if (
+      typeof slider.hasPointerCapture === "function" &&
+      !slider.hasPointerCapture(event.pointerId)
+    ) {
+      return;
+    }
+    emit();
+  });
+  const release = (event) => {
+    if (
+      typeof slider.hasPointerCapture === "function" &&
+      slider.hasPointerCapture(event.pointerId)
+    ) {
+      slider.releasePointerCapture(event.pointerId);
+    }
+    emit();
+  };
+  slider.addEventListener("pointerup", release);
+  slider.addEventListener("pointercancel", release);
+}
+
+function delegateRangeSliderLiveInput(root, sliderId, onInput) {
+  if (!root) {
+    return;
+  }
+  const sliderFromEvent = (event) =>
+    event.target instanceof HTMLInputElement && event.target.id === sliderId
+      ? event.target
+      : null;
+
+  root.addEventListener("input", (event) => {
+    if (sliderFromEvent(event)) {
+      onInput(event);
+    }
+  });
+  root.addEventListener("pointerdown", (event) => {
+    const slider = sliderFromEvent(event);
+    if (!slider) {
+      return;
+    }
+    if (typeof slider.setPointerCapture === "function") {
+      slider.setPointerCapture(event.pointerId);
+    }
+    onInput(event);
+  });
+  root.addEventListener("pointermove", (event) => {
+    const slider = sliderFromEvent(event);
+    if (!slider) {
+      return;
+    }
+    if (
+      typeof slider.hasPointerCapture === "function" &&
+      !slider.hasPointerCapture(event.pointerId)
+    ) {
+      return;
+    }
+    onInput(event);
+  });
+  const release = (event) => {
+    const slider = sliderFromEvent(event);
+    if (!slider) {
+      return;
+    }
+    if (
+      typeof slider.hasPointerCapture === "function" &&
+      slider.hasPointerCapture(event.pointerId)
+    ) {
+      slider.releasePointerCapture(event.pointerId);
+    }
+    onInput(event);
+  };
+  root.addEventListener("pointerup", release);
+  root.addEventListener("pointercancel", release);
+}

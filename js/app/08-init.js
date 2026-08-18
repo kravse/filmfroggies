@@ -43,7 +43,7 @@ addMovieBack.addEventListener("click", () => {
 addMovieListPicker.addEventListener("click", onAddListOptionClick);
 addMovieFavouriteToggle.addEventListener("click", onAddMovieFavouriteToggleClick);
 addMovieSubmit.addEventListener("click", confirmAddMovie);
-addMovieRatingSlider.addEventListener("input", onAddMovieRatingSliderInput);
+bindRangeSliderLiveInput(addMovieRatingSlider, onAddMovieRatingSliderInput);
 
 /* --- Grid --- */
 
@@ -170,11 +170,7 @@ detailDialog.addEventListener("click", (event) => {
     clearDetailRating();
   }
 });
-detailDialog.addEventListener("input", (event) => {
-  if (event.target.id === "detail-rating-slider") {
-    onDetailRatingSliderInput(event);
-  }
-});
+delegateRangeSliderLiveInput(detailDialog, "detail-rating-slider", onDetailRatingSliderInput);
 detailDialog.addEventListener("change", (event) => {
   if (event.target.id === "detail-rating-slider") {
     commitDetailRating();

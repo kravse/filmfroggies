@@ -124,6 +124,96 @@ function setStatus(element, message, tone) {
   element.classList.toggle("is-error", tone === "error");
 }
 
+/** Keeps range sliders responsive on touch devices during slow drags. */
+function bindRangeSliderLiveInput(slider, onInput) {
+  if (!slider) {
+    return;
+  }
+  const emit = () => onInput({ target: slider });
+  slider.addEventListener("input", emit);
+  slider.addEventListener("change", emit);
+  slider.addEventListener("pointerdown", (event) => {
+    if (typeof slider.setPointerCapture === "function") {
+      slider.setPointerCapture(event.pointerId);
+    }
+    emit();
+  });
+  slider.addEventListener("pointermove", (event) => {
+    if (
+      typeof slider.hasPointerCapture === "function" &&
+      !slider.hasPointerCapture(event.pointerId)
+    ) {
+      return;
+    }
+    emit();
+  });
+  const release = (event) => {
+    if (
+      typeof slider.hasPointerCapture === "function" &&
+      slider.hasPointerCapture(event.pointerId)
+    ) {
+      slider.releasePointerCapture(event.pointerId);
+    }
+    emit();
+  };
+  slider.addEventListener("pointerup", release);
+  slider.addEventListener("pointercancel", release);
+}
+
+function delegateRangeSliderLiveInput(root, sliderId, onInput) {
+  if (!root) {
+    return;
+  }
+  const sliderFromEvent = (event) =>
+    event.target instanceof HTMLInputElement && event.target.id === sliderId
+      ? event.target
+      : null;
+
+  root.addEventListener("input", (event) => {
+    if (sliderFromEvent(event)) {
+      onInput(event);
+    }
+  });
+  root.addEventListener("pointerdown", (event) => {
+    const slider = sliderFromEvent(event);
+    if (!slider) {
+      return;
+    }
+    if (typeof slider.setPointerCapture === "function") {
+      slider.setPointerCapture(event.pointerId);
+    }
+    onInput(event);
+  });
+  root.addEventListener("pointermove", (event) => {
+    const slider = sliderFromEvent(event);
+    if (!slider) {
+      return;
+    }
+    if (
+      typeof slider.hasPointerCapture === "function" &&
+      !slider.hasPointerCapture(event.pointerId)
+    ) {
+      return;
+    }
+    onInput(event);
+  });
+  const release = (event) => {
+    const slider = sliderFromEvent(event);
+    if (!slider) {
+      return;
+    }
+    if (
+      typeof slider.hasPointerCapture === "function" &&
+      slider.hasPointerCapture(event.pointerId)
+    ) {
+      slider.releasePointerCapture(event.pointerId);
+    }
+    onInput(event);
+  };
+  root.addEventListener("pointerup", release);
+  root.addEventListener("pointercancel", release);
+}
+
 /* ===== Card HTML helpers (generated from scripts/lib/card-html.js) ===== */
 
 /* Generated from scripts/lib/card-html.js — run npm run bundle */
@@ -3498,7 +3588,7 @@ addMovieBack.addEventListener("click", () => {
 addMovieListPicker.addEventListener("click", onAddListOptionClick);
 addMovieFavouriteToggle.addEventListener("click", onAddMovieFavouriteToggleClick);
 addMovieSubmit.addEventListener("click", confirmAddMovie);
-addMovieRatingSlider.addEventListener("input", onAddMovieRatingSliderInput);
+bindRangeSliderLiveInput(addMovieRatingSlider, onAddMovieRatingSliderInput);
 
 /* --- Grid --- */
 
@@ -3625,11 +3715,7 @@ detailDialog.addEventListener("click", (event) => {
     clearDetailRating();
   }
 });
-detailDialog.addEventListener("input", (event) => {
-  if (event.target.id === "detail-rating-slider") {
-    onDetailRatingSliderInput(event);
-  }
-});
+delegateRangeSliderLiveInput(detailDialog, "detail-rating-slider", onDetailRatingSliderInput);
 detailDialog.addEventListener("change", (event) => {
   if (event.target.id === "detail-rating-slider") {
     commitDetailRating();

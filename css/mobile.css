@@ -87,8 +87,26 @@
     padding: 1.1rem 1.15rem 1.15rem;
   }
 
+  .user-rating-slider,
   .detail-rating-slider {
-    height: 1.75rem;
+    min-height: 3rem;
+  }
+
+  .user-rating-slider::-webkit-slider-thumb,
+  .detail-rating-slider::-webkit-slider-thumb {
+    width: 1.85rem;
+    height: 1.85rem;
+    margin-top: -0.725rem;
+  }
+
+  .user-rating-slider::-moz-range-thumb,
+  .detail-rating-slider::-moz-range-thumb {
+    width: 1.85rem;
+    height: 1.85rem;
+  }
+
+  .detail-rating-slider-wrap {
+    padding: 0.55rem 0;
   }
 
   .detail-rating-btn {
