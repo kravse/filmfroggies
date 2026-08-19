@@ -1094,7 +1094,7 @@ function csvRecordFor(movieId) {
 async function onExportCsv() {
   const previewRows = appListCsv.listCsvRows(userState, csvRecordFor);
   if (!previewRows.length) {
-    setStatus(exportCsvStatus, "Nothing to export yet.", null);
+    setStatus(exportCsvStatus, "Nothing to export", null);
     return;
   }
   exportCsvBtn.disabled = true;

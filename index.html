@@ -889,18 +889,18 @@
               <div class="data-transfer-card data-transfer-card--export">
                 <div class="data-transfer-card-head">
                   <span class="data-transfer-label">Export</span>
-                  <span class="data-transfer-filename">my_list.csv</span>
+                  <span class="status-text data-transfer-head-status" id="export-csv-status"></span>
                 </div>
                 <div class="data-transfer-card-foot">
                   <button type="button" id="export-csv" class="ghost-btn data-transfer-btn">
                     Export
                   </button>
-                  <span class="status-text data-transfer-status" id="export-csv-status"></span>
                 </div>
               </div>
               <div class="data-transfer-card data-transfer-card--import">
                 <div class="data-transfer-card-head">
                   <span class="data-transfer-label">Import</span>
+                  <span class="status-text data-transfer-head-status" id="collection-import-status"></span>
                 </div>
                 <label class="data-transfer-drop" for="collection-import-file">
                   <input
@@ -925,14 +925,9 @@
                   >
                     Import
                   </button>
-                  <span class="status-text data-transfer-status" id="collection-import-status"></span>
                 </div>
               </div>
             </div>
-            <p class="sheet-note data-transfer-scrape-note">
-              For repo metadata, commit to <code>data/my_list.csv</code> and run
-              <code>npm run scrape</code> (<code>tmdb_id</code> only).
-            </p>
           </section>
         </div>
       </div>

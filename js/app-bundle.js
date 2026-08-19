@@ -9518,7 +9518,7 @@ function csvRecordFor(movieId) {
 async function onExportCsv() {
   const previewRows = appListCsv.listCsvRows(userState, csvRecordFor);
   if (!previewRows.length) {
-    setStatus(exportCsvStatus, "Nothing to export yet.", null);
+    setStatus(exportCsvStatus, "Nothing to export", null);
     return;
   }
   exportCsvBtn.disabled = true;
@@ -11260,8 +11260,8 @@ function refreshCollectionTransferStatus() {
   setStatus(
     exportCsvStatus,
     movieCount
-      ? `${movieCount} movie${movieCount === 1 ? "" : "s"} ready to export.`
-      : "Nothing to export yet.",
+      ? `${movieCount} movie${movieCount === 1 ? "" : "s"} to export`
+      : "Nothing to export",
     movieCount ? "ok" : null,
   );
   if (exportCsvBtn) {

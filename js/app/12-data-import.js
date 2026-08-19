@@ -24,8 +24,8 @@ function refreshCollectionTransferStatus() {
   setStatus(
     exportCsvStatus,
     movieCount
-      ? `${movieCount} movie${movieCount === 1 ? "" : "s"} ready to export.`
-      : "Nothing to export yet.",
+      ? `${movieCount} movie${movieCount === 1 ? "" : "s"} to export`
+      : "Nothing to export",
     movieCount ? "ok" : null,
   );
   if (exportCsvBtn) {
