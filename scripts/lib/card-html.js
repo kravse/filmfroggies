@@ -21,6 +21,30 @@ function formatYear(releaseDate) {
   return match ? match[1] : "";
 }
 
+/** Full calendar date for discover cards, e.g. `August 26, 2026`. */
+function formatReleaseDate(releaseDate) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(releaseDate || "").trim());
+  if (!match) {
+    return "";
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const date = new Date(year, month, day);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month ||
+    date.getDate() !== day
+  ) {
+    return "";
+  }
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}
+
 function formatRuntime(minutes) {
   const total = Number(minutes);
   if (!Number.isFinite(total) || total <= 0) {
@@ -77,6 +101,7 @@ function joinNames(names, limit) {
 module.exports = {
   escapeHtml,
   formatYear,
+  formatReleaseDate,
   formatRuntime,
   formatRatingLabel,
   formatRating,

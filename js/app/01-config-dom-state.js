@@ -47,6 +47,9 @@ const searchSuggest = document.getElementById("search-suggest");
 const searchClearBtn = document.getElementById("search-clear");
 const searchSpinner = document.getElementById("search-spinner");
 const searchDirectorToggle = document.getElementById("search-director-toggle");
+const discoverEntryBtn = document.getElementById("discover-entry-btn");
+
+const discoverTabs = document.getElementById("discover-tabs");
 
 const addMovieFab = document.getElementById("add-movie-fab");
 const addMovieDialog = document.getElementById("add-movie-dialog");
@@ -174,7 +177,7 @@ let pendingWatchMovieId = null;
 let pendingCustomListDeleteId = null;
 let tmdbCredential = "";
 
-/** "main" | "customIndex" | "customDetail" */
+/** "main" | "customIndex" | "customDetail" | "discover" */
 let appView = "main";
 let activeCustomListId = null;
 

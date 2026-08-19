@@ -8,13 +8,33 @@ function posterWrapOpen(movieId) {
   return `<div class="poster-wrap" style="--poster-bg: ${appPosterGrey.posterGreyForId(movieId)}">`;
 }
 
+function discoverPosterPlaceholderHtml(titleText, options = {}) {
+  const label = options.error ? "Could not load" : titleText;
+  const title = label ? appCardHtml.escapeHtml(label) : "";
+  const showTitleOnPoster = gridViewMode !== "detail";
+  const titleHtml =
+    showTitleOnPoster && title ? `<span class="discover-poster-title">${title}</span>` : "";
+  return `<div class="placeholder discover-poster-placeholder">${titleHtml}</div>`;
+}
+
+function posterPlaceholderHtml(record, options = {}) {
+  if (isDiscoverActive()) {
+    return discoverPosterPlaceholderHtml(record?.title || "", options);
+  }
+  const label = options.error
+    ? "Could not load"
+    : record
+      ? appCardHtml.escapeHtml(record.title)
+      : "";
+  return `<div class="placeholder">${label}</div>`;
+}
+
 function posterHtml(record, size) {
   const remote = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
   const local = record ? localPosterUrlFor(record, size) : null;
   const url = local || remote;
   if (!url) {
-    const label = record ? appCardHtml.escapeHtml(record.title) : "";
-    return `<div class="placeholder">${label}</div>`;
+    return posterPlaceholderHtml(record);
   }
   // A snapshot entry whose file has gone missing retries TMDB rather than
   // leaving a hole where the poster was.
@@ -27,12 +47,21 @@ function detailPosterSkeletonHtml() {
   return `<div class="movie-detail-poster-frame"><div class="movie-detail-poster-skeleton" aria-hidden="true"></div></div>`;
 }
 
+function discoverDetailPosterEmptyHtml() {
+  return `<div class="movie-detail-poster-frame is-loaded discover-detail-poster-empty">
+  <div class="discover-detail-poster-mark" aria-hidden="true"></div>
+</div>`;
+}
+
 function detailPosterFrameHtml(record, size) {
   const remote = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
   const local = record ? localPosterUrlFor(record, size) : null;
   const url = local || remote;
   const skeleton = `<div class="movie-detail-poster-skeleton" aria-hidden="true"></div>`;
   if (!url) {
+    if (isDiscoverActive()) {
+      return discoverDetailPosterEmptyHtml();
+    }
     return `<div class="movie-detail-poster-frame is-loaded is-empty">${skeleton}</div>`;
   }
   const fallback =
@@ -42,6 +71,12 @@ function detailPosterFrameHtml(record, size) {
 }
 
 function cardMetaHtml(record) {
+  if (isDiscoverActive()) {
+    const releaseDate = appCardHtml.formatReleaseDate(record.releaseDate);
+    return releaseDate
+      ? `<span class="card-meta-release-date">${appCardHtml.escapeHtml(releaseDate)}</span>`
+      : "";
+  }
   const year = appCardHtml.formatYear(record.releaseDate);
   const runtime = appCardHtml.formatRuntime(record.runtime);
   const yearHtml = year
@@ -58,7 +93,7 @@ function cardUserRatingHtml(movieId) {
 }
 
 function cardFanRatingHtml(movieId) {
-  if (!usesWatchedStyleDisplay()) {
+  if (!usesWatchedStyleDisplay() && !isDiscoverActive()) {
     return "";
   }
   const record = movieById.get(movieId);
@@ -72,7 +107,14 @@ function cardFanRatingHtml(movieId) {
 }
 
 function cardDetailRatingsHtml(movieId) {
-  if (gridViewMode !== "detail" || !usesWatchedStyleDisplay()) {
+  if (gridViewMode !== "detail") {
+    return "";
+  }
+  if (isDiscoverActive()) {
+    const fan = cardFanRatingHtml(movieId);
+    return fan ? `<div class="card-body-ratings">${fan}</div>` : "";
+  }
+  if (!usesWatchedStyleDisplay()) {
     return "";
   }
   const fan = cardFanRatingHtml(movieId);
@@ -121,6 +163,9 @@ function isAddedSortMode() {
 }
 
 function cardUserRatingChipHtml(movieId, { showEmpty = false } = {}) {
+  if (isDiscoverActive()) {
+    return "";
+  }
   const label = appRatings.formatUserRating(
     appRatings.getRating(userState.ratings, movieId),
   );
@@ -157,7 +202,7 @@ function cardSmallWatchedFooterContentHtml(movieId) {
 }
 
 function cardSmallFooterHtml(movieId) {
-  if (gridViewMode !== "cards") {
+  if (isDiscoverActive() || gridViewMode !== "cards") {
     return "";
   }
 
@@ -178,7 +223,7 @@ function cardSmallFooterHtml(movieId) {
 }
 
 function cardUnratedClass(movieId) {
-  if (!isUserRatingSortMode()) {
+  if (isDiscoverActive() || !isUserRatingSortMode()) {
     return "";
   }
   if (appRatings.getRating(userState.ratings, movieId) != null) {
@@ -216,9 +261,7 @@ function cardPosterOnlyHtml(movieId) {
   const record = movieById.get(movieId);
   if (!record) {
     const failed = movieErrors.has(movieId);
-    const body = failed
-      ? `<div class="placeholder">Could not load</div>`
-      : `<div class="placeholder"></div>`;
+    const body = posterPlaceholderHtml(null, { error: failed });
     return `${posterWrapOpen(movieId)}${body}</div>${cardSmallFooterHtml(movieId)}`;
   }
   const grip = listShowsReorderGrip()
@@ -229,6 +272,7 @@ function cardPosterOnlyHtml(movieId) {
 
 function listShowsReorderGrip() {
   return (
+    !isDiscoverActive() &&
     appLists.isListReorderable(userState.activeListId) &&
     reorderModeActive &&
     usesCustomDisplayOrder()
@@ -249,7 +293,10 @@ function syncSortSelectLabels() {
 
 function syncSortControlUi() {
   const show =
-    usesWatchedStyleDisplay() && activeMovieIds().length > 0 && hasMovieData();
+    !isDiscoverActive() &&
+    usesWatchedStyleDisplay() &&
+    activeMovieIds().length > 0 &&
+    hasMovieData();
   const sort = userState.preferences.sort;
   if (sortControl) {
     sortControl.hidden = !show;
@@ -347,9 +394,7 @@ function cardInnerHtml(movieId) {
 
   if (!record) {
     const failed = movieErrors.has(movieId);
-    const body = failed
-      ? `<div class="placeholder">Could not load</div>`
-      : `<div class="placeholder"></div>`;
+    const body = posterPlaceholderHtml(null, { error: failed });
     return `${posterWrapOpen(movieId)}${body}</div>
 <div class="card-body">
   <div class="card-text">
@@ -359,7 +404,7 @@ function cardInnerHtml(movieId) {
 </div>`;
   }
 
-  if (userState.activeListId === appLists.WATCHLIST_ID) {
+  if (!isDiscoverActive() && userState.activeListId === appLists.WATCHLIST_ID) {
     return `${posterWrapOpen(movieId)}
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
   ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
@@ -394,7 +439,9 @@ function rowInnerHtml(movieId) {
   const title = record ? appCardHtml.escapeHtml(record.title) : `Movie ${movieId}`;
 
   const watchlistCard =
-    userState.activeListId === appLists.WATCHLIST_ID ? " card--watchlist" : "";
+    !isDiscoverActive() && userState.activeListId === appLists.WATCHLIST_ID
+      ? " card--watchlist"
+      : "";
 
   return `<article class="card${stateClass}${cardUnratedClass(movieId)}${watchlistCard}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
 ${cardInnerHtml(movieId)}
@@ -407,7 +454,7 @@ function rowHtml(movieId) {
 
 /** Tabs are the only list switcher, and carry each list's count. */
 function renderListTabs() {
-  if (!listTabs || isCustomListView()) {
+  if (!listTabs || isCustomListView() || isDiscoverActive()) {
     return;
   }
   listTabs.innerHTML = userState.lists
@@ -433,14 +480,22 @@ function syncHeaderViewTitle() {
   }
   customListViewTitleEl.hidden = true;
   headerTitleEl.hidden = false;
+  if (isDiscoverActive()) {
+    headerTitleEl.textContent = "New releases";
+    return;
+  }
   headerTitleEl.textContent = isCustomListIndexActive() ? "Your lists" : "Movie collector";
 }
 
 function updateListHeader() {
   syncHeaderViewTitle();
-  const count = activeMovieIds().length;
+  const count = isDiscoverActive() ? discoverDisplayIds().length : activeMovieIds().length;
   if (isCustomListIndexActive()) {
     listSubtitleEl.textContent = "Create and manage custom lists";
+    return;
+  }
+  if (isDiscoverActive()) {
+    listSubtitleEl.textContent = discoverTab === "now-playing" ? "Now playing" : "Upcoming";
     return;
   }
   if (isCustomListDetailActive()) {
@@ -487,7 +542,9 @@ function setActiveList(listId) {
 function syncAddMovieFabVisibility(count) {
   if (addMovieFab) {
     addMovieFab.hidden =
-      isCustomListIndexActive() || (count === 0 && !isCustomListDetailActive());
+      isCustomListIndexActive() ||
+      isDiscoverActive() ||
+      (count === 0 && !isCustomListDetailActive());
   }
 }
 
@@ -550,6 +607,10 @@ function render() {
     renderCustomListsIndex();
     return;
   }
+  if (isDiscoverActive()) {
+    renderDiscover();
+    return;
+  }
   const ids = displayMovieIds();
   grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
   bindPosterImages(grid);
@@ -564,11 +625,10 @@ function render() {
 /** Patches one row after hydration so the rest of the grid stays untouched. */
 function applyHydratedRecord(movieId, options = {}) {
   const row = grid.querySelector(`.movie-row[data-movie-id="${movieId}"]`);
-  if (!row) {
-    return;
+  if (row) {
+    row.innerHTML = rowInnerHtml(movieId);
+    bindPosterImages(row);
   }
-  row.innerHTML = rowInnerHtml(movieId);
-  bindPosterImages(row);
   if (!options.skipDetail && detailMovieId === movieId) {
     renderDetail();
   }
@@ -610,10 +670,11 @@ function handleImageError(event) {
   const card = img.closest(".card");
   const movieId = Number(card?.dataset.movieId);
   const record = movieById.get(movieId);
-  const placeholder = document.createElement("div");
-  placeholder.className = "placeholder";
-  placeholder.textContent = record ? record.title : "";
-  img.replaceWith(placeholder);
+  const placeholder = document.createElement("template");
+  placeholder.innerHTML = isDiscoverActive()
+    ? discoverPosterPlaceholderHtml(record ? record.title : "")
+    : `<div class="placeholder">${record ? appCardHtml.escapeHtml(record.title) : ""}</div>`;
+  img.replaceWith(placeholder.content.firstChild);
 }
 
 /** Records the status alongside the list change so an unchanged list stamps nothing. */

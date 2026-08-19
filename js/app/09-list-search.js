@@ -275,9 +275,14 @@ function syncListSearchVisibility() {
   if (!listSearchRow) {
     return;
   }
-  const show =
-    isWatchedListActive() && activeMovieIds().length > 0 && hasMovieData();
-  listSearchRow.hidden = !show;
+  const showFilter =
+    appView === "main" &&
+    !isCustomListView() &&
+    !isDiscoverActive() &&
+    isWatchedListActive() &&
+    activeMovieIds().length > 0 &&
+    hasMovieData();
+  listSearchRow.hidden = !showFilter;
 }
 
 function onListSearchInput() {

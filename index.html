@@ -40,6 +40,7 @@
     <link rel="stylesheet" href="css/movie-detail.css" />
     <link rel="stylesheet" href="css/add-movie.css" />
     <link rel="stylesheet" href="css/custom-lists.css" />
+    <link rel="stylesheet" href="css/discover.css" />
     <link rel="stylesheet" href="css/mobile.css" />
   </head>
   <body>
@@ -62,6 +63,34 @@
             </div>
           </div>
           <div class="header-nav">
+            <button
+              type="button"
+              id="discover-entry-btn"
+              class="header-nav-btn header-nav-btn--icon"
+              aria-label="New releases"
+              title="New releases"
+            >
+              <svg viewBox="0 0 20 20" width="16" height="16" fill="none" aria-hidden="true">
+                <path
+                  d="M10 3.5 11.15 7.35 15 8.5 11.15 9.65 10 13.5 8.85 9.65 5 8.5 8.85 7.35 10 3.5Z"
+                  stroke="currentColor"
+                  stroke-width="1.35"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M15.75 13.25v2M14.75 14.25h2"
+                  stroke="currentColor"
+                  stroke-width="1.25"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M4.25 14.25l.65 1.95 1.95.65-1.95.65-.65 1.95-.65-1.95-1.95-.65 1.95-.65.65-1.95Z"
+                  stroke="currentColor"
+                  stroke-width="1.1"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
             <button type="button" id="lists-nav-btn" class="header-nav-btn">
               Lists
             </button>
@@ -69,7 +98,7 @@
         </div>
 
         <div class="list-search-row" id="list-search-row" hidden>
-          <div class="search-wrap list-search-wrap">
+          <div class="search-wrap list-search-wrap" id="list-search-wrap">
             <div
               class="search-combobox list-search-combobox"
               id="list-search-combobox"
@@ -152,6 +181,33 @@
           role="tablist"
           aria-label="Movie lists"
         ></nav>
+        <nav
+          class="list-tabs"
+          id="discover-tabs"
+          role="tablist"
+          aria-label="New releases"
+          hidden
+        >
+          <button
+            type="button"
+            class="list-tab"
+            role="tab"
+            data-discover-tab="upcoming"
+            aria-selected="true"
+          >
+            Upcoming
+          </button>
+          <button
+            type="button"
+            class="list-tab"
+            role="tab"
+            data-discover-tab="now-playing"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            Now Playing
+          </button>
+        </nav>
         <div class="toolbar-right">
           <div class="custom-lists-index-actions" id="custom-lists-index-actions" hidden>
             <div class="sort-control custom-lists-sort-control" id="custom-lists-sort-control">
@@ -404,44 +460,46 @@
                 </span>
               </label>
             </div>
-            <div class="search-wrap">
-              <div class="search-combobox" id="search-combobox">
-                <input
-                  id="search"
-                  type="search"
-                  placeholder="Search movies…"
-                  aria-label="Search movies to add"
-                  autocomplete="off"
-                  role="combobox"
-                  aria-autocomplete="list"
-                  aria-controls="search-suggest"
-                  aria-expanded="false"
-                />
-                <span class="search-spinner" id="search-spinner" hidden></span>
-                <button
-                  type="button"
-                  class="search-clear"
-                  id="search-clear"
-                  aria-label="Clear search"
+            <div class="search-row">
+              <div class="search-wrap">
+                <div class="search-combobox" id="search-combobox">
+                  <input
+                    id="search"
+                    type="search"
+                    placeholder="Search movies…"
+                    aria-label="Search movies to add"
+                    autocomplete="off"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-controls="search-suggest"
+                    aria-expanded="false"
+                  />
+                  <span class="search-spinner" id="search-spinner" hidden></span>
+                  <button
+                    type="button"
+                    class="search-clear"
+                    id="search-clear"
+                    aria-label="Clear search"
+                    hidden
+                  >
+                    <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none">
+                      <path
+                        d="M6 6l8 8M14 6l-8 8"
+                        stroke="currentColor"
+                        stroke-width="1.75"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                <ul
+                  id="search-suggest"
+                  class="search-suggest"
+                  role="listbox"
+                  aria-label="Movie search results"
                   hidden
-                >
-                  <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none">
-                    <path
-                      d="M6 6l8 8M14 6l-8 8"
-                      stroke="currentColor"
-                      stroke-width="1.75"
-                      stroke-linecap="round"
-                    />
-                  </svg>
-                </button>
+                ></ul>
               </div>
-              <ul
-                id="search-suggest"
-                class="search-suggest"
-                role="listbox"
-                aria-label="Movie search results"
-                hidden
-              ></ul>
             </div>
             <div class="add-movie-alt-actions" id="add-movie-from-watched-section" hidden>
               <p class="add-movie-alt-label">or</p>

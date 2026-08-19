@@ -35,6 +35,10 @@ addMovieDialog.addEventListener("click", (event) => {
   }
 });
 
+discoverEntryBtn?.addEventListener("click", openDiscover);
+
+discoverTabs?.addEventListener("click", onDiscoverTabClick);
+
 addMovieFab.addEventListener("click", openAddMovieDialog);
 emptyState.addEventListener("click", (event) => {
   if (event.target.closest(".empty-state-add-btn")) {
@@ -179,6 +183,7 @@ detailListsDialog?.addEventListener("click", (event) => {
   const listToggleChip = event.target.closest("[data-detail-list-toggle-id]");
   if (listToggleChip) {
     toggleDetailListPickerChip(listToggleChip.dataset.detailListToggleId);
+    return;
   }
 });
 
@@ -222,6 +227,16 @@ detailDialog.addEventListener("click", (event) => {
   const listToggleChip = event.target.closest("[data-detail-list-toggle-id]");
   if (listToggleChip) {
     toggleDetailListPickerChip(listToggleChip.dataset.detailListToggleId);
+    return;
+  }
+  const discoverPreset = event.target.closest("[data-discover-preset]");
+  if (discoverPreset) {
+    addDiscoverMovieToPreset(discoverPreset.dataset.discoverPreset);
+    return;
+  }
+  const discoverCustom = event.target.closest("[data-discover-custom-list-id]");
+  if (discoverCustom) {
+    toggleDiscoverCustomListMembership(discoverCustom.dataset.discoverCustomListId);
   }
 });
 delegateRangeSliderLiveInput(detailDialog, "detail-rating-slider", onDetailRatingSliderInput);
@@ -294,7 +309,9 @@ customListDeleteDialog?.addEventListener("click", (event) => {
   }
 });
 customListBackBtn?.addEventListener("click", () => {
-  if (isCustomListIndexActive()) {
+  if (isDiscoverActive()) {
+    navigateToMain();
+  } else if (isCustomListIndexActive()) {
     navigateToMain();
   } else {
     navigateToCustomListsIndex();

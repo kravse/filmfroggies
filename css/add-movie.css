@@ -198,6 +198,7 @@
 
 .add-movie-dialog .search-wrap {
   width: 100%;
+  min-width: 0;
 }
 
 .add-movie-dialog .search-combobox {

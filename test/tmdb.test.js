@@ -11,6 +11,8 @@ const {
   buildPersonMovieCreditsUrl,
   buildMovieUrl,
   buildConfigurationUrl,
+  buildUpcomingUrl,
+  buildNowPlayingUrl,
   isValidImagePath,
   buildImageUrl,
   normalizeSearchResults,
@@ -20,6 +22,7 @@ const {
   mergeMovieSearchResults,
   flattenDirectorSearchResults,
   normalizeMovie,
+  isDetailedMovieRecord,
 } = require("../scripts/lib/tmdb");
 
 const READ_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJhYmMifQ.s1gn4tur3-_x";
@@ -132,6 +135,19 @@ test("buildConfigurationUrl points at the configuration endpoint", () => {
   assert.equal(url.pathname, "/3/configuration");
 });
 
+test("buildUpcomingUrl and buildNowPlayingUrl use TMDB list endpoints", () => {
+  const upcoming = new URL(buildUpcomingUrl({ page: 2, region: "US" }));
+  assert.equal(upcoming.pathname, "/3/movie/upcoming");
+  assert.equal(upcoming.searchParams.get("page"), "2");
+  assert.equal(upcoming.searchParams.get("region"), "US");
+  assert.equal(upcoming.searchParams.get("language"), "en-US");
+
+  const nowPlaying = new URL(buildNowPlayingUrl({ page: 1 }));
+  assert.equal(nowPlaying.pathname, "/3/movie/now_playing");
+  assert.equal(nowPlaying.searchParams.get("language"), "en-US");
+  assert.equal(nowPlaying.searchParams.get("region"), "US");
+});
+
 test("isValidImagePath accepts TMDB-shaped paths", () => {
   assert.equal(isValidImagePath("/kqjL17yufvn9OVLyXYpvtyrFfak.jpg"), true);
   assert.equal(isValidImagePath("/abc-123_x.webp"), true);
@@ -176,6 +192,9 @@ test("normalizeSearchResults keeps id, title, year source, and poster", () => {
       releaseDate: "1999-03-30",
       posterPath: "/matrix.jpg",
       overview: "A hacker learns the truth.",
+      voteCount: 0,
+      popularity: 0,
+      voteAverage: null,
     },
   ]);
 });
@@ -304,6 +323,12 @@ test("normalizeMovie nulls out zero runtime and unrated scores", () => {
   const movie = normalizeMovie({ id: 1, title: "X", runtime: 0, vote_average: 0 });
   assert.equal(movie.runtime, null);
   assert.equal(movie.voteAverage, null);
+});
+
+test("isDetailedMovieRecord distinguishes search stubs from full records", () => {
+  assert.equal(isDetailedMovieRecord(null), false);
+  assert.equal(isDetailedMovieRecord({ id: 1, title: "Stub" }), false);
+  assert.equal(isDetailedMovieRecord(normalizeMovie({ id: 1, title: "Full", genres: [] })), true);
 });
 
 test("normalizeMovie returns null when there is no usable id", () => {

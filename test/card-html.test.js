@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const {
   escapeHtml,
   formatYear,
+  formatReleaseDate,
   formatRuntime,
   formatRatingLabel,
   formatRating,
@@ -34,6 +35,17 @@ test("formatYear returns empty for missing or malformed dates", () => {
   assert.equal(formatYear(""), "");
   assert.equal(formatYear(null), "");
   assert.equal(formatYear("soon"), "");
+});
+
+test("formatReleaseDate renders a full calendar date", () => {
+  assert.equal(formatReleaseDate("2026-08-26"), "August 26, 2026");
+});
+
+test("formatReleaseDate returns empty for missing or malformed dates", () => {
+  assert.equal(formatReleaseDate(""), "");
+  assert.equal(formatReleaseDate(null), "");
+  assert.equal(formatReleaseDate("2026-08"), "");
+  assert.equal(formatReleaseDate("2026-13-40"), "");
 });
 
 test("formatRuntime renders hours and minutes", () => {
