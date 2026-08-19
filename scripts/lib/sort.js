@@ -42,10 +42,10 @@ const SORT_FIELD_LABELS = {
 };
 
 const SORT_FIELD_LABELS_SHORT = {
-  "user-rating": "Rating",
+  "user-rating": "My rating",
   added: "Added",
   year: "Year",
-  rating: "Fans",
+  rating: "Rating",
   title: "Title",
   custom: "Custom",
 };

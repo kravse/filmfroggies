@@ -159,10 +159,10 @@ test("getSortFieldLabel returns full and short toolbar labels", () => {
   const { getSortFieldLabel } = require("../scripts/lib/sort");
   assert.equal(getSortFieldLabel("user-rating"), "My rating");
   assert.equal(getSortFieldLabel("added"), "Date added");
-  assert.equal(getSortFieldLabel("user-rating", true), "Rating");
+  assert.equal(getSortFieldLabel("user-rating", true), "My rating");
   assert.equal(getSortFieldLabel("added", true), "Added");
   assert.equal(getSortFieldLabel("year", true), "Year");
-  assert.equal(getSortFieldLabel("rating", true), "Fans");
+  assert.equal(getSortFieldLabel("rating", true), "Rating");
   assert.equal(getSortFieldLabel("unknown"), "Custom");
 });
 
