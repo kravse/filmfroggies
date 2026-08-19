@@ -90,6 +90,23 @@ test("TMDB matching chooses the imported year among same-title releases", () => 
   assert.equal(pickTmdbMatch({ title: "The Thing", year: 2011 }, candidates), 2);
 });
 
+test("TMDB matching takes the first ranked exact title and year", () => {
+  const candidates = [
+    { id: 10, title: "Past Lives", releaseDate: "2023-06-02" },
+    { id: 11, title: "Past Lives", releaseDate: "2023-10-01" },
+    { id: 12, title: "Past Lives", releaseDate: "2022-01-01" },
+  ];
+  assert.equal(pickTmdbMatch({ title: "Past Lives", year: 2023 }, candidates), 10);
+});
+
+test("TMDB matching ignores duplicate copies of the same result", () => {
+  const candidates = [
+    { id: 10, title: "Past Lives", releaseDate: "2023-06-02" },
+    { id: 10, title: "Past Lives", releaseDate: "2023-06-02" },
+  ];
+  assert.equal(pickTmdbMatch({ title: "Past Lives", year: 2023 }, candidates), 10);
+});
+
 test("TMDB matching does not guess across larger or ambiguous year differences", () => {
   assert.equal(pickTmdbMatch({ title: "Film", year: 2020 }, [
     { id: 1, title: "Film", releaseDate: "2022-01-01" },

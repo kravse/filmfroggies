@@ -203,12 +203,18 @@ function candidateReleaseYear(candidate) {
  */
 function pickTmdbMatch(film, candidates) {
   const title = normalizeMatchTitle(film?.title);
-  const exactTitle = (Array.isArray(candidates) ? candidates : [])
-    .filter((candidate) => normalizeMatchTitle(candidate?.title) === title);
+  const seenIds = new Set();
+  const exactTitle = (Array.isArray(candidates) ? candidates : []).filter((candidate) => {
+    const id = Number(candidate?.id);
+    if (!Number.isInteger(id) || id <= 0 || seenIds.has(id)) return false;
+    seenIds.add(id);
+    return normalizeMatchTitle(candidate?.title) === title;
+  });
   if (!film?.year) return exactTitle.length === 1 ? exactTitle[0].id : null;
   const exactYear = exactTitle.filter((candidate) => candidateReleaseYear(candidate) === film.year);
-  if (exactYear.length === 1) return exactYear[0].id;
-  if (exactYear.length > 1) return null;
+  // TMDB orders search results by relevance. If several films have the exact
+  // same title and release year, its first result is the best available signal.
+  if (exactYear.length) return exactYear[0].id;
   const adjacentYear = exactTitle.filter((candidate) => {
     const year = candidateReleaseYear(candidate);
     return year != null && Math.abs(year - film.year) === 1;

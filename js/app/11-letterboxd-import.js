@@ -73,7 +73,13 @@ function candidateYear(candidate) {
 }
 
 function sortedLetterboxdCandidates(film, candidates) {
-  return candidates.map((candidate, index) => ({ candidate, index })).sort((left, right) => {
+  const seen = new Set();
+  return candidates.filter((candidate) => {
+    const id = Number(candidate.id);
+    if (!Number.isInteger(id) || id <= 0 || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  }).map((candidate, index) => ({ candidate, index })).sort((left, right) => {
     const yearRank = (candidate) => {
       const year = candidateYear(candidate);
       if (!film.year || year == null) return 2;
