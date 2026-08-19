@@ -391,10 +391,12 @@ header {
   display: none;
 }
 
-.sort-reverse-btn:hover:not(:disabled) {
-  color: var(--accent);
-  border-color: var(--accent-border);
-  background: var(--accent-dim);
+@media (hover: hover) {
+  .sort-reverse-btn:hover:not(:disabled) {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background: var(--accent-dim);
+  }
 }
 
 .sort-reverse-btn:disabled {

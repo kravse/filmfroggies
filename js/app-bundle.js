@@ -4421,6 +4421,7 @@ function toggleSortOrder() {
     return;
   }
   setSortMode(appSort.toggleSortDirection(userState.preferences.sort));
+  sortReverseBtn?.blur();
 }
 
 function setReorderMode(active) {
