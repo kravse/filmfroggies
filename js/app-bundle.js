@@ -8491,10 +8491,10 @@ function syncHeaderViewTitle() {
   customListViewTitleEl.hidden = true;
   headerTitleEl.hidden = false;
   if (isDiscoverActive()) {
-    headerTitleEl.textContent = "New releases";
+    headerTitleEl.textContent = "Discover";
     return;
   }
-  headerTitleEl.textContent = isCustomListIndexActive() ? "Your lists" : "Movie collector";
+  headerTitleEl.textContent = isCustomListIndexActive() ? "Lists" : "CineQueue";
 }
 
 function updateListHeader() {
@@ -11655,7 +11655,7 @@ function renderDiscoverEmptyState(count) {
   }
   emptyState.hidden = false;
   if (!hasTmdbAccess()) {
-    emptyState.innerHTML = `<strong>Add your TMDB token</strong>Open Settings and paste your TMDB API Read Access Token to browse new releases.`;
+    emptyState.innerHTML = `<strong>Add your TMDB token</strong>Open Settings and paste your TMDB API Read Access Token to use Discover.`;
     return;
   }
   if (discoverLoading) {

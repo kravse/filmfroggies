@@ -13,12 +13,13 @@
   }
 
   .header-logo {
-    width: 2.65rem;
-    height: 2.65rem;
+    width: 3.5rem;
+    height: 3.5rem;
   }
 
   .header-title {
-    font-size: 1.2rem;
+    font-size: 1.45rem;
+    letter-spacing: 0.04em;
   }
 
   .header-subtitle {

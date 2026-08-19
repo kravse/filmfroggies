@@ -29,5 +29,5 @@ app.use(
 );
 
 app.listen(PORT, () => {
-  console.log(`Movie collector running at http://localhost:${PORT}`);
+  console.log(`CineQueue running at http://localhost:${PORT}`);
 });

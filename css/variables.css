@@ -31,6 +31,7 @@
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --display-font:
     "Outfit", var(--ui-font);
+  --brand-font: "Big Shoulders Display", "Arial Narrow", sans-serif;
   --body-font: var(--ui-font);
 
   --radius: 12px;
