@@ -35,13 +35,13 @@ function syncAppViewChrome() {
     listTabs.hidden = isCustomListView();
   }
   if (listsNavBtn) {
-    listsNavBtn.textContent = isCustomListView() ? "Collection" : "Lists";
+    listsNavBtn.hidden = isCustomListView();
   }
   if (customListBackBtn) {
-    customListBackBtn.hidden = !isCustomListDetailActive();
+    customListBackBtn.hidden = !isCustomListView();
   }
-  if (customListsIndexTitle) {
-    customListsIndexTitle.hidden = !isCustomListIndexActive();
+  if (customListBackLabel) {
+    customListBackLabel.textContent = isCustomListIndexActive() ? "Collection" : "All lists";
   }
   if (customListsIndexActions) {
     customListsIndexActions.hidden = !isCustomListIndexActive();
@@ -180,11 +180,7 @@ function syncViewFromLocation() {
 }
 
 function onListsNavClick() {
-  if (isCustomListView()) {
-    navigateToMain();
-  } else {
-    navigateToCustomListsIndex();
-  }
+  navigateToCustomListsIndex();
 }
 
 function persistCustomLists(nextLists, nextTombstones) {

@@ -422,6 +422,7 @@ header {
   flex-shrink: 0;
 }
 
+body.view-custom-index .toolbar-left,
 body.view-custom-detail .toolbar-left {
   display: flex;
 }

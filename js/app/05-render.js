@@ -411,6 +411,7 @@ function syncHeaderViewTitle() {
   }
   customListViewTitleEl.hidden = true;
   headerTitleEl.hidden = false;
+  headerTitleEl.textContent = isCustomListIndexActive() ? "Your lists" : "Movie collector";
 }
 
 function updateListHeader() {

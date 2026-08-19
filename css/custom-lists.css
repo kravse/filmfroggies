@@ -59,28 +59,10 @@
   padding: 0.15rem 0 1rem;
 }
 
-.custom-lists-index-title {
-  display: none;
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-  font-family: var(--ui-font);
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--text);
-  align-items: center;
-  padding: 0.45rem 0;
-}
-
 .custom-lists-index-actions {
   display: none;
   align-items: center;
   gap: 0.5rem;
-}
-
-body.view-custom-index .custom-lists-index-title {
-  display: flex;
 }
 
 body.view-custom-index .custom-lists-index-actions {

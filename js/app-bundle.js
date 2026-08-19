@@ -15,13 +15,13 @@ const headerLogo = document.getElementById("header-logo");
 const listsNavBtn = document.getElementById("lists-nav-btn");
 const customListsIndex = document.getElementById("custom-lists-index");
 const customListsRows = document.getElementById("custom-lists-rows");
-const customListsIndexTitle = document.getElementById("custom-lists-index-title");
 const customListsIndexActions = document.getElementById("custom-lists-index-actions");
 const customListsSortSelect = document.getElementById("custom-lists-sort");
 const customListsSortControl = document.getElementById("custom-lists-sort-control");
 const customListsEmpty = document.getElementById("custom-lists-empty");
 const customListCreateBtn = document.getElementById("custom-list-create-btn");
 const customListBackBtn = document.getElementById("custom-list-back-btn");
+const customListBackLabel = document.getElementById("custom-list-back-label");
 const addMovieFromWatchedSection = document.getElementById("add-movie-from-watched-section");
 const addMovieFromWatchedBtn = document.getElementById("add-movie-from-watched-btn");
 
@@ -6682,6 +6682,7 @@ function syncHeaderViewTitle() {
   }
   customListViewTitleEl.hidden = true;
   headerTitleEl.hidden = false;
+  headerTitleEl.textContent = isCustomListIndexActive() ? "Your lists" : "Movie collector";
 }
 
 function updateListHeader() {
@@ -8563,13 +8564,13 @@ function syncAppViewChrome() {
     listTabs.hidden = isCustomListView();
   }
   if (listsNavBtn) {
-    listsNavBtn.textContent = isCustomListView() ? "Collection" : "Lists";
+    listsNavBtn.hidden = isCustomListView();
   }
   if (customListBackBtn) {
-    customListBackBtn.hidden = !isCustomListDetailActive();
+    customListBackBtn.hidden = !isCustomListView();
   }
-  if (customListsIndexTitle) {
-    customListsIndexTitle.hidden = !isCustomListIndexActive();
+  if (customListBackLabel) {
+    customListBackLabel.textContent = isCustomListIndexActive() ? "Collection" : "All lists";
   }
   if (customListsIndexActions) {
     customListsIndexActions.hidden = !isCustomListIndexActive();
@@ -8708,11 +8709,7 @@ function syncViewFromLocation() {
 }
 
 function onListsNavClick() {
-  if (isCustomListView()) {
-    navigateToMain();
-  } else {
-    navigateToCustomListsIndex();
-  }
+  navigateToCustomListsIndex();
 }
 
 function persistCustomLists(nextLists, nextTombstones) {
@@ -9446,7 +9443,13 @@ customListDeleteDialog?.addEventListener("click", (event) => {
     closeCustomListDeleteConfirm();
   }
 });
-customListBackBtn?.addEventListener("click", () => navigateToCustomListsIndex());
+customListBackBtn?.addEventListener("click", () => {
+  if (isCustomListIndexActive()) {
+    navigateToMain();
+  } else {
+    navigateToCustomListsIndex();
+  }
+});
 addMovieFromWatchedBtn?.addEventListener("click", () => {
   closeAddMovieDialog();
   openWatchedPicker();

@@ -13,13 +13,13 @@ const headerLogo = document.getElementById("header-logo");
 const listsNavBtn = document.getElementById("lists-nav-btn");
 const customListsIndex = document.getElementById("custom-lists-index");
 const customListsRows = document.getElementById("custom-lists-rows");
-const customListsIndexTitle = document.getElementById("custom-lists-index-title");
 const customListsIndexActions = document.getElementById("custom-lists-index-actions");
 const customListsSortSelect = document.getElementById("custom-lists-sort");
 const customListsSortControl = document.getElementById("custom-lists-sort-control");
 const customListsEmpty = document.getElementById("custom-lists-empty");
 const customListCreateBtn = document.getElementById("custom-list-create-btn");
 const customListBackBtn = document.getElementById("custom-list-back-btn");
+const customListBackLabel = document.getElementById("custom-list-back-label");
 const addMovieFromWatchedSection = document.getElementById("add-movie-from-watched-section");
 const addMovieFromWatchedBtn = document.getElementById("add-movie-from-watched-btn");
 
