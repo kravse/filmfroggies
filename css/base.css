@@ -48,6 +48,10 @@ main.page-shell {
   padding-bottom: 2rem;
 }
 
+.list-action-bar:has(#reorder-bar-slot .reorder-toggle:not([hidden])) + main.page-shell {
+  padding-top: 1rem;
+}
+
 .empty-state {
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius);

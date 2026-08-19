@@ -452,3 +452,68 @@ header {
 .view-mode-btn[data-view-mode="detail"] .view-mode-icon--detail {
   display: block;
 }
+
+/* --- List action bar (below header border) --- */
+
+.list-action-bar {
+  display: none;
+  width: 100%;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.list-action-bar:has(#reorder-bar-slot .reorder-toggle:not([hidden])) {
+  display: block;
+}
+
+#reorder-toolbar-slot {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+#reorder-toolbar-slot:not(:has(.reorder-toggle:not([hidden]))) {
+  display: none;
+}
+
+#reorder-bar-slot {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.list-action-bar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 0;
+  padding-block: 0.5rem;
+}
+
+.reorder-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.reorder-toggle-label {
+  font-family: var(--ui-font);
+  font-size: 0.78rem;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+
+.reorder-toggle:has(input:checked) .reorder-toggle-label {
+  color: var(--text);
+}
+
+.reorder-toggle .toggle-switch input:checked + .toggle-switch-track {
+  background: rgba(120, 200, 150, 0.1);
+  border-color: rgba(120, 200, 150, 0.32);
+}
+
+.reorder-toggle .toggle-switch input:checked + .toggle-switch-track::after {
+  background: rgba(120, 200, 150, 0.82);
+}

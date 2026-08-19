@@ -263,12 +263,6 @@
     display: none;
   }
 
-  .reorder-mode-btn {
-    left: 0.75rem;
-    padding: 0.3rem 1.35rem 0.3rem 0.5rem;
-    font-size: 0.68rem;
-  }
-
   .search-suggest {
     max-height: 50vh;
   }

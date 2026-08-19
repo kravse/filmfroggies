@@ -157,7 +157,9 @@ window
   .matchMedia("(max-width: 640px)")
   .addEventListener("change", () => syncSortSelectLabels());
 sortReverseBtn?.addEventListener("click", toggleSortOrder);
-reorderModeBtn?.addEventListener("click", toggleReorderMode);
+reorderModeToggle?.addEventListener("change", () => {
+  setReorderMode(reorderModeToggle.checked);
+});
 
 /* --- Detail overlay --- */
 

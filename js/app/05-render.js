@@ -208,12 +208,10 @@ function syncSortControlUi() {
   if (listSortSelect) {
     if (show) {
       listSortSelect.value = appSort.getSortField(sort);
-      listSortSelect.disabled = reorderModeActive;
     }
   }
   if (sortReverseBtn) {
     sortReverseBtn.hidden = !show || custom;
-    sortReverseBtn.disabled = reorderModeActive;
     const descending = appSort.isSortDescending(sort);
     const field = appSort.getSortField(sort);
     sortReverseBtn.classList.toggle("is-descending", descending);
@@ -241,19 +239,31 @@ function syncReorderModeUi() {
     reorderModeActive = false;
   }
   const orderLocked = !reorderModeActive;
-  if (reorderModeBtn) {
-    reorderModeBtn.hidden = !canReorder;
-    reorderModeBtn.setAttribute("aria-pressed", String(orderLocked));
-    reorderModeBtn.classList.toggle("is-order-locked", orderLocked);
-    reorderModeBtn.classList.toggle("is-order-unlocked", !orderLocked);
-    const lockLabel = orderLocked ? "Reorder locked" : "Reorder unlocked";
-    const hint = orderLocked
-      ? " Tap to unlock and reorder."
-      : " Tap to lock order.";
-    reorderModeBtn.setAttribute("aria-label", `${lockLabel}.${hint}`);
-    reorderModeBtn.title = orderLocked
-      ? "Tap to unlock list order"
-      : "Tap to lock list order";
+  const showInToolbar = canReorder && isWatchlistActive();
+  const showInBar =
+    canReorder &&
+    isWatchedListActive() &&
+    appSort.isCustomSort(userState.preferences.sort);
+  if (reorderModeControl) {
+    if (showInToolbar && reorderToolbarSlot) {
+      reorderToolbarSlot.appendChild(reorderModeControl);
+      reorderModeControl.hidden = false;
+    } else if (showInBar && reorderBarSlot) {
+      reorderBarSlot.appendChild(reorderModeControl);
+      reorderModeControl.hidden = false;
+    } else {
+      reorderModeControl.hidden = true;
+    }
+  }
+  if (reorderModeToggle) {
+    reorderModeToggle.checked = reorderModeActive;
+    const toggleLabel = reorderModeActive
+      ? "Reorder on. Drag movies to change order."
+      : "Reorder off.";
+    reorderModeToggle.setAttribute("aria-label", toggleLabel);
+    reorderModeToggle.title = reorderModeActive
+      ? "Turn off to lock list order"
+      : "Turn on to drag and reorder";
   }
   document.body.classList.toggle("reorder-mode", reorderModeActive);
   document.body.classList.toggle("order-locked", canReorder && orderLocked);
@@ -295,10 +305,6 @@ function setReorderMode(active) {
   reorderModeActive = next;
   syncReorderModeUi();
   render();
-}
-
-function toggleReorderMode() {
-  setReorderMode(!reorderModeActive);
 }
 
 function cardInnerHtml(movieId) {

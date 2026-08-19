@@ -42,7 +42,10 @@ const viewModeCycleBtn = document.getElementById("view-mode-cycle");
 const sortControl = document.getElementById("sort-control");
 const listSortSelect = document.getElementById("list-sort");
 const sortReverseBtn = document.getElementById("sort-reverse");
-const reorderModeBtn = document.getElementById("reorder-mode-btn");
+const reorderToolbarSlot = document.getElementById("reorder-toolbar-slot");
+const reorderBarSlot = document.getElementById("reorder-bar-slot");
+const reorderModeControl = document.getElementById("reorder-mode-control");
+const reorderModeToggle = document.getElementById("reorder-mode-toggle");
 const grid = document.getElementById("grid");
 const emptyState = document.getElementById("empty-state");
 
