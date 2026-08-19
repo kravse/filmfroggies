@@ -11,6 +11,9 @@
   --accent: #d4a24c;
   --accent-dim: rgba(212, 162, 76, 0.16);
   --accent-border: rgba(212, 162, 76, 0.45);
+  --success: #59c381;
+  --success-dim: rgba(89, 195, 129, 0.13);
+  --success-border: rgba(89, 195, 129, 0.58);
   --list-chip: #7eb0d4;
   --list-chip-dim: rgba(126, 176, 212, 0.16);
   --list-chip-border: rgba(126, 176, 212, 0.48);

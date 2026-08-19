@@ -211,7 +211,7 @@
 
 .letterboxd-match-legend .is-unmatched { color: var(--danger); }
 .letterboxd-match-legend .needs-review { color: #d5a84b; }
-.letterboxd-match-legend .is-matched { color: var(--accent); }
+.letterboxd-match-legend .is-matched { color: var(--success); }
 
 .letterboxd-rating-option {
   display: flex;
@@ -253,9 +253,9 @@
 }
 
 .letterboxd-match-row.is-matched {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  border-left-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  border-color: var(--success-border);
+  border-left-color: var(--success);
+  background: var(--success-dim);
 }
 
 .letterboxd-match-title {
@@ -271,7 +271,7 @@
 
 .letterboxd-match-row.is-unmatched .letterboxd-match-state { color: var(--danger); }
 .letterboxd-match-row.needs-review .letterboxd-match-state { color: #d5a84b; }
-.letterboxd-match-row.is-matched .letterboxd-match-state { color: var(--accent); }
+.letterboxd-match-row.is-matched .letterboxd-match-state { color: var(--success); }
 
 .letterboxd-match-row select {
   min-width: 0;

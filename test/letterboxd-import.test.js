@@ -107,14 +107,14 @@ test("TMDB matching ignores duplicate copies of the same result", () => {
   assert.equal(pickTmdbMatch({ title: "Past Lives", year: 2023 }, candidates), 10);
 });
 
-test("TMDB matching does not guess across larger or ambiguous year differences", () => {
+test("TMDB matching rejects large year differences and ranks adjacent matches", () => {
   assert.equal(pickTmdbMatch({ title: "Film", year: 2020 }, [
     { id: 1, title: "Film", releaseDate: "2022-01-01" },
   ]), null);
   assert.equal(pickTmdbMatch({ title: "Film", year: 2020 }, [
     { id: 1, title: "Film", releaseDate: "2021-01-01" },
     { id: 2, title: "Film", releaseDate: "2019-01-01" },
-  ]), null);
+  ]), 1);
 });
 
 test("unsupported exports fail with a useful error", () => {

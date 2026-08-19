@@ -222,7 +222,7 @@ const appLetterboxdImport = (function () {
       const year = candidateReleaseYear(candidate);
       return year != null && Math.abs(year - film.year) === 1;
     });
-    return adjacentYear.length === 1 ? adjacentYear[0].id : null;
+    return adjacentYear.length ? adjacentYear[0].id : null;
   }
 
   function getImportLibraries() {
