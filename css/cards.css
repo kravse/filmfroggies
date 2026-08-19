@@ -277,6 +277,10 @@ body.view-mode-detail .card-meta {
   color: var(--muted);
 }
 
+body.view-mode-detail .card-meta-year + .card-meta-runtime::before {
+  content: " · ";
+}
+
 /* --- Card affordances --- */
 
 .card-actions {

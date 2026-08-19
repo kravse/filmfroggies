@@ -19,12 +19,16 @@ function posterHtml(record, size) {
   return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async"${fallback}>`;
 }
 
-function cardMetaText(record) {
-  const parts = [
-    appCardHtml.formatYear(record.releaseDate),
-    appCardHtml.formatRuntime(record.runtime),
-  ].filter(Boolean);
-  return parts.join(" · ");
+function cardMetaHtml(record) {
+  const year = appCardHtml.formatYear(record.releaseDate);
+  const runtime = appCardHtml.formatRuntime(record.runtime);
+  const yearHtml = year
+    ? `<span class="card-meta-year">${appCardHtml.escapeHtml(year)}</span>`
+    : "";
+  const runtimeHtml = runtime
+    ? `<span class="card-meta-runtime">${appCardHtml.escapeHtml(runtime)}</span>`
+    : "";
+  return `${yearHtml}${runtimeHtml}`;
 }
 
 function cardUserRatingHtml(movieId) {
@@ -37,9 +41,27 @@ function cardUserRatingHtml(movieId) {
   return `<span class="card-user-rating" aria-label="Your rating ${appCardHtml.escapeHtml(label)}">${appCardHtml.escapeHtml(label)}</span>`;
 }
 
-function isFanRatingSortMode() {
-  const sortMode = userState?.preferences.sort;
-  return sortMode === "rating-asc" || sortMode === "rating-desc";
+function cardFanRatingHtml(movieId) {
+  if (!isWatchedListActive()) {
+    return "";
+  }
+  const record = movieById.get(movieId);
+  if (!record) {
+    return "";
+  }
+  const label = appCardHtml.formatRating(record.voteAverage);
+  const text = label || "—";
+  const emptyClass = label ? "" : " is-empty";
+  return `<span class="card-fan-rating${emptyClass}" aria-label="Fan rating ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
+}
+
+function cardDetailRatingsHtml(movieId) {
+  if (gridViewMode !== "detail" || !isWatchedListActive()) {
+    return "";
+  }
+  const fan = cardFanRatingHtml(movieId);
+  const user = cardUserRatingHtml(movieId);
+  return `<div class="card-body-ratings">${fan}${user}</div>`;
 }
 
 function isUserRatingSortMode() {
@@ -58,32 +80,6 @@ function cardUnratedClass(movieId) {
     return "";
   }
   return " is-unrated";
-}
-
-function cardFanRatingHtml(movieId) {
-  if (!isWatchedListActive() || usesCustomDisplayOrder() || !isFanRatingSortMode()) {
-    return "";
-  }
-  const record = movieById.get(movieId);
-  if (!record) {
-    return "";
-  }
-  const label = appCardHtml.formatRating(record.voteAverage);
-  const text = label || "—";
-  const emptyClass = label ? "" : " is-empty";
-  return `<span class="card-fan-rating${emptyClass}" aria-label="Fan rating ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
-}
-
-function cardDetailRatingsHtml(movieId) {
-  if (gridViewMode !== "detail") {
-    return "";
-  }
-  const fan = cardFanRatingHtml(movieId);
-  const user = cardUserRatingHtml(movieId);
-  if (!fan && !user) {
-    return "";
-  }
-  return `<div class="card-body-ratings">${fan}${user}</div>`;
 }
 
 function cardRemoveIconHtml() {
@@ -111,57 +107,6 @@ function watchlistCardPanelHtml(movieId) {
 </div>`;
 }
 
-function cardSmallFooterYearText(movieId) {
-  const record = movieById.get(movieId);
-  if (!record) {
-    return "";
-  }
-  return appCardHtml.formatYear(record.releaseDate);
-}
-
-function cardSmallFooterHtml(movieId) {
-  if (gridViewMode !== "cards") {
-    return "";
-  }
-
-  if (userState.activeListId === appLists.WATCHLIST_ID) {
-    const panel = watchlistCardPanelHtml(movieId);
-    return panel ? `<div class="card-footer card-footer--watchlist">${panel}</div>` : "";
-  }
-
-  let mainClass = "card-footer-main";
-  let mainText = "";
-
-  if (isWatchedListActive() && !usesCustomDisplayOrder()) {
-    const sortMode = userState.preferences.sort;
-    const userRating = appRatings.getRating(userState.ratings, movieId);
-    const isUserRatingSort = isUserRatingSortMode();
-
-    if (!isUserRatingSort && !isFanRatingSortMode()) {
-      const hint = appSort.formatSortCardHint(sortMode, {
-        record: movieById.get(movieId),
-        userRating,
-        addedAt: appAddedAt.getAddedAt(userState.addedAt, movieId),
-      });
-      if (hint) {
-        mainText = hint;
-      }
-    }
-  }
-
-  if (!mainText) {
-    mainText = cardSmallFooterYearText(movieId);
-  }
-
-  const fanChip = cardFanRatingHtml(movieId);
-  const userChip = cardUserRatingHtml(movieId);
-  const ratingChips =
-    fanChip || userChip
-      ? `<div class="card-footer-ratings">${fanChip}${userChip}</div>`
-      : "";
-  return `<div class="card-footer"><div class="${mainClass}">${appCardHtml.escapeHtml(mainText)}</div>${ratingChips}</div>`;
-}
-
 function cardPosterOnlyHtml(movieId) {
   const record = movieById.get(movieId);
   if (!record) {
@@ -169,12 +114,12 @@ function cardPosterOnlyHtml(movieId) {
     const body = failed
       ? `<div class="placeholder">Could not load</div>`
       : `<div class="placeholder"></div>`;
-    return `<div class="poster-wrap">${body}</div>${cardSmallFooterHtml(movieId)}`;
+    return `<div class="poster-wrap">${body}</div>`;
   }
   const grip = listShowsReorderGrip()
     ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>`
     : "";
-  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>${cardSmallFooterHtml(movieId)}`;
+  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>`;
 }
 
 function listShowsReorderGrip() {
@@ -223,10 +168,6 @@ function syncSortControlUi() {
       `Sort order: ${directionLabel}. Reverse.`,
     );
   }
-  document.body.classList.toggle(
-    "sort-added",
-    isWatchedListActive() && appSort.getSortField(sort) === "added",
-  );
   syncSortSelectLabels();
 }
 
@@ -346,7 +287,7 @@ function cardInnerHtml(movieId) {
   <div class="card-text">
     <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>
     <div class="card-meta-row">
-      <div class="card-meta">${cardMetaText(record)}</div>
+      <div class="card-meta">${cardMetaHtml(record)}</div>
       ${cardDetailRatingsHtml(movieId)}
     </div>
   </div>
@@ -472,13 +413,6 @@ function render() {
 
 /** Patches one row after hydration so the rest of the grid stays untouched. */
 function applyHydratedRecord(movieId, options = {}) {
-  if (isWatchedListActive() && !usesCustomDisplayOrder()) {
-    render();
-    if (!options.skipDetail && detailMovieId === movieId) {
-      renderDetail();
-    }
-    return;
-  }
   const row = grid.querySelector(`.movie-row[data-movie-id="${movieId}"]`);
   if (!row) {
     return;

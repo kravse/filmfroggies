@@ -124,6 +124,10 @@
     --card-title-font: 0.85rem;
   }
 
+  body.view-mode-detail .card-meta-runtime {
+    display: none;
+  }
+
   .card-title {
     font-size: 0.85rem;
   }
@@ -300,13 +304,6 @@
   .sort-reverse-btn svg {
     width: 14px;
     height: 14px;
-  }
-
-  /* Ascending is shown by the arrow; avoid a sticky accent fill on touch. */
-  .sort-reverse-btn.is-ascending {
-    color: var(--muted);
-    border-color: var(--border-strong);
-    background: transparent;
   }
 
   .sort-reverse-btn:focus {
