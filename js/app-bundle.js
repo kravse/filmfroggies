@@ -7876,22 +7876,37 @@ function csvRecordFor(movieId) {
   };
 }
 
-function onExportCsv() {
-  const rows = appListCsv.listCsvRows(userState, csvRecordFor);
-  if (!rows.length) {
+async function onExportCsv() {
+  const previewRows = appListCsv.listCsvRows(userState, csvRecordFor);
+  if (!previewRows.length) {
     setStatus(exportCsvStatus, "Nothing to export yet.", null);
     return;
   }
-  const blob = new Blob([appListCsv.buildListCsv(rows)], {
-    type: "text/csv;charset=utf-8",
-  });
-  const objectUrl = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = objectUrl;
-  link.download = appListCsv.CSV_FILENAME;
-  link.click();
-  URL.revokeObjectURL(objectUrl);
-  setStatus(exportCsvStatus, `Exported ${rows.length} movies.`, "ok");
+  exportCsvBtn.disabled = true;
+  setStatus(exportCsvStatus, "Preparing export…", null);
+  try {
+    const missingIds = previewRows
+      .map((row) => row.id)
+      .filter((id) => !movieById.has(id) && !localMovieRecord(id));
+    if (missingIds.length && hasTmdbAccess()) {
+      await hydrateMovies(missingIds);
+    }
+    const rows = appListCsv.listCsvRows(userState, csvRecordFor);
+    const blob = new Blob([appListCsv.buildListCsv(rows)], {
+      type: "text/csv;charset=utf-8",
+    });
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = appListCsv.CSV_FILENAME;
+    link.click();
+    URL.revokeObjectURL(objectUrl);
+    setStatus(exportCsvStatus, `Exported ${rows.length} movies.`, "ok");
+  } catch (_) {
+    setStatus(exportCsvStatus, "Export failed.", "error");
+  } finally {
+    exportCsvBtn.disabled = false;
+  }
 }
 
 function onStorageModeChange(mode) {

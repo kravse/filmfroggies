@@ -9,6 +9,7 @@
  */
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const { bundleAppJs } = require("./scripts/bundle-app-js");
 const { VIEWER_CSS_FILES } = require("./scripts/css-manifest");
@@ -34,7 +35,15 @@ function writeCssBundle() {
   fs.writeFileSync(path.join(BUILD_DIR, "css", CSS_BUNDLE_NAME), `${css}\n`);
 }
 
-/** Collapses the per-file <link> tags into the single built stylesheet. */
+function fileHash(filePath) {
+  return crypto
+    .createHash("sha256")
+    .update(fs.readFileSync(filePath))
+    .digest("hex")
+    .slice(0, 12);
+}
+
+/** Collapses stylesheet links and fingerprints built assets for cache busting. */
 function rewriteHtml() {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const linkPattern = /[ \t]*<link rel="stylesheet" href="css\/[^"]+" \/>\n/g;
@@ -45,13 +54,20 @@ function rewriteHtml() {
     );
   }
 
+  const cssHash = fileHash(path.join(BUILD_DIR, "css", CSS_BUNDLE_NAME));
+  const jsHash = fileHash(path.join(BUILD_DIR, "js", "app-bundle.js"));
+
   let seen = 0;
-  const rewritten = html.replace(linkPattern, () => {
+  let rewritten = html.replace(linkPattern, () => {
     seen += 1;
     return seen === 1
-      ? `    <link rel="stylesheet" href="css/${CSS_BUNDLE_NAME}" />\n`
+      ? `    <link rel="stylesheet" href="css/${CSS_BUNDLE_NAME}?v=${cssHash}" />\n`
       : "";
   });
+  rewritten = rewritten.replace(
+    /<script src="js\/app-bundle\.js"><\/script>/,
+    `<script src="js/app-bundle.js?v=${jsHash}"></script>`,
+  );
   fs.writeFileSync(path.join(BUILD_DIR, "index.html"), rewritten);
 }
 
@@ -107,9 +123,9 @@ function build() {
   bundleAppJs();
   resetBuildDir();
   writeCssBundle();
-  rewriteHtml();
   copyImages();
   copyBundle();
+  rewriteHtml();
   copyData();
   writeRobots();
 }
