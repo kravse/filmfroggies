@@ -34,3 +34,10 @@ test("checkBrowserBundle passes on the current bundle", () => {
   const { checkBrowserBundle } = require("../scripts/check-browser-bundle");
   assert.doesNotThrow(() => checkBrowserBundle());
 });
+
+test("custom-list browser module exports the collection import helper", () => {
+  const { APP_SYNC_ENTRIES } = require("../scripts/app-sync-config");
+  const entry = APP_SYNC_ENTRIES.find((candidate) => candidate.target === "00-app-custom-lists.js");
+  assert.ok(entry);
+  assert.ok(entry.exports.includes("ensureCustomListsFromImport"));
+});
