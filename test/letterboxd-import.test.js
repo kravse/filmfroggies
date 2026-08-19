@@ -81,6 +81,15 @@ test("TMDB matching tolerates one unique adjacent release year", () => {
   assert.equal(pickTmdbMatch({ title: "Sing Sing", year: 2023 }, candidates), 123);
 });
 
+test("TMDB matching chooses the imported year among same-title releases", () => {
+  const candidates = [
+    { id: 1, title: "The Thing", releaseDate: "1982-06-25" },
+    { id: 2, title: "The Thing", releaseDate: "2011-10-14" },
+    { id: 3, title: "The Thing", releaseDate: "1951-04-05" },
+  ];
+  assert.equal(pickTmdbMatch({ title: "The Thing", year: 2011 }, candidates), 2);
+});
+
 test("TMDB matching does not guess across larger or ambiguous year differences", () => {
   assert.equal(pickTmdbMatch({ title: "Film", year: 2020 }, [
     { id: 1, title: "Film", releaseDate: "2022-01-01" },

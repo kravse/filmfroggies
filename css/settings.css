@@ -240,9 +240,23 @@
   background: var(--bg);
 }
 
-.letterboxd-match-row.is-unmatched { border-left-color: var(--danger); }
-.letterboxd-match-row.needs-review { border-left-color: #d5a84b; }
-.letterboxd-match-row.is-matched { border-left-color: var(--accent); }
+.letterboxd-match-row.is-unmatched {
+  border-color: color-mix(in srgb, var(--danger) 48%, var(--border));
+  border-left-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, var(--bg));
+}
+
+.letterboxd-match-row.needs-review {
+  border-color: color-mix(in srgb, #d5a84b 48%, var(--border));
+  border-left-color: #d5a84b;
+  background: color-mix(in srgb, #d5a84b 8%, var(--bg));
+}
+
+.letterboxd-match-row.is-matched {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+}
 
 .letterboxd-match-title {
   display: grid;

@@ -72,6 +72,19 @@ function candidateYear(candidate) {
   return appLetterboxdImport.candidateReleaseYear(candidate);
 }
 
+function sortedLetterboxdCandidates(film, candidates) {
+  return candidates.map((candidate, index) => ({ candidate, index })).sort((left, right) => {
+    const yearRank = (candidate) => {
+      const year = candidateYear(candidate);
+      if (!film.year || year == null) return 2;
+      if (year === film.year) return 0;
+      if (Math.abs(year - film.year) === 1) return 1;
+      return 2;
+    };
+    return yearRank(left.candidate) - yearRank(right.candidate) || left.index - right.index;
+  }).map((entry) => entry.candidate);
+}
+
 async function mapWithConcurrency(items, worker, concurrency = LETTERBOXD_MATCH_CONCURRENCY) {
   let cursor = 0;
   async function run() {
@@ -100,6 +113,7 @@ function renderLetterboxdPreview() {
     return rank[left.status] - rank[right.status] || left.index - right.index;
   });
   letterboxdMatches.innerHTML = rows.length ? rows.map(({ film, candidates, selected, status }) => {
+    candidates = sortedLetterboxdCandidates(film, candidates);
     const selectedIsListed = candidates.some((candidate) => candidate.id === selected);
     const savedOption = selected && !selectedIsListed
       ? [`<option value="${selected}" selected>Saved match (TMDB #${selected})</option>`]
