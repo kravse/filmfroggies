@@ -7054,7 +7054,7 @@ function detailListMembershipChipsHtml(movieId) {
     .customListsForMovie(userState.customLists, movieId)
     .map(
       (list) =>
-        `<span class="add-custom-list-chip is-member">${appCardHtml.escapeHtml(list.name)}</span>`,
+        `<button type="button" class="add-custom-list-chip is-member" data-detail-list-nav-id="${appCardHtml.escapeHtml(list.id)}">${appCardHtml.escapeHtml(list.name)}</button>`,
     )
     .join("");
 }
@@ -8636,6 +8636,7 @@ function navigateToCustomList(listId, options = {}) {
     navigateToCustomListsIndex(options);
     return;
   }
+  closeDetail({ popHistory: false });
   appView = "customDetail";
   activeCustomListId = listId;
   if (options.pushHistory !== false) {
@@ -9364,6 +9365,11 @@ detailDialog.addEventListener("click", (event) => {
   }
   if (event.target.closest("#detail-lists-save")) {
     saveDetailListPicker();
+    return;
+  }
+  const listNavChip = event.target.closest("[data-detail-list-nav-id]");
+  if (listNavChip) {
+    navigateToCustomList(listNavChip.dataset.detailListNavId);
     return;
   }
   const listToggleChip = event.target.closest("[data-detail-list-toggle-id]");

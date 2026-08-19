@@ -147,6 +147,12 @@
 .detail-list-chips .add-custom-list-chip.is-member {
   font-size: 0.64rem;
   padding: 0.16rem 0.42rem;
+  cursor: pointer;
+}
+
+.detail-list-chips button.add-custom-list-chip.is-member:hover {
+  border-color: var(--list-chip);
+  filter: brightness(1.08);
 }
 
 .detail-lists-empty {

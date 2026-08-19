@@ -214,6 +214,11 @@ detailDialog.addEventListener("click", (event) => {
     saveDetailListPicker();
     return;
   }
+  const listNavChip = event.target.closest("[data-detail-list-nav-id]");
+  if (listNavChip) {
+    navigateToCustomList(listNavChip.dataset.detailListNavId);
+    return;
+  }
   const listToggleChip = event.target.closest("[data-detail-list-toggle-id]");
   if (listToggleChip) {
     toggleDetailListPickerChip(listToggleChip.dataset.detailListToggleId);

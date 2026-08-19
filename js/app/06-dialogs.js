@@ -69,7 +69,7 @@ function detailListMembershipChipsHtml(movieId) {
     .customListsForMovie(userState.customLists, movieId)
     .map(
       (list) =>
-        `<span class="add-custom-list-chip is-member">${appCardHtml.escapeHtml(list.name)}</span>`,
+        `<button type="button" class="add-custom-list-chip is-member" data-detail-list-nav-id="${appCardHtml.escapeHtml(list.id)}">${appCardHtml.escapeHtml(list.name)}</button>`,
     )
     .join("");
 }

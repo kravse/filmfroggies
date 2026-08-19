@@ -108,6 +108,7 @@ function navigateToCustomList(listId, options = {}) {
     navigateToCustomListsIndex(options);
     return;
   }
+  closeDetail({ popHistory: false });
   appView = "customDetail";
   activeCustomListId = listId;
   if (options.pushHistory !== false) {
