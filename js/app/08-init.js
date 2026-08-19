@@ -13,6 +13,7 @@ searchClearBtn.addEventListener("click", () => {
   clearSearch();
   searchInput.focus();
 });
+searchDirectorToggle?.addEventListener("change", onSearchDirectorToggleChange);
 
 searchSuggest.addEventListener("click", (event) => {
   const item = event.target.closest("[data-suggest-index]");

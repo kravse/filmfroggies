@@ -7,11 +7,18 @@ const {
   describeCredentialProblem,
   buildRequestInit,
   buildSearchUrl,
+  buildPersonSearchUrl,
+  buildPersonMovieCreditsUrl,
   buildMovieUrl,
   buildConfigurationUrl,
   isValidImagePath,
   buildImageUrl,
   normalizeSearchResults,
+  normalizePersonSearchResults,
+  pickDirectorSearchCandidates,
+  directedMoviesFromPersonCredits,
+  mergeMovieSearchResults,
+  flattenDirectorSearchResults,
   normalizeMovie,
 } = require("../scripts/lib/tmdb");
 
@@ -86,6 +93,21 @@ test("buildSearchUrl encodes the query and excludes adult results", () => {
   assert.equal(url.origin + url.pathname, "https://api.themoviedb.org/3/search/movie");
   assert.equal(url.searchParams.get("query"), "the thing & other");
   assert.equal(url.searchParams.get("include_adult"), "false");
+});
+
+test("buildPersonSearchUrl targets the person search endpoint", () => {
+  const url = new URL(buildPersonSearchUrl("nolan"));
+  assert.equal(url.pathname, "/3/search/person");
+  assert.equal(url.searchParams.get("query"), "nolan");
+});
+
+test("buildPersonMovieCreditsUrl requests credits for a valid person id", () => {
+  const url = new URL(buildPersonMovieCreditsUrl(525));
+  assert.equal(url.pathname, "/3/person/525/movie_credits");
+});
+
+test("buildPersonMovieCreditsUrl rejects an invalid person id", () => {
+  assert.throws(() => buildPersonMovieCreditsUrl("abc"), /Invalid person id/);
 });
 
 test("no builder ever puts a credential in the URL", () => {
@@ -176,6 +198,77 @@ test("normalizeSearchResults strips an unsafe poster path", () => {
     results: [{ id: 1, title: "X", poster_path: "javascript:alert(1)" }],
   });
   assert.equal(result.posterPath, null);
+});
+
+test("normalizePersonSearchResults keeps directing department metadata", () => {
+  const [person] = normalizePersonSearchResults({
+    results: [{ id: 525, name: "Christopher Nolan", known_for_department: "Directing" }],
+  });
+  assert.deepEqual(person, {
+    id: 525,
+    name: "Christopher Nolan",
+    knownForDepartment: "Directing",
+  });
+});
+
+test("pickDirectorSearchCandidates keeps only directing profiles", () => {
+  const picked = pickDirectorSearchCandidates([
+    { id: 1, name: "Actor", knownForDepartment: "Acting" },
+    { id: 2, name: "Director", knownForDepartment: "Directing" },
+  ]);
+  assert.equal(picked.length, 1);
+  assert.equal(picked[0].name, "Director");
+});
+
+test("pickDirectorSearchCandidates can fall back to any person", () => {
+  const picked = pickDirectorSearchCandidates(
+    [{ id: 1, name: "Actor", knownForDepartment: "Acting" }],
+    { allowAnyPerson: true },
+  );
+  assert.equal(picked.length, 1);
+  assert.equal(picked[0].name, "Actor");
+});
+
+test("flattenDirectorSearchResults tags every movie with its director", () => {
+  const results = flattenDirectorSearchResults([
+    {
+      personName: "Christopher Nolan",
+      movies: [{ id: 2, title: "New", releaseDate: "2022-01-01", posterPath: null, overview: null }],
+    },
+  ]);
+  assert.equal(results.length, 1);
+  assert.equal(results[0].directorHint, "Christopher Nolan");
+});
+
+test("directedMoviesFromPersonCredits keeps director crew entries only", () => {
+  const movies = directedMoviesFromPersonCredits({
+    crew: [
+      { id: 10, title: "Directed", release_date: "2020-01-01", job: "Director" },
+      { id: 11, title: "Edited", release_date: "2019-01-01", job: "Editor" },
+    ],
+  });
+  assert.equal(movies.length, 1);
+  assert.equal(movies[0].id, 10);
+  assert.equal(movies[0].title, "Directed");
+});
+
+test("mergeMovieSearchResults dedupes and tags director-only hits", () => {
+  const merged = mergeMovieSearchResults(
+    [{ id: 1, title: "Existing", releaseDate: "2020-01-01", posterPath: null, overview: null }],
+    [
+      {
+        personName: "Christopher Nolan",
+        movies: [
+          { id: 1, title: "Existing", releaseDate: "2020-01-01", posterPath: null, overview: null },
+          { id: 2, title: "New", releaseDate: "2022-01-01", posterPath: null, overview: null },
+        ],
+      },
+    ],
+  );
+  assert.equal(merged.length, 2);
+  assert.equal(merged[0].directorHint, undefined);
+  assert.equal(merged[1].title, "New");
+  assert.equal(merged[1].directorHint, "Christopher Nolan");
 });
 
 test("normalizeMovie extracts the director from crew credits", () => {

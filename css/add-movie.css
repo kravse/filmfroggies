@@ -77,10 +77,97 @@
 }
 
 .add-movie-hint {
-  margin: 0 0 0.75rem;
+  margin: 0;
   font-family: var(--ui-font);
   font-size: 0.82rem;
   color: var(--muted);
+}
+
+.add-movie-search-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.director-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.director-toggle-label {
+  font-family: var(--ui-font);
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.director-toggle:has(input:checked) .director-toggle-label {
+  color: var(--text);
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 2.5rem;
+  height: 1.35rem;
+  flex: none;
+}
+
+.toggle-switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.toggle-switch-track {
+  position: absolute;
+  inset: 0;
+  background: var(--panel-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.toggle-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0.15rem;
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 50%;
+  background: var(--muted-dim);
+  transform: translateY(-50%);
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+
+.toggle-switch input:checked + .toggle-switch-track {
+  background: var(--accent-dim);
+  border-color: var(--accent-border);
+}
+
+.toggle-switch input:checked + .toggle-switch-track::after {
+  transform: translate(1.15rem, -50%);
+  background: var(--accent);
+}
+
+.toggle-switch input:focus-visible + .toggle-switch-track {
+  outline: 2px solid var(--accent-border);
+  outline-offset: 2px;
 }
 
 .add-movie-dialog .search-wrap {

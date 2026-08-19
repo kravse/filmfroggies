@@ -499,14 +499,43 @@ async function searchMovies(query, options = {}) {
   if (!trimmed) {
     return [];
   }
-  if (searchMemo.has(trimmed)) {
-    return searchMemo.get(trimmed);
+  const directorMode = options.mode === "director";
+  const cacheKey = `${directorMode ? "director" : "movie"}:${trimmed}`;
+  if (searchMemo.has(cacheKey)) {
+    return searchMemo.get(cacheKey);
   }
-  const response = await fetchTmdb(appTmdb.buildSearchUrl(trimmed), {
-    signal: options.signal,
-  });
-  const results = appTmdb.normalizeSearchResults(await response.json());
-  searchMemo.set(trimmed, results);
+
+  const signal = options.signal;
+  let results;
+
+  if (directorMode) {
+    const personPayload = await fetchTmdb(appTmdb.buildPersonSearchUrl(trimmed), { signal }).then(
+      (response) => response.json(),
+    );
+    const directorCandidates = appTmdb.pickDirectorSearchCandidates(
+      appTmdb.normalizePersonSearchResults(personPayload),
+      { allowAnyPerson: true },
+    );
+    const directorEntries = await Promise.all(
+      directorCandidates.map(async (person) => {
+        const creditsPayload = await fetchTmdb(appTmdb.buildPersonMovieCreditsUrl(person.id), {
+          signal,
+        }).then((response) => response.json());
+        return {
+          personName: person.name,
+          movies: appTmdb.directedMoviesFromPersonCredits(creditsPayload),
+        };
+      }),
+    );
+    results = appTmdb.flattenDirectorSearchResults(directorEntries);
+  } else {
+    const moviePayload = await fetchTmdb(appTmdb.buildSearchUrl(trimmed), { signal }).then(
+      (response) => response.json(),
+    );
+    results = appTmdb.normalizeSearchResults(moviePayload);
+  }
+
+  searchMemo.set(cacheKey, results);
   return results;
 }
 

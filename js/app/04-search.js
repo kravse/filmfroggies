@@ -16,6 +16,7 @@ let selectedAddListId = null;
 let pendingAddRating = null;
 let addMovieRatingTouched = false;
 let addMoviePickTab = "add";
+let searchDirectorMode = false;
 
 const ADD_MOVIE_TMDB_URL = "https://www.themoviedb.org/movie/";
 
@@ -157,11 +158,21 @@ function renderSuggest() {
       const added = status
         ? `<span class="search-suggest-added">In ${appCardHtml.escapeHtml(status.name)}</span>`
         : "";
+      const metaParts = [];
+      if (year) {
+        metaParts.push(year);
+      } else if (!result.directorHint) {
+        metaParts.push("Year unknown");
+      }
+      if (result.directorHint) {
+        metaParts.push(result.directorHint);
+      }
+      const meta = metaParts.join(" · ");
       return `<li class="search-suggest-item${active}" role="option" data-suggest-index="${index}" aria-selected="${index === suggestIndex}">
   ${suggestPosterHtml(result)}
   <span class="search-suggest-text">
     <span class="search-suggest-title">${appCardHtml.escapeHtml(result.title)}</span>
-    <span class="search-suggest-meta">${year || "Year unknown"}</span>
+    <span class="search-suggest-meta">${appCardHtml.escapeHtml(meta)}</span>
   </span>
   ${added}
 </li>`;
@@ -181,14 +192,20 @@ async function runSearch(query) {
 
   setSearchBusy(true);
   try {
-    const results = await searchMovies(query, { signal: searchController.signal });
+    const results = await searchMovies(query, {
+      signal: searchController.signal,
+      mode: searchDirectorMode ? "director" : "movie",
+    });
     if (token !== suggestRequestToken) {
       return;
     }
     suggestResults = results;
     suggestIndex = -1;
     if (!results.length) {
-      showSuggestMessage(`No movies found for "${query}".`);
+      const emptyMessage = searchDirectorMode
+        ? `No directed movies found for "${query}".`
+        : `No movies found for "${query}".`;
+      showSuggestMessage(emptyMessage);
       return;
     }
     renderSuggest();
@@ -243,9 +260,43 @@ function updateAddMovieHint() {
   if (!addMovieHint) {
     return;
   }
-  addMovieHint.textContent = hasTmdbAccess()
-    ? "Search TMDB to find a movie to add."
-    : "Add a TMDB credential in Settings to search.";
+  if (!hasTmdbAccess()) {
+    addMovieHint.textContent = "Add a TMDB credential in Settings to search.";
+    return;
+  }
+  addMovieHint.textContent = searchDirectorMode
+    ? "Search by director name."
+    : "Search by movie title.";
+}
+
+function syncSearchDirectorToggle() {
+  if (!searchDirectorToggle) {
+    return;
+  }
+  searchDirectorToggle.checked = searchDirectorMode;
+  if (searchInput) {
+    searchInput.placeholder = searchDirectorMode ? "Search directors…" : "Search movies…";
+    searchInput.setAttribute(
+      "aria-label",
+      searchDirectorMode ? "Search directors to add movies" : "Search movies to add",
+    );
+  }
+  updateAddMovieHint();
+}
+
+function setSearchDirectorMode(active) {
+  searchDirectorMode = Boolean(active);
+  syncSearchDirectorToggle();
+  const query = searchInput?.value.trim();
+  if (query && hasTmdbAccess()) {
+    runSearch(query);
+  } else {
+    hideSuggest();
+  }
+}
+
+function onSearchDirectorToggleChange() {
+  setSearchDirectorMode(searchDirectorToggle?.checked ?? false);
 }
 
 function showAddSearchStep() {
@@ -430,7 +481,7 @@ function confirmAddMovie() {
 }
 
 function openAddMovieDialog() {
-  updateAddMovieHint();
+  setSearchDirectorMode(false);
   showAddSearchStep();
   clearSearch();
   addMovieDialog.hidden = false;

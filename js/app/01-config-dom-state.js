@@ -14,6 +14,7 @@ const searchCombobox = document.getElementById("search-combobox");
 const searchSuggest = document.getElementById("search-suggest");
 const searchClearBtn = document.getElementById("search-clear");
 const searchSpinner = document.getElementById("search-spinner");
+const searchDirectorToggle = document.getElementById("search-director-toggle");
 
 const addMovieFab = document.getElementById("add-movie-fab");
 const addMovieDialog = document.getElementById("add-movie-dialog");

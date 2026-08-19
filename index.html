@@ -241,9 +241,22 @@
         </div>
         <div class="sheet-body add-movie-body">
           <div id="add-movie-search-step">
-            <p class="add-movie-hint" id="add-movie-hint">
-              Search TMDB to find a movie to add.
-            </p>
+            <div class="add-movie-search-toolbar">
+              <p class="add-movie-hint" id="add-movie-hint">
+                Search by movie title.
+              </p>
+              <label class="director-toggle" for="search-director-toggle">
+                <span class="director-toggle-label">Director:</span>
+                <span class="toggle-switch">
+                  <input
+                    type="checkbox"
+                    id="search-director-toggle"
+                    aria-label="Search by director"
+                  />
+                  <span class="toggle-switch-track" aria-hidden="true"></span>
+                </span>
+              </label>
+            </div>
             <div class="search-wrap">
               <div class="search-combobox" id="search-combobox">
                 <input

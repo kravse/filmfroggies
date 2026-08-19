@@ -16,6 +16,7 @@ const searchCombobox = document.getElementById("search-combobox");
 const searchSuggest = document.getElementById("search-suggest");
 const searchClearBtn = document.getElementById("search-clear");
 const searchSpinner = document.getElementById("search-spinner");
+const searchDirectorToggle = document.getElementById("search-director-toggle");
 
 const addMovieFab = document.getElementById("add-movie-fab");
 const addMovieDialog = document.getElementById("add-movie-dialog");
@@ -428,6 +429,25 @@ const appTmdb = (function () {
     });
   }
 
+  function buildPersonSearchUrl(query) {
+    return buildUrl("/search/person", {
+      query: String(query || "").trim(),
+      include_adult: "false",
+      language: "en-US",
+      page: "1",
+    });
+  }
+
+  function buildPersonMovieCreditsUrl(personId) {
+    const id = Number(personId);
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new Error(`Invalid person id: ${personId}`);
+    }
+    return buildUrl(`/person/${id}/movie_credits`, {
+      language: "en-US",
+    });
+  }
+
   function buildMovieUrl(movieId) {
     const id = Number(movieId);
     if (!Number.isInteger(id) || id <= 0) {
@@ -467,13 +487,90 @@ const appTmdb = (function () {
     const results = Array.isArray(payload?.results) ? payload.results : [];
     return results
       .filter((entry) => Number.isInteger(Number(entry?.id)))
+      .map((entry) => normalizeSearchMovieEntry(entry));
+  }
+
+  function normalizeSearchMovieEntry(entry) {
+    return {
+      id: Number(entry.id),
+      title: cleanText(entry.title) || cleanText(entry.original_title) || "Untitled",
+      releaseDate: cleanText(entry.release_date),
+      posterPath: cleanImagePath(entry.poster_path),
+      overview: cleanText(entry.overview),
+    };
+  }
+
+  function normalizePersonSearchResults(payload) {
+    const results = Array.isArray(payload?.results) ? payload.results : [];
+    return results
+      .filter((entry) => Number.isInteger(Number(entry?.id)))
       .map((entry) => ({
         id: Number(entry.id),
-        title: cleanText(entry.title) || cleanText(entry.original_title) || "Untitled",
-        releaseDate: cleanText(entry.release_date),
-        posterPath: cleanImagePath(entry.poster_path),
-        overview: cleanText(entry.overview),
+        name: cleanText(entry.name) || "Unknown",
+        knownForDepartment: cleanText(entry.known_for_department),
       }));
+  }
+
+  const DIRECTOR_SEARCH_CANDIDATE_LIMIT = 2;
+  const DIRECTOR_SEARCH_MOVIE_LIMIT = 15;
+
+  function pickDirectorSearchCandidates(persons, options = {}) {
+    const directors = persons.filter((person) => person.knownForDepartment === "Directing");
+    if (directors.length) {
+      return directors.slice(0, DIRECTOR_SEARCH_CANDIDATE_LIMIT);
+    }
+    if (options.allowAnyPerson) {
+      return persons.slice(0, DIRECTOR_SEARCH_CANDIDATE_LIMIT);
+    }
+    return [];
+  }
+
+  function flattenDirectorSearchResults(directorEntries) {
+    return mergeMovieSearchResults([], directorEntries);
+  }
+
+  function directedMoviesFromPersonCredits(payload) {
+    const crew = Array.isArray(payload?.crew) ? payload.crew : [];
+    const seen = new Set();
+    const movies = [];
+    for (const entry of crew) {
+      if (entry?.job !== "Director") {
+        continue;
+      }
+      const id = Number(entry?.id);
+      if (!Number.isInteger(id) || id <= 0 || seen.has(id)) {
+        continue;
+      }
+      seen.add(id);
+      movies.push(normalizeSearchMovieEntry(entry));
+    }
+    movies.sort((left, right) => {
+      const leftTime = Date.parse(left.releaseDate || "") || 0;
+      const rightTime = Date.parse(right.releaseDate || "") || 0;
+      return rightTime - leftTime;
+    });
+    return movies.slice(0, DIRECTOR_SEARCH_MOVIE_LIMIT);
+  }
+
+  /** Title hits first; director filmography fills in movies not already listed. */
+  function mergeMovieSearchResults(movieResults, directorEntries) {
+    const seen = new Set(movieResults.map((movie) => movie.id));
+    const merged = movieResults.map((movie) => ({ ...movie }));
+    for (const entry of directorEntries) {
+      const personName = entry?.personName;
+      const movies = Array.isArray(entry?.movies) ? entry.movies : [];
+      for (const movie of movies) {
+        if (seen.has(movie.id)) {
+          continue;
+        }
+        seen.add(movie.id);
+        merged.push({
+          ...movie,
+          directorHint: personName || null,
+        });
+      }
+    }
+    return merged;
   }
 
   function directorsFromCredits(credits) {
@@ -526,11 +623,18 @@ const appTmdb = (function () {
     describeCredentialProblem,
     buildRequestInit,
     buildSearchUrl,
+    buildPersonSearchUrl,
+    buildPersonMovieCreditsUrl,
     buildMovieUrl,
     buildConfigurationUrl,
     isValidImagePath,
     buildImageUrl,
     normalizeSearchResults,
+    normalizePersonSearchResults,
+    pickDirectorSearchCandidates,
+    directedMoviesFromPersonCredits,
+    mergeMovieSearchResults,
+    flattenDirectorSearchResults,
     normalizeMovie,
   };
 })();
@@ -3541,14 +3645,43 @@ async function searchMovies(query, options = {}) {
   if (!trimmed) {
     return [];
   }
-  if (searchMemo.has(trimmed)) {
-    return searchMemo.get(trimmed);
+  const directorMode = options.mode === "director";
+  const cacheKey = `${directorMode ? "director" : "movie"}:${trimmed}`;
+  if (searchMemo.has(cacheKey)) {
+    return searchMemo.get(cacheKey);
   }
-  const response = await fetchTmdb(appTmdb.buildSearchUrl(trimmed), {
-    signal: options.signal,
-  });
-  const results = appTmdb.normalizeSearchResults(await response.json());
-  searchMemo.set(trimmed, results);
+
+  const signal = options.signal;
+  let results;
+
+  if (directorMode) {
+    const personPayload = await fetchTmdb(appTmdb.buildPersonSearchUrl(trimmed), { signal }).then(
+      (response) => response.json(),
+    );
+    const directorCandidates = appTmdb.pickDirectorSearchCandidates(
+      appTmdb.normalizePersonSearchResults(personPayload),
+      { allowAnyPerson: true },
+    );
+    const directorEntries = await Promise.all(
+      directorCandidates.map(async (person) => {
+        const creditsPayload = await fetchTmdb(appTmdb.buildPersonMovieCreditsUrl(person.id), {
+          signal,
+        }).then((response) => response.json());
+        return {
+          personName: person.name,
+          movies: appTmdb.directedMoviesFromPersonCredits(creditsPayload),
+        };
+      }),
+    );
+    results = appTmdb.flattenDirectorSearchResults(directorEntries);
+  } else {
+    const moviePayload = await fetchTmdb(appTmdb.buildSearchUrl(trimmed), { signal }).then(
+      (response) => response.json(),
+    );
+    results = appTmdb.normalizeSearchResults(moviePayload);
+  }
+
+  searchMemo.set(cacheKey, results);
   return results;
 }
 
@@ -3622,6 +3755,7 @@ let selectedAddListId = null;
 let pendingAddRating = null;
 let addMovieRatingTouched = false;
 let addMoviePickTab = "add";
+let searchDirectorMode = false;
 
 const ADD_MOVIE_TMDB_URL = "https://www.themoviedb.org/movie/";
 
@@ -3763,11 +3897,21 @@ function renderSuggest() {
       const added = status
         ? `<span class="search-suggest-added">In ${appCardHtml.escapeHtml(status.name)}</span>`
         : "";
+      const metaParts = [];
+      if (year) {
+        metaParts.push(year);
+      } else if (!result.directorHint) {
+        metaParts.push("Year unknown");
+      }
+      if (result.directorHint) {
+        metaParts.push(result.directorHint);
+      }
+      const meta = metaParts.join(" · ");
       return `<li class="search-suggest-item${active}" role="option" data-suggest-index="${index}" aria-selected="${index === suggestIndex}">
   ${suggestPosterHtml(result)}
   <span class="search-suggest-text">
     <span class="search-suggest-title">${appCardHtml.escapeHtml(result.title)}</span>
-    <span class="search-suggest-meta">${year || "Year unknown"}</span>
+    <span class="search-suggest-meta">${appCardHtml.escapeHtml(meta)}</span>
   </span>
   ${added}
 </li>`;
@@ -3787,14 +3931,20 @@ async function runSearch(query) {
 
   setSearchBusy(true);
   try {
-    const results = await searchMovies(query, { signal: searchController.signal });
+    const results = await searchMovies(query, {
+      signal: searchController.signal,
+      mode: searchDirectorMode ? "director" : "movie",
+    });
     if (token !== suggestRequestToken) {
       return;
     }
     suggestResults = results;
     suggestIndex = -1;
     if (!results.length) {
-      showSuggestMessage(`No movies found for "${query}".`);
+      const emptyMessage = searchDirectorMode
+        ? `No directed movies found for "${query}".`
+        : `No movies found for "${query}".`;
+      showSuggestMessage(emptyMessage);
       return;
     }
     renderSuggest();
@@ -3849,9 +3999,43 @@ function updateAddMovieHint() {
   if (!addMovieHint) {
     return;
   }
-  addMovieHint.textContent = hasTmdbAccess()
-    ? "Search TMDB to find a movie to add."
-    : "Add a TMDB credential in Settings to search.";
+  if (!hasTmdbAccess()) {
+    addMovieHint.textContent = "Add a TMDB credential in Settings to search.";
+    return;
+  }
+  addMovieHint.textContent = searchDirectorMode
+    ? "Search by director name."
+    : "Search by movie title.";
+}
+
+function syncSearchDirectorToggle() {
+  if (!searchDirectorToggle) {
+    return;
+  }
+  searchDirectorToggle.checked = searchDirectorMode;
+  if (searchInput) {
+    searchInput.placeholder = searchDirectorMode ? "Search directors…" : "Search movies…";
+    searchInput.setAttribute(
+      "aria-label",
+      searchDirectorMode ? "Search directors to add movies" : "Search movies to add",
+    );
+  }
+  updateAddMovieHint();
+}
+
+function setSearchDirectorMode(active) {
+  searchDirectorMode = Boolean(active);
+  syncSearchDirectorToggle();
+  const query = searchInput?.value.trim();
+  if (query && hasTmdbAccess()) {
+    runSearch(query);
+  } else {
+    hideSuggest();
+  }
+}
+
+function onSearchDirectorToggleChange() {
+  setSearchDirectorMode(searchDirectorToggle?.checked ?? false);
 }
 
 function showAddSearchStep() {
@@ -4036,7 +4220,7 @@ function confirmAddMovie() {
 }
 
 function openAddMovieDialog() {
-  updateAddMovieHint();
+  setSearchDirectorMode(false);
   showAddSearchStep();
   clearSearch();
   addMovieDialog.hidden = false;
@@ -5557,6 +5741,7 @@ searchClearBtn.addEventListener("click", () => {
   clearSearch();
   searchInput.focus();
 });
+searchDirectorToggle?.addEventListener("change", onSearchDirectorToggleChange);
 
 searchSuggest.addEventListener("click", (event) => {
   const item = event.target.closest("[data-suggest-index]");

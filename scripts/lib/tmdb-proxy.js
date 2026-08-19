@@ -8,7 +8,9 @@ const TMDB_API_BASE = "https://api.themoviedb.org/3";
 const ALLOWED_PATH_PATTERNS = [
   /^\/configuration$/,
   /^\/search\/movie$/,
+  /^\/search\/person$/,
   /^\/movie\/([1-9]\d*)$/,
+  /^\/person\/([1-9]\d+)\/movie_credits$/,
 ];
 
 const ALLOWED_QUERY_KEYS = new Set([

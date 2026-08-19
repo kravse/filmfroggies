@@ -7,10 +7,12 @@ const {
   parseProxyRequestQuery,
 } = require("../scripts/lib/tmdb-proxy");
 
-test("isAllowedPathname accepts only the three app paths", () => {
+test("isAllowedPathname accepts only the app paths", () => {
   assert.equal(isAllowedPathname("/configuration"), true);
   assert.equal(isAllowedPathname("/search/movie"), true);
+  assert.equal(isAllowedPathname("/search/person"), true);
   assert.equal(isAllowedPathname("/movie/603"), true);
+  assert.equal(isAllowedPathname("/person/525/movie_credits"), true);
   assert.equal(isAllowedPathname("/movie/0"), false);
   assert.equal(isAllowedPathname("/movie/603/credits"), false);
   assert.equal(isAllowedPathname("/person/1"), false);

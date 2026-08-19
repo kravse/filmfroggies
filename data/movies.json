@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-19T00:53:18.440Z",
+  "generatedAt": "2026-08-19T02:07:04.875Z",
   "posterSizes": [
     "w342",
     "w500"
@@ -152,6 +152,36 @@
       ],
       "poster": "pWDtjs568ZfOTMbURQBYuT4Qxka.jpg"
     },
+    "680": {
+      "id": 680,
+      "title": "Pulp Fiction",
+      "releaseDate": "1994-09-10",
+      "overview": "A burger-loving hit man, his philosophical partner, a drug-addled gangster's moll and a washed-up boxer converge in this sprawling, comedic crime caper. Their adventures unfurl in three stories that ingeniously trip back and forth in time.",
+      "tagline": "You won’t know the facts until you’ve seen the fiction.",
+      "posterPath": "/vQWk5YBFWF4bZaofAbv0tShwBvQ.jpg",
+      "backdropPath": "/suaEOtk1N1sgg2MTM7oZd2cfVp3.jpg",
+      "runtime": 154,
+      "voteAverage": 8.481,
+      "genres": [
+        "Thriller",
+        "Crime",
+        "Comedy"
+      ],
+      "directors": [
+        "Quentin Tarantino"
+      ],
+      "cast": [
+        "John Travolta",
+        "Samuel L. Jackson",
+        "Uma Thurman",
+        "Bruce Willis",
+        "Ving Rhames",
+        "Harvey Keitel",
+        "Eric Stoltz",
+        "Tim Roth"
+      ],
+      "poster": "vQWk5YBFWF4bZaofAbv0tShwBvQ.jpg"
+    },
     "837": {
       "id": 837,
       "title": "Videodrome",
@@ -181,6 +211,36 @@
         "Julie Khaner"
       ],
       "poster": "qqqkiZSU9EBGZ1KiDmfn07S7qvv.jpg"
+    },
+    "1091": {
+      "id": 1091,
+      "title": "The Thing",
+      "releaseDate": "1982-06-25",
+      "overview": "A research team in Antarctica is hunted by a shape-shifting alien that assumes the appearance of its victims.",
+      "tagline": "Anytime. Anywhere. Anyone.",
+      "posterPath": "/tzGY49kseSE9QAKk47uuDGwnSCu.jpg",
+      "backdropPath": "/r9leYNa8nTRCceZrZhP1DXkgKVb.jpg",
+      "runtime": 109,
+      "voteAverage": 8.074,
+      "genres": [
+        "Horror",
+        "Mystery",
+        "Science Fiction"
+      ],
+      "directors": [
+        "John Carpenter"
+      ],
+      "cast": [
+        "Kurt Russell",
+        "Wilford Brimley",
+        "T.K. Carter",
+        "David Clennon",
+        "Keith David",
+        "Richard Dysart",
+        "Charles Hallahan",
+        "Peter Maloney"
+      ],
+      "poster": "tzGY49kseSE9QAKk47uuDGwnSCu.jpg"
     },
     "1398": {
       "id": 1398,
@@ -271,6 +331,36 @@
       ],
       "poster": "kETKF0JhdTPn1knci8CAdYL0d79.jpg"
     },
+    "2322": {
+      "id": 2322,
+      "title": "Sneakers",
+      "releaseDate": "1992-09-09",
+      "overview": "When shadowy U.S. intelligence agents blackmail a reformed computer hacker and his eccentric team of security experts into stealing a code-breaking 'black box' from a Soviet-funded genius, they uncover a bigger conspiracy. Now, he and his 'sneakers' must save themselves and the world economy by retrieving the box from their blackmailers.",
+      "tagline": "We could tell you what it's about. But then, of course, we'd have to kill you.",
+      "posterPath": "/l2pIGwCvpZEpBuMb55YBl6A04Jv.jpg",
+      "backdropPath": "/smK3ud9IKSLVuRXdKauJ9p0DwNB.jpg",
+      "runtime": 125,
+      "voteAverage": 6.907,
+      "genres": [
+        "Comedy",
+        "Crime",
+        "Drama"
+      ],
+      "directors": [
+        "Phil Alden Robinson"
+      ],
+      "cast": [
+        "Robert Redford",
+        "Sidney Poitier",
+        "David Strathairn",
+        "Dan Aykroyd",
+        "River Phoenix",
+        "Ben Kingsley",
+        "Denise Dowse",
+        "Timothy Busfield"
+      ],
+      "poster": "l2pIGwCvpZEpBuMb55YBl6A04Jv.jpg"
+    },
     "2493": {
       "id": 2493,
       "title": "The Princess Bride",
@@ -301,6 +391,36 @@
         "Fred Savage"
       ],
       "poster": "2FC9L9MrjBoGHYjYZjdWQdopVYb.jpg"
+    },
+    "2649": {
+      "id": 2649,
+      "title": "The Game",
+      "releaseDate": "1997-09-12",
+      "overview": "In honor of his birthday, San Francisco banker Nicholas Van Orton, a financial genius and a cold-hearted loner, receives an unusual present from his younger brother, Conrad: a gift certificate to play a unique kind of game. In nary a nanosecond, Nicholas finds himself consumed by a dangerous set of ever-changing rules, unable to distinguish where the charade ends and reality begins.",
+      "tagline": "What do you get for the man who has everything...?",
+      "posterPath": "/4UOa079915QjiTA2u5hT2yKVgUu.jpg",
+      "backdropPath": "/k7GM13qRYSour3lk90Dq1EwdpoW.jpg",
+      "runtime": 129,
+      "voteAverage": 7.574,
+      "genres": [
+        "Drama",
+        "Thriller",
+        "Mystery"
+      ],
+      "directors": [
+        "David Fincher"
+      ],
+      "cast": [
+        "Michael Douglas",
+        "Sean Penn",
+        "Deborah Kara Unger",
+        "James Rebhorn",
+        "Peter Donat",
+        "Carroll Baker",
+        "Anna Katarina",
+        "Armin Mueller-Stahl"
+      ],
+      "poster": "4UOa079915QjiTA2u5hT2yKVgUu.jpg"
     },
     "2667": {
       "id": 2667,
@@ -628,6 +748,37 @@
       ],
       "poster": "rb2NWyb008u1EcKCOyXs2Nmj0ra.jpg"
     },
+    "10428": {
+      "id": 10428,
+      "title": "Hackers",
+      "releaseDate": "1995-09-14",
+      "overview": "Along with his new friends, a teenager who was arrested by the US Secret Service and banned from using a computer for writing a computer virus discovers a plot by a nefarious hacker, but they must use their computer skills to find the evidence while being pursued by the Secret Service and the evil computer genius behind the virus.",
+      "tagline": "Their crime is curiosity.",
+      "posterPath": "/qfx2EENW1sOpKNVKLzr7VOhlxkt.jpg",
+      "backdropPath": "/r7fk4I68wiGrhaExjtvnGtCAI1l.jpg",
+      "runtime": 105,
+      "voteAverage": 6.385,
+      "genres": [
+        "Action",
+        "Crime",
+        "Thriller",
+        "Drama"
+      ],
+      "directors": [
+        "Iain Softley"
+      ],
+      "cast": [
+        "Jonny Lee Miller",
+        "Angelina Jolie",
+        "Matthew Lillard",
+        "Jesse Bradford",
+        "Renoly Santiago",
+        "Laurence Mason",
+        "Fisher Stevens",
+        "Lorraine Bracco"
+      ],
+      "poster": "qfx2EENW1sOpKNVKLzr7VOhlxkt.jpg"
+    },
     "10774": {
       "id": 10774,
       "title": "Network",
@@ -860,6 +1011,65 @@
       ],
       "poster": "eWdyYQreja6JGCzqHWXpWHDrrPo.jpg"
     },
+    "157845": {
+      "id": 157845,
+      "title": "The Rover",
+      "releaseDate": "2014-06-04",
+      "overview": "Ten years after a severe economic collapse in the western world, lawlessness reigns and life is cheap. Eric is a lone drifter, and his car is his only possession. When a gang steals it, Eric comes across the injured Rey, left behind by the car thieves. The pair form an unlikely and uneasy alliance.",
+      "tagline": "Fear the man with nothing left to lose.",
+      "posterPath": "/734OOkr69mt8lyPk8iw3TwgQ90R.jpg",
+      "backdropPath": "/wXI4ljoRVDBp2vHRoXKb2jPlmAj.jpg",
+      "runtime": 103,
+      "voteAverage": 6.3,
+      "genres": [
+        "Crime",
+        "Drama"
+      ],
+      "directors": [
+        "David Michôd"
+      ],
+      "cast": [
+        "Guy Pearce",
+        "Robert Pattinson",
+        "Scoot McNairy",
+        "David Field",
+        "Susan Prior",
+        "Anthony Hayes",
+        "Tawanda Manyimo",
+        "Nash Edgerton"
+      ],
+      "poster": "734OOkr69mt8lyPk8iw3TwgQ90R.jpg"
+    },
+    "273248": {
+      "id": 273248,
+      "title": "The Hateful Eight",
+      "releaseDate": "2015-12-25",
+      "overview": "Bounty hunters seek shelter from a raging blizzard and get caught up in a plot of betrayal and deception.",
+      "tagline": "No one comes up here without a damn good reason.",
+      "posterPath": "/jIywvdPjia2t3eKYbjVTcwBQlG8.jpg",
+      "backdropPath": "/7g1zO5t0bd27Iqn5ZUDJmksOGPJ.jpg",
+      "runtime": 188,
+      "voteAverage": 7.757,
+      "genres": [
+        "Drama",
+        "Mystery",
+        "Western"
+      ],
+      "directors": [
+        "Quentin Tarantino"
+      ],
+      "cast": [
+        "Samuel L. Jackson",
+        "Kurt Russell",
+        "Jennifer Jason Leigh",
+        "Walton Goggins",
+        "Demián Bichir",
+        "Tim Roth",
+        "Michael Madsen",
+        "Bruce Dern"
+      ],
+      "poster": "jIywvdPjia2t3eKYbjVTcwBQlG8.jpg"
+    },
     "339405": {
       "id": 339405,
       "title": "Christine",
@@ -1030,6 +1240,65 @@
         "Kim Ji-an"
       ],
       "poster": "6dasJ58GGFcC62H9KuukAryltUp.jpg"
+    },
+    "913814": {
+      "id": 913814,
+      "title": "Brian and Charles",
+      "releaseDate": "2022-06-17",
+      "overview": "An endearing outlier, Brian lives alone in a Welsh valley, inventing oddball contraptions that seldom work. After finding a discarded mannequin head, Brian gets an idea. Three days, a washing machine, and sundry spare parts later, he’s invented Charles, an artificially intelligent robot who learns English from a dictionary and proves a charming, cheeky companion. Before long, however, Charles also develops autonomy. Intrigued by the wider world — or whatever lies beyond the cottage where Brian has hidden him away — Charles craves adventure.",
+      "tagline": "Some friendships are built to last.",
+      "posterPath": "/pzP3N9qRo3S91QjfBFWNI0ph0AY.jpg",
+      "backdropPath": "/sT0c22syDUXXz85Gg0E7dzZzCaA.jpg",
+      "runtime": 91,
+      "voteAverage": 6.299,
+      "genres": [
+        "Comedy",
+        "Drama",
+        "Science Fiction"
+      ],
+      "directors": [
+        "Jim Archer"
+      ],
+      "cast": [
+        "David Earl",
+        "Chris Hayward",
+        "Louise Brealey",
+        "Jamie Michie",
+        "Nina Sosanya",
+        "Lynn Hunter",
+        "Lowri Izzard",
+        "Mari Izzard"
+      ],
+      "poster": "pzP3N9qRo3S91QjfBFWNI0ph0AY.jpg"
+    },
+    "938614": {
+      "id": 938614,
+      "title": "Late Night with the Devil",
+      "releaseDate": "2024-03-19",
+      "overview": "A live broadcast of a late-night talk show in 1977 goes horribly wrong, unleashing evil into the nation's living rooms.",
+      "tagline": "Do not adjust your set.",
+      "posterPath": "/mu8LRWT9GHkfiyHm7kgxT6YNvMW.jpg",
+      "backdropPath": "/umyOinNa6vqqnqoVc9QqzyaapUz.jpg",
+      "runtime": 93,
+      "voteAverage": 7.1,
+      "genres": [
+        "Horror"
+      ],
+      "directors": [
+        "Cameron Cairnes",
+        "Colin Cairnes"
+      ],
+      "cast": [
+        "David Dastmalchian",
+        "Laura Gordon",
+        "Ian Bliss",
+        "Fayssal Bazzi",
+        "Ingrid Torelli",
+        "Rhys Auteri",
+        "Georgina Haig",
+        "Josh Quong Tart"
+      ],
+      "poster": "mu8LRWT9GHkfiyHm7kgxT6YNvMW.jpg"
     },
     "1154538": {
       "id": 1154538,

@@ -98,6 +98,25 @@ const appTmdb = (function () {
     });
   }
 
+  function buildPersonSearchUrl(query) {
+    return buildUrl("/search/person", {
+      query: String(query || "").trim(),
+      include_adult: "false",
+      language: "en-US",
+      page: "1",
+    });
+  }
+
+  function buildPersonMovieCreditsUrl(personId) {
+    const id = Number(personId);
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new Error(`Invalid person id: ${personId}`);
+    }
+    return buildUrl(`/person/${id}/movie_credits`, {
+      language: "en-US",
+    });
+  }
+
   function buildMovieUrl(movieId) {
     const id = Number(movieId);
     if (!Number.isInteger(id) || id <= 0) {
@@ -137,13 +156,90 @@ const appTmdb = (function () {
     const results = Array.isArray(payload?.results) ? payload.results : [];
     return results
       .filter((entry) => Number.isInteger(Number(entry?.id)))
+      .map((entry) => normalizeSearchMovieEntry(entry));
+  }
+
+  function normalizeSearchMovieEntry(entry) {
+    return {
+      id: Number(entry.id),
+      title: cleanText(entry.title) || cleanText(entry.original_title) || "Untitled",
+      releaseDate: cleanText(entry.release_date),
+      posterPath: cleanImagePath(entry.poster_path),
+      overview: cleanText(entry.overview),
+    };
+  }
+
+  function normalizePersonSearchResults(payload) {
+    const results = Array.isArray(payload?.results) ? payload.results : [];
+    return results
+      .filter((entry) => Number.isInteger(Number(entry?.id)))
       .map((entry) => ({
         id: Number(entry.id),
-        title: cleanText(entry.title) || cleanText(entry.original_title) || "Untitled",
-        releaseDate: cleanText(entry.release_date),
-        posterPath: cleanImagePath(entry.poster_path),
-        overview: cleanText(entry.overview),
+        name: cleanText(entry.name) || "Unknown",
+        knownForDepartment: cleanText(entry.known_for_department),
       }));
+  }
+
+  const DIRECTOR_SEARCH_CANDIDATE_LIMIT = 2;
+  const DIRECTOR_SEARCH_MOVIE_LIMIT = 15;
+
+  function pickDirectorSearchCandidates(persons, options = {}) {
+    const directors = persons.filter((person) => person.knownForDepartment === "Directing");
+    if (directors.length) {
+      return directors.slice(0, DIRECTOR_SEARCH_CANDIDATE_LIMIT);
+    }
+    if (options.allowAnyPerson) {
+      return persons.slice(0, DIRECTOR_SEARCH_CANDIDATE_LIMIT);
+    }
+    return [];
+  }
+
+  function flattenDirectorSearchResults(directorEntries) {
+    return mergeMovieSearchResults([], directorEntries);
+  }
+
+  function directedMoviesFromPersonCredits(payload) {
+    const crew = Array.isArray(payload?.crew) ? payload.crew : [];
+    const seen = new Set();
+    const movies = [];
+    for (const entry of crew) {
+      if (entry?.job !== "Director") {
+        continue;
+      }
+      const id = Number(entry?.id);
+      if (!Number.isInteger(id) || id <= 0 || seen.has(id)) {
+        continue;
+      }
+      seen.add(id);
+      movies.push(normalizeSearchMovieEntry(entry));
+    }
+    movies.sort((left, right) => {
+      const leftTime = Date.parse(left.releaseDate || "") || 0;
+      const rightTime = Date.parse(right.releaseDate || "") || 0;
+      return rightTime - leftTime;
+    });
+    return movies.slice(0, DIRECTOR_SEARCH_MOVIE_LIMIT);
+  }
+
+  /** Title hits first; director filmography fills in movies not already listed. */
+  function mergeMovieSearchResults(movieResults, directorEntries) {
+    const seen = new Set(movieResults.map((movie) => movie.id));
+    const merged = movieResults.map((movie) => ({ ...movie }));
+    for (const entry of directorEntries) {
+      const personName = entry?.personName;
+      const movies = Array.isArray(entry?.movies) ? entry.movies : [];
+      for (const movie of movies) {
+        if (seen.has(movie.id)) {
+          continue;
+        }
+        seen.add(movie.id);
+        merged.push({
+          ...movie,
+          directorHint: personName || null,
+        });
+      }
+    }
+    return merged;
   }
 
   function directorsFromCredits(credits) {
@@ -196,11 +292,18 @@ const appTmdb = (function () {
     describeCredentialProblem,
     buildRequestInit,
     buildSearchUrl,
+    buildPersonSearchUrl,
+    buildPersonMovieCreditsUrl,
     buildMovieUrl,
     buildConfigurationUrl,
     isValidImagePath,
     buildImageUrl,
     normalizeSearchResults,
+    normalizePersonSearchResults,
+    pickDirectorSearchCandidates,
+    directedMoviesFromPersonCredits,
+    mergeMovieSearchResults,
+    flattenDirectorSearchResults,
     normalizeMovie,
   };
 })();
