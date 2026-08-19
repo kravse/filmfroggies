@@ -78,10 +78,6 @@ const addMovieRatingClear = document.getElementById("add-movie-rating-clear");
 const addMovieRatingValue = document.getElementById("add-movie-rating-value");
 const addMovieRatingField = document.getElementById("add-movie-rating-field");
 const addMovieWatchDateWrap = document.getElementById("add-movie-watch-date-wrap");
-const addMovieWatchDateToggle = document.getElementById("add-movie-watch-date-toggle");
-const addMovieWatchDateField = document.getElementById("add-movie-watch-date-field");
-const addMovieWatchDate = document.getElementById("add-movie-watch-date");
-const addMovieWatchDateClear = document.getElementById("add-movie-watch-date-clear");
 const addMovieBack = document.getElementById("add-movie-back");
 const addMoviePickTabs = document.getElementById("add-movie-pick-tabs");
 const addMovieTabAdd = document.getElementById("add-movie-tab-add");
@@ -160,14 +156,15 @@ const removeConfirmMessage = document.getElementById("remove-confirm-message");
 const removeConfirmCancel = document.getElementById("remove-confirm-cancel");
 const removeConfirmOk = document.getElementById("remove-confirm-ok");
 
+const viewingRemoveConfirmDialog = document.getElementById("viewing-remove-confirm-dialog");
+const viewingRemoveConfirmMessage = document.getElementById("viewing-remove-confirm-message");
+const viewingRemoveConfirmCancel = document.getElementById("viewing-remove-confirm-cancel");
+const viewingRemoveConfirmOk = document.getElementById("viewing-remove-confirm-ok");
+
 const watchConfirmDialog = document.getElementById("watch-confirm-dialog");
 const watchConfirmMessage = document.getElementById("watch-confirm-message");
 const watchConfirmCancel = document.getElementById("watch-confirm-cancel");
 const watchConfirmOk = document.getElementById("watch-confirm-ok");
-const watchConfirmDateToggle = document.getElementById("watch-confirm-date-toggle");
-const watchConfirmDateField = document.getElementById("watch-confirm-date-field");
-const watchConfirmDate = document.getElementById("watch-confirm-date");
-const watchConfirmDateClear = document.getElementById("watch-confirm-date-clear");
 
 const discoverAddConfirmDialog = document.getElementById("discover-add-confirm-dialog");
 const discoverAddConfirmTitle = document.getElementById("discover-add-confirm-title");
@@ -208,6 +205,7 @@ let detailListPickerSelectedIds = new Set();
 /** "overview" | "viewing-history" */
 let detailBodyTab = "overview";
 let pendingRemoveMovieId = null;
+let pendingViewingRemoveEntryId = null;
 let pendingWatchMovieId = null;
 let watchConfirmWatchDateActive = false;
 let pendingDiscoverAddMovieId = null;
@@ -514,6 +512,30 @@ const appCardHtml = (function () {
   const WATCHLIST_PRESET_ICON_SVG =
     '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>';
 
+  const VIEWING_DATE_ICON_SVG =
+    '<svg class="viewing-date-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none"><path d="M7.5 8 5.5 3M12.5 8 14.5 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="3.5" y="8" width="13" height="8.5" rx="1.25" stroke="currentColor" stroke-width="1.5"/><rect x="5.25" y="9.75" width="9.5" height="5" rx="0.5" stroke="currentColor" stroke-width="1.25"/><path d="M6.25 16.5v1.25M13.75 16.5v1.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+
+  function viewingDateIconHtml() {
+    return VIEWING_DATE_ICON_SVG;
+  }
+
+  function viewingDatePickerHtml(options = {}) {
+    const toggleId = String(options.toggleId || "viewing-date-toggle");
+    const fieldId = String(options.fieldId || "viewing-date-field");
+    const inputId = String(options.inputId || "viewing-date-input");
+    const clearId = String(options.clearId || "viewing-date-clear");
+    const toggleClass = escapeHtml(
+      String(options.toggleClass || "ghost-btn viewing-date-picker-toggle"),
+    );
+    const fieldClass = escapeHtml(String(options.fieldClass || "viewing-date-picker-field"));
+    const icon = viewingDateIconHtml();
+    return `<button type="button" class="${toggleClass}" id="${escapeHtml(toggleId)}">${icon}Add viewing date</button>
+  <div class="${fieldClass}" id="${escapeHtml(fieldId)}" hidden>
+    <div class="viewing-date-input-row">${icon}<input type="date" id="${escapeHtml(inputId)}" aria-label="Date watched" /></div>
+    <button type="button" class="user-rating-clear-btn" id="${escapeHtml(clearId)}">Clear viewing date</button>
+  </div>`;
+  }
+
   /** Same square icons as the add-movie list picker (`watched` | `watchlist`). */
   function addListPresetIconHtml(preset) {
     if (preset === "watchlist") {
@@ -536,8 +558,50 @@ const appCardHtml = (function () {
     joinNames,
     addListPresetIconHtml,
     discoverPresetButtonInnerHtml,
+    viewingDateIconHtml,
+    viewingDatePickerHtml,
   };
 })();
+
+/* ===== Shared viewing date picker mounts ===== */
+
+(function mountViewingDatePickers() {
+  const pickers = [
+    {
+      rootId: "add-movie-viewing-date-picker",
+      toggleId: "add-movie-watch-date-toggle",
+      fieldId: "add-movie-watch-date-field",
+      inputId: "add-movie-watch-date",
+      clearId: "add-movie-watch-date-clear",
+      toggleClass: "ghost-btn add-movie-watch-date-toggle",
+      fieldClass: "add-movie-watch-date",
+    },
+    {
+      rootId: "watch-confirm-viewing-date-picker",
+      toggleId: "watch-confirm-date-toggle",
+      fieldId: "watch-confirm-date-field",
+      inputId: "watch-confirm-date",
+      clearId: "watch-confirm-date-clear",
+      toggleClass: "ghost-btn watch-confirm-date-toggle",
+      fieldClass: "watch-confirm-date",
+    },
+  ];
+  for (const picker of pickers) {
+    const root = document.getElementById(picker.rootId);
+    if (root) {
+      root.innerHTML = appCardHtml.viewingDatePickerHtml(picker);
+    }
+  }
+})();
+
+const addMovieWatchDateToggle = document.getElementById("add-movie-watch-date-toggle");
+const addMovieWatchDateField = document.getElementById("add-movie-watch-date-field");
+const addMovieWatchDate = document.getElementById("add-movie-watch-date");
+const addMovieWatchDateClear = document.getElementById("add-movie-watch-date-clear");
+const watchConfirmDateToggle = document.getElementById("watch-confirm-date-toggle");
+const watchConfirmDateField = document.getElementById("watch-confirm-date-field");
+const watchConfirmDate = document.getElementById("watch-confirm-date");
+const watchConfirmDateClear = document.getElementById("watch-confirm-date-clear");
 
 /* ===== Grid poster greys (generated from scripts/lib/poster-grey.js) ===== */
 
@@ -8509,6 +8573,7 @@ function watchMovie(movieId, watchedOn) {
   if (!commitListChange(nextLists, { movieId, status: appLists.WATCHED_ID })) {
     return;
   }
+  recordAddedAt(movieId);
   if (detailMovieId === movieId && !activeMovieIds().includes(movieId)) {
     closeDetail();
   }
@@ -8546,11 +8611,13 @@ function clearWatchConfirmWatchDate() {
   resetWatchConfirmWatchDate();
 }
 
-function requestWatchMovie(movieId) {
+function requestWatchMovie(movieId, options = {}) {
   pendingWatchMovieId = Number(movieId);
   const record = movieById.get(pendingWatchMovieId);
   const title = record?.title || `Movie ${pendingWatchMovieId}`;
-  watchConfirmMessage.textContent = `Mark “${title}” as watched? It will move to your Watched list.`;
+  watchConfirmMessage.textContent = options.fromDiscover
+    ? `Mark “${title}” as watched? It will be added to your Watched list.`
+    : `Mark “${title}” as watched? It will move to your Watched list.`;
   resetWatchConfirmWatchDate();
   watchConfirmDialog.hidden = false;
   watchConfirmCancel.focus({ preventScroll: true });
@@ -8808,6 +8875,10 @@ function requestDiscoverPresetMembership(listId, movieId) {
   }
   if (discoverPresetMembership(listId, movieId)) {
     removeDiscoverPresetMembership(listId, movieId);
+    return;
+  }
+  if (listId === appLists.WATCHED_ID) {
+    requestWatchMovie(Number(movieId), { fromDiscover: true });
     return;
   }
   pendingDiscoverAddMovieId = Number(movieId);
@@ -9109,6 +9180,16 @@ function formatViewingDate(value) {
     : value;
 }
 
+function detailViewingSummaryText(count) {
+  if (count === 0) {
+    return "No viewings recorded";
+  }
+  if (count === 1) {
+    return "Viewed once";
+  }
+  return `Viewed ${count} times`;
+}
+
 function detailViewingHistoryHtml(movieId) {
   const entries = appViewingHistory.viewingEntries(userState.viewingHistory, movieId);
   const allowed = appRatings.isRatingAllowed(userState.lists, movieId, userState.customLists);
@@ -9116,16 +9197,15 @@ function detailViewingHistoryHtml(movieId) {
     return `<p class="detail-viewing-empty">Viewing dates are available for movies in Watched or a custom list.</p>`;
   }
   const rows = entries.map((entry) => `<li class="detail-viewing-row">
-    <input type="date" value="${entry.watchedOn}" max="${appViewingHistory.today()}" data-viewing-date-id="${appCardHtml.escapeHtml(entry.id)}" aria-label="Viewing date ${appCardHtml.escapeHtml(formatViewingDate(entry.watchedOn))}">
+    <span class="detail-viewing-date">${appCardHtml.viewingDateIconHtml()}${appCardHtml.escapeHtml(formatViewingDate(entry.watchedOn))}</span>
     <button type="button" data-viewing-remove-id="${appCardHtml.escapeHtml(entry.id)}" aria-label="Remove viewing on ${appCardHtml.escapeHtml(formatViewingDate(entry.watchedOn))}">Remove</button>
   </li>`).join("");
   const listHtml = rows ? `<ul>${rows}</ul>` : "";
-  const countLabel =
-    entries.length > 0
-      ? `<p class="detail-viewing-count">${entries.length} viewing${entries.length === 1 ? "" : "s"}</p>`
-      : "";
+  const summary = appCardHtml.escapeHtml(detailViewingSummaryText(entries.length));
   return `<section class="detail-viewing-history">
-    ${countLabel}
+    <div class="detail-viewing-head">
+      <p class="detail-viewing-summary">${summary}</p>
+    </div>
     ${listHtml}
     <div class="detail-viewing-add">
       <input type="date" id="detail-viewing-new-date" value="${appViewingHistory.today()}" max="${appViewingHistory.today()}" aria-label="New viewing date">
@@ -9193,13 +9273,27 @@ function addDetailViewing() {
   renderDetail();
 }
 
-function updateDetailViewing(entryId, watchedOn) {
+function requestRemoveDetailViewing(entryId) {
   if (detailMovieId == null) return;
-  const next = appViewingHistory.updateViewing(userState.viewingHistory, detailMovieId, entryId, watchedOn);
-  if (!updateViewingHistory(next)) return;
-  persistUserState();
-  render();
-  renderDetail();
+  const entries = appViewingHistory.viewingEntries(userState.viewingHistory, detailMovieId);
+  const entry = entries.find((item) => item.id === entryId);
+  if (!entry) return;
+  pendingViewingRemoveEntryId = entryId;
+  viewingRemoveConfirmMessage.textContent = `Remove viewing on ${formatViewingDate(entry.watchedOn)}?`;
+  viewingRemoveConfirmDialog.hidden = false;
+  viewingRemoveConfirmCancel.focus({ preventScroll: true });
+}
+
+function closeViewingRemoveConfirm() {
+  pendingViewingRemoveEntryId = null;
+  viewingRemoveConfirmDialog.hidden = true;
+}
+
+function confirmRemoveDetailViewing() {
+  const entryId = pendingViewingRemoveEntryId;
+  closeViewingRemoveConfirm();
+  if (!entryId) return;
+  removeDetailViewing(entryId);
 }
 
 function removeDetailViewing(entryId) {
@@ -11918,7 +12012,7 @@ detailDialog.addEventListener("click", (event) => {
   }
   const removeViewingBtn = event.target.closest("[data-viewing-remove-id]");
   if (removeViewingBtn) {
-    removeDetailViewing(removeViewingBtn.dataset.viewingRemoveId);
+    requestRemoveDetailViewing(removeViewingBtn.dataset.viewingRemoveId);
     return;
   }
   if (event.target.closest("#detail-lists-edit")) {
@@ -11941,10 +12035,6 @@ detailDialog.addEventListener("click", (event) => {
 });
 delegateRangeSliderLiveInput(detailDialog, "detail-rating-slider", onDetailRatingSliderInput);
 detailDialog.addEventListener("change", (event) => {
-  if (event.target.matches("[data-viewing-date-id]")) {
-    updateDetailViewing(event.target.dataset.viewingDateId, event.target.value);
-    return;
-  }
   if (event.target.id === "detail-rating-slider") {
     commitDetailRating();
     return;
@@ -11996,6 +12086,13 @@ removeConfirmOk.addEventListener("click", () => confirmRemoveMovie());
 removeConfirmDialog.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-remove-confirm")) {
     closeRemoveConfirm();
+  }
+});
+viewingRemoveConfirmCancel.addEventListener("click", () => closeViewingRemoveConfirm());
+viewingRemoveConfirmOk.addEventListener("click", () => confirmRemoveDetailViewing());
+viewingRemoveConfirmDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-viewing-remove-confirm")) {
+    closeViewingRemoveConfirm();
   }
 });
 
@@ -12182,6 +12279,10 @@ document.addEventListener("keydown", (event) => {
     }
     if (!customListDeleteDialog.hidden) {
       closeCustomListDeleteConfirm();
+      return;
+    }
+    if (!viewingRemoveConfirmDialog.hidden) {
+      closeViewingRemoveConfirm();
       return;
     }
     if (!watchlistPickerDialog.hidden) {

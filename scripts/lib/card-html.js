@@ -101,6 +101,30 @@ function joinNames(names, limit) {
 const WATCHLIST_PRESET_ICON_SVG =
   '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>';
 
+const VIEWING_DATE_ICON_SVG =
+  '<svg class="viewing-date-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none"><path d="M7.5 8 5.5 3M12.5 8 14.5 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="3.5" y="8" width="13" height="8.5" rx="1.25" stroke="currentColor" stroke-width="1.5"/><rect x="5.25" y="9.75" width="9.5" height="5" rx="0.5" stroke="currentColor" stroke-width="1.25"/><path d="M6.25 16.5v1.25M13.75 16.5v1.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+
+function viewingDateIconHtml() {
+  return VIEWING_DATE_ICON_SVG;
+}
+
+function viewingDatePickerHtml(options = {}) {
+  const toggleId = String(options.toggleId || "viewing-date-toggle");
+  const fieldId = String(options.fieldId || "viewing-date-field");
+  const inputId = String(options.inputId || "viewing-date-input");
+  const clearId = String(options.clearId || "viewing-date-clear");
+  const toggleClass = escapeHtml(
+    String(options.toggleClass || "ghost-btn viewing-date-picker-toggle"),
+  );
+  const fieldClass = escapeHtml(String(options.fieldClass || "viewing-date-picker-field"));
+  const icon = viewingDateIconHtml();
+  return `<button type="button" class="${toggleClass}" id="${escapeHtml(toggleId)}">${icon}Add viewing date</button>
+<div class="${fieldClass}" id="${escapeHtml(fieldId)}" hidden>
+  <div class="viewing-date-input-row">${icon}<input type="date" id="${escapeHtml(inputId)}" aria-label="Date watched" /></div>
+  <button type="button" class="user-rating-clear-btn" id="${escapeHtml(clearId)}">Clear viewing date</button>
+</div>`;
+}
+
 /** Same square icons as the add-movie list picker (`watched` | `watchlist`). */
 function addListPresetIconHtml(preset) {
   if (preset === "watchlist") {
@@ -123,4 +147,6 @@ module.exports = {
   joinNames,
   addListPresetIconHtml,
   discoverPresetButtonInnerHtml,
+  viewingDateIconHtml,
+  viewingDatePickerHtml,
 };

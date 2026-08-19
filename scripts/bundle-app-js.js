@@ -24,6 +24,10 @@ const PARTS = [
     title: "Card HTML helpers (generated from scripts/lib/card-html.js)",
   },
   {
+    file: "01b-viewing-date-picker-dom.js",
+    title: "Shared viewing date picker mounts",
+  },
+  {
     file: "00-app-poster-grey.js",
     title: "Grid poster greys (generated from scripts/lib/poster-grey.js)",
   },

@@ -636,20 +636,7 @@
               </button>
             </div>
             <div class="add-movie-watch-date-wrap" id="add-movie-watch-date-wrap" hidden>
-              <button
-                type="button"
-                class="ghost-btn add-movie-watch-date-toggle"
-                id="add-movie-watch-date-toggle"
-              >
-                Add viewing date
-              </button>
-              <div class="add-movie-watch-date" id="add-movie-watch-date-field" hidden>
-                <span class="add-movie-pick-label">Watched on</span>
-                <input type="date" id="add-movie-watch-date" aria-label="Date watched" />
-                <button type="button" class="user-rating-clear-btn" id="add-movie-watch-date-clear">
-                  Clear viewing date
-                </button>
-              </div>
+              <div id="add-movie-viewing-date-picker"></div>
             </div>
             <div class="add-movie-custom-lists" id="add-movie-custom-lists-section" hidden>
               <p class="add-movie-pick-label">Also add to</p>
@@ -1093,6 +1080,33 @@
       </div>
     </div>
 
+    <!-- Viewing history remove confirmation -->
+    <div id="viewing-remove-confirm-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
+      <div class="sheet-backdrop" data-close-viewing-remove-confirm></div>
+      <div
+        class="sheet-panel confirm-panel"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="viewing-remove-confirm-title"
+        aria-describedby="viewing-remove-confirm-message"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="viewing-remove-confirm-title">Remove viewing</h2>
+        </div>
+        <div class="sheet-scroll">
+          <p id="viewing-remove-confirm-message" class="confirm-message"></p>
+        </div>
+        <div class="confirm-actions">
+          <button type="button" id="viewing-remove-confirm-cancel" class="ghost-btn">
+            Cancel
+          </button>
+          <button type="button" id="viewing-remove-confirm-ok" class="primary-btn confirm-danger">
+            Remove
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Custom list delete confirmation -->
     <div id="custom-list-delete-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
       <div class="sheet-backdrop" data-close-custom-list-delete></div>
@@ -1255,20 +1269,7 @@
         <div class="sheet-scroll">
           <p id="watch-confirm-message" class="confirm-message"></p>
           <div class="watch-confirm-date-wrap">
-            <button
-              type="button"
-              class="ghost-btn watch-confirm-date-toggle"
-              id="watch-confirm-date-toggle"
-            >
-              Add viewing date
-            </button>
-            <div class="watch-confirm-date" id="watch-confirm-date-field" hidden>
-              <span>Watched on</span>
-              <input type="date" id="watch-confirm-date" aria-label="Date watched" />
-              <button type="button" class="user-rating-clear-btn" id="watch-confirm-date-clear">
-                Clear viewing date
-              </button>
-            </div>
+            <div id="watch-confirm-viewing-date-picker"></div>
           </div>
         </div>
         <div class="confirm-actions">

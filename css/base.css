@@ -216,6 +216,26 @@ main.page-shell {
     color 0.15s ease;
 }
 
+.viewing-date-icon {
+  flex: none;
+  width: 1.65rem;
+  height: 1.65rem;
+  color: var(--accent);
+}
+
+.viewing-date-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.viewing-date-input-row input {
+  flex: 1;
+  min-width: 0;
+}
+
 .action-btn .add-list-icon {
   width: auto;
   height: auto;

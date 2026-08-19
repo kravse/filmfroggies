@@ -773,6 +773,7 @@ function watchMovie(movieId, watchedOn) {
   if (!commitListChange(nextLists, { movieId, status: appLists.WATCHED_ID })) {
     return;
   }
+  recordAddedAt(movieId);
   if (detailMovieId === movieId && !activeMovieIds().includes(movieId)) {
     closeDetail();
   }
@@ -810,11 +811,13 @@ function clearWatchConfirmWatchDate() {
   resetWatchConfirmWatchDate();
 }
 
-function requestWatchMovie(movieId) {
+function requestWatchMovie(movieId, options = {}) {
   pendingWatchMovieId = Number(movieId);
   const record = movieById.get(pendingWatchMovieId);
   const title = record?.title || `Movie ${pendingWatchMovieId}`;
-  watchConfirmMessage.textContent = `Mark “${title}” as watched? It will move to your Watched list.`;
+  watchConfirmMessage.textContent = options.fromDiscover
+    ? `Mark “${title}” as watched? It will be added to your Watched list.`
+    : `Mark “${title}” as watched? It will move to your Watched list.`;
   resetWatchConfirmWatchDate();
   watchConfirmDialog.hidden = false;
   watchConfirmCancel.focus({ preventScroll: true });

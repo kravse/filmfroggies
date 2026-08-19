@@ -236,7 +236,7 @@ detailDialog.addEventListener("click", (event) => {
   }
   const removeViewingBtn = event.target.closest("[data-viewing-remove-id]");
   if (removeViewingBtn) {
-    removeDetailViewing(removeViewingBtn.dataset.viewingRemoveId);
+    requestRemoveDetailViewing(removeViewingBtn.dataset.viewingRemoveId);
     return;
   }
   if (event.target.closest("#detail-lists-edit")) {
@@ -259,10 +259,6 @@ detailDialog.addEventListener("click", (event) => {
 });
 delegateRangeSliderLiveInput(detailDialog, "detail-rating-slider", onDetailRatingSliderInput);
 detailDialog.addEventListener("change", (event) => {
-  if (event.target.matches("[data-viewing-date-id]")) {
-    updateDetailViewing(event.target.dataset.viewingDateId, event.target.value);
-    return;
-  }
   if (event.target.id === "detail-rating-slider") {
     commitDetailRating();
     return;
@@ -314,6 +310,13 @@ removeConfirmOk.addEventListener("click", () => confirmRemoveMovie());
 removeConfirmDialog.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-remove-confirm")) {
     closeRemoveConfirm();
+  }
+});
+viewingRemoveConfirmCancel.addEventListener("click", () => closeViewingRemoveConfirm());
+viewingRemoveConfirmOk.addEventListener("click", () => confirmRemoveDetailViewing());
+viewingRemoveConfirmDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-viewing-remove-confirm")) {
+    closeViewingRemoveConfirm();
   }
 });
 
@@ -500,6 +503,10 @@ document.addEventListener("keydown", (event) => {
     }
     if (!customListDeleteDialog.hidden) {
       closeCustomListDeleteConfirm();
+      return;
+    }
+    if (!viewingRemoveConfirmDialog.hidden) {
+      closeViewingRemoveConfirm();
       return;
     }
     if (!watchlistPickerDialog.hidden) {

@@ -11,6 +11,8 @@ const {
   joinNames,
   addListPresetIconHtml,
   discoverPresetButtonInnerHtml,
+  viewingDateIconHtml,
+  viewingDatePickerHtml,
 } = require("../scripts/lib/card-html");
 
 test("escapeHtml neutralizes markup in untrusted API text", () => {
@@ -98,6 +100,29 @@ test("addListPresetIconHtml matches add-movie list picker icons", () => {
   assert.match(addListPresetIconHtml("watched"), /class="add-list-icon"[^>]*>✓<\/span>/);
   assert.match(addListPresetIconHtml("watchlist"), /add-list-icon-watchlist/);
   assert.match(addListPresetIconHtml("watchlist"), /M12 2C6\.48 2/);
+});
+
+test("viewingDateIconHtml renders the retro TV icon", () => {
+  assert.match(viewingDateIconHtml(), /class="viewing-date-icon"/);
+  assert.match(viewingDateIconHtml(), /M7\.5 8 5\.5 3/);
+});
+
+test("viewingDatePickerHtml renders toggle, field, and shared ids", () => {
+  const html = viewingDatePickerHtml({
+    toggleId: "pick-toggle",
+    fieldId: "pick-field",
+    inputId: "pick-input",
+    clearId: "pick-clear",
+    toggleClass: "ghost-btn pick-toggle",
+    fieldClass: "pick-field",
+  });
+  assert.match(html, /id="pick-toggle"/);
+  assert.match(html, /id="pick-field"/);
+  assert.match(html, /id="pick-input"/);
+  assert.match(html, /Add viewing date/);
+  assert.doesNotMatch(html, /Watched on/);
+  assert.match(html, /class="viewing-date-icon"/);
+  assert.equal((html.match(/class="viewing-date-icon"/g) || []).length, 2);
 });
 
 test("discoverPresetButtonInnerHtml wraps icon and escaped label", () => {

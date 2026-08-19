@@ -169,6 +169,10 @@ function requestDiscoverPresetMembership(listId, movieId) {
     removeDiscoverPresetMembership(listId, movieId);
     return;
   }
+  if (listId === appLists.WATCHED_ID) {
+    requestWatchMovie(Number(movieId), { fromDiscover: true });
+    return;
+  }
   pendingDiscoverAddMovieId = Number(movieId);
   pendingDiscoverAddListId = listId;
   const record = movieById.get(pendingDiscoverAddMovieId);
@@ -468,6 +472,16 @@ function formatViewingDate(value) {
     : value;
 }
 
+function detailViewingSummaryText(count) {
+  if (count === 0) {
+    return "No viewings recorded";
+  }
+  if (count === 1) {
+    return "Viewed once";
+  }
+  return `Viewed ${count} times`;
+}
+
 function detailViewingHistoryHtml(movieId) {
   const entries = appViewingHistory.viewingEntries(userState.viewingHistory, movieId);
   const allowed = appRatings.isRatingAllowed(userState.lists, movieId, userState.customLists);
@@ -475,16 +489,15 @@ function detailViewingHistoryHtml(movieId) {
     return `<p class="detail-viewing-empty">Viewing dates are available for movies in Watched or a custom list.</p>`;
   }
   const rows = entries.map((entry) => `<li class="detail-viewing-row">
-    <input type="date" value="${entry.watchedOn}" max="${appViewingHistory.today()}" data-viewing-date-id="${appCardHtml.escapeHtml(entry.id)}" aria-label="Viewing date ${appCardHtml.escapeHtml(formatViewingDate(entry.watchedOn))}">
+    <span class="detail-viewing-date">${appCardHtml.viewingDateIconHtml()}${appCardHtml.escapeHtml(formatViewingDate(entry.watchedOn))}</span>
     <button type="button" data-viewing-remove-id="${appCardHtml.escapeHtml(entry.id)}" aria-label="Remove viewing on ${appCardHtml.escapeHtml(formatViewingDate(entry.watchedOn))}">Remove</button>
   </li>`).join("");
   const listHtml = rows ? `<ul>${rows}</ul>` : "";
-  const countLabel =
-    entries.length > 0
-      ? `<p class="detail-viewing-count">${entries.length} viewing${entries.length === 1 ? "" : "s"}</p>`
-      : "";
+  const summary = appCardHtml.escapeHtml(detailViewingSummaryText(entries.length));
   return `<section class="detail-viewing-history">
-    ${countLabel}
+    <div class="detail-viewing-head">
+      <p class="detail-viewing-summary">${summary}</p>
+    </div>
     ${listHtml}
     <div class="detail-viewing-add">
       <input type="date" id="detail-viewing-new-date" value="${appViewingHistory.today()}" max="${appViewingHistory.today()}" aria-label="New viewing date">
@@ -552,13 +565,27 @@ function addDetailViewing() {
   renderDetail();
 }
 
-function updateDetailViewing(entryId, watchedOn) {
+function requestRemoveDetailViewing(entryId) {
   if (detailMovieId == null) return;
-  const next = appViewingHistory.updateViewing(userState.viewingHistory, detailMovieId, entryId, watchedOn);
-  if (!updateViewingHistory(next)) return;
-  persistUserState();
-  render();
-  renderDetail();
+  const entries = appViewingHistory.viewingEntries(userState.viewingHistory, detailMovieId);
+  const entry = entries.find((item) => item.id === entryId);
+  if (!entry) return;
+  pendingViewingRemoveEntryId = entryId;
+  viewingRemoveConfirmMessage.textContent = `Remove viewing on ${formatViewingDate(entry.watchedOn)}?`;
+  viewingRemoveConfirmDialog.hidden = false;
+  viewingRemoveConfirmCancel.focus({ preventScroll: true });
+}
+
+function closeViewingRemoveConfirm() {
+  pendingViewingRemoveEntryId = null;
+  viewingRemoveConfirmDialog.hidden = true;
+}
+
+function confirmRemoveDetailViewing() {
+  const entryId = pendingViewingRemoveEntryId;
+  closeViewingRemoveConfirm();
+  if (!entryId) return;
+  removeDetailViewing(entryId);
 }
 
 function removeDetailViewing(entryId) {

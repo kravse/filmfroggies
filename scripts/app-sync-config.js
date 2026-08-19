@@ -25,6 +25,8 @@ const APP_SYNC_ENTRIES = [
       "joinNames",
       "addListPresetIconHtml",
       "discoverPresetButtonInnerHtml",
+      "viewingDateIconHtml",
+      "viewingDatePickerHtml",
     ],
   },
   {

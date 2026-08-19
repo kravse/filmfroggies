@@ -76,10 +76,6 @@ const addMovieRatingClear = document.getElementById("add-movie-rating-clear");
 const addMovieRatingValue = document.getElementById("add-movie-rating-value");
 const addMovieRatingField = document.getElementById("add-movie-rating-field");
 const addMovieWatchDateWrap = document.getElementById("add-movie-watch-date-wrap");
-const addMovieWatchDateToggle = document.getElementById("add-movie-watch-date-toggle");
-const addMovieWatchDateField = document.getElementById("add-movie-watch-date-field");
-const addMovieWatchDate = document.getElementById("add-movie-watch-date");
-const addMovieWatchDateClear = document.getElementById("add-movie-watch-date-clear");
 const addMovieBack = document.getElementById("add-movie-back");
 const addMoviePickTabs = document.getElementById("add-movie-pick-tabs");
 const addMovieTabAdd = document.getElementById("add-movie-tab-add");
@@ -158,14 +154,15 @@ const removeConfirmMessage = document.getElementById("remove-confirm-message");
 const removeConfirmCancel = document.getElementById("remove-confirm-cancel");
 const removeConfirmOk = document.getElementById("remove-confirm-ok");
 
+const viewingRemoveConfirmDialog = document.getElementById("viewing-remove-confirm-dialog");
+const viewingRemoveConfirmMessage = document.getElementById("viewing-remove-confirm-message");
+const viewingRemoveConfirmCancel = document.getElementById("viewing-remove-confirm-cancel");
+const viewingRemoveConfirmOk = document.getElementById("viewing-remove-confirm-ok");
+
 const watchConfirmDialog = document.getElementById("watch-confirm-dialog");
 const watchConfirmMessage = document.getElementById("watch-confirm-message");
 const watchConfirmCancel = document.getElementById("watch-confirm-cancel");
 const watchConfirmOk = document.getElementById("watch-confirm-ok");
-const watchConfirmDateToggle = document.getElementById("watch-confirm-date-toggle");
-const watchConfirmDateField = document.getElementById("watch-confirm-date-field");
-const watchConfirmDate = document.getElementById("watch-confirm-date");
-const watchConfirmDateClear = document.getElementById("watch-confirm-date-clear");
 
 const discoverAddConfirmDialog = document.getElementById("discover-add-confirm-dialog");
 const discoverAddConfirmTitle = document.getElementById("discover-add-confirm-title");
@@ -206,6 +203,7 @@ let detailListPickerSelectedIds = new Set();
 /** "overview" | "viewing-history" */
 let detailBodyTab = "overview";
 let pendingRemoveMovieId = null;
+let pendingViewingRemoveEntryId = null;
 let pendingWatchMovieId = null;
 let watchConfirmWatchDateActive = false;
 let pendingDiscoverAddMovieId = null;
