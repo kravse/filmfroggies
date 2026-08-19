@@ -67,7 +67,12 @@ grid.addEventListener("click", (event) => {
   const removeBtn = event.target.closest(".card-remove-btn");
   if (removeBtn) {
     event.stopPropagation();
-    requestRemoveMovie(Number(removeBtn.closest("[data-movie-id]").dataset.movieId));
+    const movieId = Number(removeBtn.closest("[data-movie-id]").dataset.movieId);
+    if (isCustomListDetailActive()) {
+      requestRemoveFromCustomList(movieId);
+    } else {
+      requestRemoveMovie(movieId);
+    }
     return;
   }
   if (event.target.closest(".card-grip")) {
@@ -199,6 +204,10 @@ detailDialog.addEventListener("change", (event) => {
   }
 });
 detailActions.addEventListener("click", (event) => {
+  if (event.target.id === "detail-remove-from-list") {
+    requestRemoveFromCustomList(detailMovieId);
+    return;
+  }
   if (event.target.id === "detail-remove") {
     requestRemoveMovie(detailMovieId);
     return;
@@ -232,7 +241,47 @@ backupRestoreDialog?.addEventListener("click", (event) => {
   }
 });
 
-window.addEventListener("popstate", syncDetailFromLocation);
+window.addEventListener("popstate", syncViewFromLocation);
+window.addEventListener("hashchange", syncViewFromLocation);
+
+listsNavBtn?.addEventListener("click", onListsNavClick);
+customListCreateBtn?.addEventListener("click", promptCreateCustomListName);
+customListsEmpty?.addEventListener("click", (event) => {
+  if (event.target.closest(".empty-state-add-btn")) {
+    promptCreateCustomListName();
+  }
+});
+customListsRows?.addEventListener("click", onCustomListsIndexClick);
+customListsRows?.addEventListener("keydown", onCustomListsIndexKeydown);
+customListsSortSelect?.addEventListener("change", onCustomListIndexSortChange);
+customListDeleteCancel?.addEventListener("click", closeCustomListDeleteConfirm);
+customListDeleteOk?.addEventListener("click", confirmDeleteCustomList);
+customListDeleteDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-custom-list-delete")) {
+    closeCustomListDeleteConfirm();
+  }
+});
+customListBackBtn?.addEventListener("click", () => navigateToCustomListsIndex());
+addFromWatchlistBtn?.addEventListener("click", openWatchedPicker);
+watchlistPickerClose?.addEventListener("click", closeWatchedPicker);
+watchlistPickerSubmit?.addEventListener("click", confirmWatchedPicker);
+watchlistPickerList?.addEventListener("click", onWatchedPickerClick);
+watchlistPickerDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-watchlist-picker")) {
+    closeWatchedPicker();
+  }
+});
+watchlistPickerMainLink?.addEventListener("click", (event) => {
+  event.preventDefault();
+  closeWatchedPicker();
+  navigateToMain();
+});
+addMovieCustomListPicker?.addEventListener("click", onAddMovieCustomListPickerClick);
+addMovieCreateListsLink?.addEventListener("click", (event) => {
+  event.preventDefault();
+  closeAddMovieDialog();
+  navigateToCustomListsIndex();
+});
 
 /* --- Staying current across tabs --- */
 
@@ -272,31 +321,36 @@ aboutDialog.addEventListener("click", (event) => {
   }
 });
 
-/* --- Hidden hosted unlock (triple-click logo) --- */
+/* --- Logo: single click home (delayed); triple-click hosted unlock --- */
 
 let logoClickCount = 0;
 let logoClickTimer = null;
+const LOGO_CLICK_WINDOW_MS = 600;
 
 headerLogo.addEventListener("click", () => {
   logoClickCount += 1;
   if (logoClickTimer) {
     clearTimeout(logoClickTimer);
   }
-  logoClickTimer = setTimeout(() => {
+
+  if (logoClickCount >= 3) {
     logoClickCount = 0;
     logoClickTimer = null;
-  }, 600);
-  if (logoClickCount < 3) {
+    if (hasHostedAccess()) {
+      openHostedLockDialog();
+    } else {
+      openHostedUnlockDialog();
+    }
     return;
   }
-  logoClickCount = 0;
-  clearTimeout(logoClickTimer);
-  logoClickTimer = null;
-  if (hasHostedAccess()) {
-    openHostedLockDialog();
-  } else {
-    openHostedUnlockDialog();
-  }
+
+  logoClickTimer = setTimeout(() => {
+    if (logoClickCount === 1) {
+      navigateHomeToWatched();
+    }
+    logoClickCount = 0;
+    logoClickTimer = null;
+  }, LOGO_CLICK_WINDOW_MS);
 });
 
 hostedUnlockCancel.addEventListener("click", () => closeHostedUnlockDialog());
@@ -331,6 +385,18 @@ document.addEventListener("keydown", (event) => {
     }
     if (!hostedLockDialog.hidden) {
       closeHostedLockDialog();
+      return;
+    }
+    if (!backupRestoreDialog.hidden) {
+      closeBackupRestoreConfirm();
+      return;
+    }
+    if (!customListDeleteDialog.hidden) {
+      closeCustomListDeleteConfirm();
+      return;
+    }
+    if (!watchlistPickerDialog.hidden) {
+      closeWatchedPicker();
       return;
     }
     if (!removeConfirmDialog.hidden) {
@@ -397,7 +463,7 @@ async function startApp() {
   await loadLocalMovieData();
 
   render();
-  syncDetailFromLocation();
+  syncViewFromLocation();
   hydrateActiveList();
 
   // Reconcile rather than pull: startup is also when this tab is most likely to

@@ -8,8 +8,38 @@
 /* --- DOM --- */
 
 const listSubtitleEl = document.getElementById("list-subtitle");
+const headerTitleEl = document.getElementById("header-title");
+const customListViewTitleEl = document.getElementById("custom-list-view-title");
 const listTabs = document.getElementById("list-tabs");
 const headerLogo = document.getElementById("header-logo");
+const listsNavBtn = document.getElementById("lists-nav-btn");
+const customListsIndex = document.getElementById("custom-lists-index");
+const customListsRows = document.getElementById("custom-lists-rows");
+const customListsIndexTitle = document.getElementById("custom-lists-index-title");
+const customListsIndexActions = document.getElementById("custom-lists-index-actions");
+const customListsSortSelect = document.getElementById("custom-lists-sort");
+const customListsSortControl = document.getElementById("custom-lists-sort-control");
+const customListsEmpty = document.getElementById("custom-lists-empty");
+const customListCreateBtn = document.getElementById("custom-list-create-btn");
+const addFromWatchlistBtn = document.getElementById("add-from-watchlist-btn");
+const customListBackBtn = document.getElementById("custom-list-back-btn");
+
+const addMovieCustomListsSection = document.getElementById("add-movie-custom-lists-section");
+const addMovieCustomListPicker = document.getElementById("add-movie-custom-list-picker");
+const addMovieCustomListsEmpty = document.getElementById("add-movie-custom-lists-empty");
+const addMovieCreateListsLink = document.getElementById("add-movie-create-lists-link");
+
+const watchlistPickerDialog = document.getElementById("watchlist-picker-dialog");
+const watchlistPickerClose = document.getElementById("watchlist-picker-close");
+const watchlistPickerList = document.getElementById("watchlist-picker-list");
+const watchlistPickerEmpty = document.getElementById("watchlist-picker-empty");
+const watchlistPickerSubmit = document.getElementById("watchlist-picker-submit");
+const watchlistPickerMainLink = document.getElementById("watchlist-picker-main-link");
+
+const customListDeleteDialog = document.getElementById("custom-list-delete-dialog");
+const customListDeleteMessage = document.getElementById("custom-list-delete-message");
+const customListDeleteCancel = document.getElementById("custom-list-delete-cancel");
+const customListDeleteOk = document.getElementById("custom-list-delete-ok");
 
 const searchInput = document.getElementById("search");
 const searchCombobox = document.getElementById("search-combobox");
@@ -130,7 +160,51 @@ let detailRatingEditorOpen = false;
 let detailRatingEditorSnapshot = null;
 let pendingRemoveMovieId = null;
 let pendingWatchMovieId = null;
+let pendingCustomListDeleteId = null;
 let tmdbCredential = "";
+
+/** "main" | "customIndex" | "customDetail" */
+let appView = "main";
+let activeCustomListId = null;
+
+function isCustomListIndexActive() {
+  return appView === "customIndex";
+}
+
+function isCustomListDetailActive() {
+  return appView === "customDetail" && activeCustomListId != null;
+}
+
+function isCustomListView() {
+  return isCustomListIndexActive() || isCustomListDetailActive();
+}
+
+function usesWatchedStyleDisplay() {
+  return isWatchedListActive() || isCustomListDetailActive();
+}
+
+function getActiveDisplayContext() {
+  if (isCustomListDetailActive()) {
+    const list = appCustomLists.findCustomList(userState.customLists, activeCustomListId);
+    return {
+      movieIds: list?.movieIds || [],
+      sortable: true,
+      searchable: false,
+      listKind: "custom",
+      listId: activeCustomListId,
+      listName: list?.name || "List",
+    };
+  }
+  const list = activeList();
+  return {
+    movieIds: list?.movieIds || [],
+    sortable: isWatchedListActive(),
+    searchable: isWatchedListActive(),
+    listKind: "preset",
+    listId: userState?.activeListId,
+    listName: list?.name || "",
+  };
+}
 
 /* --- Small shared helpers --- */
 
@@ -142,15 +216,15 @@ function activeList() {
 }
 
 function activeMovieIds() {
-  return activeList()?.movieIds || [];
+  return getActiveDisplayContext().movieIds;
 }
 
 function isWatchedListActive() {
-  return userState?.activeListId === appLists.WATCHED_ID;
+  return !isCustomListView() && userState?.activeListId === appLists.WATCHED_ID;
 }
 
 function isWatchlistActive() {
-  return userState?.activeListId === appLists.WATCHLIST_ID;
+  return !isCustomListView() && userState?.activeListId === appLists.WATCHLIST_ID;
 }
 
 function usesCustomDisplayOrder() {
@@ -158,21 +232,26 @@ function usesCustomDisplayOrder() {
 }
 
 function displayMovieIds() {
-  const ids = activeMovieIds();
-  if (!isWatchedListActive()) {
-    return ids;
-  }
-  let filtered = ids;
-  if (typeof hasActiveListSearch === "function" && hasActiveListSearch()) {
-    filtered = appListSearch.filterMovieIds(filtered, getListSearchFilter(), (id) =>
+  const ctx = getActiveDisplayContext();
+  let ids = ctx.movieIds;
+  if (ctx.searchable && typeof hasActiveListSearch === "function" && hasActiveListSearch()) {
+    ids = appListSearch.filterMovieIds(ids, getListSearchFilter(), (id) =>
       movieById.get(id),
     );
   }
-  return appSort.sortMovieIds(filtered, userState.preferences.sort, {
-    getRecord: (id) => movieById.get(id),
-    getUserRating: (id) => appRatings.getRating(userState.ratings, id),
-    getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
-  });
+  if (ctx.sortable) {
+    const sortContext = {
+      getRecord: (id) => movieById.get(id),
+      getUserRating: (id) => appRatings.getRating(userState.ratings, id),
+      getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
+    };
+    if (ctx.listKind === "custom") {
+      const joinOrder = appSort.buildOrderIndex(ctx.movieIds);
+      sortContext.getListJoinIndex = (id) => joinOrder.get(Number(id)) ?? null;
+    }
+    return appSort.sortMovieIds(ids, userState.preferences.sort, sortContext);
+  }
+  return ids;
 }
 
 function setStatus(element, message, tone) {
@@ -1118,6 +1197,342 @@ const appLists = (function () {
   };
 })();
 
+/* ===== Custom lists (generated from scripts/lib/custom-lists.js) ===== */
+
+/* Generated from scripts/lib/custom-lists.js — run npm run bundle */
+
+const appCustomLists = (function () {
+  /**
+   * User-defined custom lists, separate from Watched/Watchlist preset statuses.
+   * A movie may belong to multiple custom lists and optionally to a preset list.
+   */
+
+  const MAX_CUSTOM_LISTS = 10;
+  const MAX_NAME_LENGTH = 40;
+  const MIN_NAME_LENGTH = 1;
+  const CUSTOM_ID_PREFIX = "custom-";
+
+  function getLists() {
+    if (typeof appLists !== "undefined") {
+      return appLists;
+    }
+    if (typeof require === "function") {
+      return require("./lists");
+    }
+    throw new Error("appLists is not available");
+  }
+
+  function normalizeStamp(value, fallback) {
+    const time = Date.parse(String(value || ""));
+    if (Number.isFinite(time)) {
+      return new Date(time).toISOString();
+    }
+    if (fallback) {
+      const fallbackTime = Date.parse(String(fallback));
+      if (Number.isFinite(fallbackTime)) {
+        return new Date(fallbackTime).toISOString();
+      }
+    }
+    return new Date(0).toISOString();
+  }
+
+  function normalizeName(name) {
+    return String(name || "").trim();
+  }
+
+  function nameKey(name) {
+    return normalizeName(name).toLowerCase();
+  }
+
+  const CUSTOM_LIST_INDEX_SORT_MODES = new Set(["recent", "alphabetical", "size"]);
+  const DEFAULT_CUSTOM_LIST_INDEX_SORT = "recent";
+
+  function normalizeCustomListIndexSort(mode) {
+    const value = String(mode || "").trim().toLowerCase();
+    return CUSTOM_LIST_INDEX_SORT_MODES.has(value)
+      ? value
+      : DEFAULT_CUSTOM_LIST_INDEX_SORT;
+  }
+
+  function compareCustomListsForIndex(a, b, mode) {
+    if (mode === "alphabetical") {
+      const byName = nameKey(a.name).localeCompare(nameKey(b.name));
+      if (byName !== 0) {
+        return byName;
+      }
+      return b.updatedAt.localeCompare(a.updatedAt);
+    }
+    if (mode === "size") {
+      const sizeDiff = b.movieIds.length - a.movieIds.length;
+      if (sizeDiff !== 0) {
+        return sizeDiff;
+      }
+      return nameKey(a.name).localeCompare(nameKey(b.name));
+    }
+    const byRecent = b.updatedAt.localeCompare(a.updatedAt);
+    if (byRecent !== 0) {
+      return byRecent;
+    }
+    return nameKey(a.name).localeCompare(nameKey(b.name));
+  }
+
+  function sortCustomListsForIndex(customLists, mode) {
+    if (!Array.isArray(customLists)) {
+      return [];
+    }
+    const normalizedMode = normalizeCustomListIndexSort(mode);
+    return [...customLists].sort((a, b) =>
+      compareCustomListsForIndex(a, b, normalizedMode),
+    );
+  }
+
+  function isCustomListId(id) {
+    return typeof id === "string" && id.startsWith(CUSTOM_ID_PREFIX) && id.length > CUSTOM_ID_PREFIX.length;
+  }
+
+  function normalizeMovieIds(raw) {
+    return getLists().normalizeMovieIds(raw);
+  }
+
+  function defaultCustomLists() {
+    return [];
+  }
+
+  function defaultCustomListTombstones() {
+    return {};
+  }
+
+  function normalizeCustomList(raw, fallbackStamp) {
+    if (!raw || typeof raw !== "object") {
+      return null;
+    }
+    const id = typeof raw.id === "string" ? raw.id.trim() : "";
+    if (!isCustomListId(id)) {
+      return null;
+    }
+    const name = normalizeName(raw.name);
+    if (name.length < MIN_NAME_LENGTH || name.length > MAX_NAME_LENGTH) {
+      return null;
+    }
+    const stamp = normalizeStamp(raw.updatedAt || raw.createdAt, fallbackStamp);
+    return {
+      id,
+      name,
+      movieIds: normalizeMovieIds(raw.movieIds),
+      createdAt: normalizeStamp(raw.createdAt, stamp),
+      updatedAt: stamp,
+    };
+  }
+
+  function normalizeCustomLists(raw, fallbackStamp) {
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    const seenIds = new Set();
+    const seenNames = new Set();
+    const out = [];
+    for (const entry of raw) {
+      const list = normalizeCustomList(entry, fallbackStamp);
+      if (!list) {
+        continue;
+      }
+      const key = nameKey(list.name);
+      if (seenIds.has(list.id) || seenNames.has(key)) {
+        continue;
+      }
+      seenIds.add(list.id);
+      seenNames.add(key);
+      out.push(list);
+      if (out.length >= MAX_CUSTOM_LISTS) {
+        break;
+      }
+    }
+    return out;
+  }
+
+  function normalizeCustomListTombstones(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      return {};
+    }
+    const out = {};
+    for (const [key, value] of Object.entries(raw)) {
+      if (!isCustomListId(key)) {
+        continue;
+      }
+      const at = normalizeStamp(value);
+      if (at) {
+        out[key] = at;
+      }
+    }
+    return out;
+  }
+
+  function findCustomList(customLists, listId) {
+    if (!Array.isArray(customLists) || !isCustomListId(listId)) {
+      return null;
+    }
+    return customLists.find((list) => list.id === listId) || null;
+  }
+
+  function customListsForMovie(customLists, movieId) {
+    const id = Number(movieId);
+    if (!Array.isArray(customLists) || !Number.isInteger(id)) {
+      return [];
+    }
+    return customLists.filter((list) => list.movieIds.includes(id));
+  }
+
+  function isDuplicateName(customLists, name, excludeId) {
+    const key = nameKey(name);
+    if (!key) {
+      return true;
+    }
+    return customLists.some(
+      (list) => list.id !== excludeId && nameKey(list.name) === key,
+    );
+  }
+
+  function createCustomListId() {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return `${CUSTOM_ID_PREFIX}${crypto.randomUUID()}`;
+    }
+    const hex = () =>
+      Math.floor(Math.random() * 0xffffffff)
+        .toString(16)
+        .padStart(8, "0");
+    return `${CUSTOM_ID_PREFIX}${hex()}${hex()}-${hex()}-${hex()}-${hex()}-${hex()}${hex()}${hex()}`;
+  }
+
+  function createCustomList(customLists, name, now = new Date()) {
+    const lists = Array.isArray(customLists) ? customLists : [];
+    const trimmed = normalizeName(name);
+    if (
+      lists.length >= MAX_CUSTOM_LISTS ||
+      trimmed.length < MIN_NAME_LENGTH ||
+      trimmed.length > MAX_NAME_LENGTH ||
+      isDuplicateName(lists, trimmed)
+    ) {
+      return lists;
+    }
+    const stamp = now.toISOString();
+    return [
+      ...lists,
+      {
+        id: createCustomListId(),
+        name: trimmed,
+        movieIds: [],
+        createdAt: stamp,
+        updatedAt: stamp,
+      },
+    ];
+  }
+
+  function renameCustomList(customLists, listId, name, now = new Date()) {
+    const trimmed = normalizeName(name);
+    if (
+      !isCustomListId(listId) ||
+      trimmed.length < MIN_NAME_LENGTH ||
+      trimmed.length > MAX_NAME_LENGTH ||
+      isDuplicateName(customLists, trimmed, listId)
+    ) {
+      return customLists;
+    }
+    const stamp = now.toISOString();
+    return customLists.map((list) =>
+      list.id === listId ? { ...list, name: trimmed, updatedAt: stamp } : list,
+    );
+  }
+
+  function deleteCustomList(customLists, tombstones, listId, now = new Date()) {
+    if (!isCustomListId(listId)) {
+      return { customLists, tombstones };
+    }
+    const stamp = now.toISOString();
+    return {
+      customLists: customLists.filter((list) => list.id !== listId),
+      tombstones: {
+        ...(tombstones && typeof tombstones === "object" ? tombstones : {}),
+        [listId]: stamp,
+      },
+    };
+  }
+
+  function addMovieToCustomList(customLists, listId, movieId, now = new Date()) {
+    const id = Number(movieId);
+    if (!isCustomListId(listId) || !Number.isInteger(id) || id <= 0) {
+      return customLists;
+    }
+    const stamp = now.toISOString();
+    return customLists.map((list) => {
+      if (list.id !== listId || list.movieIds.includes(id)) {
+        return list;
+      }
+      return {
+        ...list,
+        movieIds: [...list.movieIds, id],
+        updatedAt: stamp,
+      };
+    });
+  }
+
+  function removeMovieFromCustomList(customLists, listId, movieId, now = new Date()) {
+    const id = Number(movieId);
+    if (!isCustomListId(listId) || !Number.isInteger(id)) {
+      return customLists;
+    }
+    const stamp = now.toISOString();
+    return customLists.map((list) => {
+      if (list.id !== listId || !list.movieIds.includes(id)) {
+        return list;
+      }
+      return {
+        ...list,
+        movieIds: list.movieIds.filter((entry) => entry !== id),
+        updatedAt: stamp,
+      };
+    });
+  }
+
+  function replaceCustomListMovieIds(customLists, listId, movieIds, now = new Date()) {
+    if (!isCustomListId(listId)) {
+      return customLists;
+    }
+    const stamp = now.toISOString();
+    const normalized = normalizeMovieIds(movieIds);
+    return customLists.map((list) =>
+      list.id === listId ? { ...list, movieIds: normalized, updatedAt: stamp } : list,
+    );
+  }
+
+  return {
+    MAX_CUSTOM_LISTS,
+    MAX_NAME_LENGTH,
+    MIN_NAME_LENGTH,
+    CUSTOM_ID_PREFIX,
+    isCustomListId,
+    normalizeName,
+    CUSTOM_LIST_INDEX_SORT_MODES,
+    DEFAULT_CUSTOM_LIST_INDEX_SORT,
+    normalizeCustomListIndexSort,
+    sortCustomListsForIndex,
+    defaultCustomLists,
+    defaultCustomListTombstones,
+    normalizeCustomList,
+    normalizeCustomLists,
+    normalizeCustomListTombstones,
+    findCustomList,
+    customListsForMovie,
+    isDuplicateName,
+    createCustomListId,
+    createCustomList,
+    renameCustomList,
+    deleteCustomList,
+    addMovieToCustomList,
+    removeMovieFromCustomList,
+    replaceCustomListMovieIds,
+  };
+})();
+
 /* ===== Scrape list CSV (generated from scripts/lib/list-csv.js) ===== */
 
 /* Generated from scripts/lib/list-csv.js — run npm run bundle */
@@ -1869,11 +2284,20 @@ const appSort = (function () {
       typeof context.getUserRating === "function" ? context.getUserRating : () => null;
     const getAddedAt =
       typeof context.getAddedAt === "function" ? context.getAddedAt : () => null;
+    const getListJoinIndex =
+      typeof context.getListJoinIndex === "function" ? context.getListJoinIndex : null;
     const tiebreak = (a, b) => compareOrderTiebreak(a, b, orderIndex);
     const copy = [...movieIds];
 
     if (normalized === "added-asc" || normalized === "added-desc") {
       const direction = normalized === "added-asc" ? "asc" : "desc";
+      if (getListJoinIndex) {
+        return copy.sort((a, b) =>
+          compareNullableNumber(getListJoinIndex(a), getListJoinIndex(b), direction, () =>
+            tiebreak(a, b),
+          ),
+        );
+      }
       return copy.sort((a, b) =>
         compareNullableNumber(
           parseAddedTime(getAddedAt(a)),
@@ -2034,6 +2458,16 @@ const appSyncMerge = (function () {
       return require("./added-at");
     }
     throw new Error("appAddedAt is not available");
+  }
+
+  function getCustomListMerge() {
+    if (typeof appCustomListMerge !== "undefined") {
+      return appCustomListMerge;
+    }
+    if (typeof require === "function") {
+      return require("./custom-list-merge");
+    }
+    throw new Error("appCustomListMerge is not available");
   }
 
   function parseStamp(value) {
@@ -2246,6 +2680,8 @@ const appSyncMerge = (function () {
       ...lists.LIST_IDS.map((listId) => idsFor(secondary, listId)),
     ];
 
+    const customListState = getCustomListMerge().mergeCustomListState(a, b);
+
     return {
       ...primary,
       updatedAt: newerStamp(a.updatedAt, b.updatedAt),
@@ -2262,6 +2698,8 @@ const appSyncMerge = (function () {
         primary.addedAt && typeof primary.addedAt === "object" ? primary.addedAt : {},
       ),
       statuses,
+      customLists: customListState.customLists,
+      customListTombstones: customListState.customListTombstones,
     };
   }
 
@@ -2276,6 +2714,112 @@ const appSyncMerge = (function () {
     setMovieStatus,
     mergeStatuses,
     mergeUserStates,
+  };
+})();
+
+/* ===== Custom list Gist merge (generated from scripts/lib/custom-list-merge.js) ===== */
+
+/* Generated from scripts/lib/custom-list-merge.js — run npm run bundle */
+
+const appCustomListMerge = (function () {
+  /**
+   * Gist merge for custom lists: per-list last-write-wins on updatedAt, with
+   * tombstones for deleted lists.
+   */
+
+  function getCustomLists() {
+    if (typeof appCustomLists !== "undefined") {
+      return appCustomLists;
+    }
+    if (typeof require === "function") {
+      return require("./custom-lists");
+    }
+    throw new Error("appCustomLists is not available");
+  }
+
+  function getSyncMerge() {
+    if (typeof appSyncMerge !== "undefined") {
+      return appSyncMerge;
+    }
+    if (typeof require === "function") {
+      return require("./sync-merge");
+    }
+    throw new Error("appSyncMerge is not available");
+  }
+
+  function parseStamp(value) {
+    const time = Date.parse(String(value || ""));
+    return Number.isFinite(time) ? time : null;
+  }
+
+  function listIsDeleted(list, tombstones) {
+    const deletedAt = parseStamp(tombstones?.[list.id]);
+    const updatedAt = parseStamp(list.updatedAt);
+    if (deletedAt == null) {
+      return false;
+    }
+    if (updatedAt == null) {
+      return true;
+    }
+    return deletedAt >= updatedAt;
+  }
+
+  function mergeCustomListTombstones(a, b) {
+    const left = getCustomLists().normalizeCustomListTombstones(a);
+    const right = getCustomLists().normalizeCustomListTombstones(b);
+    const merged = { ...left };
+    for (const [id, at] of Object.entries(right)) {
+      merged[id] = getSyncMerge().newerStamp(merged[id], at) || at;
+    }
+    return merged;
+  }
+
+  function pickListWinner(left, right) {
+    const leftTime = parseStamp(left?.updatedAt);
+    const rightTime = parseStamp(right?.updatedAt);
+    if (rightTime != null && (leftTime == null || rightTime > leftTime)) {
+      return right;
+    }
+    return left;
+  }
+
+  function mergeCustomLists(aLists, bLists, tombstones) {
+    const customLists = getCustomLists();
+    const left = customLists.normalizeCustomLists(aLists);
+    const right = customLists.normalizeCustomLists(bLists);
+    const byId = new Map();
+
+    for (const list of [...left, ...right]) {
+      const existing = byId.get(list.id);
+      byId.set(list.id, existing ? pickListWinner(existing, list) : list);
+    }
+
+    const merged = [];
+    for (const list of byId.values()) {
+      if (listIsDeleted(list, tombstones)) {
+        continue;
+      }
+      merged.push(list);
+    }
+
+    merged.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    return merged.slice(0, customLists.MAX_CUSTOM_LISTS);
+  }
+
+  function mergeCustomListState(a, b) {
+    const tombstones = mergeCustomListTombstones(
+      a?.customListTombstones,
+      b?.customListTombstones,
+    );
+    const customLists = mergeCustomLists(a?.customLists, b?.customLists, tombstones);
+    return { customLists, customListTombstones: tombstones };
+  }
+
+  return {
+    mergeCustomListTombstones,
+    mergeCustomLists,
+    mergeCustomListState,
+    listIsDeleted,
   };
 })();
 
@@ -2298,7 +2842,7 @@ const appUserState = (function () {
   const GIST_SYNC_KEY = "moviecollector-gist-sync";
   const TMDB_AUTH_KEY = "moviecollector-tmdb-auth";
   const HOSTED_SESSION_KEY = "moviecollector-hosted-session";
-  const USER_STATE_VERSION = 2;
+  const USER_STATE_VERSION = 3;
 
   const VIEW_MODES = new Set(["cards", "detail"]);
   const STORAGE_MODES = new Set(["local", "gist"]);
@@ -2353,6 +2897,16 @@ const appUserState = (function () {
     throw new Error("appSyncMerge is not available");
   }
 
+  function getCustomLists() {
+    if (typeof appCustomLists !== "undefined") {
+      return appCustomLists;
+    }
+    if (typeof require === "function") {
+      return require("./custom-lists");
+    }
+    throw new Error("appCustomLists is not available");
+  }
+
   function defaultPreferences() {
     return { viewMode: "cards", sort: getSort().DEFAULT_PREFERENCE_SORT };
   }
@@ -2369,6 +2923,8 @@ const appUserState = (function () {
       ratings: {},
       addedAt: {},
       statuses: {},
+      customLists: getCustomLists().defaultCustomLists(),
+      customListTombstones: getCustomLists().defaultCustomListTombstones(),
     };
   }
 
@@ -2407,6 +2963,15 @@ const appUserState = (function () {
       raw.updatedAt,
     );
 
+    const customListsLib = getCustomLists();
+    const customLists = customListsLib.normalizeCustomLists(
+      raw.customLists,
+      raw.updatedAt,
+    );
+    const customListTombstones = customListsLib.normalizeCustomListTombstones(
+      raw.customListTombstones,
+    );
+
     return {
       version: USER_STATE_VERSION,
       updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : null,
@@ -2419,6 +2984,8 @@ const appUserState = (function () {
       ratings: getRatings().normalizeRatings(raw.ratings, normalizedLists),
       addedAt: getAddedAt().normalizeAddedAt(raw.addedAt, normalizedLists),
       statuses,
+      customLists,
+      customListTombstones,
     };
   }
 
@@ -2454,6 +3021,14 @@ const appUserState = (function () {
     return out;
   }
 
+  function sortedStringMap(map) {
+    const out = {};
+    for (const key of Object.keys(map || {}).sort()) {
+      out[key] = map[key];
+    }
+    return out;
+  }
+
   /**
    * Fingerprint of everything except `updatedAt`. Sync compares these to tell a
    * real edit from a re-stamp, which is what stops two tabs from pushing
@@ -2469,6 +3044,13 @@ const appUserState = (function () {
       ratings: sortedIdMap(normalized.ratings),
       addedAt: sortedIdMap(normalized.addedAt),
       statuses: sortedIdMap(normalized.statuses),
+      customLists: normalized.customLists.map((list) => [
+        list.id,
+        list.name,
+        list.movieIds,
+        list.updatedAt,
+      ]),
+      customListTombstones: sortedStringMap(normalized.customListTombstones),
     });
   }
 
@@ -3874,7 +4456,11 @@ function syncViewModeButton() {
 }
 
 function refreshViewModeForActiveList() {
-  gridViewMode = isWatchlistActive() ? "detail" : userState.preferences.viewMode;
+  if (isWatchlistActive()) {
+    gridViewMode = "detail";
+  } else {
+    gridViewMode = userState.preferences.viewMode;
+  }
   document.body.classList.toggle("view-mode-cards", gridViewMode === "cards");
   document.body.classList.toggle("view-mode-detail", gridViewMode === "detail");
   syncViewModeButton();
@@ -5237,6 +5823,7 @@ function onSearchDirectorToggleChange() {
 function showAddSearchStep() {
   pendingAddResult = null;
   selectedAddListId = null;
+  resetAddMovieCustomListSelection();
   resetAddMovieRatingControls();
   setAddMoviePickTab("add");
   if (addMoviePickTabs) {
@@ -5381,17 +5968,19 @@ function renderAddMoviePicked(result) {
 
 function updateAddListPickerSelection(listId) {
   addMovieListPicker.querySelectorAll(".add-list-option").forEach((button) => {
-    const selected = button.dataset.listId === listId;
+    const selected = listId != null && button.dataset.listId === listId;
     button.setAttribute("aria-pressed", String(selected));
   });
 }
 
 function showAddPickStep(result) {
   pendingAddResult = result;
-  selectedAddListId = appLists.isListId(userState.activeListId)
-    ? userState.activeListId
-    : appLists.DEFAULT_LIST_ID;
+  selectedAddListId =
+    !isCustomListView() && appLists.isListId(userState.activeListId)
+      ? userState.activeListId
+      : null;
   resetAddMovieRatingControls();
+  resetAddMovieCustomListSelection();
   if (addMoviePickTabs) {
     addMoviePickTabs.hidden = false;
   }
@@ -5402,17 +5991,68 @@ function showAddPickStep(result) {
   renderAddMoviePicked(result);
   updateAddListPickerSelection(selectedAddListId);
   syncAddMoviePickStep();
+  syncAddMovieSubmitState();
   prefetchAddMovieDetail(result.id);
   addMovieSubmit.focus({ preventScroll: true });
 }
 
 function confirmAddMovie() {
-  if (!pendingAddResult || !selectedAddListId) {
+  if (!pendingAddResult) {
     return;
   }
-  const rating =
-    selectedAddListId === appLists.WATCHED_ID ? pendingAddRating : null;
-  addMovieToList(pendingAddResult, selectedAddListId, rating);
+  const hasPreset = selectedAddListId != null;
+  const hasCustom = selectedAddCustomListIds.size > 0;
+  if (!hasPreset && !hasCustom) {
+    return;
+  }
+
+  const movieId = pendingAddResult.id;
+  let changed = false;
+
+  if (hasPreset) {
+    const nextLists = appLists.assignMovieToList(userState.lists, selectedAddListId, movieId);
+    if (updateLists(nextLists)) {
+      changed = true;
+    }
+    if (selectedAddListId === appLists.WATCHED_ID && pendingAddRating != null) {
+      if (
+        updateRatings(appRatings.setRating(userState.ratings, movieId, pendingAddRating))
+      ) {
+        changed = true;
+      }
+    }
+    if (changed) {
+      recordAddedAt(movieId);
+      recordMovieStatus(movieId, selectedAddListId);
+    }
+  }
+
+  let nextCustomLists = userState.customLists;
+  for (const listId of selectedAddCustomListIds) {
+    const updated = appCustomLists.addMovieToCustomList(nextCustomLists, listId, movieId);
+    if (updated !== nextCustomLists) {
+      nextCustomLists = updated;
+      changed = true;
+    }
+  }
+  if (nextCustomLists !== userState.customLists) {
+    userState = { ...userState, customLists: nextCustomLists };
+  }
+
+  if (!changed) {
+    return;
+  }
+  persistUserState();
+  closeAddMovieDialog();
+  if (isCustomListIndexActive()) {
+    renderCustomListsIndex();
+  } else {
+    render();
+  }
+  hydrateMovies([movieId], {
+    onRecord: applyHydratedRecord,
+    onUpdate: applyHydratedRecord,
+  });
 }
 
 function openAddMovieDialog() {
@@ -5528,9 +6168,10 @@ function onAddListOptionClick(event) {
   if (listId !== appLists.WATCHED_ID && listId !== appLists.WATCHLIST_ID) {
     return;
   }
-  selectedAddListId = listId;
-  updateAddListPickerSelection(listId);
+  selectedAddListId = selectedAddListId === listId ? null : listId;
+  updateAddListPickerSelection(selectedAddListId);
   syncAddMoviePickStep();
+  syncAddMovieSubmitState();
 }
 
 /* ===== Cards, skeletons, and the main grid render ===== */
@@ -5596,7 +6237,7 @@ function cardDetailRatingsHtml(movieId) {
 }
 
 function isUserRatingSortMode() {
-  if (!isWatchedListActive() || usesCustomDisplayOrder()) {
+  if (!usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
     return false;
   }
   const sortMode = userState?.preferences.sort;
@@ -5604,7 +6245,7 @@ function isUserRatingSortMode() {
 }
 
 function isFanRatingSortMode() {
-  if (!isWatchedListActive() || usesCustomDisplayOrder()) {
+  if (!usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
     return false;
   }
   const sortMode = userState?.preferences.sort;
@@ -5612,7 +6253,7 @@ function isFanRatingSortMode() {
 }
 
 function isYearSortMode() {
-  if (!isWatchedListActive() || usesCustomDisplayOrder()) {
+  if (!usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
     return false;
   }
   const sortMode = userState?.preferences.sort;
@@ -5620,7 +6261,7 @@ function isYearSortMode() {
 }
 
 function isTitleSortMode() {
-  if (!isWatchedListActive() || usesCustomDisplayOrder()) {
+  if (!usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
     return false;
   }
   const sortMode = userState?.preferences.sort;
@@ -5628,7 +6269,7 @@ function isTitleSortMode() {
 }
 
 function isAddedSortMode() {
-  if (!isWatchedListActive() || usesCustomDisplayOrder()) {
+  if (!usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
     return false;
   }
   const sortMode = userState?.preferences.sort;
@@ -5671,8 +6312,18 @@ function cardSmallWatchedFooterContentHtml(movieId) {
   return "";
 }
 
+function customListCardRemoveBtnHtml(movieId) {
+  const record = movieById.get(movieId);
+  const titleLabel = record ? appCardHtml.escapeHtml(record.title) : "movie";
+  return `<button type="button" class="custom-list-card-remove card-remove-btn" aria-label="Remove ${titleLabel} from list" title="Remove from list">${cardRemoveIconHtml()}</button>`;
+}
+
 function cardSmallFooterHtml(movieId) {
   if (gridViewMode !== "cards") {
+    return "";
+  }
+
+  if (isCustomListDetailActive()) {
     return "";
   }
 
@@ -5764,7 +6415,7 @@ function syncSortSelectLabels() {
 
 function syncSortControlUi() {
   const show =
-    isWatchedListActive() && activeMovieIds().length > 0 && hasMovieData();
+    usesWatchedStyleDisplay() && activeMovieIds().length > 0 && hasMovieData();
   const sort = userState.preferences.sort;
   if (sortControl) {
     sortControl.hidden = !show;
@@ -5884,6 +6535,21 @@ function cardInnerHtml(movieId) {
 </div>`;
   }
 
+  if (isCustomListDetailActive()) {
+    return `<div class="poster-wrap">
+  ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
+</div>
+<div class="card-body card-body--custom-list">
+  <div class="card-text">
+    <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>
+    <div class="card-meta-row">
+      <div class="card-meta">${cardMetaHtml(record)}</div>
+    </div>
+  </div>
+  ${customListCardRemoveBtnHtml(movieId)}
+</div>`;
+  }
+
   return `<div class="poster-wrap">
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
   ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
@@ -5922,6 +6588,9 @@ function rowHtml(movieId) {
 
 /** Tabs are the only list switcher, and carry each list's count. */
 function renderListTabs() {
+  if (!listTabs || isCustomListView()) {
+    return;
+  }
   listTabs.innerHTML = userState.lists
     .map((list) => {
       const active = list.id === userState.activeListId;
@@ -5933,8 +6602,35 @@ function renderListTabs() {
     .join("");
 }
 
+function syncHeaderViewTitle() {
+  if (!headerTitleEl || !customListViewTitleEl) {
+    return;
+  }
+  if (isCustomListDetailActive()) {
+    customListViewTitleEl.textContent = getActiveDisplayContext().listName;
+    customListViewTitleEl.hidden = false;
+    headerTitleEl.hidden = true;
+    return;
+  }
+  customListViewTitleEl.hidden = true;
+  headerTitleEl.hidden = false;
+}
+
 function updateListHeader() {
+  syncHeaderViewTitle();
   const count = activeMovieIds().length;
+  if (isCustomListIndexActive()) {
+    listSubtitleEl.textContent = "Create and manage custom lists";
+    return;
+  }
+  if (isCustomListDetailActive()) {
+    if (count) {
+      listSubtitleEl.textContent = `${count} ${count === 1 ? "movie" : "movies"}`;
+    } else {
+      listSubtitleEl.textContent = "Add movies from Watched or search";
+    }
+    return;
+  }
   if (count && !hasMovieData()) {
     listSubtitleEl.textContent = "Add a TMDB credential in Settings to load details";
   } else if (count) {
@@ -5970,7 +6666,8 @@ function setActiveList(listId) {
 
 function syncAddMovieFabVisibility(count) {
   if (addMovieFab) {
-    addMovieFab.hidden = count === 0;
+    addMovieFab.hidden =
+      isCustomListIndexActive() || (count === 0 && !isCustomListDetailActive());
   }
 }
 
@@ -5982,7 +6679,20 @@ function renderEmptyState(count) {
     return;
   }
   emptyState.hidden = false;
-  const listName = activeList()?.name || "this list";
+  if (isCustomListDetailActive()) {
+    if (!hasTmdbAccess()) {
+      emptyState.innerHTML = `<strong>Add your TMDB token</strong>Open Settings and paste your TMDB API Read Access Token to search and load movies.`;
+      return;
+    }
+    emptyState.innerHTML = `<strong>This list is empty</strong>
+<p class="empty-state-hint">Add movies from Watched or search TMDB.</p>
+<button type="button" class="empty-state-add-btn">
+  <span class="empty-state-add-icon" aria-hidden="true">+</span>
+  Add a movie
+</button>`;
+    return;
+  }
+  const listName = getActiveDisplayContext().listName || "this list";
   if (
     totalCount > 0 &&
     typeof hasActiveListSearch === "function" &&
@@ -6009,20 +6719,24 @@ function renderEmptyState(count) {
  * redraws instead of sitting on a list that no longer matches storage.
  */
 function onRemoteStateAdopted() {
+  onRemoteCustomListsAdopted();
   refreshViewModeForActiveList();
-  syncDetailFromLocation();
-  render();
-  hydrateActiveList();
+  syncViewFromLocation();
 }
 
 function render() {
+  if (isCustomListIndexActive()) {
+    syncAppViewChrome();
+    renderCustomListsIndex();
+    return;
+  }
   const ids = displayMovieIds();
   grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
   bindPosterImages(grid);
   renderListTabs();
-  updateListHeader();
   syncReorderModeUi();
   syncListSearchVisibility();
+  syncAppViewChrome();
   renderEmptyState(ids.length);
   syncAddMovieFabVisibility(ids.length);
 }
@@ -6178,6 +6892,10 @@ function confirmRemoveMovie() {
   const movieId = pendingRemoveMovieId;
   closeRemoveConfirm();
   if (movieId == null) {
+    return;
+  }
+  if (isCustomListDetailActive()) {
+    removeMovieFromCustomListView(movieId);
     return;
   }
   removeMovieFromCollection(movieId);
@@ -6492,19 +7210,27 @@ ${detailUserRatingBlockHtml(detailMovieId)}
 <div class="movie-detail-credits">${detailCreditsHtml(record)}</div>`;
   }
 
-  const inCollection = appLists.findListIdsForMovie(userState.lists, detailMovieId).length > 0;
-  const onWatchlist = appLists.isOnWatchlist(userState.lists, detailMovieId);
-
   const leftActions = [];
-  if (inCollection && onWatchlist) {
-    leftActions.push(
-      `<button type="button" class="card-watch-btn detail-watch-btn" id="detail-watch" aria-label="Mark as watched" title="Mark as watched">&#10003;</button>`,
-    );
-  }
+  let removeBtn = "";
 
-  const removeBtn = inCollection
-    ? `<button type="button" class="detail-remove-btn" id="detail-remove">Remove movie</button>`
-    : "";
+  if (isCustomListDetailActive()) {
+    if (activeMovieIds().includes(detailMovieId)) {
+      removeBtn = `<button type="button" class="detail-remove-btn" id="detail-remove-from-list">Remove from list</button>`;
+    }
+  } else {
+    const inCollection = appLists.findListIdsForMovie(userState.lists, detailMovieId).length > 0;
+    const onWatchlist = appLists.isOnWatchlist(userState.lists, detailMovieId);
+
+    if (inCollection && onWatchlist) {
+      leftActions.push(
+        `<button type="button" class="card-watch-btn detail-watch-btn" id="detail-watch" aria-label="Mark as watched" title="Mark as watched">&#10003;</button>`,
+      );
+    }
+
+    if (inCollection) {
+      removeBtn = `<button type="button" class="detail-remove-btn" id="detail-remove">Remove movie</button>`;
+    }
+  }
 
   detailActions.innerHTML = `<div class="detail-actions-left">${leftActions.join("")}</div>
 <div class="detail-actions-right">${removeBtn}
@@ -6526,7 +7252,11 @@ function openDetail(movieId, options = {}) {
   detailCloseBtn.focus({ preventScroll: true });
 
   if (options.pushHistory !== false) {
-    history.pushState({ detailMovieId: id }, "", `#movie/${id}`);
+    history.pushState(
+      { detailMovieId: id, appView, activeCustomListId },
+      "",
+      `#movie/${id}`,
+    );
   }
 
   if (!movieById.has(id)) {
@@ -6565,7 +7295,11 @@ function stepDetail(delta) {
   detailMovieId = ids[nextIndex];
   detailRatingEditorOpen = false;
   detailRatingEditorSnapshot = null;
-  history.replaceState({ detailMovieId }, "", `#movie/${detailMovieId}`);
+  history.replaceState(
+    { detailMovieId, appView, activeCustomListId },
+    "",
+    `#movie/${detailMovieId}`,
+  );
   renderDetail();
   if (!movieById.has(detailMovieId)) {
     hydrateMovies([detailMovieId], {
@@ -7502,6 +8236,603 @@ document.addEventListener("click", (event) => {
   }
 });
 
+/* ===== Custom lists routing, index CRUD, and watchlist picker ===== */
+
+/**
+ * Custom lists: hash routing (#lists, #lists/{id}), index CRUD, watched picker.
+ */
+
+let pendingCustomListRenameId = null;
+let customListIndexSort = appCustomLists.DEFAULT_CUSTOM_LIST_INDEX_SORT;
+const selectedAddCustomListIds = new Set();
+const watchedPickerSelectedIds = new Set();
+/** Ids shown in the watched picker; kept so hydration can re-render rows. */
+let watchedPickerAvailableIds = [];
+
+function parseLocationHash() {
+  const hash = window.location.hash || "";
+  const movieMatch = /^#movie\/(\d+)$/.exec(hash);
+  if (movieMatch) {
+    return { kind: "movie", movieId: Number(movieMatch[1]) };
+  }
+  const listDetailMatch = /^#lists\/([^/]+)$/.exec(hash);
+  if (listDetailMatch) {
+    return { kind: "customDetail", listId: decodeURIComponent(listDetailMatch[1]) };
+  }
+  if (hash === "#lists" || hash === "#lists/") {
+    return { kind: "customIndex" };
+  }
+  return { kind: "main" };
+}
+
+function syncAppViewChrome() {
+  document.body.classList.toggle("view-custom-index", isCustomListIndexActive());
+  document.body.classList.toggle("view-custom-detail", isCustomListDetailActive());
+  if (customListsIndex) {
+    customListsIndex.hidden = !isCustomListIndexActive();
+  }
+  if (listTabs) {
+    listTabs.hidden = isCustomListView();
+  }
+  if (listsNavBtn) {
+    listsNavBtn.textContent = isCustomListView() ? "Collection" : "Lists";
+  }
+  if (addFromWatchlistBtn) {
+    addFromWatchlistBtn.hidden = !isCustomListDetailActive();
+  }
+  if (customListBackBtn) {
+    customListBackBtn.hidden = !isCustomListDetailActive();
+  }
+  if (customListsIndexTitle) {
+    customListsIndexTitle.hidden = !isCustomListIndexActive();
+  }
+  if (customListsIndexActions) {
+    customListsIndexActions.hidden = !isCustomListIndexActive();
+  }
+  if (addMovieFab) {
+    addMovieFab.hidden = isCustomListIndexActive();
+  }
+  updateListHeader();
+}
+
+function navigateToMain(options = {}) {
+  appView = "main";
+  activeCustomListId = null;
+  if (options.pushHistory !== false) {
+    const base = window.location.pathname + window.location.search;
+    history.pushState({ appView: "main" }, "", base);
+  }
+  syncAppViewChrome();
+  refreshViewModeForActiveList();
+  render();
+  if (!options.skipHydrate) {
+    hydrateActiveList();
+  }
+}
+
+function navigateHomeToWatched(options = {}) {
+  closeDetail({ popHistory: false });
+  closeWatchedPicker();
+  appView = "main";
+  activeCustomListId = null;
+  if (userState.activeListId !== appLists.WATCHED_ID) {
+    userState = { ...userState, activeListId: appLists.WATCHED_ID };
+    reorderModeActive = false;
+    persistUserState();
+  }
+  if (options.pushHistory !== false) {
+    const base = window.location.pathname + window.location.search;
+    history.pushState({ appView: "main" }, "", base);
+  }
+  syncAppViewChrome();
+  refreshViewModeForActiveList();
+  render();
+  hydrateActiveList();
+}
+
+function navigateToCustomListsIndex(options = {}) {
+  appView = "customIndex";
+  activeCustomListId = null;
+  closeDetail({ popHistory: false });
+  if (options.pushHistory !== false) {
+    history.pushState({ appView: "customIndex" }, "", "#lists");
+  }
+  syncAppViewChrome();
+  renderCustomListsIndex();
+}
+
+function navigateToCustomList(listId, options = {}) {
+  if (!appCustomLists.isCustomListId(listId)) {
+    navigateToCustomListsIndex(options);
+    return;
+  }
+  const list = appCustomLists.findCustomList(userState.customLists, listId);
+  if (!list) {
+    navigateToCustomListsIndex(options);
+    return;
+  }
+  appView = "customDetail";
+  activeCustomListId = listId;
+  if (options.pushHistory !== false) {
+    history.pushState(
+      { appView: "customDetail", activeCustomListId: listId },
+      "",
+      `#lists/${encodeURIComponent(listId)}`,
+    );
+  }
+  syncAppViewChrome();
+  refreshViewModeForActiveList();
+  render();
+  hydrateActiveList();
+}
+
+function syncViewFromLocation() {
+  const parsed = parseLocationHash();
+  if (parsed.kind === "movie") {
+    const state = history.state;
+    if (state?.appView) {
+      appView = state.appView;
+      activeCustomListId = state.activeCustomListId ?? null;
+    } else if (!isCustomListView()) {
+      appView = "main";
+      activeCustomListId = null;
+    }
+    syncAppViewChrome();
+    refreshViewModeForActiveList();
+    if (isCustomListIndexActive()) {
+      renderCustomListsIndex();
+    } else {
+      render();
+    }
+    syncDetailFromLocation();
+    return;
+  }
+
+  closeDetail({ popHistory: false });
+
+  if (parsed.kind === "customIndex") {
+    appView = "customIndex";
+    activeCustomListId = null;
+    syncAppViewChrome();
+    renderCustomListsIndex();
+    return;
+  }
+
+  if (parsed.kind === "customDetail") {
+    const list = appCustomLists.findCustomList(userState.customLists, parsed.listId);
+    if (list) {
+      appView = "customDetail";
+      activeCustomListId = parsed.listId;
+      syncAppViewChrome();
+      refreshViewModeForActiveList();
+      render();
+      hydrateActiveList();
+      return;
+    }
+    navigateToCustomListsIndex({ pushHistory: false });
+    return;
+  }
+
+  appView = "main";
+  activeCustomListId = null;
+  syncAppViewChrome();
+  refreshViewModeForActiveList();
+  render();
+  hydrateActiveList();
+}
+
+function onListsNavClick() {
+  if (isCustomListView()) {
+    navigateToMain();
+  } else {
+    navigateToCustomListsIndex();
+  }
+}
+
+function persistCustomLists(nextLists, nextTombstones) {
+  userState = {
+    ...userState,
+    customLists: nextLists,
+    customListTombstones: nextTombstones ?? userState.customListTombstones,
+  };
+  persistUserState();
+}
+
+function renderCustomListsIndex() {
+  if (!customListsRows) {
+    return;
+  }
+  const lists = appCustomLists.sortCustomListsForIndex(
+    userState.customLists || [],
+    customListIndexSort,
+  );
+  const atMax = (userState.customLists || []).length >= appCustomLists.MAX_CUSTOM_LISTS;
+  if (customListCreateBtn) {
+    customListCreateBtn.disabled = atMax;
+    customListCreateBtn.title = atMax ? "Maximum of 10 lists" : "";
+  }
+  if (customListsSortSelect) {
+    customListsSortSelect.value = customListIndexSort;
+  }
+  if (customListsSortControl) {
+    customListsSortControl.hidden = lists.length === 0;
+  }
+  if (customListsEmpty) {
+    customListsEmpty.hidden = lists.length > 0;
+  }
+  customListsRows.innerHTML = lists
+    .map((list) => {
+      const renaming = pendingCustomListRenameId === list.id;
+      const countLabel = `${list.movieIds.length} ${list.movieIds.length === 1 ? "movie" : "movies"}`;
+      const mainInner = renaming
+        ? `<input type="text" class="custom-list-rename-input" data-rename-input="${appCardHtml.escapeHtml(list.id)}" value="${appCardHtml.escapeHtml(list.name)}" maxlength="${appCustomLists.MAX_NAME_LENGTH}" aria-label="Rename list">`
+        : `<span class="custom-list-row-name">${appCardHtml.escapeHtml(list.name)}</span><span class="custom-list-row-count">${countLabel}</span>`;
+      return `<li class="custom-list-row" data-custom-list-id="${appCardHtml.escapeHtml(list.id)}">
+  ${
+    renaming
+      ? `<div class="custom-list-row-main">${mainInner}</div>`
+      : `<button type="button" class="custom-list-row-main" data-open-custom-list="${appCardHtml.escapeHtml(list.id)}">${mainInner}</button>`
+  }
+  <div class="custom-list-row-actions">
+    <button type="button" class="custom-list-row-btn" data-rename-custom-list="${appCardHtml.escapeHtml(list.id)}">${renaming ? "Save" : "Rename"}</button>
+    <button type="button" class="custom-list-row-btn custom-list-row-btn--danger" data-delete-custom-list="${appCardHtml.escapeHtml(list.id)}">Delete</button>
+  </div>
+</li>`;
+    })
+    .join("");
+
+  if (pendingCustomListRenameId) {
+    const input = customListsRows.querySelector(
+      `[data-rename-input="${CSS.escape(pendingCustomListRenameId)}"]`,
+    );
+    input?.focus({ preventScroll: true });
+    input?.select();
+  }
+}
+
+function onCustomListIndexSortChange() {
+  if (!customListsSortSelect) {
+    return;
+  }
+  customListIndexSort = appCustomLists.normalizeCustomListIndexSort(
+    customListsSortSelect.value,
+  );
+  renderCustomListsIndex();
+}
+
+function promptCreateCustomListName() {
+  const name = window.prompt("List name (1–40 characters):");
+  if (name == null) {
+    return;
+  }
+  const trimmed = appCustomLists.normalizeName(name);
+  if (!trimmed) {
+    window.alert("Enter a list name.");
+    return;
+  }
+  const next = appCustomLists.createCustomList(userState.customLists, trimmed);
+  if (next === userState.customLists) {
+    window.alert("Could not create list. You may be at the limit or the name is already in use.");
+    return;
+  }
+  persistCustomLists(next);
+  renderCustomListsIndex();
+}
+
+function startRenameCustomList(listId) {
+  if (pendingCustomListRenameId === listId) {
+    commitRenameCustomList(listId);
+    return;
+  }
+  pendingCustomListRenameId = listId;
+  renderCustomListsIndex();
+}
+
+function commitRenameCustomList(listId) {
+  const input = customListsRows?.querySelector(
+    `[data-rename-input="${CSS.escape(listId)}"]`,
+  );
+  const name = input?.value ?? "";
+  pendingCustomListRenameId = null;
+  const next = appCustomLists.renameCustomList(userState.customLists, listId, name);
+  if (next === userState.customLists) {
+    window.alert("Could not rename. Check the name length and that it is unique.");
+    renderCustomListsIndex();
+    return;
+  }
+  persistCustomLists(next);
+  renderCustomListsIndex();
+  if (isCustomListDetailActive() && activeCustomListId === listId) {
+    updateListHeader();
+  }
+}
+
+function requestDeleteCustomList(listId) {
+  const list = appCustomLists.findCustomList(userState.customLists, listId);
+  if (!list) {
+    return;
+  }
+  pendingCustomListDeleteId = listId;
+  customListDeleteMessage.textContent = `Delete “${list.name}”? Movies stay in Watched, Watchlist, and other lists.`;
+  customListDeleteDialog.hidden = false;
+  customListDeleteCancel.focus({ preventScroll: true });
+}
+
+function closeCustomListDeleteConfirm() {
+  pendingCustomListDeleteId = null;
+  customListDeleteDialog.hidden = true;
+}
+
+function confirmDeleteCustomList() {
+  const listId = pendingCustomListDeleteId;
+  closeCustomListDeleteConfirm();
+  if (!listId) {
+    return;
+  }
+  const { customLists, tombstones } = appCustomLists.deleteCustomList(
+    userState.customLists,
+    userState.customListTombstones,
+    listId,
+  );
+  persistCustomLists(customLists, tombstones);
+  if (isCustomListDetailActive() && activeCustomListId === listId) {
+    navigateToCustomListsIndex();
+    return;
+  }
+  renderCustomListsIndex();
+}
+
+function removeMovieFromCustomListView(movieId) {
+  if (!isCustomListDetailActive()) {
+    return;
+  }
+  const next = appCustomLists.removeMovieFromCustomList(
+    userState.customLists,
+    activeCustomListId,
+    movieId,
+  );
+  if (next === userState.customLists) {
+    return;
+  }
+  persistCustomLists(next);
+  if (detailMovieId === movieId && !activeMovieIds().includes(movieId)) {
+    closeDetail();
+  }
+  render();
+}
+
+function requestRemoveFromCustomList(movieId) {
+  pendingRemoveMovieId = Number(movieId);
+  const record = movieById.get(pendingRemoveMovieId);
+  const title = record?.title || `Movie ${pendingRemoveMovieId}`;
+  const listName = getActiveDisplayContext().listName;
+  removeConfirmMessage.textContent = `Remove “${title}” from “${listName}”?`;
+  removeConfirmDialog.hidden = false;
+  removeConfirmCancel.focus({ preventScroll: true });
+}
+
+function renderAddMovieCustomListPicker() {
+  const lists = userState.customLists || [];
+  const hasLists = lists.length > 0;
+  if (addMovieCustomListsSection) {
+    addMovieCustomListsSection.hidden = !hasLists;
+  }
+  if (addMovieCustomListsEmpty) {
+    addMovieCustomListsEmpty.hidden = hasLists;
+  }
+  if (!addMovieCustomListPicker || !hasLists) {
+    return;
+  }
+  addMovieCustomListPicker.innerHTML = lists
+    .map((list) => {
+      const selected = selectedAddCustomListIds.has(list.id);
+      return `<button type="button" class="add-custom-list-chip" data-custom-list-id="${appCardHtml.escapeHtml(list.id)}" aria-pressed="${selected}">${appCardHtml.escapeHtml(list.name)}</button>`;
+    })
+    .join("");
+}
+
+function resetAddMovieCustomListSelection() {
+  selectedAddCustomListIds.clear();
+  if (isCustomListDetailActive() && activeCustomListId) {
+    selectedAddCustomListIds.add(activeCustomListId);
+  }
+  renderAddMovieCustomListPicker();
+}
+
+function syncAddMovieSubmitState() {
+  const hasPreset = selectedAddListId != null;
+  const hasCustom = selectedAddCustomListIds.size > 0;
+  if (addMovieSubmit) {
+    addMovieSubmit.disabled = !hasPreset && !hasCustom;
+  }
+}
+
+function primeMovieRecords(ids) {
+  for (const id of ids) {
+    if (movieById.has(id)) {
+      continue;
+    }
+    const local = localMovieById.get(id);
+    if (local) {
+      movieById.set(id, local);
+      movieErrors.delete(id);
+    }
+  }
+}
+
+function renderWatchedPickerList() {
+  if (!watchlistPickerList) {
+    return;
+  }
+  const available = watchedPickerAvailableIds;
+  if (watchlistPickerEmpty) {
+    watchlistPickerEmpty.hidden = available.length > 0;
+  }
+  watchlistPickerList.hidden = available.length === 0;
+  watchlistPickerList.innerHTML = available
+    .map((id) => {
+      const record = movieById.get(id);
+      const title = record?.title || `Movie ${id}`;
+      const year = record ? appCardHtml.formatYear(record.releaseDate) : "";
+      const posterUrl = record
+        ? appTmdb.buildImageUrl(record.posterPath, appTmdb.POSTER_SIZES.suggest)
+        : null;
+      const poster = posterUrl
+        ? `<img class="watchlist-picker-poster" data-poster-src="${appCardHtml.escapeHtml(posterUrl)}" alt="" loading="lazy">`
+        : `<span class="watchlist-picker-poster watchlist-picker-poster--empty"></span>`;
+      const selected = watchedPickerSelectedIds.has(id);
+      return `<li class="watchlist-picker-item">
+  <button type="button" class="watchlist-picker-row" data-watched-pick-id="${id}" aria-pressed="${selected}">
+    ${poster}
+    <span class="watchlist-picker-text">
+      <span class="watchlist-picker-title">${appCardHtml.escapeHtml(title)}</span>
+      ${year ? `<span class="watchlist-picker-meta">${appCardHtml.escapeHtml(year)}</span>` : ""}
+    </span>
+  </button>
+</li>`;
+    })
+    .join("");
+  bindPosterImages(watchlistPickerList);
+}
+
+function openWatchedPicker(options = {}) {
+  if (!isCustomListDetailActive()) {
+    return;
+  }
+  if (!options.preserveSelection) {
+    watchedPickerSelectedIds.clear();
+  }
+  const watchedIds =
+    appLists.findList(userState.lists, appLists.WATCHED_ID)?.movieIds || [];
+  const inList = new Set(
+    appCustomLists.findCustomList(userState.customLists, activeCustomListId)?.movieIds ||
+      [],
+  );
+  watchedPickerAvailableIds = watchedIds.filter((id) => !inList.has(id));
+  primeMovieRecords(watchedPickerAvailableIds);
+  renderWatchedPickerList();
+  syncWatchedPickerSubmit();
+  watchlistPickerDialog.hidden = false;
+  watchlistPickerClose?.focus({ preventScroll: true });
+
+  const missing = watchedPickerAvailableIds.filter((id) => !movieById.has(id));
+  if (missing.length && hasTmdbAccess()) {
+    hydrateMovies(missing, {
+      onRecord: () => {
+        if (!watchlistPickerDialog.hidden) {
+          renderWatchedPickerList();
+        }
+      },
+      onUpdate: () => {
+        if (!watchlistPickerDialog.hidden) {
+          renderWatchedPickerList();
+        }
+      },
+    });
+  }
+}
+
+function closeWatchedPicker() {
+  watchlistPickerDialog.hidden = true;
+  watchedPickerSelectedIds.clear();
+  watchedPickerAvailableIds = [];
+}
+
+function syncWatchedPickerSubmit() {
+  if (watchlistPickerSubmit) {
+    watchlistPickerSubmit.disabled = watchedPickerSelectedIds.size === 0;
+  }
+}
+
+function confirmWatchedPicker() {
+  if (!isCustomListDetailActive() || watchedPickerSelectedIds.size === 0) {
+    return;
+  }
+  let nextLists = userState.customLists;
+  for (const id of watchedPickerSelectedIds) {
+    nextLists = appCustomLists.addMovieToCustomList(nextLists, activeCustomListId, id);
+  }
+  persistCustomLists(nextLists);
+  closeWatchedPicker();
+  render();
+  hydrateMovies([...watchedPickerSelectedIds], {
+    onRecord: applyHydratedRecord,
+    onUpdate: applyHydratedRecord,
+  });
+}
+
+function onCustomListsIndexClick(event) {
+  const openBtn = event.target.closest("[data-open-custom-list]");
+  if (openBtn) {
+    navigateToCustomList(openBtn.dataset.openCustomList);
+    return;
+  }
+  const renameBtn = event.target.closest("[data-rename-custom-list]");
+  if (renameBtn) {
+    startRenameCustomList(renameBtn.dataset.renameCustomList);
+    return;
+  }
+  const deleteBtn = event.target.closest("[data-delete-custom-list]");
+  if (deleteBtn) {
+    requestDeleteCustomList(deleteBtn.dataset.deleteCustomList);
+  }
+}
+
+function onCustomListsIndexKeydown(event) {
+  if (event.key !== "Enter" || !pendingCustomListRenameId) {
+    return;
+  }
+  const input = event.target.closest("[data-rename-input]");
+  if (input) {
+    event.preventDefault();
+    commitRenameCustomList(pendingCustomListRenameId);
+  }
+}
+
+function onAddMovieCustomListPickerClick(event) {
+  const chip = event.target.closest("[data-custom-list-id]");
+  if (!chip) {
+    return;
+  }
+  const listId = chip.dataset.customListId;
+  if (selectedAddCustomListIds.has(listId)) {
+    selectedAddCustomListIds.delete(listId);
+  } else {
+    selectedAddCustomListIds.add(listId);
+  }
+  const selected = selectedAddCustomListIds.has(listId);
+  chip.setAttribute("aria-pressed", String(selected));
+  syncAddMovieSubmitState();
+}
+
+function onWatchedPickerClick(event) {
+  const row = event.target.closest("[data-watched-pick-id]");
+  if (!row) {
+    return;
+  }
+  const id = Number(row.dataset.watchedPickId);
+  if (watchedPickerSelectedIds.has(id)) {
+    watchedPickerSelectedIds.delete(id);
+  } else {
+    watchedPickerSelectedIds.add(id);
+  }
+  const selected = watchedPickerSelectedIds.has(id);
+  row.setAttribute("aria-pressed", String(selected));
+  syncWatchedPickerSubmit();
+}
+
+function onRemoteCustomListsAdopted() {
+  if (isCustomListDetailActive()) {
+    const list = appCustomLists.findCustomList(userState.customLists, activeCustomListId);
+    if (!list) {
+      navigateToCustomListsIndex({ pushHistory: false });
+    }
+  }
+  if (isCustomListIndexActive()) {
+    renderCustomListsIndex();
+  }
+}
+
 /* ===== Event wiring and startup ===== */
 
 /* Event wiring and startup. Closes the shared IIFE opened in 01-config-dom-state.js. */
@@ -7573,7 +8904,12 @@ grid.addEventListener("click", (event) => {
   const removeBtn = event.target.closest(".card-remove-btn");
   if (removeBtn) {
     event.stopPropagation();
-    requestRemoveMovie(Number(removeBtn.closest("[data-movie-id]").dataset.movieId));
+    const movieId = Number(removeBtn.closest("[data-movie-id]").dataset.movieId);
+    if (isCustomListDetailActive()) {
+      requestRemoveFromCustomList(movieId);
+    } else {
+      requestRemoveMovie(movieId);
+    }
     return;
   }
   if (event.target.closest(".card-grip")) {
@@ -7705,6 +9041,10 @@ detailDialog.addEventListener("change", (event) => {
   }
 });
 detailActions.addEventListener("click", (event) => {
+  if (event.target.id === "detail-remove-from-list") {
+    requestRemoveFromCustomList(detailMovieId);
+    return;
+  }
   if (event.target.id === "detail-remove") {
     requestRemoveMovie(detailMovieId);
     return;
@@ -7738,7 +9078,47 @@ backupRestoreDialog?.addEventListener("click", (event) => {
   }
 });
 
-window.addEventListener("popstate", syncDetailFromLocation);
+window.addEventListener("popstate", syncViewFromLocation);
+window.addEventListener("hashchange", syncViewFromLocation);
+
+listsNavBtn?.addEventListener("click", onListsNavClick);
+customListCreateBtn?.addEventListener("click", promptCreateCustomListName);
+customListsEmpty?.addEventListener("click", (event) => {
+  if (event.target.closest(".empty-state-add-btn")) {
+    promptCreateCustomListName();
+  }
+});
+customListsRows?.addEventListener("click", onCustomListsIndexClick);
+customListsRows?.addEventListener("keydown", onCustomListsIndexKeydown);
+customListsSortSelect?.addEventListener("change", onCustomListIndexSortChange);
+customListDeleteCancel?.addEventListener("click", closeCustomListDeleteConfirm);
+customListDeleteOk?.addEventListener("click", confirmDeleteCustomList);
+customListDeleteDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-custom-list-delete")) {
+    closeCustomListDeleteConfirm();
+  }
+});
+customListBackBtn?.addEventListener("click", () => navigateToCustomListsIndex());
+addFromWatchlistBtn?.addEventListener("click", openWatchedPicker);
+watchlistPickerClose?.addEventListener("click", closeWatchedPicker);
+watchlistPickerSubmit?.addEventListener("click", confirmWatchedPicker);
+watchlistPickerList?.addEventListener("click", onWatchedPickerClick);
+watchlistPickerDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-watchlist-picker")) {
+    closeWatchedPicker();
+  }
+});
+watchlistPickerMainLink?.addEventListener("click", (event) => {
+  event.preventDefault();
+  closeWatchedPicker();
+  navigateToMain();
+});
+addMovieCustomListPicker?.addEventListener("click", onAddMovieCustomListPickerClick);
+addMovieCreateListsLink?.addEventListener("click", (event) => {
+  event.preventDefault();
+  closeAddMovieDialog();
+  navigateToCustomListsIndex();
+});
 
 /* --- Staying current across tabs --- */
 
@@ -7778,31 +9158,36 @@ aboutDialog.addEventListener("click", (event) => {
   }
 });
 
-/* --- Hidden hosted unlock (triple-click logo) --- */
+/* --- Logo: single click home (delayed); triple-click hosted unlock --- */
 
 let logoClickCount = 0;
 let logoClickTimer = null;
+const LOGO_CLICK_WINDOW_MS = 600;
 
 headerLogo.addEventListener("click", () => {
   logoClickCount += 1;
   if (logoClickTimer) {
     clearTimeout(logoClickTimer);
   }
-  logoClickTimer = setTimeout(() => {
+
+  if (logoClickCount >= 3) {
     logoClickCount = 0;
     logoClickTimer = null;
-  }, 600);
-  if (logoClickCount < 3) {
+    if (hasHostedAccess()) {
+      openHostedLockDialog();
+    } else {
+      openHostedUnlockDialog();
+    }
     return;
   }
-  logoClickCount = 0;
-  clearTimeout(logoClickTimer);
-  logoClickTimer = null;
-  if (hasHostedAccess()) {
-    openHostedLockDialog();
-  } else {
-    openHostedUnlockDialog();
-  }
+
+  logoClickTimer = setTimeout(() => {
+    if (logoClickCount === 1) {
+      navigateHomeToWatched();
+    }
+    logoClickCount = 0;
+    logoClickTimer = null;
+  }, LOGO_CLICK_WINDOW_MS);
 });
 
 hostedUnlockCancel.addEventListener("click", () => closeHostedUnlockDialog());
@@ -7837,6 +9222,18 @@ document.addEventListener("keydown", (event) => {
     }
     if (!hostedLockDialog.hidden) {
       closeHostedLockDialog();
+      return;
+    }
+    if (!backupRestoreDialog.hidden) {
+      closeBackupRestoreConfirm();
+      return;
+    }
+    if (!customListDeleteDialog.hidden) {
+      closeCustomListDeleteConfirm();
+      return;
+    }
+    if (!watchlistPickerDialog.hidden) {
+      closeWatchedPicker();
       return;
     }
     if (!removeConfirmDialog.hidden) {
@@ -7903,7 +9300,7 @@ async function startApp() {
   await loadLocalMovieData();
 
   render();
-  syncDetailFromLocation();
+  syncViewFromLocation();
   hydrateActiveList();
 
   // Reconcile rather than pull: startup is also when this tab is most likely to

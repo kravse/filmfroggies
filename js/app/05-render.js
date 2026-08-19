@@ -59,7 +59,7 @@ function cardDetailRatingsHtml(movieId) {
 }
 
 function isUserRatingSortMode() {
-  if (!isWatchedListActive() || usesCustomDisplayOrder()) {
+  if (!usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
     return false;
   }
   const sortMode = userState?.preferences.sort;
@@ -67,7 +67,7 @@ function isUserRatingSortMode() {
 }
 
 function isFanRatingSortMode() {
-  if (!isWatchedListActive() || usesCustomDisplayOrder()) {
+  if (!usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
     return false;
   }
   const sortMode = userState?.preferences.sort;
@@ -75,7 +75,7 @@ function isFanRatingSortMode() {
 }
 
 function isYearSortMode() {
-  if (!isWatchedListActive() || usesCustomDisplayOrder()) {
+  if (!usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
     return false;
   }
   const sortMode = userState?.preferences.sort;
@@ -83,7 +83,7 @@ function isYearSortMode() {
 }
 
 function isTitleSortMode() {
-  if (!isWatchedListActive() || usesCustomDisplayOrder()) {
+  if (!usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
     return false;
   }
   const sortMode = userState?.preferences.sort;
@@ -91,7 +91,7 @@ function isTitleSortMode() {
 }
 
 function isAddedSortMode() {
-  if (!isWatchedListActive() || usesCustomDisplayOrder()) {
+  if (!usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
     return false;
   }
   const sortMode = userState?.preferences.sort;
@@ -134,8 +134,18 @@ function cardSmallWatchedFooterContentHtml(movieId) {
   return "";
 }
 
+function customListCardRemoveBtnHtml(movieId) {
+  const record = movieById.get(movieId);
+  const titleLabel = record ? appCardHtml.escapeHtml(record.title) : "movie";
+  return `<button type="button" class="custom-list-card-remove card-remove-btn" aria-label="Remove ${titleLabel} from list" title="Remove from list">${cardRemoveIconHtml()}</button>`;
+}
+
 function cardSmallFooterHtml(movieId) {
   if (gridViewMode !== "cards") {
+    return "";
+  }
+
+  if (isCustomListDetailActive()) {
     return "";
   }
 
@@ -227,7 +237,7 @@ function syncSortSelectLabels() {
 
 function syncSortControlUi() {
   const show =
-    isWatchedListActive() && activeMovieIds().length > 0 && hasMovieData();
+    usesWatchedStyleDisplay() && activeMovieIds().length > 0 && hasMovieData();
   const sort = userState.preferences.sort;
   if (sortControl) {
     sortControl.hidden = !show;
@@ -347,6 +357,21 @@ function cardInnerHtml(movieId) {
 </div>`;
   }
 
+  if (isCustomListDetailActive()) {
+    return `<div class="poster-wrap">
+  ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
+</div>
+<div class="card-body card-body--custom-list">
+  <div class="card-text">
+    <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>
+    <div class="card-meta-row">
+      <div class="card-meta">${cardMetaHtml(record)}</div>
+    </div>
+  </div>
+  ${customListCardRemoveBtnHtml(movieId)}
+</div>`;
+  }
+
   return `<div class="poster-wrap">
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
   ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
@@ -385,6 +410,9 @@ function rowHtml(movieId) {
 
 /** Tabs are the only list switcher, and carry each list's count. */
 function renderListTabs() {
+  if (!listTabs || isCustomListView()) {
+    return;
+  }
   listTabs.innerHTML = userState.lists
     .map((list) => {
       const active = list.id === userState.activeListId;
@@ -396,8 +424,35 @@ function renderListTabs() {
     .join("");
 }
 
+function syncHeaderViewTitle() {
+  if (!headerTitleEl || !customListViewTitleEl) {
+    return;
+  }
+  if (isCustomListDetailActive()) {
+    customListViewTitleEl.textContent = getActiveDisplayContext().listName;
+    customListViewTitleEl.hidden = false;
+    headerTitleEl.hidden = true;
+    return;
+  }
+  customListViewTitleEl.hidden = true;
+  headerTitleEl.hidden = false;
+}
+
 function updateListHeader() {
+  syncHeaderViewTitle();
   const count = activeMovieIds().length;
+  if (isCustomListIndexActive()) {
+    listSubtitleEl.textContent = "Create and manage custom lists";
+    return;
+  }
+  if (isCustomListDetailActive()) {
+    if (count) {
+      listSubtitleEl.textContent = `${count} ${count === 1 ? "movie" : "movies"}`;
+    } else {
+      listSubtitleEl.textContent = "Add movies from Watched or search";
+    }
+    return;
+  }
   if (count && !hasMovieData()) {
     listSubtitleEl.textContent = "Add a TMDB credential in Settings to load details";
   } else if (count) {
@@ -433,7 +488,8 @@ function setActiveList(listId) {
 
 function syncAddMovieFabVisibility(count) {
   if (addMovieFab) {
-    addMovieFab.hidden = count === 0;
+    addMovieFab.hidden =
+      isCustomListIndexActive() || (count === 0 && !isCustomListDetailActive());
   }
 }
 
@@ -445,7 +501,20 @@ function renderEmptyState(count) {
     return;
   }
   emptyState.hidden = false;
-  const listName = activeList()?.name || "this list";
+  if (isCustomListDetailActive()) {
+    if (!hasTmdbAccess()) {
+      emptyState.innerHTML = `<strong>Add your TMDB token</strong>Open Settings and paste your TMDB API Read Access Token to search and load movies.`;
+      return;
+    }
+    emptyState.innerHTML = `<strong>This list is empty</strong>
+<p class="empty-state-hint">Add movies from Watched or search TMDB.</p>
+<button type="button" class="empty-state-add-btn">
+  <span class="empty-state-add-icon" aria-hidden="true">+</span>
+  Add a movie
+</button>`;
+    return;
+  }
+  const listName = getActiveDisplayContext().listName || "this list";
   if (
     totalCount > 0 &&
     typeof hasActiveListSearch === "function" &&
@@ -472,20 +541,24 @@ function renderEmptyState(count) {
  * redraws instead of sitting on a list that no longer matches storage.
  */
 function onRemoteStateAdopted() {
+  onRemoteCustomListsAdopted();
   refreshViewModeForActiveList();
-  syncDetailFromLocation();
-  render();
-  hydrateActiveList();
+  syncViewFromLocation();
 }
 
 function render() {
+  if (isCustomListIndexActive()) {
+    syncAppViewChrome();
+    renderCustomListsIndex();
+    return;
+  }
   const ids = displayMovieIds();
   grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
   bindPosterImages(grid);
   renderListTabs();
-  updateListHeader();
   syncReorderModeUi();
   syncListSearchVisibility();
+  syncAppViewChrome();
   renderEmptyState(ids.length);
   syncAddMovieFabVisibility(ids.length);
 }
@@ -641,6 +714,10 @@ function confirmRemoveMovie() {
   const movieId = pendingRemoveMovieId;
   closeRemoveConfirm();
   if (movieId == null) {
+    return;
+  }
+  if (isCustomListDetailActive()) {
+    removeMovieFromCustomListView(movieId);
     return;
   }
   removeMovieFromCollection(movieId);

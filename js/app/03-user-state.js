@@ -177,7 +177,11 @@ function syncViewModeButton() {
 }
 
 function refreshViewModeForActiveList() {
-  gridViewMode = isWatchlistActive() ? "detail" : userState.preferences.viewMode;
+  if (isWatchlistActive()) {
+    gridViewMode = "detail";
+  } else {
+    gridViewMode = userState.preferences.viewMode;
+  }
   document.body.classList.toggle("view-mode-cards", gridViewMode === "cards");
   document.body.classList.toggle("view-mode-detail", gridViewMode === "detail");
   syncViewModeButton();

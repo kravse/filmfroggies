@@ -10,6 +10,7 @@ const VIEWER_CSS_FILES = [
   "ratings.css",
   "movie-detail.css",
   "add-movie.css",
+  "custom-lists.css",
   "mobile.css",
 ];
 

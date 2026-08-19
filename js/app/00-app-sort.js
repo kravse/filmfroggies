@@ -248,11 +248,20 @@ const appSort = (function () {
       typeof context.getUserRating === "function" ? context.getUserRating : () => null;
     const getAddedAt =
       typeof context.getAddedAt === "function" ? context.getAddedAt : () => null;
+    const getListJoinIndex =
+      typeof context.getListJoinIndex === "function" ? context.getListJoinIndex : null;
     const tiebreak = (a, b) => compareOrderTiebreak(a, b, orderIndex);
     const copy = [...movieIds];
 
     if (normalized === "added-asc" || normalized === "added-desc") {
       const direction = normalized === "added-asc" ? "asc" : "desc";
+      if (getListJoinIndex) {
+        return copy.sort((a, b) =>
+          compareNullableNumber(getListJoinIndex(a), getListJoinIndex(b), direction, () =>
+            tiebreak(a, b),
+          ),
+        );
+      }
       return copy.sort((a, b) =>
         compareNullableNumber(
           parseAddedTime(getAddedAt(a)),

@@ -39,6 +39,7 @@
     <link rel="stylesheet" href="css/ratings.css" />
     <link rel="stylesheet" href="css/movie-detail.css" />
     <link rel="stylesheet" href="css/add-movie.css" />
+    <link rel="stylesheet" href="css/custom-lists.css" />
     <link rel="stylesheet" href="css/mobile.css" />
   </head>
   <body>
@@ -51,13 +52,19 @@
               class="header-logo"
               src="images/projector.png"
               alt=""
-              width="72"
-              height="72"
+              width="48"
+              height="48"
             />
             <div class="header-titles">
-              <h1 class="header-title">Movie collector</h1>
+              <h1 class="header-title" id="header-title">Movie collector</h1>
+              <h1 class="custom-list-view-title" id="custom-list-view-title" hidden></h1>
               <p class="header-subtitle" id="list-subtitle">Your movie lists</p>
             </div>
+          </div>
+          <div class="header-nav">
+            <button type="button" id="lists-nav-btn" class="header-nav-btn">
+              Lists
+            </button>
           </div>
         </div>
 
@@ -113,6 +120,35 @@
         </div>
 
         <div class="catalog-toolbar">
+        <div class="toolbar-left">
+          <button
+            type="button"
+            id="custom-list-back-btn"
+            class="ghost-btn toolbar-action-btn toolbar-back-btn"
+            hidden
+          >
+            <svg
+              class="toolbar-back-icon"
+              viewBox="0 0 20 20"
+              width="14"
+              height="14"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M12.5 4.5 7 10l5.5 5.5"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span>All lists</span>
+          </button>
+        </div>
+        <h2 class="custom-lists-index-title" id="custom-lists-index-title" hidden>
+          Your lists
+        </h2>
         <nav
           class="list-tabs"
           id="list-tabs"
@@ -120,6 +156,27 @@
           aria-label="Movie lists"
         ></nav>
         <div class="toolbar-right">
+          <div class="custom-lists-index-actions" id="custom-lists-index-actions" hidden>
+            <div class="sort-control custom-lists-sort-control" id="custom-lists-sort-control">
+              <label class="sort-label" for="custom-lists-sort">Sort</label>
+              <select id="custom-lists-sort" class="custom-lists-sort-select" aria-label="Sort custom lists">
+                <option value="recent">Recent</option>
+                <option value="alphabetical">Alphabetical</option>
+                <option value="size">Size</option>
+              </select>
+            </div>
+            <button type="button" id="custom-list-create-btn" class="primary-btn">
+              Create list
+            </button>
+          </div>
+          <button
+            type="button"
+            id="add-from-watchlist-btn"
+            class="ghost-btn toolbar-action-btn"
+            hidden
+          >
+            Add from watched
+          </button>
           <div class="sort-control" id="sort-control" hidden>
             <label class="sort-label" for="list-sort">Sort</label>
             <select id="list-sort" aria-label="Sort watched movies">
@@ -238,6 +295,20 @@
     </header>
 
     <main class="page-shell">
+      <section class="custom-lists-index" id="custom-lists-index" hidden>
+        <p class="custom-lists-index-note" id="custom-lists-index-note">
+          Up to 10 custom lists. Movies can belong to multiple lists.
+        </p>
+        <ul class="custom-lists-rows" id="custom-lists-rows" aria-label="Custom lists"></ul>
+        <div class="empty-state custom-lists-empty" id="custom-lists-empty" hidden>
+          <strong>No custom lists yet</strong>
+          <p class="empty-state-hint">Create a list to group movies outside Watched and Watchlist.</p>
+          <button type="button" class="empty-state-add-btn" id="custom-list-empty-create-btn">
+            <span class="empty-state-add-icon" aria-hidden="true">+</span>
+            Create list
+          </button>
+        </div>
+      </section>
       <div class="grid" id="grid"></div>
       <div class="empty-state" id="empty-state" hidden></div>
     </main>
@@ -429,6 +500,18 @@
               <button type="button" class="user-rating-clear-btn" id="add-movie-rating-clear" hidden>
                 Clear rating
               </button>
+            </div>
+            <div class="add-movie-custom-lists" id="add-movie-custom-lists-section" hidden>
+              <p class="add-movie-pick-label">Also add to</p>
+              <div
+                id="add-movie-custom-list-picker"
+                class="add-custom-list-picker"
+                role="group"
+                aria-label="Optional custom lists"
+              ></div>
+              <p class="add-movie-custom-lists-empty" id="add-movie-custom-lists-empty" hidden>
+                <a href="#lists" id="add-movie-create-lists-link">Create lists…</a>
+              </p>
             </div>
             <div class="add-movie-pick-actions">
               <button type="button" class="add-movie-back" id="add-movie-back">
@@ -764,6 +847,75 @@
           <div class="movie-detail-body" id="movie-detail-body"></div>
         </div>
         <div class="movie-detail-actions" id="movie-detail-actions"></div>
+      </div>
+    </div>
+
+    <!-- Custom list delete confirmation -->
+    <div id="custom-list-delete-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
+      <div class="sheet-backdrop" data-close-custom-list-delete></div>
+      <div
+        class="sheet-panel confirm-panel"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="custom-list-delete-title"
+        aria-describedby="custom-list-delete-message"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="custom-list-delete-title">Delete list</h2>
+        </div>
+        <div class="sheet-scroll">
+          <p id="custom-list-delete-message" class="confirm-message"></p>
+        </div>
+        <div class="confirm-actions">
+          <button type="button" id="custom-list-delete-cancel" class="ghost-btn">
+            Cancel
+          </button>
+          <button type="button" id="custom-list-delete-ok" class="primary-btn confirm-danger">
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add from watched picker -->
+    <div id="watchlist-picker-dialog" class="sheet-dialog" hidden>
+      <div class="sheet-backdrop" data-close-watchlist-picker></div>
+      <div
+        class="sheet-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="watchlist-picker-title"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="watchlist-picker-title">Add from watched</h2>
+          <button
+            type="button"
+            id="watchlist-picker-close"
+            class="icon-btn"
+            aria-label="Close"
+          >
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none">
+              <path
+                d="M6 6l8 8M14 6l-8 8"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+        <div class="sheet-body watchlist-picker-body">
+          <ul class="watchlist-picker-list" id="watchlist-picker-list"></ul>
+          <div class="watchlist-picker-empty" id="watchlist-picker-empty" hidden>
+            <p>Nothing in your Watched list yet.</p>
+            <a href="#" id="watchlist-picker-main-link">Back to collection</a>
+          </div>
+        </div>
+        <div class="watchlist-picker-actions">
+          <button type="button" id="watchlist-picker-submit" class="primary-btn" disabled>
+            Add selected
+          </button>
+        </div>
       </div>
     </div>
 

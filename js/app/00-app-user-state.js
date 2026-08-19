@@ -15,7 +15,7 @@ const appUserState = (function () {
   const GIST_SYNC_KEY = "moviecollector-gist-sync";
   const TMDB_AUTH_KEY = "moviecollector-tmdb-auth";
   const HOSTED_SESSION_KEY = "moviecollector-hosted-session";
-  const USER_STATE_VERSION = 2;
+  const USER_STATE_VERSION = 3;
 
   const VIEW_MODES = new Set(["cards", "detail"]);
   const STORAGE_MODES = new Set(["local", "gist"]);
@@ -70,6 +70,16 @@ const appUserState = (function () {
     throw new Error("appSyncMerge is not available");
   }
 
+  function getCustomLists() {
+    if (typeof appCustomLists !== "undefined") {
+      return appCustomLists;
+    }
+    if (typeof require === "function") {
+      return require("./custom-lists");
+    }
+    throw new Error("appCustomLists is not available");
+  }
+
   function defaultPreferences() {
     return { viewMode: "cards", sort: getSort().DEFAULT_PREFERENCE_SORT };
   }
@@ -86,6 +96,8 @@ const appUserState = (function () {
       ratings: {},
       addedAt: {},
       statuses: {},
+      customLists: getCustomLists().defaultCustomLists(),
+      customListTombstones: getCustomLists().defaultCustomListTombstones(),
     };
   }
 
@@ -124,6 +136,15 @@ const appUserState = (function () {
       raw.updatedAt,
     );
 
+    const customListsLib = getCustomLists();
+    const customLists = customListsLib.normalizeCustomLists(
+      raw.customLists,
+      raw.updatedAt,
+    );
+    const customListTombstones = customListsLib.normalizeCustomListTombstones(
+      raw.customListTombstones,
+    );
+
     return {
       version: USER_STATE_VERSION,
       updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : null,
@@ -136,6 +157,8 @@ const appUserState = (function () {
       ratings: getRatings().normalizeRatings(raw.ratings, normalizedLists),
       addedAt: getAddedAt().normalizeAddedAt(raw.addedAt, normalizedLists),
       statuses,
+      customLists,
+      customListTombstones,
     };
   }
 
@@ -171,6 +194,14 @@ const appUserState = (function () {
     return out;
   }
 
+  function sortedStringMap(map) {
+    const out = {};
+    for (const key of Object.keys(map || {}).sort()) {
+      out[key] = map[key];
+    }
+    return out;
+  }
+
   /**
    * Fingerprint of everything except `updatedAt`. Sync compares these to tell a
    * real edit from a re-stamp, which is what stops two tabs from pushing
@@ -186,6 +217,13 @@ const appUserState = (function () {
       ratings: sortedIdMap(normalized.ratings),
       addedAt: sortedIdMap(normalized.addedAt),
       statuses: sortedIdMap(normalized.statuses),
+      customLists: normalized.customLists.map((list) => [
+        list.id,
+        list.name,
+        list.movieIds,
+        list.updatedAt,
+      ]),
+      customListTombstones: sortedStringMap(normalized.customListTombstones),
     });
   }
 

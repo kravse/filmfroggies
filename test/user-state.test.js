@@ -236,6 +236,32 @@ test("parseUserState migrates a payload written before the preset lists", () => 
   assert.equal(parsed.preferences.viewMode, "cards");
 });
 
+test("defaultUserState includes empty custom lists", () => {
+  const state = defaultUserState();
+  assert.deepEqual(state.customLists, []);
+  assert.deepEqual(state.customListTombstones, {});
+});
+
+test("normalizeUserState round-trips custom lists", () => {
+  const state = normalizeUserState({
+    customLists: [
+      {
+        id: "custom-abc123",
+        name: "Sci-Fi",
+        movieIds: [1, 2],
+        createdAt: "2026-08-19T00:00:00.000Z",
+        updatedAt: "2026-08-19T00:00:00.000Z",
+      },
+    ],
+    customListTombstones: { "custom-deleted": "2026-08-19T01:00:00.000Z" },
+  });
+  assert.equal(state.customLists.length, 1);
+  assert.equal(state.customLists[0].name, "Sci-Fi");
+  assert.equal(state.customListTombstones["custom-deleted"], "2026-08-19T01:00:00.000Z");
+  const parsed = parseUserState(serializeUserState(state));
+  assert.deepEqual(parsed.customLists, state.customLists);
+});
+
 test("touchUserState stamps updatedAt without mutating the input", () => {
   const state = defaultUserState();
   const touched = touchUserState(state, new Date("2026-08-18T12:00:00.000Z"));

@@ -35,24 +35,23 @@ The token is stored in your browser's `localStorage` under `moviecollector-tmdb-
 4. On **Watched**, use the **Sort** dropdown for display order (custom order, date added, release year, fan rating, my rating, title). Sort never changes stored order; switch back to **Custom order** to drag-reorder. **Watchlist** is always manual order.
 5. On **Watched** or **Watchlist**, tap **reorder** below the list controls to unlock drag handles when **Custom order** is selected. Tap again to lock when finished.
 6. **Settings** stores your TMDB token and, optionally, connects GitHub Gist sync so lists follow you across devices.
+7. **Lists** (top right) opens up to 10 custom lists at `#lists`. Open a list at `#lists/{id}` for the same sort and card/detail layout as Watched. Add movies via search, the add dialog's optional checkboxes, or **Add from watched** on a list's toolbar.
 
-### The two lists
+### Preset lists and custom lists
 
-Tabs under the search box switch between two fixed lists — **Watched** and **Watchlist** — each showing its own count. They are statuses rather than collections, so there is nothing to create, rename, or delete.
+Tabs under the header switch between **Watched** and **Watchlist** — statuses with a strict rule:
 
-One rule governs how they relate:
+- **Watchlist is disjoint from Watched.** Putting something on the watchlist clears watched; marking it watched takes it off the watchlist.
 
-- **Watchlist is disjoint from Watched.** It means "haven't seen this yet", which rules out having watched it. Putting something on the watchlist clears watched; marking it watched takes it off the watchlist.
+**Custom lists** are optional groupings (max 10). A movie can be in any combination of Watched, Watchlist, and custom lists. Custom membership is synced separately with per-list last-write-wins merge and delete tombstones.
 
-That leaves two states a movie can be in: on the watchlist, or watched. The rule is enforced when state is read, not only when it's written, so no synced or hand-edited payload can produce a contradiction.
-
-**Watchlist:** each card has a **Watch** button that marks the film as watched (it leaves this tab). **Remove movie** in the detail overlay drops the film from your entire collection after a confirmation.
+**Watchlist:** each card has a **Watch** button. **Remove movie** in the detail overlay drops the film from your entire preset collection. On a custom list, remove takes the movie off that list only.
 
 ### Browser storage keys
 
 | Key | Contents |
 |-----|----------|
-| `moviecollector-user-state` | The two lists with their ordered `movieIds`, per-movie statuses, ratings, date-added stamps, active list, view preference |
+| `moviecollector-user-state` | Preset lists, custom lists, per-movie statuses, ratings, date-added stamps, active list, view preference |
 | `moviecollector-user-state-backup` | The payload from just before the last merge, kept for recovery |
 | `moviecollector-tmdb-auth` | Your TMDB read access token only |
 | `moviecollector-hosted-session` | Opaque hosted-access session token (Netlify only; not synced) |

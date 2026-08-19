@@ -6,8 +6,38 @@
 /* --- DOM --- */
 
 const listSubtitleEl = document.getElementById("list-subtitle");
+const headerTitleEl = document.getElementById("header-title");
+const customListViewTitleEl = document.getElementById("custom-list-view-title");
 const listTabs = document.getElementById("list-tabs");
 const headerLogo = document.getElementById("header-logo");
+const listsNavBtn = document.getElementById("lists-nav-btn");
+const customListsIndex = document.getElementById("custom-lists-index");
+const customListsRows = document.getElementById("custom-lists-rows");
+const customListsIndexTitle = document.getElementById("custom-lists-index-title");
+const customListsIndexActions = document.getElementById("custom-lists-index-actions");
+const customListsSortSelect = document.getElementById("custom-lists-sort");
+const customListsSortControl = document.getElementById("custom-lists-sort-control");
+const customListsEmpty = document.getElementById("custom-lists-empty");
+const customListCreateBtn = document.getElementById("custom-list-create-btn");
+const addFromWatchlistBtn = document.getElementById("add-from-watchlist-btn");
+const customListBackBtn = document.getElementById("custom-list-back-btn");
+
+const addMovieCustomListsSection = document.getElementById("add-movie-custom-lists-section");
+const addMovieCustomListPicker = document.getElementById("add-movie-custom-list-picker");
+const addMovieCustomListsEmpty = document.getElementById("add-movie-custom-lists-empty");
+const addMovieCreateListsLink = document.getElementById("add-movie-create-lists-link");
+
+const watchlistPickerDialog = document.getElementById("watchlist-picker-dialog");
+const watchlistPickerClose = document.getElementById("watchlist-picker-close");
+const watchlistPickerList = document.getElementById("watchlist-picker-list");
+const watchlistPickerEmpty = document.getElementById("watchlist-picker-empty");
+const watchlistPickerSubmit = document.getElementById("watchlist-picker-submit");
+const watchlistPickerMainLink = document.getElementById("watchlist-picker-main-link");
+
+const customListDeleteDialog = document.getElementById("custom-list-delete-dialog");
+const customListDeleteMessage = document.getElementById("custom-list-delete-message");
+const customListDeleteCancel = document.getElementById("custom-list-delete-cancel");
+const customListDeleteOk = document.getElementById("custom-list-delete-ok");
 
 const searchInput = document.getElementById("search");
 const searchCombobox = document.getElementById("search-combobox");
@@ -128,7 +158,51 @@ let detailRatingEditorOpen = false;
 let detailRatingEditorSnapshot = null;
 let pendingRemoveMovieId = null;
 let pendingWatchMovieId = null;
+let pendingCustomListDeleteId = null;
 let tmdbCredential = "";
+
+/** "main" | "customIndex" | "customDetail" */
+let appView = "main";
+let activeCustomListId = null;
+
+function isCustomListIndexActive() {
+  return appView === "customIndex";
+}
+
+function isCustomListDetailActive() {
+  return appView === "customDetail" && activeCustomListId != null;
+}
+
+function isCustomListView() {
+  return isCustomListIndexActive() || isCustomListDetailActive();
+}
+
+function usesWatchedStyleDisplay() {
+  return isWatchedListActive() || isCustomListDetailActive();
+}
+
+function getActiveDisplayContext() {
+  if (isCustomListDetailActive()) {
+    const list = appCustomLists.findCustomList(userState.customLists, activeCustomListId);
+    return {
+      movieIds: list?.movieIds || [],
+      sortable: true,
+      searchable: false,
+      listKind: "custom",
+      listId: activeCustomListId,
+      listName: list?.name || "List",
+    };
+  }
+  const list = activeList();
+  return {
+    movieIds: list?.movieIds || [],
+    sortable: isWatchedListActive(),
+    searchable: isWatchedListActive(),
+    listKind: "preset",
+    listId: userState?.activeListId,
+    listName: list?.name || "",
+  };
+}
 
 /* --- Small shared helpers --- */
 
@@ -140,15 +214,15 @@ function activeList() {
 }
 
 function activeMovieIds() {
-  return activeList()?.movieIds || [];
+  return getActiveDisplayContext().movieIds;
 }
 
 function isWatchedListActive() {
-  return userState?.activeListId === appLists.WATCHED_ID;
+  return !isCustomListView() && userState?.activeListId === appLists.WATCHED_ID;
 }
 
 function isWatchlistActive() {
-  return userState?.activeListId === appLists.WATCHLIST_ID;
+  return !isCustomListView() && userState?.activeListId === appLists.WATCHLIST_ID;
 }
 
 function usesCustomDisplayOrder() {
@@ -156,21 +230,26 @@ function usesCustomDisplayOrder() {
 }
 
 function displayMovieIds() {
-  const ids = activeMovieIds();
-  if (!isWatchedListActive()) {
-    return ids;
-  }
-  let filtered = ids;
-  if (typeof hasActiveListSearch === "function" && hasActiveListSearch()) {
-    filtered = appListSearch.filterMovieIds(filtered, getListSearchFilter(), (id) =>
+  const ctx = getActiveDisplayContext();
+  let ids = ctx.movieIds;
+  if (ctx.searchable && typeof hasActiveListSearch === "function" && hasActiveListSearch()) {
+    ids = appListSearch.filterMovieIds(ids, getListSearchFilter(), (id) =>
       movieById.get(id),
     );
   }
-  return appSort.sortMovieIds(filtered, userState.preferences.sort, {
-    getRecord: (id) => movieById.get(id),
-    getUserRating: (id) => appRatings.getRating(userState.ratings, id),
-    getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
-  });
+  if (ctx.sortable) {
+    const sortContext = {
+      getRecord: (id) => movieById.get(id),
+      getUserRating: (id) => appRatings.getRating(userState.ratings, id),
+      getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
+    };
+    if (ctx.listKind === "custom") {
+      const joinOrder = appSort.buildOrderIndex(ctx.movieIds);
+      sortContext.getListJoinIndex = (id) => joinOrder.get(Number(id)) ?? null;
+    }
+    return appSort.sortMovieIds(ids, userState.preferences.sort, sortContext);
+  }
+  return ids;
 }
 
 function setStatus(element, message, tone) {

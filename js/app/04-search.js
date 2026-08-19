@@ -302,6 +302,7 @@ function onSearchDirectorToggleChange() {
 function showAddSearchStep() {
   pendingAddResult = null;
   selectedAddListId = null;
+  resetAddMovieCustomListSelection();
   resetAddMovieRatingControls();
   setAddMoviePickTab("add");
   if (addMoviePickTabs) {
@@ -446,17 +447,19 @@ function renderAddMoviePicked(result) {
 
 function updateAddListPickerSelection(listId) {
   addMovieListPicker.querySelectorAll(".add-list-option").forEach((button) => {
-    const selected = button.dataset.listId === listId;
+    const selected = listId != null && button.dataset.listId === listId;
     button.setAttribute("aria-pressed", String(selected));
   });
 }
 
 function showAddPickStep(result) {
   pendingAddResult = result;
-  selectedAddListId = appLists.isListId(userState.activeListId)
-    ? userState.activeListId
-    : appLists.DEFAULT_LIST_ID;
+  selectedAddListId =
+    !isCustomListView() && appLists.isListId(userState.activeListId)
+      ? userState.activeListId
+      : null;
   resetAddMovieRatingControls();
+  resetAddMovieCustomListSelection();
   if (addMoviePickTabs) {
     addMoviePickTabs.hidden = false;
   }
@@ -467,17 +470,68 @@ function showAddPickStep(result) {
   renderAddMoviePicked(result);
   updateAddListPickerSelection(selectedAddListId);
   syncAddMoviePickStep();
+  syncAddMovieSubmitState();
   prefetchAddMovieDetail(result.id);
   addMovieSubmit.focus({ preventScroll: true });
 }
 
 function confirmAddMovie() {
-  if (!pendingAddResult || !selectedAddListId) {
+  if (!pendingAddResult) {
     return;
   }
-  const rating =
-    selectedAddListId === appLists.WATCHED_ID ? pendingAddRating : null;
-  addMovieToList(pendingAddResult, selectedAddListId, rating);
+  const hasPreset = selectedAddListId != null;
+  const hasCustom = selectedAddCustomListIds.size > 0;
+  if (!hasPreset && !hasCustom) {
+    return;
+  }
+
+  const movieId = pendingAddResult.id;
+  let changed = false;
+
+  if (hasPreset) {
+    const nextLists = appLists.assignMovieToList(userState.lists, selectedAddListId, movieId);
+    if (updateLists(nextLists)) {
+      changed = true;
+    }
+    if (selectedAddListId === appLists.WATCHED_ID && pendingAddRating != null) {
+      if (
+        updateRatings(appRatings.setRating(userState.ratings, movieId, pendingAddRating))
+      ) {
+        changed = true;
+      }
+    }
+    if (changed) {
+      recordAddedAt(movieId);
+      recordMovieStatus(movieId, selectedAddListId);
+    }
+  }
+
+  let nextCustomLists = userState.customLists;
+  for (const listId of selectedAddCustomListIds) {
+    const updated = appCustomLists.addMovieToCustomList(nextCustomLists, listId, movieId);
+    if (updated !== nextCustomLists) {
+      nextCustomLists = updated;
+      changed = true;
+    }
+  }
+  if (nextCustomLists !== userState.customLists) {
+    userState = { ...userState, customLists: nextCustomLists };
+  }
+
+  if (!changed) {
+    return;
+  }
+  persistUserState();
+  closeAddMovieDialog();
+  if (isCustomListIndexActive()) {
+    renderCustomListsIndex();
+  } else {
+    render();
+  }
+  hydrateMovies([movieId], {
+    onRecord: applyHydratedRecord,
+    onUpdate: applyHydratedRecord,
+  });
 }
 
 function openAddMovieDialog() {
@@ -593,7 +647,8 @@ function onAddListOptionClick(event) {
   if (listId !== appLists.WATCHED_ID && listId !== appLists.WATCHLIST_ID) {
     return;
   }
-  selectedAddListId = listId;
-  updateAddListPickerSelection(listId);
+  selectedAddListId = selectedAddListId === listId ? null : listId;
+  updateAddListPickerSelection(selectedAddListId);
   syncAddMoviePickStep();
+  syncAddMovieSubmitState();
 }

@@ -270,3 +270,36 @@ test("mergeUserStates falls back to whichever side exists", () => {
   assert.equal(mergeUserStates(null, local), local);
   assert.equal(mergeUserStates(null, null), null);
 });
+
+test("mergeUserStates merges custom lists with per-list LWW", () => {
+  const local = {
+    ...state({ watched: [], updatedAt: T1 }),
+    customLists: [
+      {
+        id: "custom-a",
+        name: "Local",
+        movieIds: [1],
+        createdAt: T1,
+        updatedAt: T1,
+      },
+    ],
+    customListTombstones: {},
+  };
+  const remote = {
+    ...state({ watched: [], updatedAt: T2 }),
+    customLists: [
+      {
+        id: "custom-a",
+        name: "Remote",
+        movieIds: [1, 2],
+        createdAt: T1,
+        updatedAt: T2,
+      },
+    ],
+    customListTombstones: {},
+  };
+  const merged = mergeUserStates(local, remote);
+  assert.equal(merged.customLists.length, 1);
+  assert.equal(merged.customLists[0].name, "Remote");
+  assert.deepEqual(merged.customLists[0].movieIds, [1, 2]);
+});

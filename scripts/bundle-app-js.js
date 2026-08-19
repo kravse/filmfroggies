@@ -40,6 +40,10 @@ const PARTS = [
     title: "List operations (generated from scripts/lib/lists.js)",
   },
   {
+    file: "00-app-custom-lists.js",
+    title: "Custom lists (generated from scripts/lib/custom-lists.js)",
+  },
+  {
     file: "00-app-list-csv.js",
     title: "Scrape list CSV (generated from scripts/lib/list-csv.js)",
   },
@@ -58,6 +62,10 @@ const PARTS = [
   {
     file: "00-app-sync-merge.js",
     title: "Sync merge and tombstones (generated from scripts/lib/sync-merge.js)",
+  },
+  {
+    file: "00-app-custom-list-merge.js",
+    title: "Custom list Gist merge (generated from scripts/lib/custom-list-merge.js)",
   },
   {
     file: "00-app-user-state.js",
@@ -110,6 +118,10 @@ const PARTS = [
   {
     file: "09-list-search.js",
     title: "Watched list filter search chips and suggestions",
+  },
+  {
+    file: "10-custom-lists.js",
+    title: "Custom lists routing, index CRUD, and watchlist picker",
   },
   {
     file: "08-init.js",

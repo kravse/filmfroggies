@@ -305,19 +305,27 @@ ${detailUserRatingBlockHtml(detailMovieId)}
 <div class="movie-detail-credits">${detailCreditsHtml(record)}</div>`;
   }
 
-  const inCollection = appLists.findListIdsForMovie(userState.lists, detailMovieId).length > 0;
-  const onWatchlist = appLists.isOnWatchlist(userState.lists, detailMovieId);
-
   const leftActions = [];
-  if (inCollection && onWatchlist) {
-    leftActions.push(
-      `<button type="button" class="card-watch-btn detail-watch-btn" id="detail-watch" aria-label="Mark as watched" title="Mark as watched">&#10003;</button>`,
-    );
-  }
+  let removeBtn = "";
 
-  const removeBtn = inCollection
-    ? `<button type="button" class="detail-remove-btn" id="detail-remove">Remove movie</button>`
-    : "";
+  if (isCustomListDetailActive()) {
+    if (activeMovieIds().includes(detailMovieId)) {
+      removeBtn = `<button type="button" class="detail-remove-btn" id="detail-remove-from-list">Remove from list</button>`;
+    }
+  } else {
+    const inCollection = appLists.findListIdsForMovie(userState.lists, detailMovieId).length > 0;
+    const onWatchlist = appLists.isOnWatchlist(userState.lists, detailMovieId);
+
+    if (inCollection && onWatchlist) {
+      leftActions.push(
+        `<button type="button" class="card-watch-btn detail-watch-btn" id="detail-watch" aria-label="Mark as watched" title="Mark as watched">&#10003;</button>`,
+      );
+    }
+
+    if (inCollection) {
+      removeBtn = `<button type="button" class="detail-remove-btn" id="detail-remove">Remove movie</button>`;
+    }
+  }
 
   detailActions.innerHTML = `<div class="detail-actions-left">${leftActions.join("")}</div>
 <div class="detail-actions-right">${removeBtn}
@@ -339,7 +347,11 @@ function openDetail(movieId, options = {}) {
   detailCloseBtn.focus({ preventScroll: true });
 
   if (options.pushHistory !== false) {
-    history.pushState({ detailMovieId: id }, "", `#movie/${id}`);
+    history.pushState(
+      { detailMovieId: id, appView, activeCustomListId },
+      "",
+      `#movie/${id}`,
+    );
   }
 
   if (!movieById.has(id)) {
@@ -378,7 +390,11 @@ function stepDetail(delta) {
   detailMovieId = ids[nextIndex];
   detailRatingEditorOpen = false;
   detailRatingEditorSnapshot = null;
-  history.replaceState({ detailMovieId }, "", `#movie/${detailMovieId}`);
+  history.replaceState(
+    { detailMovieId, appView, activeCustomListId },
+    "",
+    `#movie/${detailMovieId}`,
+  );
   renderDetail();
   if (!movieById.has(detailMovieId)) {
     hydrateMovies([detailMovieId], {

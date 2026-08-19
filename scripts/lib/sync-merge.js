@@ -44,6 +44,16 @@ function getAddedAt() {
   throw new Error("appAddedAt is not available");
 }
 
+function getCustomListMerge() {
+  if (typeof appCustomListMerge !== "undefined") {
+    return appCustomListMerge;
+  }
+  if (typeof require === "function") {
+    return require("./custom-list-merge");
+  }
+  throw new Error("appCustomListMerge is not available");
+}
+
 function parseStamp(value) {
   const time = Date.parse(value || "");
   return Number.isFinite(time) ? time : null;
@@ -254,6 +264,8 @@ function mergeUserStates(a, b) {
     ...lists.LIST_IDS.map((listId) => idsFor(secondary, listId)),
   ];
 
+  const customListState = getCustomListMerge().mergeCustomListState(a, b);
+
   return {
     ...primary,
     updatedAt: newerStamp(a.updatedAt, b.updatedAt),
@@ -270,6 +282,8 @@ function mergeUserStates(a, b) {
       primary.addedAt && typeof primary.addedAt === "object" ? primary.addedAt : {},
     ),
     statuses,
+    customLists: customListState.customLists,
+    customListTombstones: customListState.customListTombstones,
   };
 }
 

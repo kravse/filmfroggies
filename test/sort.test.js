@@ -87,6 +87,16 @@ test("added-asc sorts oldest additions first", () => {
   );
 });
 
+test("added sort uses list join index when provided", () => {
+  const listOrder = buildOrderIndex([10, 20, 30]);
+  const listContext = {
+    ...context([movie(10), movie(20), movie(30)]),
+    getListJoinIndex: (id) => listOrder.get(Number(id)) ?? null,
+  };
+  assert.deepEqual(sortMovieIds([30, 10, 20], "added-asc", listContext), [10, 20, 30]);
+  assert.deepEqual(sortMovieIds([30, 10, 20], "added-desc", listContext), [30, 20, 10]);
+});
+
 test("rating-desc and user-rating-desc sort high to low with unrated last", () => {
   const records = [
     movie(1, { voteAverage: 6.2 }),
