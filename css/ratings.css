@@ -195,8 +195,6 @@ body.view-mode-detail .card-body-ratings {
 .card-user-rating {
   padding: 0.12rem 0.38rem;
   border-radius: 4px;
-  background: rgba(14, 16, 20, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.08);
   font-family: var(--ui-font);
   font-size: 0.68rem;
   font-variant-numeric: tabular-nums;
@@ -206,6 +204,8 @@ body.view-mode-detail .card-body-ratings {
 
 .card-fan-rating {
   color: var(--muted);
+  background: rgba(14, 16, 20, 0.78);
+  border: 1px solid var(--border-strong);
 }
 
 .card-fan-rating.is-empty {
@@ -214,6 +214,8 @@ body.view-mode-detail .card-body-ratings {
 
 .card-user-rating {
   color: var(--accent);
+  background: rgba(14, 16, 20, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 body.view-mode-cards .card-footer .card-user-rating {
@@ -235,7 +237,7 @@ body.view-mode-cards .card-footer .card-fan-rating {
   border-radius: 2px;
   background: rgba(14, 16, 20, 0.78);
   color: var(--muted);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-strong);
   font-size: 0.52rem;
   font-weight: 500;
   line-height: 1.15;
@@ -267,5 +269,5 @@ body.view-mode-detail .card-user-rating {
 
 body.view-mode-detail .card-fan-rating {
   background: rgba(14, 16, 20, 0.78);
-  border: 1px solid rgba(152, 161, 177, 0.32);
+  border: 1px solid color-mix(in srgb, var(--muted) 72%, var(--border-strong));
 }

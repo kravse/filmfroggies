@@ -4448,6 +4448,22 @@ function isYearSortMode() {
   return sortMode === "year-asc" || sortMode === "year-desc";
 }
 
+function isTitleSortMode() {
+  if (!isWatchedListActive() || usesCustomDisplayOrder()) {
+    return false;
+  }
+  const sortMode = userState?.preferences.sort;
+  return sortMode === "title-asc" || sortMode === "title-desc";
+}
+
+function isAddedSortMode() {
+  if (!isWatchedListActive() || usesCustomDisplayOrder()) {
+    return false;
+  }
+  const sortMode = userState?.preferences.sort;
+  return sortMode === "added-asc" || sortMode === "added-desc";
+}
+
 function cardUserRatingChipHtml(movieId, { showEmpty = false } = {}) {
   const label = appRatings.formatUserRating(
     appRatings.getRating(userState.ratings, movieId),
@@ -4460,30 +4476,49 @@ function cardUserRatingChipHtml(movieId, { showEmpty = false } = {}) {
   return `<span class="card-user-rating${emptyClass}" aria-label="Your rating ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
 }
 
-function cardReleaseYearChipHtml(movieId) {
+function cardReleaseYearFooterHtml(movieId) {
   const record = movieById.get(movieId);
   const year = record ? appCardHtml.formatYear(record.releaseDate) : "";
   const text = year || "—";
   const emptyClass = year ? "" : " is-empty";
-  return `<span class="card-release-year${emptyClass}" aria-label="Release year ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
+  return `<span class="card-footer-main${emptyClass}" aria-label="Release year ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
 }
 
-function cardSmallPosterOverlayHtml(movieId) {
-  if (gridViewMode !== "cards" || !isWatchedListActive() || usesCustomDisplayOrder()) {
+function cardSmallWatchedFooterContentHtml(movieId) {
+  if (isTitleSortMode() || isAddedSortMode()) {
     return "";
   }
-  let bottom = "";
   if (isUserRatingSortMode()) {
-    bottom = cardUserRatingChipHtml(movieId, { showEmpty: true });
-  } else if (isFanRatingSortMode()) {
-    bottom = cardFanRatingHtml(movieId);
-  } else if (isYearSortMode()) {
-    bottom = cardReleaseYearChipHtml(movieId);
+    return cardUserRatingChipHtml(movieId, { showEmpty: true });
   }
-  if (!bottom) {
+  if (isFanRatingSortMode()) {
+    return cardFanRatingHtml(movieId);
+  }
+  if (isYearSortMode()) {
+    return cardReleaseYearFooterHtml(movieId);
+  }
+  return "";
+}
+
+function cardSmallFooterHtml(movieId) {
+  if (gridViewMode !== "cards") {
     return "";
   }
-  return `<div class="card-poster-overlays"><div class="card-poster-overlay card-poster-overlay--bottom">${bottom}</div></div>`;
+
+  if (userState.activeListId === appLists.WATCHLIST_ID) {
+    const panel = watchlistCardPanelHtml(movieId);
+    return panel ? `<div class="card-footer card-footer--watchlist">${panel}</div>` : "";
+  }
+
+  if (!isWatchedListActive()) {
+    return "";
+  }
+
+  const content = cardSmallWatchedFooterContentHtml(movieId);
+  if (!content) {
+    return "";
+  }
+  return `<div class="card-footer card-footer--sort"><div class="card-footer-sort">${content}</div></div>`;
 }
 
 function cardUnratedClass(movieId) {
@@ -4528,12 +4563,12 @@ function cardPosterOnlyHtml(movieId) {
     const body = failed
       ? `<div class="placeholder">Could not load</div>`
       : `<div class="placeholder"></div>`;
-    return `<div class="poster-wrap">${body}</div>`;
+    return `<div class="poster-wrap">${body}</div>${cardSmallFooterHtml(movieId)}`;
   }
   const grip = listShowsReorderGrip()
     ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>`
     : "";
-  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${cardSmallPosterOverlayHtml(movieId)}${grip}</div>`;
+  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>${cardSmallFooterHtml(movieId)}`;
 }
 
 function listShowsReorderGrip() {

@@ -110,23 +110,6 @@
     font-size: 0.58rem;
   }
 
-  body.view-mode-cards .card-poster-overlay {
-    right: 0.1rem;
-  }
-
-  body.view-mode-cards .card-poster-overlay--bottom {
-    bottom: 0.1rem;
-  }
-
-  body.view-mode-cards .card-poster-overlay .card-fan-rating,
-  body.view-mode-cards .card-poster-overlay .card-user-rating,
-  body.view-mode-cards .card-poster-overlay .card-release-year {
-    padding: 0.04rem 0.18rem;
-    font-size: 0.48rem;
-    font-weight: 600;
-    line-height: 1.1;
-  }
-
   body.view-mode-detail .grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.5rem;
