@@ -22,9 +22,9 @@ function parseLocationHash() {
   if (hash === "#lists" || hash === "#lists/") {
     return { kind: "customIndex" };
   }
-  const discoverMatch = /^#discover\/(upcoming|now-playing)$/.exec(hash);
+  const discoverMatch = appDiscover.parseDiscoverHash(hash);
   if (discoverMatch) {
-    return { kind: "discover", tab: discoverMatch[1] };
+    return { kind: "discover", tab: discoverMatch.tab, page: discoverMatch.page };
   }
   return { kind: "main" };
 }
@@ -38,6 +38,7 @@ function persistViewRestoreContext() {
       JSON.stringify({
         appView,
         discoverTab: isDiscoverActive() ? discoverTab : null,
+        discoverPage: isDiscoverActive() ? discoverPage : null,
         activeCustomListId: isCustomListDetailActive() ? activeCustomListId : null,
       }),
     );
@@ -76,6 +77,9 @@ function applyRestoredViewContext(restored) {
     activeCustomListId = null;
     if (restored.discoverTab) {
       discoverTab = appDiscover.normalizeDiscoverTab(restored.discoverTab);
+    }
+    if (restored.discoverPage) {
+      discoverPage = appDiscover.normalizeDiscoverPage(restored.discoverPage);
     }
     return true;
   }
@@ -217,6 +221,9 @@ function syncViewFromLocation() {
       if (state.discoverTab) {
         discoverTab = appDiscover.normalizeDiscoverTab(state.discoverTab);
       }
+      if (state.discoverPage) {
+        discoverPage = appDiscover.normalizeDiscoverPage(state.discoverPage);
+      }
     } else if (!applyRestoredViewContext(readViewRestoreContext())) {
       if (!isCustomListView() && !isDiscoverActive()) {
         appView = "main";
@@ -231,7 +238,7 @@ function syncViewFromLocation() {
       const needsLoad =
         !discoverMovieIds.length && !discoverLoading && !discoverLoadError;
       if (needsLoad) {
-        loadDiscoverTab(discoverTab, { pushHistory: false });
+        loadDiscoverTab(discoverTab, { page: discoverPage, pushHistory: false });
       } else {
         renderDiscover();
       }
@@ -276,13 +283,16 @@ function syncViewFromLocation() {
     syncAppViewChrome();
     refreshViewModeForActiveList();
     const tab = appDiscover.normalizeDiscoverTab(parsed.tab);
+    const page = appDiscover.normalizeDiscoverPage(parsed.page);
     const needsLoad =
       tab !== discoverTab ||
+      page !== discoverPage ||
       (!discoverMovieIds.length && !discoverLoading && !discoverLoadError);
     if (needsLoad) {
-      loadDiscoverTab(tab, { pushHistory: false });
+      loadDiscoverTab(tab, { page, pushHistory: false });
     } else {
       discoverTab = tab;
+      discoverPage = page;
       renderDiscover();
     }
     return;

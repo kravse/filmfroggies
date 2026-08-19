@@ -5,12 +5,36 @@ body.view-discover #list-search-row,
 body.view-discover #discover-entry-btn,
 body.view-discover #add-movie-fab,
 body.view-discover #sort-control,
-body.view-discover #sort-reverse {
+body.view-discover #sort-reverse,
+body.view-discover #view-mode-cycle {
   display: none !important;
 }
 
 body.view-discover .toolbar-left {
   display: flex;
+}
+
+body.view-discover #discover-pagination {
+  display: flex;
+}
+
+.discover-pagination {
+  display: none;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.discover-page-label {
+  min-width: 5.5rem;
+  font-family: var(--ui-font);
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.discover-page-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .header-nav-btn--icon {
@@ -75,7 +99,7 @@ body.view-discover .discover-poster-placeholder::before {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 140%;
+  width: 158%;
   aspect-ratio: 1;
   max-height: none;
   background-color: rgba(255, 255, 255, 0.1);
@@ -91,39 +115,8 @@ body.view-discover .discover-poster-placeholder::before {
   z-index: 0;
 }
 
-body.view-discover.view-mode-cards .discover-poster-placeholder::before {
-  width: 132%;
-}
-
-body.view-discover.view-mode-detail .discover-poster-placeholder::before {
-  width: 158%;
-}
-
-body.view-discover.view-mode-detail .discover-poster-title {
-  display: none;
-}
-
 body.view-discover .discover-poster-title {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  max-width: 100%;
-  min-height: 0;
-  color: var(--text);
-  font-family: var(--display-font);
-  font-size: clamp(0.78rem, 2.35vw, 0.95rem);
-  font-weight: 600;
-  line-height: 1.28;
-  letter-spacing: 0.015em;
-  text-align: center;
-  text-wrap: balance;
-}
-
-body.view-discover.view-mode-detail .discover-poster-title {
-  font-size: clamp(0.82rem, 2.5vw, 1.02rem);
+  display: none;
 }
 
 body.view-discover .card.is-skeleton .discover-poster-placeholder .discover-poster-title,

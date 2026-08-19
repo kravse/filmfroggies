@@ -50,6 +50,10 @@ const searchDirectorToggle = document.getElementById("search-director-toggle");
 const discoverEntryBtn = document.getElementById("discover-entry-btn");
 
 const discoverTabs = document.getElementById("discover-tabs");
+const discoverPagination = document.getElementById("discover-pagination");
+const discoverPrevBtn = document.getElementById("discover-prev");
+const discoverNextBtn = document.getElementById("discover-next");
+const discoverPageLabel = document.getElementById("discover-page-label");
 
 const addMovieFab = document.getElementById("add-movie-fab");
 const addMovieDialog = document.getElementById("add-movie-dialog");

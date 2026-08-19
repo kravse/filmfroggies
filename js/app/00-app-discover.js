@@ -7,11 +7,11 @@ const appDiscover = (function () {
 
   const DISCOVER_TABS = new Set(["upcoming", "now-playing"]);
   const DEFAULT_DISCOVER_TAB = "upcoming";
+  const DISCOVER_DEFAULT_PAGE = 1;
   const DISCOVER_MAX_MOVIES = 50;
-  const DISCOVER_PAGES = 3;
   const DEFAULT_DISCOVER_REGION = "US";
   /** Bumped when discover list query semantics change so session memo refreshes. */
-  const DISCOVER_LIST_CACHE_VERSION = 7;
+  const DISCOVER_LIST_CACHE_VERSION = 8;
   const NOW_PLAYING_WINDOW_DAYS = 84;
   /** Skip obscure listings unless TMDB shows real interest. */
   const DISCOVER_MIN_VOTE_COUNT = 10;
@@ -20,6 +20,48 @@ const appDiscover = (function () {
   function normalizeDiscoverTab(raw) {
     const tab = String(raw || "").trim();
     return DISCOVER_TABS.has(tab) ? tab : DEFAULT_DISCOVER_TAB;
+  }
+
+  function normalizeDiscoverPage(raw, options = {}) {
+    const page = Math.floor(Number(raw));
+    if (!Number.isFinite(page) || page < 1) {
+      return DISCOVER_DEFAULT_PAGE;
+    }
+    const maxPages = options.maxPages;
+    if (Number.isInteger(maxPages) && maxPages > 0 && page > maxPages) {
+      return maxPages;
+    }
+    return page;
+  }
+
+  function buildDiscoverHash(tab, page) {
+    const normalizedTab = normalizeDiscoverTab(tab);
+    const normalizedPage = normalizeDiscoverPage(page);
+    if (normalizedPage <= 1) {
+      return `#discover/${normalizedTab}`;
+    }
+    return `#discover/${normalizedTab}/${normalizedPage}`;
+  }
+
+  function parseDiscoverHash(hash) {
+    const match = /^#discover\/(upcoming|now-playing)(?:\/(\d+))?$/.exec(String(hash || ""));
+    if (!match) {
+      return null;
+    }
+    return {
+      tab: normalizeDiscoverTab(match[1]),
+      page: normalizeDiscoverPage(match[2]),
+    };
+  }
+
+  function normalizeDiscoverListMeta(payload) {
+    const page = normalizeDiscoverPage(payload?.page);
+    const totalPagesRaw = Math.floor(Number(payload?.total_pages));
+    const totalPages = Number.isInteger(totalPagesRaw) && totalPagesRaw >= 1 ? totalPagesRaw : 1;
+    const totalResultsRaw = Math.floor(Number(payload?.total_results));
+    const totalResults =
+      Number.isInteger(totalResultsRaw) && totalResultsRaw >= 0 ? totalResultsRaw : 0;
+    return { page, totalPages, totalResults };
   }
 
   function todayIsoDate(date = new Date()) {
@@ -113,6 +155,16 @@ const appDiscover = (function () {
     return entries;
   }
 
+  function filterDiscoverPageEntries(pageResults, options = {}) {
+    if (!Array.isArray(pageResults)) {
+      return [];
+    }
+    return mergeDiscoverListEntries([pageResults], {
+      ...options,
+      max: Number.MAX_SAFE_INTEGER,
+    });
+  }
+
   function mergeDiscoverMovieIds(pageResults, options = {}) {
     return mergeDiscoverListEntries(pageResults, options).map((entry) => entry.id);
   }
@@ -120,14 +172,18 @@ const appDiscover = (function () {
   return {
     DISCOVER_TABS,
     DEFAULT_DISCOVER_TAB,
+    DISCOVER_DEFAULT_PAGE,
     DISCOVER_MAX_MOVIES,
-    DISCOVER_PAGES,
     DEFAULT_DISCOVER_REGION,
     DISCOVER_LIST_CACHE_VERSION,
     NOW_PLAYING_WINDOW_DAYS,
     DISCOVER_MIN_VOTE_COUNT,
     DISCOVER_MIN_POPULARITY,
     normalizeDiscoverTab,
+    normalizeDiscoverPage,
+    buildDiscoverHash,
+    parseDiscoverHash,
+    normalizeDiscoverListMeta,
     todayIsoDate,
     shiftIsoDate,
     isUpcomingReleaseEntry,
@@ -135,5 +191,6 @@ const appDiscover = (function () {
     isProminentDiscoverEntry,
     mergeDiscoverMovieIds,
     mergeDiscoverListEntries,
+    filterDiscoverPageEntries,
   };
 })();

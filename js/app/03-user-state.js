@@ -171,12 +171,16 @@ function nextViewMode(mode) {
   return VIEW_MODE_CYCLE[next];
 }
 
+function isLayoutLockedToDetail() {
+  return isWatchlistActive() || isDiscoverActive();
+}
+
 function syncViewModeButton() {
   if (!viewModeCycleBtn) {
     return;
   }
-  viewModeCycleBtn.hidden = isWatchlistActive();
-  if (isWatchlistActive()) {
+  viewModeCycleBtn.hidden = isLayoutLockedToDetail();
+  if (isLayoutLockedToDetail()) {
     return;
   }
   viewModeCycleBtn.dataset.viewMode = gridViewMode;
@@ -184,7 +188,7 @@ function syncViewModeButton() {
 }
 
 function refreshViewModeForActiveList() {
-  if (isWatchlistActive()) {
+  if (isLayoutLockedToDetail()) {
     gridViewMode = "detail";
   } else {
     gridViewMode = userState.preferences.viewMode;
@@ -195,7 +199,7 @@ function refreshViewModeForActiveList() {
 }
 
 function setViewMode(mode) {
-  if (isWatchlistActive()) {
+  if (isLayoutLockedToDetail()) {
     refreshViewModeForActiveList();
     return;
   }

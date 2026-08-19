@@ -52,6 +52,10 @@ const searchDirectorToggle = document.getElementById("search-director-toggle");
 const discoverEntryBtn = document.getElementById("discover-entry-btn");
 
 const discoverTabs = document.getElementById("discover-tabs");
+const discoverPagination = document.getElementById("discover-pagination");
+const discoverPrevBtn = document.getElementById("discover-prev");
+const discoverNextBtn = document.getElementById("discover-next");
+const discoverPageLabel = document.getElementById("discover-page-label");
 
 const addMovieFab = document.getElementById("add-movie-fab");
 const addMovieDialog = document.getElementById("add-movie-dialog");
@@ -902,11 +906,11 @@ const appDiscover = (function () {
 
   const DISCOVER_TABS = new Set(["upcoming", "now-playing"]);
   const DEFAULT_DISCOVER_TAB = "upcoming";
+  const DISCOVER_DEFAULT_PAGE = 1;
   const DISCOVER_MAX_MOVIES = 50;
-  const DISCOVER_PAGES = 3;
   const DEFAULT_DISCOVER_REGION = "US";
   /** Bumped when discover list query semantics change so session memo refreshes. */
-  const DISCOVER_LIST_CACHE_VERSION = 7;
+  const DISCOVER_LIST_CACHE_VERSION = 8;
   const NOW_PLAYING_WINDOW_DAYS = 84;
   /** Skip obscure listings unless TMDB shows real interest. */
   const DISCOVER_MIN_VOTE_COUNT = 10;
@@ -915,6 +919,48 @@ const appDiscover = (function () {
   function normalizeDiscoverTab(raw) {
     const tab = String(raw || "").trim();
     return DISCOVER_TABS.has(tab) ? tab : DEFAULT_DISCOVER_TAB;
+  }
+
+  function normalizeDiscoverPage(raw, options = {}) {
+    const page = Math.floor(Number(raw));
+    if (!Number.isFinite(page) || page < 1) {
+      return DISCOVER_DEFAULT_PAGE;
+    }
+    const maxPages = options.maxPages;
+    if (Number.isInteger(maxPages) && maxPages > 0 && page > maxPages) {
+      return maxPages;
+    }
+    return page;
+  }
+
+  function buildDiscoverHash(tab, page) {
+    const normalizedTab = normalizeDiscoverTab(tab);
+    const normalizedPage = normalizeDiscoverPage(page);
+    if (normalizedPage <= 1) {
+      return `#discover/${normalizedTab}`;
+    }
+    return `#discover/${normalizedTab}/${normalizedPage}`;
+  }
+
+  function parseDiscoverHash(hash) {
+    const match = /^#discover\/(upcoming|now-playing)(?:\/(\d+))?$/.exec(String(hash || ""));
+    if (!match) {
+      return null;
+    }
+    return {
+      tab: normalizeDiscoverTab(match[1]),
+      page: normalizeDiscoverPage(match[2]),
+    };
+  }
+
+  function normalizeDiscoverListMeta(payload) {
+    const page = normalizeDiscoverPage(payload?.page);
+    const totalPagesRaw = Math.floor(Number(payload?.total_pages));
+    const totalPages = Number.isInteger(totalPagesRaw) && totalPagesRaw >= 1 ? totalPagesRaw : 1;
+    const totalResultsRaw = Math.floor(Number(payload?.total_results));
+    const totalResults =
+      Number.isInteger(totalResultsRaw) && totalResultsRaw >= 0 ? totalResultsRaw : 0;
+    return { page, totalPages, totalResults };
   }
 
   function todayIsoDate(date = new Date()) {
@@ -1008,6 +1054,16 @@ const appDiscover = (function () {
     return entries;
   }
 
+  function filterDiscoverPageEntries(pageResults, options = {}) {
+    if (!Array.isArray(pageResults)) {
+      return [];
+    }
+    return mergeDiscoverListEntries([pageResults], {
+      ...options,
+      max: Number.MAX_SAFE_INTEGER,
+    });
+  }
+
   function mergeDiscoverMovieIds(pageResults, options = {}) {
     return mergeDiscoverListEntries(pageResults, options).map((entry) => entry.id);
   }
@@ -1015,14 +1071,18 @@ const appDiscover = (function () {
   return {
     DISCOVER_TABS,
     DEFAULT_DISCOVER_TAB,
+    DISCOVER_DEFAULT_PAGE,
     DISCOVER_MAX_MOVIES,
-    DISCOVER_PAGES,
     DEFAULT_DISCOVER_REGION,
     DISCOVER_LIST_CACHE_VERSION,
     NOW_PLAYING_WINDOW_DAYS,
     DISCOVER_MIN_VOTE_COUNT,
     DISCOVER_MIN_POPULARITY,
     normalizeDiscoverTab,
+    normalizeDiscoverPage,
+    buildDiscoverHash,
+    parseDiscoverHash,
+    normalizeDiscoverListMeta,
     todayIsoDate,
     shiftIsoDate,
     isUpcomingReleaseEntry,
@@ -1030,6 +1090,7 @@ const appDiscover = (function () {
     isProminentDiscoverEntry,
     mergeDiscoverMovieIds,
     mergeDiscoverListEntries,
+    filterDiscoverPageEntries,
   };
 })();
 
@@ -4859,12 +4920,16 @@ function nextViewMode(mode) {
   return VIEW_MODE_CYCLE[next];
 }
 
+function isLayoutLockedToDetail() {
+  return isWatchlistActive() || isDiscoverActive();
+}
+
 function syncViewModeButton() {
   if (!viewModeCycleBtn) {
     return;
   }
-  viewModeCycleBtn.hidden = isWatchlistActive();
-  if (isWatchlistActive()) {
+  viewModeCycleBtn.hidden = isLayoutLockedToDetail();
+  if (isLayoutLockedToDetail()) {
     return;
   }
   viewModeCycleBtn.dataset.viewMode = gridViewMode;
@@ -4872,7 +4937,7 @@ function syncViewModeButton() {
 }
 
 function refreshViewModeForActiveList() {
-  if (isWatchlistActive()) {
+  if (isLayoutLockedToDetail()) {
     gridViewMode = "detail";
   } else {
     gridViewMode = userState.preferences.viewMode;
@@ -4883,7 +4948,7 @@ function refreshViewModeForActiveList() {
 }
 
 function setViewMode(mode) {
-  if (isWatchlistActive()) {
+  if (isLayoutLockedToDetail()) {
     refreshViewModeForActiveList();
     return;
   }
@@ -6039,7 +6104,8 @@ async function searchMovies(query, options = {}) {
 
 async function fetchDiscoverMovies(tab, options = {}) {
   const normalizedTab = appDiscover.normalizeDiscoverTab(tab);
-  const memoKey = `${normalizedTab}:v${appDiscover.DISCOVER_LIST_CACHE_VERSION}`;
+  const page = appDiscover.normalizeDiscoverPage(options.page);
+  const memoKey = `${normalizedTab}:p${page}:v${appDiscover.DISCOVER_LIST_CACHE_VERSION}`;
   if (discoverMemo.has(memoKey)) {
     return discoverMemo.get(memoKey);
   }
@@ -6056,35 +6122,19 @@ async function fetchDiscoverMovies(tab, options = {}) {
       filterUpcoming: normalizedTab === "upcoming",
       todayIso,
     };
-    const pages = new Array(appDiscover.DISCOVER_PAGES);
-    let partialEmitted = false;
-
-    const fetchPage = async (pageIndex) => {
-      const payload = await fetchTmdb(
-        buildUrl({
-          page: pageIndex + 1,
-          today: todayIso,
-        }),
-        { signal },
-      ).then((response) => response.json());
-      pages[pageIndex] = appTmdb.normalizeSearchResults(payload);
-      if (
-        pageIndex === 0 &&
-        !partialEmitted &&
-        typeof options.onPartialEntries === "function"
-      ) {
-        partialEmitted = true;
-        options.onPartialEntries(appDiscover.mergeDiscoverListEntries([pages[0]], mergeOpts));
-      }
-    };
-
-    await Promise.all(
-      Array.from({ length: appDiscover.DISCOVER_PAGES }, (_, pageIndex) => fetchPage(pageIndex)),
-    );
-    return appDiscover.mergeDiscoverListEntries(
-      pages.filter((page) => Array.isArray(page)),
+    const payload = await fetchTmdb(
+      buildUrl({
+        page,
+        today: todayIso,
+      }),
+      { signal },
+    ).then((response) => response.json());
+    const meta = appDiscover.normalizeDiscoverListMeta(payload);
+    const entries = appDiscover.filterDiscoverPageEntries(
+      appTmdb.normalizeSearchResults(payload),
       mergeOpts,
     );
+    return { ...meta, entries };
   })();
 
   discoverInflight.set(memoKey, promise);
@@ -7353,7 +7403,12 @@ function updateListHeader() {
     return;
   }
   if (isDiscoverActive()) {
-    listSubtitleEl.textContent = discoverTab === "now-playing" ? "Now playing" : "Upcoming";
+    const tabLabel = discoverTab === "now-playing" ? "Now playing" : "Upcoming";
+    if (discoverTotalPages > 1) {
+      listSubtitleEl.textContent = `${tabLabel} · Page ${discoverPage} of ${discoverTotalPages}`;
+    } else {
+      listSubtitleEl.textContent = tabLabel;
+    }
     return;
   }
   if (isCustomListDetailActive()) {
@@ -9371,9 +9426,9 @@ function parseLocationHash() {
   if (hash === "#lists" || hash === "#lists/") {
     return { kind: "customIndex" };
   }
-  const discoverMatch = /^#discover\/(upcoming|now-playing)$/.exec(hash);
+  const discoverMatch = appDiscover.parseDiscoverHash(hash);
   if (discoverMatch) {
-    return { kind: "discover", tab: discoverMatch[1] };
+    return { kind: "discover", tab: discoverMatch.tab, page: discoverMatch.page };
   }
   return { kind: "main" };
 }
@@ -9387,6 +9442,7 @@ function persistViewRestoreContext() {
       JSON.stringify({
         appView,
         discoverTab: isDiscoverActive() ? discoverTab : null,
+        discoverPage: isDiscoverActive() ? discoverPage : null,
         activeCustomListId: isCustomListDetailActive() ? activeCustomListId : null,
       }),
     );
@@ -9425,6 +9481,9 @@ function applyRestoredViewContext(restored) {
     activeCustomListId = null;
     if (restored.discoverTab) {
       discoverTab = appDiscover.normalizeDiscoverTab(restored.discoverTab);
+    }
+    if (restored.discoverPage) {
+      discoverPage = appDiscover.normalizeDiscoverPage(restored.discoverPage);
     }
     return true;
   }
@@ -9566,6 +9625,9 @@ function syncViewFromLocation() {
       if (state.discoverTab) {
         discoverTab = appDiscover.normalizeDiscoverTab(state.discoverTab);
       }
+      if (state.discoverPage) {
+        discoverPage = appDiscover.normalizeDiscoverPage(state.discoverPage);
+      }
     } else if (!applyRestoredViewContext(readViewRestoreContext())) {
       if (!isCustomListView() && !isDiscoverActive()) {
         appView = "main";
@@ -9580,7 +9642,7 @@ function syncViewFromLocation() {
       const needsLoad =
         !discoverMovieIds.length && !discoverLoading && !discoverLoadError;
       if (needsLoad) {
-        loadDiscoverTab(discoverTab, { pushHistory: false });
+        loadDiscoverTab(discoverTab, { page: discoverPage, pushHistory: false });
       } else {
         renderDiscover();
       }
@@ -9625,13 +9687,16 @@ function syncViewFromLocation() {
     syncAppViewChrome();
     refreshViewModeForActiveList();
     const tab = appDiscover.normalizeDiscoverTab(parsed.tab);
+    const page = appDiscover.normalizeDiscoverPage(parsed.page);
     const needsLoad =
       tab !== discoverTab ||
+      page !== discoverPage ||
       (!discoverMovieIds.length && !discoverLoading && !discoverLoadError);
     if (needsLoad) {
-      loadDiscoverTab(tab, { pushHistory: false });
+      loadDiscoverTab(tab, { page, pushHistory: false });
     } else {
       discoverTab = tab;
+      discoverPage = page;
       renderDiscover();
     }
     return;
@@ -10091,6 +10156,8 @@ function onRemoteCustomListsAdopted() {
  */
 
 let discoverTab = appDiscover.DEFAULT_DISCOVER_TAB;
+let discoverPage = appDiscover.DISCOVER_DEFAULT_PAGE;
+let discoverTotalPages = 1;
 let discoverMovieIds = [];
 let discoverLoading = false;
 let discoverLoadError = null;
@@ -10122,6 +10189,23 @@ function syncDiscoverTabUi() {
   }
 }
 
+function syncDiscoverPaginationUi() {
+  if (!discoverPagination) {
+    return;
+  }
+  discoverPagination.hidden = !isDiscoverActive();
+  if (discoverPrevBtn) {
+    discoverPrevBtn.disabled = discoverLoading || discoverPage <= 1;
+  }
+  if (discoverNextBtn) {
+    discoverNextBtn.disabled = discoverLoading || discoverPage >= discoverTotalPages;
+  }
+  if (discoverPageLabel) {
+    discoverPageLabel.textContent =
+      discoverTotalPages > 1 ? `Page ${discoverPage} of ${discoverTotalPages}` : `Page ${discoverPage}`;
+  }
+}
+
 function renderDiscoverEmptyState(count) {
   if (count) {
     emptyState.hidden = true;
@@ -10149,9 +10233,11 @@ function renderDiscover() {
   grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
   bindPosterImages(grid);
   syncDiscoverTabUi();
+  syncDiscoverPaginationUi();
   syncAppViewChrome();
   renderDiscoverEmptyState(ids.length);
   syncAddMovieFabVisibility(ids.length);
+  updateListHeader();
 }
 
 function seedDiscoverMovieStubs(entries) {
@@ -10180,6 +10266,11 @@ function renderDiscoverAfterLoad() {
 
 async function loadDiscoverTab(tab, options = {}) {
   discoverTab = appDiscover.normalizeDiscoverTab(tab);
+  if (options.resetPage) {
+    discoverPage = appDiscover.DISCOVER_DEFAULT_PAGE;
+  } else if (options.page != null) {
+    discoverPage = appDiscover.normalizeDiscoverPage(options.page);
+  }
   discoverLoading = true;
   discoverLoadError = null;
   discoverMovieIds = [];
@@ -10193,24 +10284,14 @@ async function loadDiscoverTab(tab, options = {}) {
   }
 
   try {
-    let firstPaint = false;
-    const entries = await fetchDiscoverMovies(discoverTab, {
-      onPartialEntries(partialEntries) {
-        if (token !== discoverLoadToken || firstPaint) {
-          return;
-        }
-        firstPaint = true;
-        discoverMovieIds = partialEntries.map((entry) => entry.id);
-        seedDiscoverMovieStubs(partialEntries);
-        discoverLoading = false;
-        renderDiscoverAfterLoad();
-      },
-    });
+    const result = await fetchDiscoverMovies(discoverTab, { page: discoverPage });
     if (token !== discoverLoadToken) {
       return;
     }
-    discoverMovieIds = entries.map((entry) => entry.id);
-    seedDiscoverMovieStubs(entries);
+    discoverPage = result.page;
+    discoverTotalPages = result.totalPages;
+    discoverMovieIds = result.entries.map((entry) => entry.id);
+    seedDiscoverMovieStubs(result.entries);
     discoverLoading = false;
     renderDiscoverAfterLoad();
   } catch (_) {
@@ -10224,20 +10305,45 @@ async function loadDiscoverTab(tab, options = {}) {
   }
 }
 
+function navigateDiscoverPage(delta) {
+  const nextPage = discoverPage + delta;
+  if (nextPage < 1 || nextPage > discoverTotalPages) {
+    return;
+  }
+  discoverPage = nextPage;
+  const hash = appDiscover.buildDiscoverHash(discoverTab, discoverPage);
+  history.pushState({ appView: "discover", discoverTab, discoverPage }, "", hash);
+  loadDiscoverTab(discoverTab, { page: discoverPage, pushHistory: false });
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function onDiscoverPrevClick() {
+  navigateDiscoverPage(-1);
+}
+
+function onDiscoverNextClick() {
+  navigateDiscoverPage(1);
+}
+
 function navigateToDiscover(tab, options = {}) {
   if (typeof closeAddMovieDialog === "function") {
     closeAddMovieDialog();
   }
   closeDetail({ popHistory: false });
   discoverTab = appDiscover.normalizeDiscoverTab(tab);
+  discoverPage = appDiscover.DISCOVER_DEFAULT_PAGE;
   appView = "discover";
   activeCustomListId = null;
   if (options.pushHistory !== false) {
-    history.pushState({ appView: "discover", discoverTab }, "", `#discover/${discoverTab}`);
+    history.pushState(
+      { appView: "discover", discoverTab, discoverPage: 1 },
+      "",
+      appDiscover.buildDiscoverHash(discoverTab, 1),
+    );
   }
   syncAppViewChrome();
   refreshViewModeForActiveList();
-  loadDiscoverTab(discoverTab, { pushHistory: false });
+  loadDiscoverTab(discoverTab, { resetPage: true, pushHistory: false });
 }
 
 function onDiscoverTabClick(event) {
@@ -10249,8 +10355,12 @@ function onDiscoverTabClick(event) {
   if (tab === discoverTab) {
     return;
   }
-  history.pushState({ appView: "discover", discoverTab: tab }, "", `#discover/${tab}`);
-  loadDiscoverTab(tab, { pushHistory: false });
+  history.pushState(
+    { appView: "discover", discoverTab: tab, discoverPage: 1 },
+    "",
+    appDiscover.buildDiscoverHash(tab, 1),
+  );
+  loadDiscoverTab(tab, { resetPage: true, pushHistory: false });
 }
 
 function openDiscover() {
@@ -10299,6 +10409,8 @@ addMovieDialog.addEventListener("click", (event) => {
 discoverEntryBtn?.addEventListener("click", openDiscover);
 
 discoverTabs?.addEventListener("click", onDiscoverTabClick);
+discoverPrevBtn?.addEventListener("click", onDiscoverPrevClick);
+discoverNextBtn?.addEventListener("click", onDiscoverNextClick);
 
 addMovieFab.addEventListener("click", openAddMovieDialog);
 emptyState.addEventListener("click", (event) => {
@@ -10413,7 +10525,7 @@ listTabs.addEventListener("keydown", (event) => {
 /* --- Toolbar --- */
 
 viewModeCycleBtn?.addEventListener("click", () => {
-  if (isWatchlistActive()) {
+  if (isLayoutLockedToDetail()) {
     return;
   }
   setViewMode(nextViewMode(gridViewMode));

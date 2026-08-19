@@ -3,13 +3,17 @@ const assert = require("node:assert/strict");
 
 const {
   normalizeDiscoverTab,
+  normalizeDiscoverPage,
+  buildDiscoverHash,
+  parseDiscoverHash,
+  normalizeDiscoverListMeta,
   mergeDiscoverMovieIds,
   mergeDiscoverListEntries,
+  filterDiscoverPageEntries,
   isUpcomingReleaseEntry,
   isNowPlayingReleaseEntry,
   isProminentDiscoverEntry,
   DISCOVER_MAX_MOVIES,
-  DISCOVER_PAGES,
 } = require("../scripts/lib/discover");
 
 test("normalizeDiscoverTab accepts known tabs and defaults to upcoming", () => {
@@ -17,6 +21,35 @@ test("normalizeDiscoverTab accepts known tabs and defaults to upcoming", () => {
   assert.equal(normalizeDiscoverTab("now-playing"), "now-playing");
   assert.equal(normalizeDiscoverTab("bad"), "upcoming");
   assert.equal(normalizeDiscoverTab(null), "upcoming");
+});
+
+test("normalizeDiscoverPage clamps invalid and out-of-range values", () => {
+  assert.equal(normalizeDiscoverPage(null), 1);
+  assert.equal(normalizeDiscoverPage("2"), 2);
+  assert.equal(normalizeDiscoverPage(-1), 1);
+  assert.equal(normalizeDiscoverPage(99, { maxPages: 5 }), 5);
+});
+
+test("buildDiscoverHash omits page one from the URL", () => {
+  assert.equal(buildDiscoverHash("upcoming", 1), "#discover/upcoming");
+  assert.equal(buildDiscoverHash("now-playing", 3), "#discover/now-playing/3");
+});
+
+test("parseDiscoverHash reads tab and page", () => {
+  assert.deepEqual(parseDiscoverHash("#discover/upcoming"), { tab: "upcoming", page: 1 });
+  assert.deepEqual(parseDiscoverHash("#discover/now-playing/4"), {
+    tab: "now-playing",
+    page: 4,
+  });
+  assert.equal(parseDiscoverHash("#discover/bad"), null);
+});
+
+test("normalizeDiscoverListMeta reads TMDB pagination fields", () => {
+  assert.deepEqual(normalizeDiscoverListMeta({ page: 2, total_pages: 10, total_results: 200 }), {
+    page: 2,
+    totalPages: 10,
+    totalResults: 200,
+  });
 });
 
 test("mergeDiscoverMovieIds dedupes across pages and caps at fifty", () => {
@@ -38,7 +71,14 @@ test("mergeDiscoverMovieIds dedupes across pages and caps at fifty", () => {
     popularity: 10,
   }));
   assert.equal(mergeDiscoverMovieIds([many, more]).length, DISCOVER_MAX_MOVIES);
-  assert.equal(DISCOVER_PAGES, 3);
+});
+
+test("filterDiscoverPageEntries filters one TMDB page without a multi-page cap", () => {
+  const page = Array.from({ length: 25 }, (_, index) => ({
+    id: index + 1,
+    releaseDate: "2026-10-01",
+  }));
+  assert.equal(filterDiscoverPageEntries(page, { filterUpcoming: true, todayIso: "2026-08-19" }).length, 25);
 });
 
 test("mergeDiscoverListEntries keeps stub records in display order", () => {

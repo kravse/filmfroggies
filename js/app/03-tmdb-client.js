@@ -692,7 +692,8 @@ async function searchMovies(query, options = {}) {
 
 async function fetchDiscoverMovies(tab, options = {}) {
   const normalizedTab = appDiscover.normalizeDiscoverTab(tab);
-  const memoKey = `${normalizedTab}:v${appDiscover.DISCOVER_LIST_CACHE_VERSION}`;
+  const page = appDiscover.normalizeDiscoverPage(options.page);
+  const memoKey = `${normalizedTab}:p${page}:v${appDiscover.DISCOVER_LIST_CACHE_VERSION}`;
   if (discoverMemo.has(memoKey)) {
     return discoverMemo.get(memoKey);
   }
@@ -709,35 +710,19 @@ async function fetchDiscoverMovies(tab, options = {}) {
       filterUpcoming: normalizedTab === "upcoming",
       todayIso,
     };
-    const pages = new Array(appDiscover.DISCOVER_PAGES);
-    let partialEmitted = false;
-
-    const fetchPage = async (pageIndex) => {
-      const payload = await fetchTmdb(
-        buildUrl({
-          page: pageIndex + 1,
-          today: todayIso,
-        }),
-        { signal },
-      ).then((response) => response.json());
-      pages[pageIndex] = appTmdb.normalizeSearchResults(payload);
-      if (
-        pageIndex === 0 &&
-        !partialEmitted &&
-        typeof options.onPartialEntries === "function"
-      ) {
-        partialEmitted = true;
-        options.onPartialEntries(appDiscover.mergeDiscoverListEntries([pages[0]], mergeOpts));
-      }
-    };
-
-    await Promise.all(
-      Array.from({ length: appDiscover.DISCOVER_PAGES }, (_, pageIndex) => fetchPage(pageIndex)),
-    );
-    return appDiscover.mergeDiscoverListEntries(
-      pages.filter((page) => Array.isArray(page)),
+    const payload = await fetchTmdb(
+      buildUrl({
+        page,
+        today: todayIso,
+      }),
+      { signal },
+    ).then((response) => response.json());
+    const meta = appDiscover.normalizeDiscoverListMeta(payload);
+    const entries = appDiscover.filterDiscoverPageEntries(
+      appTmdb.normalizeSearchResults(payload),
       mergeOpts,
     );
+    return { ...meta, entries };
   })();
 
   discoverInflight.set(memoKey, promise);

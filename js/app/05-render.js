@@ -495,7 +495,12 @@ function updateListHeader() {
     return;
   }
   if (isDiscoverActive()) {
-    listSubtitleEl.textContent = discoverTab === "now-playing" ? "Now playing" : "Upcoming";
+    const tabLabel = discoverTab === "now-playing" ? "Now playing" : "Upcoming";
+    if (discoverTotalPages > 1) {
+      listSubtitleEl.textContent = `${tabLabel} · Page ${discoverPage} of ${discoverTotalPages}`;
+    } else {
+      listSubtitleEl.textContent = tabLabel;
+    }
     return;
   }
   if (isCustomListDetailActive()) {

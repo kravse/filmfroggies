@@ -38,6 +38,8 @@ addMovieDialog.addEventListener("click", (event) => {
 discoverEntryBtn?.addEventListener("click", openDiscover);
 
 discoverTabs?.addEventListener("click", onDiscoverTabClick);
+discoverPrevBtn?.addEventListener("click", onDiscoverPrevClick);
+discoverNextBtn?.addEventListener("click", onDiscoverNextClick);
 
 addMovieFab.addEventListener("click", openAddMovieDialog);
 emptyState.addEventListener("click", (event) => {
@@ -152,7 +154,7 @@ listTabs.addEventListener("keydown", (event) => {
 /* --- Toolbar --- */
 
 viewModeCycleBtn?.addEventListener("click", () => {
-  if (isWatchlistActive()) {
+  if (isLayoutLockedToDetail()) {
     return;
   }
   setViewMode(nextViewMode(gridViewMode));

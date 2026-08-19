@@ -3,6 +3,8 @@
  */
 
 let discoverTab = appDiscover.DEFAULT_DISCOVER_TAB;
+let discoverPage = appDiscover.DISCOVER_DEFAULT_PAGE;
+let discoverTotalPages = 1;
 let discoverMovieIds = [];
 let discoverLoading = false;
 let discoverLoadError = null;
@@ -34,6 +36,23 @@ function syncDiscoverTabUi() {
   }
 }
 
+function syncDiscoverPaginationUi() {
+  if (!discoverPagination) {
+    return;
+  }
+  discoverPagination.hidden = !isDiscoverActive();
+  if (discoverPrevBtn) {
+    discoverPrevBtn.disabled = discoverLoading || discoverPage <= 1;
+  }
+  if (discoverNextBtn) {
+    discoverNextBtn.disabled = discoverLoading || discoverPage >= discoverTotalPages;
+  }
+  if (discoverPageLabel) {
+    discoverPageLabel.textContent =
+      discoverTotalPages > 1 ? `Page ${discoverPage} of ${discoverTotalPages}` : `Page ${discoverPage}`;
+  }
+}
+
 function renderDiscoverEmptyState(count) {
   if (count) {
     emptyState.hidden = true;
@@ -61,9 +80,11 @@ function renderDiscover() {
   grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
   bindPosterImages(grid);
   syncDiscoverTabUi();
+  syncDiscoverPaginationUi();
   syncAppViewChrome();
   renderDiscoverEmptyState(ids.length);
   syncAddMovieFabVisibility(ids.length);
+  updateListHeader();
 }
 
 function seedDiscoverMovieStubs(entries) {
@@ -92,6 +113,11 @@ function renderDiscoverAfterLoad() {
 
 async function loadDiscoverTab(tab, options = {}) {
   discoverTab = appDiscover.normalizeDiscoverTab(tab);
+  if (options.resetPage) {
+    discoverPage = appDiscover.DISCOVER_DEFAULT_PAGE;
+  } else if (options.page != null) {
+    discoverPage = appDiscover.normalizeDiscoverPage(options.page);
+  }
   discoverLoading = true;
   discoverLoadError = null;
   discoverMovieIds = [];
@@ -105,24 +131,14 @@ async function loadDiscoverTab(tab, options = {}) {
   }
 
   try {
-    let firstPaint = false;
-    const entries = await fetchDiscoverMovies(discoverTab, {
-      onPartialEntries(partialEntries) {
-        if (token !== discoverLoadToken || firstPaint) {
-          return;
-        }
-        firstPaint = true;
-        discoverMovieIds = partialEntries.map((entry) => entry.id);
-        seedDiscoverMovieStubs(partialEntries);
-        discoverLoading = false;
-        renderDiscoverAfterLoad();
-      },
-    });
+    const result = await fetchDiscoverMovies(discoverTab, { page: discoverPage });
     if (token !== discoverLoadToken) {
       return;
     }
-    discoverMovieIds = entries.map((entry) => entry.id);
-    seedDiscoverMovieStubs(entries);
+    discoverPage = result.page;
+    discoverTotalPages = result.totalPages;
+    discoverMovieIds = result.entries.map((entry) => entry.id);
+    seedDiscoverMovieStubs(result.entries);
     discoverLoading = false;
     renderDiscoverAfterLoad();
   } catch (_) {
@@ -136,20 +152,45 @@ async function loadDiscoverTab(tab, options = {}) {
   }
 }
 
+function navigateDiscoverPage(delta) {
+  const nextPage = discoverPage + delta;
+  if (nextPage < 1 || nextPage > discoverTotalPages) {
+    return;
+  }
+  discoverPage = nextPage;
+  const hash = appDiscover.buildDiscoverHash(discoverTab, discoverPage);
+  history.pushState({ appView: "discover", discoverTab, discoverPage }, "", hash);
+  loadDiscoverTab(discoverTab, { page: discoverPage, pushHistory: false });
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function onDiscoverPrevClick() {
+  navigateDiscoverPage(-1);
+}
+
+function onDiscoverNextClick() {
+  navigateDiscoverPage(1);
+}
+
 function navigateToDiscover(tab, options = {}) {
   if (typeof closeAddMovieDialog === "function") {
     closeAddMovieDialog();
   }
   closeDetail({ popHistory: false });
   discoverTab = appDiscover.normalizeDiscoverTab(tab);
+  discoverPage = appDiscover.DISCOVER_DEFAULT_PAGE;
   appView = "discover";
   activeCustomListId = null;
   if (options.pushHistory !== false) {
-    history.pushState({ appView: "discover", discoverTab }, "", `#discover/${discoverTab}`);
+    history.pushState(
+      { appView: "discover", discoverTab, discoverPage: 1 },
+      "",
+      appDiscover.buildDiscoverHash(discoverTab, 1),
+    );
   }
   syncAppViewChrome();
   refreshViewModeForActiveList();
-  loadDiscoverTab(discoverTab, { pushHistory: false });
+  loadDiscoverTab(discoverTab, { resetPage: true, pushHistory: false });
 }
 
 function onDiscoverTabClick(event) {
@@ -161,8 +202,12 @@ function onDiscoverTabClick(event) {
   if (tab === discoverTab) {
     return;
   }
-  history.pushState({ appView: "discover", discoverTab: tab }, "", `#discover/${tab}`);
-  loadDiscoverTab(tab, { pushHistory: false });
+  history.pushState(
+    { appView: "discover", discoverTab: tab, discoverPage: 1 },
+    "",
+    appDiscover.buildDiscoverHash(tab, 1),
+  );
+  loadDiscoverTab(tab, { resetPage: true, pushHistory: false });
 }
 
 function openDiscover() {
