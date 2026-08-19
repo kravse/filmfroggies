@@ -2960,6 +2960,171 @@ const appRatings = (function () {
   };
 })();
 
+/* ===== Shared rating field UI (generated from scripts/lib/rating-field-ui.js) ===== */
+
+/* Generated from scripts/lib/rating-field-ui.js — run npm run bundle */
+
+const appRatingFieldUi = (function () {
+  /**
+   * Shared optional user-rating field markup and interaction for sheets/dialogs.
+   */
+
+  function getCardHtml() {
+    if (typeof appCardHtml !== "undefined") {
+      return appCardHtml;
+    }
+    if (typeof require === "function") {
+      return require("./card-html");
+    }
+    throw new Error("appCardHtml is not available");
+  }
+
+  function getRatings() {
+    if (typeof appRatings !== "undefined") {
+      return appRatings;
+    }
+    if (typeof require === "function") {
+      return require("./ratings");
+    }
+    throw new Error("appRatings is not available");
+  }
+
+  function userRatingFieldHtml(options = {}) {
+    const prefix = String(options.idPrefix || "user-rating");
+    const fieldId = `${prefix}-field`;
+    const valueId = `${prefix}-value`;
+    const sliderId = `${prefix}-slider`;
+    const selectId = `${prefix}-select`;
+    const clearId = `${prefix}-clear`;
+    const activeClass = options.startActive ? " is-active" : "";
+    const clearHidden = options.startActive ? "" : " hidden";
+    return `<div class="user-rating-field${activeClass}" id="${getCardHtml().escapeHtml(fieldId)}">
+    <div class="user-rating-header">
+      <span class="user-rating-label">Your rating</span>
+      <output class="user-rating-value is-empty" id="${getCardHtml().escapeHtml(valueId)}" for="${getCardHtml().escapeHtml(sliderId)}">—</output>
+    </div>
+    <div class="user-rating-slider-wrap">
+      <span class="user-rating-scale" aria-hidden="true">1.0</span>
+      <div class="rating-control">
+        <input
+          type="range"
+          class="user-rating-slider rating-control-slider"
+          id="${getCardHtml().escapeHtml(sliderId)}"
+          min="0"
+          max="90"
+          step="1"
+          value="60"
+          aria-label="Your rating from 1 to 10 (optional)"
+        />
+        <select
+          class="user-rating-select rating-control-select"
+          id="${getCardHtml().escapeHtml(selectId)}"
+          aria-label="Your rating from 1 to 10 (optional)"
+        ></select>
+      </div>
+      <span class="user-rating-scale" aria-hidden="true">10</span>
+    </div>
+    <button type="button" class="user-rating-clear-btn" id="${getCardHtml().escapeHtml(clearId)}"${clearHidden}>Clear rating</button>
+  </div>`;
+  }
+
+  function createRatingFieldController(refs, ratingsLib = getRatings()) {
+    let touched = false;
+    let pending = null;
+
+    function reset() {
+      touched = false;
+      pending = null;
+      if (refs.slider) {
+        refs.slider.value = String(ratingsLib.DEFAULT_SLIDER_VALUE);
+      }
+      if (refs.select) {
+        refs.select.value = "";
+      }
+      if (refs.clear) {
+        refs.clear.hidden = true;
+      }
+      if (refs.value) {
+        refs.value.textContent = "—";
+        refs.value.classList.add("is-empty");
+      }
+      refs.field?.classList.remove("is-active");
+    }
+
+    function syncDisplay() {
+      if (!touched) {
+        reset();
+        return;
+      }
+      refs.field?.classList.add("is-active");
+      if (refs.clear) {
+        refs.clear.hidden = false;
+      }
+      const rating =
+        pending ?? ratingsLib.ratingFromSliderValue(Number(refs.slider?.value));
+      pending = rating;
+      if (refs.value) {
+        refs.value.textContent = ratingsLib.formatUserRating(rating);
+        refs.value.classList.remove("is-empty");
+      }
+      if (refs.slider) {
+        refs.slider.value = String(ratingsLib.sliderValueFromRating(rating));
+      }
+      if (refs.select) {
+        refs.select.value = ratingsLib.formatUserRating(rating);
+      }
+    }
+
+    function onSliderInput() {
+      if (!refs.slider) {
+        return;
+      }
+      touched = true;
+      pending = ratingsLib.ratingFromSliderValue(Number(refs.slider.value));
+      syncDisplay();
+    }
+
+    function onSelectChange() {
+      if (!refs.select) {
+        return;
+      }
+      if (refs.select.value === "") {
+        reset();
+        return;
+      }
+      touched = true;
+      pending = ratingsLib.normalizeRating(refs.select.value);
+      syncDisplay();
+    }
+
+    function initSelect() {
+      if (!refs.select) {
+        return;
+      }
+      refs.select.innerHTML = ratingsLib.ratingSelectInnerHtml(null, { includeUnrated: true });
+    }
+
+    function getValue() {
+      return touched ? pending : null;
+    }
+
+    return {
+      reset,
+      syncDisplay,
+      onSliderInput,
+      onSelectChange,
+      initSelect,
+      getValue,
+      clear: reset,
+    };
+  }
+
+  return {
+    userRatingFieldHtml,
+    createRatingFieldController,
+  };
+})();
+
 /* ===== Date added stamps (generated from scripts/lib/added-at.js) ===== */
 
 /* Generated from scripts/lib/added-at.js — run npm run bundle */
@@ -7063,27 +7228,26 @@ let suggestIndex = -1;
 let suggestRequestToken = 0;
 let pendingAddResult = null;
 let selectedAddListId = null;
-let pendingAddRating = null;
-let addMovieRatingTouched = false;
 let addMovieWatchDateActive = false;
 let addMoviePickTab = "add";
 let searchDirectorMode = false;
 
 const ADD_MOVIE_TMDB_URL = "https://www.themoviedb.org/movie/";
 
+const addMovieRatingController = appRatingFieldUi.createRatingFieldController(
+  {
+    field: addMovieRatingField,
+    slider: addMovieRatingSlider,
+    select: addMovieRatingSelect,
+    clear: addMovieRatingClear,
+    value: addMovieRatingValue,
+  },
+  appRatings,
+);
+addMovieRatingController.initSelect();
+
 function resetAddMovieRatingControls() {
-  pendingAddRating = null;
-  addMovieRatingTouched = false;
-  addMovieRatingSlider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
-  if (addMovieRatingSelect) {
-    addMovieRatingSelect.value = "";
-  }
-  if (addMovieRatingClear) {
-    addMovieRatingClear.hidden = true;
-  }
-  addMovieRatingValue.textContent = "—";
-  addMovieRatingValue.classList.add("is-empty");
-  addMovieRatingField?.classList.remove("is-active");
+  addMovieRatingController.reset();
 }
 
 function resetAddMovieWatchDate() {
@@ -7122,63 +7286,19 @@ function clearAddMovieWatchDate() {
 }
 
 function syncAddMovieRatingDisplay() {
-  if (!addMovieRatingTouched) {
-    addMovieRatingValue.textContent = "—";
-    addMovieRatingValue.classList.add("is-empty");
-    addMovieRatingField?.classList.remove("is-active");
-    pendingAddRating = null;
-    addMovieRatingSlider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
-    if (addMovieRatingSelect) {
-      addMovieRatingSelect.value = "";
-    }
-    if (addMovieRatingClear) {
-      addMovieRatingClear.hidden = true;
-    }
-    return;
-  }
-  addMovieRatingField?.classList.add("is-active");
-  if (addMovieRatingClear) {
-    addMovieRatingClear.hidden = false;
-  }
-  const rating =
-    pendingAddRating ?? appRatings.ratingFromSliderValue(Number(addMovieRatingSlider.value));
-  pendingAddRating = rating;
-  addMovieRatingValue.textContent = appRatings.formatUserRating(rating);
-  addMovieRatingValue.classList.remove("is-empty");
-  addMovieRatingSlider.value = String(appRatings.sliderValueFromRating(rating));
-  if (addMovieRatingSelect) {
-    addMovieRatingSelect.value = appRatings.formatUserRating(rating);
-  }
+  addMovieRatingController.syncDisplay();
 }
 
 function onAddMovieRatingSliderInput() {
-  addMovieRatingTouched = true;
-  pendingAddRating = appRatings.ratingFromSliderValue(Number(addMovieRatingSlider.value));
-  syncAddMovieRatingDisplay();
+  addMovieRatingController.onSliderInput();
 }
 
 function onAddMovieRatingSelectChange() {
-  if (!addMovieRatingSelect) {
-    return;
-  }
-  if (addMovieRatingSelect.value === "") {
-    resetAddMovieRatingControls();
-    return;
-  }
-  addMovieRatingTouched = true;
-  pendingAddRating = appRatings.normalizeRating(addMovieRatingSelect.value);
-  syncAddMovieRatingDisplay();
+  addMovieRatingController.onSelectChange();
 }
 
 function clearAddMovieRating() {
-  resetAddMovieRatingControls();
-}
-
-function initAddMovieRatingSelect() {
-  if (!addMovieRatingSelect) {
-    return;
-  }
-  addMovieRatingSelect.innerHTML = appRatings.ratingSelectInnerHtml(null, { includeUnrated: true });
+  addMovieRatingController.clear();
 }
 
 function syncAddMoviePickStep() {
@@ -7625,10 +7745,9 @@ function confirmAddMovie() {
     if (updateLists(nextLists)) {
       changed = true;
     }
-    if (selectedAddListId === appLists.WATCHED_ID && pendingAddRating != null) {
-      if (
-        updateRatings(appRatings.setRating(userState.ratings, movieId, pendingAddRating))
-      ) {
+    if (selectedAddListId === appLists.WATCHED_ID) {
+      const rating = addMovieRatingController.getValue();
+      if (rating != null && updateRatings(appRatings.setRating(userState.ratings, movieId, rating))) {
         changed = true;
       }
     }
@@ -7803,6 +7922,30 @@ function onAddListOptionClick(event) {
  * emitting skeleton cards for anything not hydrated yet; hydration then
  * patches single rows through applyHydratedRecord() rather than re-rendering.
  */
+
+(function mountWatchConfirmRatingField() {
+  const root = document.getElementById("watch-confirm-rating-mount");
+  if (root) {
+    root.innerHTML = appRatingFieldUi.userRatingFieldHtml({ idPrefix: "watch-confirm-rating" });
+  }
+})();
+
+const watchConfirmRatingField = document.getElementById("watch-confirm-rating-field");
+const watchConfirmRatingSlider = document.getElementById("watch-confirm-rating-slider");
+const watchConfirmRatingSelect = document.getElementById("watch-confirm-rating-select");
+const watchConfirmRatingClear = document.getElementById("watch-confirm-rating-clear");
+const watchConfirmRatingValue = document.getElementById("watch-confirm-rating-value");
+const watchConfirmRatingController = appRatingFieldUi.createRatingFieldController(
+  {
+    field: watchConfirmRatingField,
+    slider: watchConfirmRatingSlider,
+    select: watchConfirmRatingSelect,
+    clear: watchConfirmRatingClear,
+    value: watchConfirmRatingValue,
+  },
+  appRatings,
+);
+watchConfirmRatingController.initSelect();
 
 function posterWrapOpen(movieId) {
   return `<div class="poster-wrap" style="--poster-bg: ${appPosterGrey.posterGreyForId(movieId)}">`;
@@ -8561,7 +8704,7 @@ function commitListChange(nextLists, statusChange) {
   return true;
 }
 
-function watchMovie(movieId, watchedOn) {
+function watchMovie(movieId, watchedOn, rating) {
   const nextLists = appLists.assignMovieToList(
     userState.lists,
     appLists.WATCHED_ID,
@@ -8569,6 +8712,9 @@ function watchMovie(movieId, watchedOn) {
   );
   if (watchedOn) {
     addMovieViewing(movieId, watchedOn);
+  }
+  if (rating != null) {
+    updateRatings(appRatings.setRating(userState.ratings, movieId, rating));
   }
   if (!commitListChange(nextLists, { movieId, status: appLists.WATCHED_ID })) {
     return;
@@ -8590,6 +8736,22 @@ function resetWatchConfirmWatchDate() {
     watchConfirmDate.max = appViewingHistory.today();
   }
   syncWatchConfirmWatchDateUi();
+}
+
+function resetWatchConfirmRatingControls() {
+  watchConfirmRatingController.reset();
+}
+
+function onWatchConfirmRatingSliderInput() {
+  watchConfirmRatingController.onSliderInput();
+}
+
+function onWatchConfirmRatingSelectChange() {
+  watchConfirmRatingController.onSelectChange();
+}
+
+function clearWatchConfirmRating() {
+  watchConfirmRatingController.clear();
 }
 
 function syncWatchConfirmWatchDateUi() {
@@ -8619,6 +8781,7 @@ function requestWatchMovie(movieId, options = {}) {
     ? `Mark “${title}” as watched? It will be added to your Watched list.`
     : `Mark “${title}” as watched? It will move to your Watched list.`;
   resetWatchConfirmWatchDate();
+  resetWatchConfirmRatingControls();
   watchConfirmDialog.hidden = false;
   watchConfirmCancel.focus({ preventScroll: true });
 }
@@ -8626,6 +8789,7 @@ function requestWatchMovie(movieId, options = {}) {
 function closeWatchConfirm() {
   pendingWatchMovieId = null;
   watchConfirmWatchDateActive = false;
+  resetWatchConfirmRatingControls();
   watchConfirmDialog.hidden = true;
 }
 
@@ -8633,11 +8797,12 @@ function confirmWatchMovie() {
   const movieId = pendingWatchMovieId;
   const watchedOn =
     watchConfirmWatchDateActive && watchConfirmDate?.value ? watchConfirmDate.value : null;
+  const rating = watchConfirmRatingController.getValue();
   closeWatchConfirm();
   if (movieId == null) {
     return;
   }
-  watchMovie(movieId, watchedOn);
+  watchMovie(movieId, watchedOn, rating);
 }
 
 function removeMovieFromCollection(movieId) {
@@ -9141,7 +9306,7 @@ function detailUserRatingBlockHtml(movieId) {
       <span class="${editorValueClass}" id="detail-rating-editor-value">${appCardHtml.escapeHtml(valueText)}</span>
     </div>
     <div class="detail-rating-slider-wrap">
-      <span class="detail-rating-scale" aria-hidden="true">1</span>
+      <span class="detail-rating-scale" aria-hidden="true">1.0</span>
       <div class="rating-control">
         <input
           type="range"
@@ -11834,7 +11999,6 @@ addMovieTabAdd?.addEventListener("click", onAddMoviePickTabClick);
 addMovieTabDetail?.addEventListener("click", onAddMoviePickTabClick);
 addMovieListPicker.addEventListener("click", onAddListOptionClick);
 addMovieSubmit.addEventListener("click", confirmAddMovie);
-initAddMovieRatingSelect();
 bindRangeSliderLiveInput(addMovieRatingSlider, onAddMovieRatingSliderInput);
 addMovieRatingSelect?.addEventListener("change", onAddMovieRatingSelectChange);
 addMovieRatingClear?.addEventListener("click", clearAddMovieRating);
@@ -12065,6 +12229,9 @@ detailActions.addEventListener("click", (event) => {
 
 watchConfirmCancel.addEventListener("click", () => closeWatchConfirm());
 watchConfirmOk.addEventListener("click", () => confirmWatchMovie());
+bindRangeSliderLiveInput(watchConfirmRatingSlider, onWatchConfirmRatingSliderInput);
+watchConfirmRatingSelect?.addEventListener("change", onWatchConfirmRatingSelectChange);
+watchConfirmRatingClear?.addEventListener("click", clearWatchConfirmRating);
 watchConfirmDateToggle?.addEventListener("click", onWatchConfirmDateToggleClick);
 watchConfirmDateClear?.addEventListener("click", clearWatchConfirmWatchDate);
 watchConfirmDialog.addEventListener("click", (event) => {

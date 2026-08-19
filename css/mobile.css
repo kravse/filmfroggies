@@ -196,10 +196,12 @@
     display: none;
   }
 
+  .user-rating-slider-wrap,
   .detail-rating-slider-wrap {
-    padding: 0.55rem 0;
+    padding: 0.35rem 0;
   }
 
+  .user-rating-slider-wrap .rating-control,
   .detail-rating-slider-wrap .rating-control {
     flex: 1 1 100%;
   }

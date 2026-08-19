@@ -58,7 +58,6 @@ addMovieTabAdd?.addEventListener("click", onAddMoviePickTabClick);
 addMovieTabDetail?.addEventListener("click", onAddMoviePickTabClick);
 addMovieListPicker.addEventListener("click", onAddListOptionClick);
 addMovieSubmit.addEventListener("click", confirmAddMovie);
-initAddMovieRatingSelect();
 bindRangeSliderLiveInput(addMovieRatingSlider, onAddMovieRatingSliderInput);
 addMovieRatingSelect?.addEventListener("change", onAddMovieRatingSelectChange);
 addMovieRatingClear?.addEventListener("click", clearAddMovieRating);
@@ -289,6 +288,9 @@ detailActions.addEventListener("click", (event) => {
 
 watchConfirmCancel.addEventListener("click", () => closeWatchConfirm());
 watchConfirmOk.addEventListener("click", () => confirmWatchMovie());
+bindRangeSliderLiveInput(watchConfirmRatingSlider, onWatchConfirmRatingSliderInput);
+watchConfirmRatingSelect?.addEventListener("change", onWatchConfirmRatingSelectChange);
+watchConfirmRatingClear?.addEventListener("click", clearWatchConfirmRating);
 watchConfirmDateToggle?.addEventListener("click", onWatchConfirmDateToggleClick);
 watchConfirmDateClear?.addEventListener("click", clearWatchConfirmWatchDate);
 watchConfirmDialog.addEventListener("click", (event) => {

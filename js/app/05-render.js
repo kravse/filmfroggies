@@ -4,6 +4,30 @@
  * patches single rows through applyHydratedRecord() rather than re-rendering.
  */
 
+(function mountWatchConfirmRatingField() {
+  const root = document.getElementById("watch-confirm-rating-mount");
+  if (root) {
+    root.innerHTML = appRatingFieldUi.userRatingFieldHtml({ idPrefix: "watch-confirm-rating" });
+  }
+})();
+
+const watchConfirmRatingField = document.getElementById("watch-confirm-rating-field");
+const watchConfirmRatingSlider = document.getElementById("watch-confirm-rating-slider");
+const watchConfirmRatingSelect = document.getElementById("watch-confirm-rating-select");
+const watchConfirmRatingClear = document.getElementById("watch-confirm-rating-clear");
+const watchConfirmRatingValue = document.getElementById("watch-confirm-rating-value");
+const watchConfirmRatingController = appRatingFieldUi.createRatingFieldController(
+  {
+    field: watchConfirmRatingField,
+    slider: watchConfirmRatingSlider,
+    select: watchConfirmRatingSelect,
+    clear: watchConfirmRatingClear,
+    value: watchConfirmRatingValue,
+  },
+  appRatings,
+);
+watchConfirmRatingController.initSelect();
+
 function posterWrapOpen(movieId) {
   return `<div class="poster-wrap" style="--poster-bg: ${appPosterGrey.posterGreyForId(movieId)}">`;
 }
@@ -761,7 +785,7 @@ function commitListChange(nextLists, statusChange) {
   return true;
 }
 
-function watchMovie(movieId, watchedOn) {
+function watchMovie(movieId, watchedOn, rating) {
   const nextLists = appLists.assignMovieToList(
     userState.lists,
     appLists.WATCHED_ID,
@@ -769,6 +793,9 @@ function watchMovie(movieId, watchedOn) {
   );
   if (watchedOn) {
     addMovieViewing(movieId, watchedOn);
+  }
+  if (rating != null) {
+    updateRatings(appRatings.setRating(userState.ratings, movieId, rating));
   }
   if (!commitListChange(nextLists, { movieId, status: appLists.WATCHED_ID })) {
     return;
@@ -790,6 +817,22 @@ function resetWatchConfirmWatchDate() {
     watchConfirmDate.max = appViewingHistory.today();
   }
   syncWatchConfirmWatchDateUi();
+}
+
+function resetWatchConfirmRatingControls() {
+  watchConfirmRatingController.reset();
+}
+
+function onWatchConfirmRatingSliderInput() {
+  watchConfirmRatingController.onSliderInput();
+}
+
+function onWatchConfirmRatingSelectChange() {
+  watchConfirmRatingController.onSelectChange();
+}
+
+function clearWatchConfirmRating() {
+  watchConfirmRatingController.clear();
 }
 
 function syncWatchConfirmWatchDateUi() {
@@ -819,6 +862,7 @@ function requestWatchMovie(movieId, options = {}) {
     ? `Mark “${title}” as watched? It will be added to your Watched list.`
     : `Mark “${title}” as watched? It will move to your Watched list.`;
   resetWatchConfirmWatchDate();
+  resetWatchConfirmRatingControls();
   watchConfirmDialog.hidden = false;
   watchConfirmCancel.focus({ preventScroll: true });
 }
@@ -826,6 +870,7 @@ function requestWatchMovie(movieId, options = {}) {
 function closeWatchConfirm() {
   pendingWatchMovieId = null;
   watchConfirmWatchDateActive = false;
+  resetWatchConfirmRatingControls();
   watchConfirmDialog.hidden = true;
 }
 
@@ -833,11 +878,12 @@ function confirmWatchMovie() {
   const movieId = pendingWatchMovieId;
   const watchedOn =
     watchConfirmWatchDateActive && watchConfirmDate?.value ? watchConfirmDate.value : null;
+  const rating = watchConfirmRatingController.getValue();
   closeWatchConfirm();
   if (movieId == null) {
     return;
   }
-  watchMovie(movieId, watchedOn);
+  watchMovie(movieId, watchedOn, rating);
 }
 
 function removeMovieFromCollection(movieId) {

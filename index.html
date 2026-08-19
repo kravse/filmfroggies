@@ -610,26 +610,26 @@
                 <span class="user-rating-label">Your rating</span>
                 <output class="user-rating-value is-empty" id="add-movie-rating-value" for="add-movie-rating-slider">—</output>
               </div>
-              <div class="rating-control">
-                <input
-                  type="range"
-                  class="user-rating-slider rating-control-slider"
-                  id="add-movie-rating-slider"
-                  min="0"
-                  max="90"
-                  step="1"
-                  value="60"
-                  aria-label="Your rating from 1 to 10 (optional)"
-                />
-                <select
-                  class="user-rating-select rating-control-select"
-                  id="add-movie-rating-select"
-                  aria-label="Your rating from 1 to 10 (optional)"
-                ></select>
-              </div>
-              <div class="user-rating-scale" aria-hidden="true">
-                <span>1</span>
-                <span>10</span>
+              <div class="user-rating-slider-wrap">
+                <span class="user-rating-scale" aria-hidden="true">1.0</span>
+                <div class="rating-control">
+                  <input
+                    type="range"
+                    class="user-rating-slider rating-control-slider"
+                    id="add-movie-rating-slider"
+                    min="0"
+                    max="90"
+                    step="1"
+                    value="60"
+                    aria-label="Your rating from 1 to 10 (optional)"
+                  />
+                  <select
+                    class="user-rating-select rating-control-select"
+                    id="add-movie-rating-select"
+                    aria-label="Your rating from 1 to 10 (optional)"
+                  ></select>
+                </div>
+                <span class="user-rating-scale" aria-hidden="true">10</span>
               </div>
               <button type="button" class="user-rating-clear-btn" id="add-movie-rating-clear" hidden>
                 Clear rating
@@ -1268,6 +1268,7 @@
         </div>
         <div class="sheet-scroll">
           <p id="watch-confirm-message" class="confirm-message"></p>
+          <div class="watch-confirm-rating-wrap" id="watch-confirm-rating-mount"></div>
           <div class="watch-confirm-date-wrap">
             <div id="watch-confirm-viewing-date-picker"></div>
           </div>

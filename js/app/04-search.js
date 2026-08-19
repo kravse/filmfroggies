@@ -13,27 +13,26 @@ let suggestIndex = -1;
 let suggestRequestToken = 0;
 let pendingAddResult = null;
 let selectedAddListId = null;
-let pendingAddRating = null;
-let addMovieRatingTouched = false;
 let addMovieWatchDateActive = false;
 let addMoviePickTab = "add";
 let searchDirectorMode = false;
 
 const ADD_MOVIE_TMDB_URL = "https://www.themoviedb.org/movie/";
 
+const addMovieRatingController = appRatingFieldUi.createRatingFieldController(
+  {
+    field: addMovieRatingField,
+    slider: addMovieRatingSlider,
+    select: addMovieRatingSelect,
+    clear: addMovieRatingClear,
+    value: addMovieRatingValue,
+  },
+  appRatings,
+);
+addMovieRatingController.initSelect();
+
 function resetAddMovieRatingControls() {
-  pendingAddRating = null;
-  addMovieRatingTouched = false;
-  addMovieRatingSlider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
-  if (addMovieRatingSelect) {
-    addMovieRatingSelect.value = "";
-  }
-  if (addMovieRatingClear) {
-    addMovieRatingClear.hidden = true;
-  }
-  addMovieRatingValue.textContent = "—";
-  addMovieRatingValue.classList.add("is-empty");
-  addMovieRatingField?.classList.remove("is-active");
+  addMovieRatingController.reset();
 }
 
 function resetAddMovieWatchDate() {
@@ -72,63 +71,19 @@ function clearAddMovieWatchDate() {
 }
 
 function syncAddMovieRatingDisplay() {
-  if (!addMovieRatingTouched) {
-    addMovieRatingValue.textContent = "—";
-    addMovieRatingValue.classList.add("is-empty");
-    addMovieRatingField?.classList.remove("is-active");
-    pendingAddRating = null;
-    addMovieRatingSlider.value = String(appRatings.DEFAULT_SLIDER_VALUE);
-    if (addMovieRatingSelect) {
-      addMovieRatingSelect.value = "";
-    }
-    if (addMovieRatingClear) {
-      addMovieRatingClear.hidden = true;
-    }
-    return;
-  }
-  addMovieRatingField?.classList.add("is-active");
-  if (addMovieRatingClear) {
-    addMovieRatingClear.hidden = false;
-  }
-  const rating =
-    pendingAddRating ?? appRatings.ratingFromSliderValue(Number(addMovieRatingSlider.value));
-  pendingAddRating = rating;
-  addMovieRatingValue.textContent = appRatings.formatUserRating(rating);
-  addMovieRatingValue.classList.remove("is-empty");
-  addMovieRatingSlider.value = String(appRatings.sliderValueFromRating(rating));
-  if (addMovieRatingSelect) {
-    addMovieRatingSelect.value = appRatings.formatUserRating(rating);
-  }
+  addMovieRatingController.syncDisplay();
 }
 
 function onAddMovieRatingSliderInput() {
-  addMovieRatingTouched = true;
-  pendingAddRating = appRatings.ratingFromSliderValue(Number(addMovieRatingSlider.value));
-  syncAddMovieRatingDisplay();
+  addMovieRatingController.onSliderInput();
 }
 
 function onAddMovieRatingSelectChange() {
-  if (!addMovieRatingSelect) {
-    return;
-  }
-  if (addMovieRatingSelect.value === "") {
-    resetAddMovieRatingControls();
-    return;
-  }
-  addMovieRatingTouched = true;
-  pendingAddRating = appRatings.normalizeRating(addMovieRatingSelect.value);
-  syncAddMovieRatingDisplay();
+  addMovieRatingController.onSelectChange();
 }
 
 function clearAddMovieRating() {
-  resetAddMovieRatingControls();
-}
-
-function initAddMovieRatingSelect() {
-  if (!addMovieRatingSelect) {
-    return;
-  }
-  addMovieRatingSelect.innerHTML = appRatings.ratingSelectInnerHtml(null, { includeUnrated: true });
+  addMovieRatingController.clear();
 }
 
 function syncAddMoviePickStep() {
@@ -575,10 +530,9 @@ function confirmAddMovie() {
     if (updateLists(nextLists)) {
       changed = true;
     }
-    if (selectedAddListId === appLists.WATCHED_ID && pendingAddRating != null) {
-      if (
-        updateRatings(appRatings.setRating(userState.ratings, movieId, pendingAddRating))
-      ) {
+    if (selectedAddListId === appLists.WATCHED_ID) {
+      const rating = addMovieRatingController.getValue();
+      if (rating != null && updateRatings(appRatings.setRating(userState.ratings, movieId, rating))) {
         changed = true;
       }
     }

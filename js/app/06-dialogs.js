@@ -433,7 +433,7 @@ function detailUserRatingBlockHtml(movieId) {
       <span class="${editorValueClass}" id="detail-rating-editor-value">${appCardHtml.escapeHtml(valueText)}</span>
     </div>
     <div class="detail-rating-slider-wrap">
-      <span class="detail-rating-scale" aria-hidden="true">1</span>
+      <span class="detail-rating-scale" aria-hidden="true">1.0</span>
       <div class="rating-control">
         <input
           type="range"

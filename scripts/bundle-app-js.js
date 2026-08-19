@@ -64,6 +64,10 @@ const PARTS = [
     title: "User movie ratings (generated from scripts/lib/ratings.js)",
   },
   {
+    file: "00-app-rating-field-ui.js",
+    title: "Shared rating field UI (generated from scripts/lib/rating-field-ui.js)",
+  },
+  {
     file: "00-app-added-at.js",
     title: "Date added stamps (generated from scripts/lib/added-at.js)",
   },

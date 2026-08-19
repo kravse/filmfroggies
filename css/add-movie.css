@@ -400,7 +400,8 @@
 }
 
 .add-movie-watch-date-wrap,
-.watch-confirm-date-wrap {
+.watch-confirm-date-wrap,
+.watch-confirm-rating-wrap {
   margin-top: 1rem;
 }
 

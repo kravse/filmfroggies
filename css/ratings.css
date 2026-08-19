@@ -2,7 +2,7 @@
 
 .user-rating-field {
   margin-top: 0.85rem;
-  padding: 0.85rem 0.9rem;
+  padding: 0.65rem 0.75rem 0.6rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--panel-raised);
@@ -19,10 +19,11 @@
 
 .user-rating-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 0.55rem;
+  min-height: 2.15rem;
+  margin-bottom: 0.35rem;
 }
 
 .user-rating-label {
@@ -37,11 +38,15 @@
 }
 
 .user-rating-value {
-  font-size: 1.05rem;
+  flex: none;
+  min-width: 4.5ch;
+  font-family: var(--display-font);
+  font-size: 2.15rem;
+  font-weight: 700;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
-  color: var(--muted);
-  min-width: 2.5rem;
   text-align: right;
+  color: var(--muted);
 }
 
 .user-rating-value.is-empty {
@@ -85,9 +90,22 @@
   background-color: var(--panel);
 }
 
+.user-rating-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.1rem 0;
+  touch-action: pan-x;
+}
+
+.user-rating-slider-wrap .rating-control {
+  flex: 1;
+  min-width: 0;
+}
+
 .user-rating-slider {
   width: 100%;
-  min-height: 2.5rem;
+  min-height: 2rem;
   margin: 0;
   cursor: pointer;
   touch-action: pan-x;
@@ -97,20 +115,20 @@
 }
 
 .user-rating-slider::-webkit-slider-runnable-track {
-  height: 0.4rem;
+  height: 0.32rem;
   border-radius: 999px;
   background: var(--border-strong);
 }
 
 .user-rating-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 1.4rem;
-  height: 1.4rem;
-  margin-top: -0.5rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: -0.42rem;
   border-radius: 50%;
   background: var(--muted-dim);
   border: 2px solid var(--panel-raised);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
 .user-rating-field.is-active .user-rating-slider::-webkit-slider-thumb {
@@ -119,19 +137,19 @@
 }
 
 .user-rating-slider::-moz-range-track {
-  height: 0.4rem;
+  height: 0.32rem;
   border-radius: 999px;
   background: var(--border-strong);
   border: none;
 }
 
 .user-rating-slider::-moz-range-thumb {
-  width: 1.4rem;
-  height: 1.4rem;
+  width: 1.15rem;
+  height: 1.15rem;
   border-radius: 50%;
   background: var(--muted-dim);
   border: 2px solid var(--panel-raised);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
 .user-rating-field.is-active .user-rating-slider::-moz-range-thumb {
@@ -149,28 +167,34 @@
 }
 
 .user-rating-scale {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 0.25rem;
-  font-size: 0.64rem;
-  color: var(--muted-dim);
+  flex: none;
+  min-width: 2rem;
+  font-family: var(--ui-font);
+  font-size: 0.72rem;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--muted-dim);
 }
 
 .user-rating-clear-btn {
-  display: none;
-  margin-top: 0.55rem;
+  display: block;
+  margin-top: 0.35rem;
+  min-height: 1.15rem;
   padding: 0;
   border: none;
   background: transparent;
   color: var(--muted);
   font-family: var(--ui-font);
   font-size: 0.82rem;
+  line-height: 1.15rem;
   cursor: pointer;
 }
 
-.user-rating-clear-btn:not([hidden]) {
-  display: block;
+.user-rating-clear-btn[hidden] {
+  display: block !important;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .user-rating-clear-btn:hover {

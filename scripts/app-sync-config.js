@@ -206,6 +206,13 @@ const APP_SYNC_ENTRIES = [
     ],
   },
   {
+    sources: [path.join(LIB, "rating-field-ui.js")],
+    target: "00-app-rating-field-ui.js",
+    globalName: "appRatingFieldUi",
+    header: "Generated from scripts/lib/rating-field-ui.js — run npm run bundle",
+    exports: ["userRatingFieldHtml", "createRatingFieldController"],
+  },
+  {
     sources: [path.join(LIB, "added-at.js")],
     target: "00-app-added-at.js",
     globalName: "appAddedAt",
