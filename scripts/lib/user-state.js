@@ -84,7 +84,11 @@ function getCustomLists() {
 }
 
 function defaultPreferences() {
-  return { viewMode: "cards", sort: getSort().DEFAULT_PREFERENCE_SORT };
+  return {
+    viewMode: "cards",
+    sort: getSort().DEFAULT_PREFERENCE_SORT,
+    pinnedCustomListId: null,
+  };
 }
 
 function defaultUserState() {
@@ -146,6 +150,8 @@ function normalizeUserState(raw) {
     raw.customListTombstones,
   );
 
+  const preferences = normalizePreferences(raw.preferences);
+
   return {
     version: USER_STATE_VERSION,
     updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : null,
@@ -154,7 +160,13 @@ function normalizeUserState(raw) {
     activeListId: lists.isListId(activeListId)
       ? activeListId
       : lists.DEFAULT_LIST_ID,
-    preferences: normalizePreferences(raw.preferences),
+    preferences: {
+      ...preferences,
+      pinnedCustomListId: customListsLib.normalizePinnedCustomListId(
+        raw.preferences?.pinnedCustomListId,
+        customLists,
+      ),
+    },
     ratings: getRatings().normalizeRatings(raw.ratings, normalizedLists, customLists),
     addedAt: getAddedAt().normalizeAddedAt(raw.addedAt, normalizedLists),
     viewingHistory: getViewingHistory().normalizeViewingHistory(raw.viewingHistory),

@@ -322,13 +322,39 @@ function persistCustomLists(nextLists, nextTombstones) {
   persistUserState();
 }
 
+function pinnedCustomListId() {
+  return userState.preferences?.pinnedCustomListId ?? null;
+}
+
+function persistPinnedCustomListId(nextPin) {
+  userState = {
+    ...userState,
+    preferences: {
+      ...userState.preferences,
+      pinnedCustomListId: nextPin,
+    },
+  };
+  persistUserState();
+}
+
+function customListPinButtonHtml(listId, isPinned) {
+  const label = isPinned ? "Unpin list" : "Pin list to top";
+  const pressed = isPinned ? "true" : "false";
+  const pinnedClass = isPinned ? " is-pinned" : "";
+  return `<button type="button" class="custom-list-card-pin${pinnedClass}" data-pin-custom-list="${appCardHtml.escapeHtml(listId)}" aria-label="${label}" title="${label}" aria-pressed="${pressed}">
+  <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="currentColor"><path d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/></svg>
+</button>`;
+}
+
 function renderCustomListsIndex(options = {}) {
   if (!customListsRows) {
     return;
   }
+  const pinId = pinnedCustomListId();
   const lists = appCustomLists.sortCustomListsForIndex(
     userState.customLists || [],
     customListIndexSort,
+    pinId,
   );
   const atMax = (userState.customLists || []).length >= appCustomLists.MAX_CUSTOM_LISTS;
   if (customListCreateBtn) {
@@ -361,7 +387,9 @@ function renderCustomListsIndex(options = {}) {
   </div>
 </li>`;
       }
-      return `<li class="custom-list-card" data-custom-list-id="${appCardHtml.escapeHtml(list.id)}">
+      const isPinned = list.id === pinId;
+      const cardClass = isPinned ? "custom-list-card is-pinned" : "custom-list-card";
+      return `<li class="${cardClass}" data-custom-list-id="${appCardHtml.escapeHtml(list.id)}">
   <button type="button" class="custom-list-card-open" data-open-custom-list="${appCardHtml.escapeHtml(list.id)}">
     <div class="custom-list-card-covers">${customListIndexCoversHtml(list)}</div>
     <div class="custom-list-card-body">
@@ -369,6 +397,7 @@ function renderCustomListsIndex(options = {}) {
       <span class="custom-list-card-count">${countLabel}</span>
     </div>
   </button>
+  ${customListPinButtonHtml(list.id, isPinned)}
   <div class="custom-list-card-actions">
     <button type="button" class="custom-list-card-btn" data-rename-custom-list="${appCardHtml.escapeHtml(list.id)}">Rename</button>
     <button type="button" class="custom-list-card-btn custom-list-card-btn--danger" data-delete-custom-list="${appCardHtml.escapeHtml(list.id)}">Delete</button>
@@ -464,6 +493,19 @@ function closeCustomListDeleteConfirm() {
   customListDeleteDialog.hidden = true;
 }
 
+function togglePinCustomList(listId) {
+  if (!appCustomLists.isCustomListId(listId)) {
+    return;
+  }
+  const nextPin = appCustomLists.togglePinnedCustomListId(
+    pinnedCustomListId(),
+    listId,
+    userState.customLists,
+  );
+  persistPinnedCustomListId(nextPin);
+  renderCustomListsIndex();
+}
+
 function confirmDeleteCustomList() {
   const listId = pendingCustomListDeleteId;
   closeCustomListDeleteConfirm();
@@ -475,7 +517,21 @@ function confirmDeleteCustomList() {
     userState.customListTombstones,
     listId,
   );
-  persistCustomLists(customLists, tombstones);
+  const nextPin =
+    pinnedCustomListId() === listId
+      ? null
+      : appCustomLists.normalizePinnedCustomListId(pinnedCustomListId(), customLists);
+  userState = {
+    ...userState,
+    customLists,
+    customListTombstones: tombstones,
+    preferences: {
+      ...userState.preferences,
+      pinnedCustomListId: nextPin,
+    },
+    ratings: appRatings.normalizeRatings(userState.ratings, userState.lists, customLists),
+  };
+  persistUserState();
   if (isCustomListDetailActive() && activeCustomListId === listId) {
     navigateToCustomListsIndex();
     return;
@@ -768,6 +824,13 @@ function confirmWatchedPicker() {
 }
 
 function onCustomListsIndexClick(event) {
+  const pinBtn = event.target.closest("[data-pin-custom-list]");
+  if (pinBtn) {
+    event.preventDefault();
+    event.stopPropagation();
+    togglePinCustomList(pinBtn.dataset.pinCustomList);
+    return;
+  }
   const openBtn = event.target.closest("[data-open-custom-list]");
   if (openBtn) {
     navigateToCustomList(openBtn.dataset.openCustomList);

@@ -126,6 +126,7 @@ body.view-custom-index .toolbar-right > :not(.custom-lists-index-actions) {
 }
 
 .custom-list-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
@@ -136,6 +137,12 @@ body.view-custom-index .toolbar-right > :not(.custom-lists-index-actions) {
   transition:
     background 0.15s ease,
     border-color 0.15s ease;
+}
+
+.custom-list-card.is-pinned {
+  background: var(--accent-dim);
+  border-color: var(--accent-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .custom-list-card:has(.custom-list-card-open:hover),
@@ -236,6 +243,47 @@ body.view-custom-index .toolbar-right > :not(.custom-lists-index-actions) {
   display: flex;
   gap: 0.35rem;
   flex-wrap: wrap;
+  padding-right: 2.15rem;
+}
+
+.custom-list-card-pin {
+  position: absolute;
+  right: 0.65rem;
+  bottom: 0.65rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+  color: var(--muted);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.custom-list-card-pin:hover {
+  color: var(--text);
+  border-color: var(--accent-border);
+}
+
+.custom-list-card-pin.is-pinned,
+.custom-list-card.is-pinned .custom-list-card-pin {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: rgba(14, 16, 20, 0.55);
+}
+
+.custom-list-card-pin:focus-visible {
+  outline: 2px solid var(--accent-border);
+  outline-offset: 2px;
 }
 
 .custom-list-card-btn {

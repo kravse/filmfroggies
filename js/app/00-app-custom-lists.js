@@ -75,14 +75,39 @@ const appCustomLists = (function () {
     return nameKey(a.name).localeCompare(nameKey(b.name));
   }
 
-  function sortCustomListsForIndex(customLists, mode) {
+  function normalizePinnedCustomListId(pinnedId, customLists) {
+    const id = typeof pinnedId === "string" ? pinnedId.trim() : "";
+    if (!id || !isCustomListId(id)) {
+      return null;
+    }
+    return findCustomList(customLists, id) ? id : null;
+  }
+
+  function sortCustomListsForIndex(customLists, mode, pinnedId) {
     if (!Array.isArray(customLists)) {
       return [];
     }
     const normalizedMode = normalizeCustomListIndexSort(mode);
-    return [...customLists].sort((a, b) =>
+    const sorted = [...customLists].sort((a, b) =>
       compareCustomListsForIndex(a, b, normalizedMode),
     );
+    const pin = normalizePinnedCustomListId(pinnedId, customLists);
+    if (!pin) {
+      return sorted;
+    }
+    const pinned = sorted.find((list) => list.id === pin);
+    if (!pinned) {
+      return sorted;
+    }
+    return [pinned, ...sorted.filter((list) => list.id !== pin)];
+  }
+
+  function togglePinnedCustomListId(currentPin, listId, customLists) {
+    if (!isCustomListId(listId) || !findCustomList(customLists, listId)) {
+      return normalizePinnedCustomListId(currentPin, customLists);
+    }
+    const pin = normalizePinnedCustomListId(currentPin, customLists);
+    return pin === listId ? null : listId;
   }
 
   function isCustomListId(id) {
@@ -357,7 +382,9 @@ const appCustomLists = (function () {
     CUSTOM_LIST_INDEX_SORT_MODES,
     DEFAULT_CUSTOM_LIST_INDEX_SORT,
     normalizeCustomListIndexSort,
+    normalizePinnedCustomListId,
     sortCustomListsForIndex,
+    togglePinnedCustomListId,
     defaultCustomLists,
     defaultCustomListTombstones,
     normalizeCustomList,

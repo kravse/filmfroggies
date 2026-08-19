@@ -8,7 +8,9 @@ const {
   normalizeCustomLists,
   normalizeCustomListTombstones,
   normalizeCustomListIndexSort,
+  normalizePinnedCustomListId,
   sortCustomListsForIndex,
+  togglePinnedCustomListId,
   findCustomList,
   customListsForMovie,
   isDuplicateName,
@@ -136,4 +138,31 @@ test("sortCustomListsForIndex orders by recent, alphabetical, and size", () => {
     sortCustomListsForIndex(lists, "size").map((list) => list.id),
     ["custom-a", "custom-b", "custom-c"],
   );
+});
+
+test("sortCustomListsForIndex pins one list to the top regardless of sort", () => {
+  const lists = [
+    {
+      ...seedList("custom-a", "Zulu", [1, 2]),
+      updatedAt: "2026-08-19T10:00:00.000Z",
+    },
+    {
+      ...seedList("custom-b", "Alpha", [5]),
+      updatedAt: "2026-08-19T12:00:00.000Z",
+    },
+    {
+      ...seedList("custom-c", "Beta", []),
+      updatedAt: "2026-08-19T11:00:00.000Z",
+    },
+  ];
+
+  assert.deepEqual(
+    sortCustomListsForIndex(lists, "alphabetical", "custom-a").map((list) => list.id),
+    ["custom-a", "custom-b", "custom-c"],
+  );
+  assert.equal(normalizePinnedCustomListId("custom-a", lists), "custom-a");
+  assert.equal(normalizePinnedCustomListId("custom-a", []), null);
+  assert.equal(togglePinnedCustomListId(null, "custom-b", lists), "custom-b");
+  assert.equal(togglePinnedCustomListId("custom-b", "custom-b", lists), null);
+  assert.equal(togglePinnedCustomListId("custom-a", "custom-b", lists), "custom-b");
 });
