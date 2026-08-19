@@ -2626,168 +2626,177 @@ const appGistSync = (function () {
 
 const appGistBackup = (function () {
   /**
-   * Immutable Gist snapshots of user state. Each snapshot is a separate gist file;
-   * files are never updated, only added or deleted when the ring buffer overflows.
+   * Gist snapshot backups: one private gist, one JSON file, up to five immutable
+   * state entries appended over time. The file is rewritten on each append, but
+   * existing snapshot objects in the array are copied forward unchanged.
    */
 
   const BACKUP_GIST_DESCRIPTION = "Movie collector backups";
-  const SNAPSHOT_PREFIX = "snapshot-";
-  const SNAPSHOT_SUFFIX = ".json";
+  const BACKUP_FILENAME = "moviecollector-backups.json";
+  const BACKUP_PAYLOAD_VERSION = 1;
   const MAX_SNAPSHOTS = 5;
   const SNAPSHOT_INTERVAL_MS = 20 * 60 * 1000;
 
-  function isSnapshotFilename(name) {
-    return (
-      typeof name === "string" &&
-      name.startsWith(SNAPSHOT_PREFIX) &&
-      name.endsWith(SNAPSHOT_SUFFIX)
+  function emptyBackupPayload() {
+    return { version: BACKUP_PAYLOAD_VERSION, snapshots: [] };
+  }
+
+  function normalizeAtStamp(value) {
+    const time = Date.parse(String(value || ""));
+    if (!Number.isFinite(time)) {
+      return null;
+    }
+    return new Date(time).toISOString();
+  }
+
+  function normalizeSnapshotEntry(entry) {
+    if (!entry || typeof entry !== "object") {
+      return null;
+    }
+    const at = normalizeAtStamp(entry.at);
+    const state = entry.state;
+    if (!at || !state || typeof state !== "object") {
+      return null;
+    }
+    return { at, state };
+  }
+
+  function parseBackupPayload(json) {
+    if (json == null || json === "") {
+      return emptyBackupPayload();
+    }
+    try {
+      const parsed = typeof json === "string" ? JSON.parse(json) : json;
+      if (!parsed || typeof parsed !== "object") {
+        return emptyBackupPayload();
+      }
+      const snapshots = Array.isArray(parsed.snapshots)
+        ? parsed.snapshots.map(normalizeSnapshotEntry).filter(Boolean)
+        : [];
+      snapshots.sort((a, b) => a.at.localeCompare(b.at));
+      return {
+        version: BACKUP_PAYLOAD_VERSION,
+        snapshots,
+      };
+    } catch (_) {
+      return emptyBackupPayload();
+    }
+  }
+
+  function serializeBackupPayload(payload) {
+    const snapshots = Array.isArray(payload?.snapshots)
+      ? payload.snapshots.map(normalizeSnapshotEntry).filter(Boolean)
+      : [];
+    snapshots.sort((a, b) => a.at.localeCompare(b.at));
+    return JSON.stringify(
+      {
+        version: BACKUP_PAYLOAD_VERSION,
+        snapshots,
+      },
+      null,
+      2,
     );
   }
 
-  function snapshotFilenameFromDate(date) {
-    const value = date instanceof Date ? date : new Date(date);
-    if (Number.isNaN(value.getTime())) {
-      return null;
-    }
-    const pad = (part) => String(part).padStart(2, "0");
-    const stamp = [
-      value.getUTCFullYear(),
-      pad(value.getUTCMonth() + 1),
-      pad(value.getUTCDate()),
-      "T",
-      pad(value.getUTCHours()),
-      pad(value.getUTCMinutes()),
-      pad(value.getUTCSeconds()),
-      "Z",
-    ].join("");
-    return `${SNAPSHOT_PREFIX}${stamp}${SNAPSHOT_SUFFIX}`;
+  function snapshotListEntries(payload) {
+    return (payload?.snapshots || []).map((entry) => ({ at: entry.at }));
   }
 
-  function parseSnapshotFilename(name) {
-    if (!isSnapshotFilename(name)) {
-      return null;
-    }
-    const stem = name.slice(SNAPSHOT_PREFIX.length, -SNAPSHOT_SUFFIX.length);
-    const match = stem.match(
-      /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/,
-    );
-    if (!match) {
-      return null;
-    }
-    const [, year, month, day, hour, minute, second] = match;
-    const time = Date.UTC(
-      parseInt(year, 10),
-      parseInt(month, 10) - 1,
-      parseInt(day, 10),
-      parseInt(hour, 10),
-      parseInt(minute, 10),
-      parseInt(second, 10),
-    );
-    const date = new Date(time);
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
-
-  function listSnapshotFilenames(files) {
-    if (!files || typeof files !== "object") {
-      return [];
-    }
-    return Object.keys(files).filter(isSnapshotFilename).sort();
-  }
-
-  function snapshotEntriesFromFiles(files) {
-    return listSnapshotFilenames(files)
-      .map((filename) => {
-        const at = parseSnapshotFilename(filename);
-        if (!at) {
-          return null;
-        }
-        return { filename, at: at.toISOString() };
-      })
-      .filter(Boolean)
-      .sort((a, b) => a.at.localeCompare(b.at));
-  }
-
-  function shouldCreateSnapshot(filenames, nowMs, intervalMs = SNAPSHOT_INTERVAL_MS) {
-    if (!filenames.length) {
+  function shouldCreateSnapshot(snapshots, nowMs, intervalMs = SNAPSHOT_INTERVAL_MS) {
+    if (!snapshots?.length) {
       return true;
     }
-    const latestName = filenames[filenames.length - 1];
-    const latestAt = parseSnapshotFilename(latestName);
-    if (!latestAt) {
+    const latestAt = Date.parse(snapshots[snapshots.length - 1]?.at || "");
+    if (!Number.isFinite(latestAt)) {
       return true;
     }
-    return nowMs - latestAt.getTime() >= intervalMs;
+    return nowMs - latestAt >= intervalMs;
   }
 
-  function filenamesToPurgeBeforeAdd(sortedFilenames, maxSnapshots = MAX_SNAPSHOTS) {
-    const nextCount = sortedFilenames.length + 1;
-    if (nextCount <= maxSnapshots) {
-      return [];
+  function appendSnapshot(payload, state, at, maxSnapshots = MAX_SNAPSHOTS) {
+    const atIso = normalizeAtStamp(at);
+    if (!atIso || !state || typeof state !== "object") {
+      return payload || emptyBackupPayload();
     }
-    return sortedFilenames.slice(0, nextCount - maxSnapshots);
+    const previous = (payload?.snapshots || [])
+      .map(normalizeSnapshotEntry)
+      .filter(Boolean);
+    const next = [...previous, { at: atIso, state }];
+    const trimmed =
+      next.length > maxSnapshots ? next.slice(next.length - maxSnapshots) : next;
+    return {
+      version: BACKUP_PAYLOAD_VERSION,
+      snapshots: trimmed,
+    };
+  }
+
+  function findSnapshotByAt(payload, at) {
+    const needle = normalizeAtStamp(at);
+    if (!needle) {
+      return null;
+    }
+    return (payload?.snapshots || []).find((entry) => entry.at === needle) || null;
   }
 
   function findBackupGistId(gists, syncGistId) {
     if (!Array.isArray(gists)) {
       return null;
     }
+    let byDescription = null;
     for (const gist of gists) {
       if (!gist?.id || gist.id === syncGistId) {
         continue;
       }
-      if (gist.description === BACKUP_GIST_DESCRIPTION) {
+      const files = gist.files || {};
+      if (files[BACKUP_FILENAME]) {
         return gist.id;
       }
-      const files = gist.files || {};
-      if (Object.keys(files).some(isSnapshotFilename)) {
-        return gist.id;
+      if (gist.description === BACKUP_GIST_DESCRIPTION && !byDescription) {
+        byDescription = gist.id;
       }
     }
-    return null;
+    return byDescription;
   }
 
-  function buildBackupGistCreatePayload(filename, stateJson) {
+  function buildBackupGistCreatePayload(contentJson) {
     return {
       description: BACKUP_GIST_DESCRIPTION,
       public: false,
-      files: { [filename]: { content: stateJson } },
+      files: { [BACKUP_FILENAME]: { content: contentJson } },
     };
   }
 
-  function buildBackupGistUpdatePayload({ add, deleteFilenames = [] }) {
-    const files = {
-      [add.filename]: { content: add.content },
+  function buildBackupGistUpdatePayload(contentJson) {
+    return {
+      files: { [BACKUP_FILENAME]: { content: contentJson } },
     };
-    for (const name of deleteFilenames) {
-      files[name] = null;
-    }
-    return { files };
   }
 
-  function extractSnapshotContent(body, filename) {
+  function extractBackupContent(body) {
     if (!body?.files || typeof body.files !== "object") {
       return null;
     }
-    const content = body.files[filename]?.content;
+    const content = body.files[BACKUP_FILENAME]?.content;
     return typeof content === "string" ? content : null;
   }
 
   return {
     BACKUP_GIST_DESCRIPTION,
-    SNAPSHOT_PREFIX,
+    BACKUP_FILENAME,
+    BACKUP_PAYLOAD_VERSION,
     MAX_SNAPSHOTS,
     SNAPSHOT_INTERVAL_MS,
-    isSnapshotFilename,
-    snapshotFilenameFromDate,
-    parseSnapshotFilename,
-    listSnapshotFilenames,
-    snapshotEntriesFromFiles,
+    emptyBackupPayload,
+    parseBackupPayload,
+    serializeBackupPayload,
+    snapshotListEntries,
     shouldCreateSnapshot,
-    filenamesToPurgeBeforeAdd,
+    appendSnapshot,
+    findSnapshotByAt,
     findBackupGistId,
     buildBackupGistCreatePayload,
     buildBackupGistUpdatePayload,
-    extractSnapshotContent,
+    extractBackupContent,
   };
 })();
 
@@ -4132,11 +4141,7 @@ async function connectGist(token) {
     };
     gridViewMode = userState.preferences.viewMode;
     writeUserStateToStorage();
-    // Adopting merged local movies into an existing Gist leaves the remote copy
-    // behind, so hand the union back to GitHub.
-    if (resolved.action === "adopt") {
-      queueGistSync();
-    }
+    queueGistSync();
     return { ok: true, action: resolved.action };
   } catch (error) {
     return { ok: false, error: `Could not reach GitHub. ${error.message}` };
@@ -4150,6 +4155,8 @@ function disconnectGist() {
 }
 
 /* --- Gist snapshot backups (write-only, separate gist) --- */
+
+let backupSnapshotChain = Promise.resolve();
 
 async function resolveBackupGistId() {
   if (!gistConfig?.token) {
@@ -4170,60 +4177,81 @@ async function fetchBackupGistBody(backupGistId) {
   return gistRequest(`/gists/${backupGistId}`, { token: gistConfig.token });
 }
 
-/**
- * Adds an immutable snapshot when the latest one is at least 20 minutes old.
- * Snapshots live in a second gist and are never edited — only appended or purged.
- */
-async function maybeCreateGistSnapshot() {
-  if (!gistSyncEnabled()) {
-    return { ok: false, reason: "disabled" };
-  }
+async function readBackupPayload(backupGistId) {
+  const body = await fetchBackupGistBody(backupGistId);
+  const content = appGistBackup.extractBackupContent(body);
+  return content
+    ? appGistBackup.parseBackupPayload(content)
+    : appGistBackup.emptyBackupPayload();
+}
 
-  const snapshotJson = appUserState.serializeUserState(userState);
+async function writeBackupPayload(backupGistId, payload) {
+  const contentJson = appGistBackup.serializeBackupPayload(payload);
+  await gistRequest(`/gists/${backupGistId}`, {
+    method: "PATCH",
+    token: gistConfig.token,
+    body: appGistBackup.buildBackupGistUpdatePayload(contentJson),
+  });
+}
+
+async function createBackupGist(payload) {
+  const contentJson = appGistBackup.serializeBackupPayload(payload);
+  const created = await gistRequest("/gists", {
+    method: "POST",
+    token: gistConfig.token,
+    body: appGistBackup.buildBackupGistCreatePayload(contentJson),
+  });
+  const backupGistId = created?.id || "";
+  if (!backupGistId) {
+    throw new Error("GitHub did not return a backup Gist id.");
+  }
+  saveGistConfig({ ...gistConfig, backupGistId });
+  return backupGistId;
+}
+
+async function createGistSnapshotNow() {
   const now = Date.now();
-  const filename = appGistBackup.snapshotFilenameFromDate(new Date(now));
-  if (!filename) {
-    return { ok: false, reason: "filename" };
+  const atIso = new Date(now).toISOString();
+  const stateObject = appUserState.parseUserState(
+    appUserState.serializeUserState(userState),
+  );
+  if (!stateObject) {
+    return { ok: false, reason: "state" };
   }
 
   let backupGistId = await resolveBackupGistId();
-  let filenames = [];
+  let payload = appGistBackup.emptyBackupPayload();
 
   if (backupGistId) {
-    const body = await fetchBackupGistBody(backupGistId);
-    filenames = appGistBackup.listSnapshotFilenames(body.files);
-    if (!appGistBackup.shouldCreateSnapshot(filenames, now)) {
+    payload = await readBackupPayload(backupGistId);
+    if (!appGistBackup.shouldCreateSnapshot(payload.snapshots, now)) {
       return { ok: true, skipped: true };
     }
   } else if (!appGistBackup.shouldCreateSnapshot([], now)) {
     return { ok: true, skipped: true };
   }
 
-  const deleteFilenames = appGistBackup.filenamesToPurgeBeforeAdd(filenames);
+  const nextPayload = appGistBackup.appendSnapshot(payload, stateObject, atIso);
 
   if (!backupGistId) {
-    const created = await gistRequest("/gists", {
-      method: "POST",
-      token: gistConfig.token,
-      body: appGistBackup.buildBackupGistCreatePayload(filename, snapshotJson),
-    });
-    backupGistId = created?.id || "";
-    if (!backupGistId) {
-      throw new Error("GitHub did not return a backup Gist id.");
-    }
-    saveGistConfig({ ...gistConfig, backupGistId });
+    await createBackupGist(nextPayload);
     return { ok: true, created: true };
   }
 
-  await gistRequest(`/gists/${backupGistId}`, {
-    method: "PATCH",
-    token: gistConfig.token,
-    body: appGistBackup.buildBackupGistUpdatePayload({
-      add: { filename, content: snapshotJson },
-      deleteFilenames,
-    }),
-  });
+  await writeBackupPayload(backupGistId, nextPayload);
   return { ok: true, created: true };
+}
+
+/**
+ * Adds an immutable snapshot when the latest one is at least 20 minutes old.
+ * All snapshots live in one backup gist file and are only appended or purged.
+ */
+async function maybeCreateGistSnapshot() {
+  if (!gistSyncEnabled()) {
+    return { ok: false, reason: "disabled" };
+  }
+  backupSnapshotChain = backupSnapshotChain.then(() => createGistSnapshotNow());
+  return backupSnapshotChain;
 }
 
 async function listGistSnapshots() {
@@ -4234,16 +4262,16 @@ async function listGistSnapshots() {
   if (!backupGistId) {
     return [];
   }
-  const body = await fetchBackupGistBody(backupGistId);
-  return appGistBackup.snapshotEntriesFromFiles(body.files);
+  const payload = await readBackupPayload(backupGistId);
+  return appGistBackup.snapshotListEntries(payload);
 }
 
-async function restoreGistSnapshot(filename) {
+async function restoreGistSnapshot(at) {
   if (!gistSyncEnabled()) {
     return { ok: false, error: "Gist sync is not connected." };
   }
-  if (!appGistBackup.isSnapshotFilename(filename)) {
-    return { ok: false, error: "That backup file is not valid." };
+  if (!Date.parse(String(at || ""))) {
+    return { ok: false, error: "That snapshot is not valid." };
   }
 
   const backupGistId = await resolveBackupGistId();
@@ -4251,16 +4279,19 @@ async function restoreGistSnapshot(filename) {
     return { ok: false, error: "No backup Gist found." };
   }
 
-  const body = await fetchBackupGistBody(backupGistId);
-  const json = appGistBackup.extractSnapshotContent(body, filename);
-  const parsed = json ? appUserState.parseUserState(json) : null;
+  const payload = await readBackupPayload(backupGistId);
+  const entry = appGistBackup.findSnapshotByAt(payload, at);
+  if (!entry) {
+    return { ok: false, error: "Could not find that snapshot." };
+  }
+  const parsed = appUserState.parseUserState(entry.state);
   if (!parsed) {
     return { ok: false, error: "Could not read that snapshot." };
   }
 
   backupUserState(userState);
   userState = {
-    ...appUserState.normalizeUserState(parsed),
+    ...parsed,
     storageMode: "gist",
   };
   gridViewMode = userState.preferences.viewMode;
@@ -6563,7 +6594,7 @@ async function refreshGistBackupList() {
       .map((entry) => {
         const label = formatSnapshotLabel(entry.at);
         const safeLabel = appCardHtml.escapeHtml(label);
-        return `<li class="gist-backup-item"><button type="button" class="gist-backup-restore-btn" data-backup-filename="${entry.filename}" data-backup-label="${safeLabel}">Restore ${safeLabel}</button></li>`;
+        return `<li class="gist-backup-item"><button type="button" class="gist-backup-restore-btn" data-backup-at="${entry.at}" data-backup-label="${safeLabel}">Restore ${safeLabel}</button></li>`;
       })
       .join("");
     setStatus(
@@ -6578,8 +6609,8 @@ async function refreshGistBackupList() {
   }
 }
 
-function openBackupRestoreConfirm(filename, label) {
-  pendingBackupRestoreFilename = filename;
+function openBackupRestoreConfirm(at, label) {
+  pendingBackupRestoreFilename = at;
   backupRestoreMessage.textContent = `Restore your lists from the snapshot taken ${label}? Your current lists will be replaced and synced to GitHub.`;
   backupRestoreDialog.hidden = false;
 }
@@ -6590,15 +6621,15 @@ function closeBackupRestoreConfirm() {
 }
 
 async function onConfirmBackupRestore() {
-  const filename = pendingBackupRestoreFilename;
+  const at = pendingBackupRestoreFilename;
   closeBackupRestoreConfirm();
-  if (!filename) {
+  if (!at) {
     return;
   }
   setStatus(gistBackupStatus, "Restoring snapshot…", null);
   backupRestoreOk.disabled = true;
   try {
-    const result = await restoreGistSnapshot(filename);
+    const result = await restoreGistSnapshot(at);
     if (!result.ok) {
       setStatus(gistBackupStatus, result.error, "error");
       return;
@@ -6613,12 +6644,12 @@ async function onConfirmBackupRestore() {
 }
 
 function onGistBackupListClick(event) {
-  const button = event.target.closest("[data-backup-filename]");
+  const button = event.target.closest("[data-backup-at]");
   if (!button) {
     return;
   }
   openBackupRestoreConfirm(
-    button.dataset.backupFilename,
+    button.dataset.backupAt,
     button.dataset.backupLabel || "at that time",
   );
 }

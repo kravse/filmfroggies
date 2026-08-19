@@ -459,6 +459,8 @@ function disconnectGist() {
 
 /* --- Gist snapshot backups (write-only, separate gist) --- */
 
+let backupSnapshotChain = Promise.resolve();
+
 async function resolveBackupGistId() {
   if (!gistConfig?.token) {
     return null;
@@ -478,60 +480,81 @@ async function fetchBackupGistBody(backupGistId) {
   return gistRequest(`/gists/${backupGistId}`, { token: gistConfig.token });
 }
 
-/**
- * Adds an immutable snapshot when the latest one is at least 20 minutes old.
- * Snapshots live in a second gist and are never edited — only appended or purged.
- */
-async function maybeCreateGistSnapshot() {
-  if (!gistSyncEnabled()) {
-    return { ok: false, reason: "disabled" };
-  }
+async function readBackupPayload(backupGistId) {
+  const body = await fetchBackupGistBody(backupGistId);
+  const content = appGistBackup.extractBackupContent(body);
+  return content
+    ? appGistBackup.parseBackupPayload(content)
+    : appGistBackup.emptyBackupPayload();
+}
 
-  const snapshotJson = appUserState.serializeUserState(userState);
+async function writeBackupPayload(backupGistId, payload) {
+  const contentJson = appGistBackup.serializeBackupPayload(payload);
+  await gistRequest(`/gists/${backupGistId}`, {
+    method: "PATCH",
+    token: gistConfig.token,
+    body: appGistBackup.buildBackupGistUpdatePayload(contentJson),
+  });
+}
+
+async function createBackupGist(payload) {
+  const contentJson = appGistBackup.serializeBackupPayload(payload);
+  const created = await gistRequest("/gists", {
+    method: "POST",
+    token: gistConfig.token,
+    body: appGistBackup.buildBackupGistCreatePayload(contentJson),
+  });
+  const backupGistId = created?.id || "";
+  if (!backupGistId) {
+    throw new Error("GitHub did not return a backup Gist id.");
+  }
+  saveGistConfig({ ...gistConfig, backupGistId });
+  return backupGistId;
+}
+
+async function createGistSnapshotNow() {
   const now = Date.now();
-  const filename = appGistBackup.snapshotFilenameFromDate(new Date(now));
-  if (!filename) {
-    return { ok: false, reason: "filename" };
+  const atIso = new Date(now).toISOString();
+  const stateObject = appUserState.parseUserState(
+    appUserState.serializeUserState(userState),
+  );
+  if (!stateObject) {
+    return { ok: false, reason: "state" };
   }
 
   let backupGistId = await resolveBackupGistId();
-  let filenames = [];
+  let payload = appGistBackup.emptyBackupPayload();
 
   if (backupGistId) {
-    const body = await fetchBackupGistBody(backupGistId);
-    filenames = appGistBackup.listSnapshotFilenames(body.files);
-    if (!appGistBackup.shouldCreateSnapshot(filenames, now)) {
+    payload = await readBackupPayload(backupGistId);
+    if (!appGistBackup.shouldCreateSnapshot(payload.snapshots, now)) {
       return { ok: true, skipped: true };
     }
   } else if (!appGistBackup.shouldCreateSnapshot([], now)) {
     return { ok: true, skipped: true };
   }
 
-  const deleteFilenames = appGistBackup.filenamesToPurgeBeforeAdd(filenames);
+  const nextPayload = appGistBackup.appendSnapshot(payload, stateObject, atIso);
 
   if (!backupGistId) {
-    const created = await gistRequest("/gists", {
-      method: "POST",
-      token: gistConfig.token,
-      body: appGistBackup.buildBackupGistCreatePayload(filename, snapshotJson),
-    });
-    backupGistId = created?.id || "";
-    if (!backupGistId) {
-      throw new Error("GitHub did not return a backup Gist id.");
-    }
-    saveGistConfig({ ...gistConfig, backupGistId });
+    await createBackupGist(nextPayload);
     return { ok: true, created: true };
   }
 
-  await gistRequest(`/gists/${backupGistId}`, {
-    method: "PATCH",
-    token: gistConfig.token,
-    body: appGistBackup.buildBackupGistUpdatePayload({
-      add: { filename, content: snapshotJson },
-      deleteFilenames,
-    }),
-  });
+  await writeBackupPayload(backupGistId, nextPayload);
   return { ok: true, created: true };
+}
+
+/**
+ * Adds an immutable snapshot when the latest one is at least 20 minutes old.
+ * All snapshots live in one backup gist file and are only appended or purged.
+ */
+async function maybeCreateGistSnapshot() {
+  if (!gistSyncEnabled()) {
+    return { ok: false, reason: "disabled" };
+  }
+  backupSnapshotChain = backupSnapshotChain.then(() => createGistSnapshotNow());
+  return backupSnapshotChain;
 }
 
 async function listGistSnapshots() {
@@ -542,16 +565,16 @@ async function listGistSnapshots() {
   if (!backupGistId) {
     return [];
   }
-  const body = await fetchBackupGistBody(backupGistId);
-  return appGistBackup.snapshotEntriesFromFiles(body.files);
+  const payload = await readBackupPayload(backupGistId);
+  return appGistBackup.snapshotListEntries(payload);
 }
 
-async function restoreGistSnapshot(filename) {
+async function restoreGistSnapshot(at) {
   if (!gistSyncEnabled()) {
     return { ok: false, error: "Gist sync is not connected." };
   }
-  if (!appGistBackup.isSnapshotFilename(filename)) {
-    return { ok: false, error: "That backup file is not valid." };
+  if (!Date.parse(String(at || ""))) {
+    return { ok: false, error: "That snapshot is not valid." };
   }
 
   const backupGistId = await resolveBackupGistId();
@@ -559,16 +582,19 @@ async function restoreGistSnapshot(filename) {
     return { ok: false, error: "No backup Gist found." };
   }
 
-  const body = await fetchBackupGistBody(backupGistId);
-  const json = appGistBackup.extractSnapshotContent(body, filename);
-  const parsed = json ? appUserState.parseUserState(json) : null;
+  const payload = await readBackupPayload(backupGistId);
+  const entry = appGistBackup.findSnapshotByAt(payload, at);
+  if (!entry) {
+    return { ok: false, error: "Could not find that snapshot." };
+  }
+  const parsed = appUserState.parseUserState(entry.state);
   if (!parsed) {
     return { ok: false, error: "Could not read that snapshot." };
   }
 
   backupUserState(userState);
   userState = {
-    ...appUserState.normalizeUserState(parsed),
+    ...parsed,
     storageMode: "gist",
   };
   gridViewMode = userState.preferences.viewMode;

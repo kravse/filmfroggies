@@ -447,7 +447,7 @@ async function refreshGistBackupList() {
       .map((entry) => {
         const label = formatSnapshotLabel(entry.at);
         const safeLabel = appCardHtml.escapeHtml(label);
-        return `<li class="gist-backup-item"><button type="button" class="gist-backup-restore-btn" data-backup-filename="${entry.filename}" data-backup-label="${safeLabel}">Restore ${safeLabel}</button></li>`;
+        return `<li class="gist-backup-item"><button type="button" class="gist-backup-restore-btn" data-backup-at="${entry.at}" data-backup-label="${safeLabel}">Restore ${safeLabel}</button></li>`;
       })
       .join("");
     setStatus(
@@ -462,8 +462,8 @@ async function refreshGistBackupList() {
   }
 }
 
-function openBackupRestoreConfirm(filename, label) {
-  pendingBackupRestoreFilename = filename;
+function openBackupRestoreConfirm(at, label) {
+  pendingBackupRestoreFilename = at;
   backupRestoreMessage.textContent = `Restore your lists from the snapshot taken ${label}? Your current lists will be replaced and synced to GitHub.`;
   backupRestoreDialog.hidden = false;
 }
@@ -474,15 +474,15 @@ function closeBackupRestoreConfirm() {
 }
 
 async function onConfirmBackupRestore() {
-  const filename = pendingBackupRestoreFilename;
+  const at = pendingBackupRestoreFilename;
   closeBackupRestoreConfirm();
-  if (!filename) {
+  if (!at) {
     return;
   }
   setStatus(gistBackupStatus, "Restoring snapshot…", null);
   backupRestoreOk.disabled = true;
   try {
-    const result = await restoreGistSnapshot(filename);
+    const result = await restoreGistSnapshot(at);
     if (!result.ok) {
       setStatus(gistBackupStatus, result.error, "error");
       return;
@@ -497,12 +497,12 @@ async function onConfirmBackupRestore() {
 }
 
 function onGistBackupListClick(event) {
-  const button = event.target.closest("[data-backup-filename]");
+  const button = event.target.closest("[data-backup-at]");
   if (!button) {
     return;
   }
   openBackupRestoreConfirm(
-    button.dataset.backupFilename,
+    button.dataset.backupAt,
     button.dataset.backupLabel || "at that time",
   );
 }

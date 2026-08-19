@@ -619,10 +619,11 @@
               <div id="gist-backup-section" class="gist-backup-section" hidden>
                 <h4 class="gist-backup-heading">Automatic backups</h4>
                 <p class="sheet-note">
-                  A separate private Gist stores up to five immutable snapshots of your
-                  lists. A new snapshot is written on load when the latest is more than
-                  20 minutes old. Restoring replaces your current lists with the chosen
-                  snapshot and syncs that state back to GitHub.
+                  A separate private Gist stores up to five snapshots in one file,
+                  <code>moviecollector-backups.json</code>. A new snapshot is appended on
+                  load when the latest is more than 20 minutes old. Restoring replaces
+                  your current lists with the chosen snapshot and syncs that state back
+                  to GitHub.
                 </p>
                 <ul
                   id="gist-backup-list"

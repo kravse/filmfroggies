@@ -2,125 +2,123 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
-  SNAPSHOT_PREFIX,
+  BACKUP_FILENAME,
   MAX_SNAPSHOTS,
   SNAPSHOT_INTERVAL_MS,
-  isSnapshotFilename,
-  snapshotFilenameFromDate,
-  parseSnapshotFilename,
-  listSnapshotFilenames,
-  snapshotEntriesFromFiles,
+  emptyBackupPayload,
+  parseBackupPayload,
+  serializeBackupPayload,
+  snapshotListEntries,
   shouldCreateSnapshot,
-  filenamesToPurgeBeforeAdd,
+  appendSnapshot,
+  findSnapshotByAt,
   findBackupGistId,
   buildBackupGistCreatePayload,
   buildBackupGistUpdatePayload,
-  extractSnapshotContent,
+  extractBackupContent,
   BACKUP_GIST_DESCRIPTION,
 } = require("../scripts/lib/gist-backup");
 
-test("isSnapshotFilename accepts only snapshot json files", () => {
-  assert.equal(isSnapshotFilename("snapshot-20260819T121530Z.json"), true);
-  assert.equal(isSnapshotFilename("moviecollector-state.json"), false);
-  assert.equal(isSnapshotFilename("snapshot-readme.md"), false);
-});
+const stateA = { version: 2, lists: [{ id: "watched", movieIds: [1] }] };
+const stateB = { version: 2, lists: [{ id: "watched", movieIds: [1, 2] }] };
 
-test("snapshotFilenameFromDate and parseSnapshotFilename round-trip", () => {
-  const date = new Date("2026-08-19T12:15:30.000Z");
-  const filename = snapshotFilenameFromDate(date);
-  assert.equal(filename, `${SNAPSHOT_PREFIX}20260819T121530Z.json`);
-  assert.equal(parseSnapshotFilename(filename)?.toISOString(), date.toISOString());
-});
-
-test("listSnapshotFilenames sorts chronologically", () => {
-  const files = {
-    "snapshot-20260819T130000Z.json": {},
-    "notes.md": {},
-    "snapshot-20260819T120000Z.json": {},
+test("parseBackupPayload and serializeBackupPayload round-trip", () => {
+  const payload = {
+    version: 1,
+    snapshots: [{ at: "2026-08-19T12:00:00.000Z", state: stateA }],
   };
-  assert.deepEqual(listSnapshotFilenames(files), [
-    "snapshot-20260819T120000Z.json",
-    "snapshot-20260819T130000Z.json",
-  ]);
+  const parsed = parseBackupPayload(serializeBackupPayload(payload));
+  assert.equal(parsed.snapshots.length, 1);
+  assert.equal(parsed.snapshots[0].at, "2026-08-19T12:00:00.000Z");
+  assert.deepEqual(parsed.snapshots[0].state, stateA);
 });
 
 test("shouldCreateSnapshot requires an empty list or a 20-minute gap", () => {
   const now = Date.parse("2026-08-19T12:30:00.000Z");
   assert.equal(shouldCreateSnapshot([], now), true);
-  const recent = [snapshotFilenameFromDate(new Date(now - 5 * 60 * 1000))];
-  assert.equal(shouldCreateSnapshot(recent, now), false);
-  const old = [snapshotFilenameFromDate(new Date(now - SNAPSHOT_INTERVAL_MS))];
-  assert.equal(shouldCreateSnapshot(old, now), true);
-});
-
-test("filenamesToPurgeBeforeAdd drops the oldest files only", () => {
-  const names = [
-    "snapshot-20260819T100000Z.json",
-    "snapshot-20260819T110000Z.json",
-    "snapshot-20260819T120000Z.json",
-    "snapshot-20260819T130000Z.json",
-    "snapshot-20260819T140000Z.json",
-  ];
-  assert.deepEqual(filenamesToPurgeBeforeAdd(names, MAX_SNAPSHOTS), [
-    "snapshot-20260819T100000Z.json",
-  ]);
-  assert.deepEqual(
-    filenamesToPurgeBeforeAdd(names.slice(0, 3), MAX_SNAPSHOTS),
-    [],
+  assert.equal(
+    shouldCreateSnapshot([{ at: "2026-08-19T12:26:00.000Z", state: stateA }], now),
+    false,
+  );
+  assert.equal(
+    shouldCreateSnapshot(
+      [{ at: "2026-08-19T12:00:00.000Z", state: stateA }],
+      now,
+      SNAPSHOT_INTERVAL_MS,
+    ),
+    true,
   );
 });
 
-test("findBackupGistId skips the sync gist and matches backup description", () => {
+test("appendSnapshot keeps prior entries unchanged and drops the oldest", () => {
+  const payload = emptyBackupPayload();
+  let next = appendSnapshot(payload, stateA, "2026-08-19T12:00:00.000Z");
+  next = appendSnapshot(next, stateB, "2026-08-19T12:30:00.000Z");
+  assert.equal(next.snapshots.length, 2);
+  assert.deepEqual(next.snapshots[0].state, stateA);
+
+  for (let i = 0; i < 4; i += 1) {
+    next = appendSnapshot(next, stateB, `2026-08-19T1${i + 3}:00:00.000Z`);
+  }
+  assert.equal(next.snapshots.length, MAX_SNAPSHOTS);
+  assert.equal(next.snapshots[0].at, "2026-08-19T12:30:00.000Z");
+});
+
+test("findBackupGistId prefers the predictable backup filename", () => {
   const gists = [
-    { id: "sync", description: "Movie collector sync", files: { "moviecollector-state.json": {} } },
+    {
+      id: "sync",
+      description: "Movie collector sync",
+      files: { "moviecollector-state.json": {} },
+    },
+    {
+      id: "backup",
+      description: BACKUP_GIST_DESCRIPTION,
+      files: { [BACKUP_FILENAME]: {} },
+    },
+  ];
+  assert.equal(findBackupGistId(gists, "sync"), "backup");
+});
+
+test("findBackupGistId falls back to the backup description", () => {
+  const gists = [
+    { id: "sync", files: { "moviecollector-state.json": {} } },
     { id: "backup", description: BACKUP_GIST_DESCRIPTION, files: {} },
   ];
   assert.equal(findBackupGistId(gists, "sync"), "backup");
 });
 
-test("findBackupGistId can discover a gist by snapshot files", () => {
-  const gists = [
-    { id: "sync", files: { "moviecollector-state.json": {} } },
-    { id: "backup", files: { "snapshot-20260819T120000Z.json": {} } },
-  ];
-  assert.equal(findBackupGistId(gists, "sync"), "backup");
-});
-
-test("backup gist payloads stay private and delete files with null content", () => {
-  const create = buildBackupGistCreatePayload(
-    "snapshot-20260819T120000Z.json",
-    '{"version":2}',
-  );
+test("backup gist payloads use one private file", () => {
+  const content = serializeBackupPayload(emptyBackupPayload());
+  const create = buildBackupGistCreatePayload(content);
   assert.equal(create.public, false);
   assert.equal(create.description, BACKUP_GIST_DESCRIPTION);
+  assert.deepEqual(Object.keys(create.files), [BACKUP_FILENAME]);
 
-  const update = buildBackupGistUpdatePayload({
-    add: { filename: "snapshot-20260819T130000Z.json", content: "{}" },
-    deleteFilenames: ["snapshot-20260819T120000Z.json"],
-  });
-  assert.deepEqual(update.files["snapshot-20260819T130000Z.json"], { content: "{}" });
-  assert.equal(update.files["snapshot-20260819T120000Z.json"], null);
+  const update = buildBackupGistUpdatePayload(content);
+  assert.deepEqual(Object.keys(update.files), [BACKUP_FILENAME]);
 });
 
-test("snapshotEntriesFromFiles returns sorted metadata", () => {
-  const entries = snapshotEntriesFromFiles({
-    "snapshot-20260819T130000Z.json": {},
-    "snapshot-20260819T120000Z.json": {},
-  });
-  assert.equal(entries.length, 2);
-  assert.equal(entries[0].filename, "snapshot-20260819T120000Z.json");
-  assert.equal(entries[1].at, "2026-08-19T13:00:00.000Z");
+test("snapshotListEntries and findSnapshotByAt expose restore metadata", () => {
+  const payload = appendSnapshot(emptyBackupPayload(), stateA, "2026-08-19T12:00:00.000Z");
+  assert.deepEqual(snapshotListEntries(payload), [
+    { at: "2026-08-19T12:00:00.000Z" },
+  ]);
+  assert.deepEqual(
+    findSnapshotByAt(payload, "2026-08-19T12:00:00.000Z")?.state,
+    stateA,
+  );
 });
 
-test("extractSnapshotContent reads one snapshot file", () => {
+test("extractBackupContent reads the backup file from a gist body", () => {
   const body = {
     files: {
-      "snapshot-20260819T120000Z.json": { content: '{"version":2}' },
+      [BACKUP_FILENAME]: { content: '{"version":1,"snapshots":[]}' },
     },
   };
   assert.equal(
-    extractSnapshotContent(body, "snapshot-20260819T120000Z.json"),
-    '{"version":2}',
+    extractBackupContent(body),
+    '{"version":1,"snapshots":[]}',
   );
-  assert.equal(extractSnapshotContent(body, "missing.json"), null);
+  assert.equal(extractBackupContent({ files: {} }), null);
 });
