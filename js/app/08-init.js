@@ -40,6 +40,8 @@ discoverEntryBtn?.addEventListener("click", openDiscover);
 discoverTabs?.addEventListener("click", onDiscoverTabClick);
 discoverPrevBtn?.addEventListener("click", onDiscoverPrevClick);
 discoverNextBtn?.addEventListener("click", onDiscoverNextClick);
+discoverPrevBottomBtn?.addEventListener("click", onDiscoverPrevClick);
+discoverNextBottomBtn?.addEventListener("click", onDiscoverNextClick);
 
 addMovieFab.addEventListener("click", openAddMovieDialog);
 emptyState.addEventListener("click", (event) => {

@@ -37,6 +37,46 @@ body.view-discover #discover-pagination {
   cursor: not-allowed;
 }
 
+.discover-pagination-bottom {
+  display: none;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0;
+}
+
+.discover-pagination-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem var(--layout-gutter);
+  border-top: 1px solid var(--border);
+  background: var(--panel-raised);
+}
+
+.discover-pagination-bottom .discover-page-btn--nav {
+  flex: 0 0 auto;
+  min-width: 5.25rem;
+  min-height: 2.65rem;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  touch-action: manipulation;
+}
+
+.discover-pagination-bottom .discover-page-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+}
+
 .header-nav-btn--icon {
   width: 1.75rem;
   padding: 0;

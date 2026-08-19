@@ -37,19 +37,36 @@ function syncDiscoverTabUi() {
 }
 
 function syncDiscoverPaginationUi() {
-  if (!discoverPagination) {
-    return;
+  const pageLabel =
+    discoverTotalPages > 1 ? `Page ${discoverPage} of ${discoverTotalPages}` : `Page ${discoverPage}`;
+  const show = isDiscoverActive();
+  const prevDisabled = discoverLoading || discoverPage <= 1;
+  const nextDisabled = discoverLoading || discoverPage >= discoverTotalPages;
+
+  if (discoverPagination) {
+    discoverPagination.hidden = !show;
   }
-  discoverPagination.hidden = !isDiscoverActive();
   if (discoverPrevBtn) {
-    discoverPrevBtn.disabled = discoverLoading || discoverPage <= 1;
+    discoverPrevBtn.disabled = prevDisabled;
   }
   if (discoverNextBtn) {
-    discoverNextBtn.disabled = discoverLoading || discoverPage >= discoverTotalPages;
+    discoverNextBtn.disabled = nextDisabled;
   }
   if (discoverPageLabel) {
-    discoverPageLabel.textContent =
-      discoverTotalPages > 1 ? `Page ${discoverPage} of ${discoverTotalPages}` : `Page ${discoverPage}`;
+    discoverPageLabel.textContent = pageLabel;
+  }
+
+  if (discoverPaginationBottom) {
+    discoverPaginationBottom.hidden = !show;
+  }
+  if (discoverPrevBottomBtn) {
+    discoverPrevBottomBtn.disabled = prevDisabled;
+  }
+  if (discoverNextBottomBtn) {
+    discoverNextBottomBtn.disabled = nextDisabled;
+  }
+  if (discoverPageLabelBottom) {
+    discoverPageLabelBottom.textContent = pageLabel;
   }
 }
 

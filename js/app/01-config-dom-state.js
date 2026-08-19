@@ -54,6 +54,10 @@ const discoverPagination = document.getElementById("discover-pagination");
 const discoverPrevBtn = document.getElementById("discover-prev");
 const discoverNextBtn = document.getElementById("discover-next");
 const discoverPageLabel = document.getElementById("discover-page-label");
+const discoverPaginationBottom = document.getElementById("discover-pagination-bottom");
+const discoverPrevBottomBtn = document.getElementById("discover-prev-bottom");
+const discoverNextBottomBtn = document.getElementById("discover-next-bottom");
+const discoverPageLabelBottom = document.getElementById("discover-page-label-bottom");
 
 const addMovieFab = document.getElementById("add-movie-fab");
 const addMovieDialog = document.getElementById("add-movie-dialog");
