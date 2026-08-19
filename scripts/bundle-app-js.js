@@ -24,8 +24,16 @@ const PARTS = [
     title: "Card HTML helpers (generated from scripts/lib/card-html.js)",
   },
   {
+    file: "00-app-poster-grey.js",
+    title: "Grid poster greys (generated from scripts/lib/poster-grey.js)",
+  },
+  {
     file: "00-app-tmdb.js",
     title: "TMDB request and response helpers (generated from scripts/lib/tmdb.js)",
+  },
+  {
+    file: "00-app-discover.js",
+    title: "Discover browse helpers (generated from scripts/lib/discover.js)",
   },
   {
     file: "00-app-poster-cache.js",
@@ -130,6 +138,10 @@ const PARTS = [
   {
     file: "10-custom-lists.js",
     title: "Custom lists routing, index CRUD, and watchlist picker",
+  },
+  {
+    file: "11-discover.js",
+    title: "TMDB discover browse (upcoming and now playing)",
   },
   {
     file: "11-letterboxd-import.js",

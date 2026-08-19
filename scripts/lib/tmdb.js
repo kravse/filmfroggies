@@ -28,6 +28,7 @@ const ALLOWED_IMAGE_SIZES = new Set([
 const IMAGE_PATH_PATTERN = /^\/[A-Za-z0-9._-]+\.(jpg|jpeg|png|webp)$/i;
 
 const CAST_LIMIT = 8;
+const DEFAULT_NOW_PLAYING_WINDOW_DAYS = 84;
 
 /**
  * Only the v4 API Read Access Token is accepted. It is a JWT: three
@@ -129,6 +130,43 @@ function buildConfigurationUrl() {
   return buildUrl("/configuration", {});
 }
 
+function buildDiscoverListUrl(pathname, options = {}) {
+  const page = Number(options.page);
+  return buildUrl(pathname, {
+    language: options.language || "en-US",
+    page: Number.isInteger(page) && page > 0 ? String(page) : "1",
+    region: options.region || "US",
+  });
+}
+
+function formatIsoDate(date) {
+  const value = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(value.getTime())) {
+    throw new Error("Invalid date");
+  }
+  return value.toISOString().slice(0, 10);
+}
+
+function offsetIsoDate(base, dayOffset) {
+  const value =
+    base instanceof Date
+      ? new Date(base.getTime())
+      : new Date(`${formatIsoDate(base)}T00:00:00.000Z`);
+  if (Number.isNaN(value.getTime())) {
+    throw new Error("Invalid date");
+  }
+  value.setUTCDate(value.getUTCDate() + dayOffset);
+  return formatIsoDate(value);
+}
+
+function buildUpcomingUrl(options = {}) {
+  return buildDiscoverListUrl("/movie/upcoming", options);
+}
+
+function buildNowPlayingUrl(options = {}) {
+  return buildDiscoverListUrl("/movie/now_playing", options);
+}
+
 function isValidImagePath(imagePath) {
   return IMAGE_PATH_PATTERN.test(String(imagePath || ""));
 }
@@ -157,12 +195,16 @@ function normalizeSearchResults(payload) {
 }
 
 function normalizeSearchMovieEntry(entry) {
+  const voteAverage = Number(entry.vote_average);
   return {
     id: Number(entry.id),
     title: cleanText(entry.title) || cleanText(entry.original_title) || "Untitled",
     releaseDate: cleanText(entry.release_date),
     posterPath: cleanImagePath(entry.poster_path),
     overview: cleanText(entry.overview),
+    voteCount: Number(entry.vote_count) || 0,
+    popularity: Number(entry.popularity) || 0,
+    voteAverage: Number.isFinite(voteAverage) && voteAverage > 0 ? voteAverage : null,
   };
 }
 
@@ -255,6 +297,11 @@ function castFromCredits(credits) {
     .filter(Boolean);
 }
 
+/** Full movie/detail records always carry a genres array; search stubs do not. */
+function isDetailedMovieRecord(record) {
+  return Boolean(record && Array.isArray(record.genres));
+}
+
 function normalizeMovie(payload) {
   const id = Number(payload?.id);
   if (!Number.isInteger(id) || id <= 0) {
@@ -293,6 +340,11 @@ module.exports = {
   buildPersonMovieCreditsUrl,
   buildMovieUrl,
   buildConfigurationUrl,
+  formatIsoDate,
+  offsetIsoDate,
+  DEFAULT_NOW_PLAYING_WINDOW_DAYS,
+  buildUpcomingUrl,
+  buildNowPlayingUrl,
   isValidImagePath,
   buildImageUrl,
   normalizeSearchResults,
@@ -302,4 +354,5 @@ module.exports = {
   mergeMovieSearchResults,
   flattenDirectorSearchResults,
   normalizeMovie,
+  isDetailedMovieRecord,
 };

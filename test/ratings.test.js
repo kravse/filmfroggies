@@ -30,8 +30,8 @@ test("normalizeRating clamps to one decimal between 1 and 10", () => {
   assert.equal(normalizeRating("bad"), null);
 });
 
-test("formatUserRating drops trailing zero for whole numbers", () => {
-  assert.equal(formatUserRating(7), "7");
+test("formatUserRating shows one decimal except 10", () => {
+  assert.equal(formatUserRating(7), "7.0");
   assert.equal(formatUserRating(7.3), "7.3");
   assert.equal(formatUserRating(10), "10");
 });
@@ -45,28 +45,28 @@ test("slider helpers round-trip ratings", () => {
 });
 
 test("ratingSelectDisplayValue falls back to the slider default when unrated", () => {
-  assert.equal(ratingSelectDisplayValue(null), "7");
+  assert.equal(ratingSelectDisplayValue(null), "7.0");
   assert.equal(ratingSelectDisplayValue(8.4), "8.4");
 });
 
 test("ratingSelectInnerHtml lists 0.1 steps from 10 to 1 without an unrated option", () => {
   const unrated = ratingSelectInnerHtml(null);
   assert.doesNotMatch(unrated, />—</);
-  assert.match(unrated, /value="7" selected/);
+  assert.match(unrated, /value="7\.0" selected/);
   assert.match(unrated, />10</);
   assert.match(unrated, />7\.3</);
-  assert.match(unrated, />1</);
-  assert.ok(unrated.indexOf('value="10"') < unrated.indexOf('value="1"'));
+  assert.match(unrated, />1\.0</);
+  assert.ok(unrated.indexOf('value="10"') < unrated.indexOf('value="1.0"'));
 
   const rated = ratingSelectInnerHtml(7.3);
   assert.match(rated, /value="7\.3" selected/);
-  assert.doesNotMatch(rated, /value="7" selected/);
+  assert.doesNotMatch(rated, /value="7\.0" selected/);
 });
 
 test("ratingSelectInnerHtml can include an unrated option for add-movie", () => {
   const unrated = ratingSelectInnerHtml(null, { includeUnrated: true });
   assert.match(unrated, /value="" selected>—</);
-  assert.doesNotMatch(unrated, /value="7" selected/);
+  assert.doesNotMatch(unrated, /value="7\.0" selected/);
 
   const rated = ratingSelectInnerHtml(8.2, { includeUnrated: true });
   assert.match(rated, /value="8\.2" selected/);

@@ -35,6 +35,14 @@ addMovieDialog.addEventListener("click", (event) => {
   }
 });
 
+discoverEntryBtn?.addEventListener("click", openDiscover);
+
+discoverTabs?.addEventListener("click", onDiscoverTabClick);
+discoverPrevBtn?.addEventListener("click", onDiscoverPrevClick);
+discoverNextBtn?.addEventListener("click", onDiscoverNextClick);
+discoverPrevBottomBtn?.addEventListener("click", onDiscoverPrevClick);
+discoverNextBottomBtn?.addEventListener("click", onDiscoverNextClick);
+
 addMovieFab.addEventListener("click", openAddMovieDialog);
 emptyState.addEventListener("click", (event) => {
   if (event.target.closest(".empty-state-add-btn")) {
@@ -54,10 +62,21 @@ initAddMovieRatingSelect();
 bindRangeSliderLiveInput(addMovieRatingSlider, onAddMovieRatingSliderInput);
 addMovieRatingSelect?.addEventListener("change", onAddMovieRatingSelectChange);
 addMovieRatingClear?.addEventListener("click", clearAddMovieRating);
+addMovieWatchDateToggle?.addEventListener("click", onAddMovieWatchDateToggleClick);
+addMovieWatchDateClear?.addEventListener("click", clearAddMovieWatchDate);
 
 /* --- Grid --- */
 
 grid.addEventListener("click", (event) => {
+  const discoverPresetBtn = event.target.closest("[data-discover-preset-id]");
+  if (discoverPresetBtn && isDiscoverActive()) {
+    event.stopPropagation();
+    const movieId = Number(discoverPresetBtn.closest("[data-movie-id]")?.dataset.movieId);
+    if (Number.isInteger(movieId) && movieId > 0) {
+      requestDiscoverPresetMembership(discoverPresetBtn.dataset.discoverPresetId, movieId);
+    }
+    return;
+  }
   const watchBtn = event.target.closest(".card-watch-btn");
   if (watchBtn) {
     event.stopPropagation();
@@ -148,7 +167,7 @@ listTabs.addEventListener("keydown", (event) => {
 /* --- Toolbar --- */
 
 viewModeCycleBtn?.addEventListener("click", () => {
-  if (isWatchlistActive()) {
+  if (isLayoutLockedToDetail()) {
     return;
   }
   setViewMode(nextViewMode(gridViewMode));
@@ -206,6 +225,11 @@ detailDialog.addEventListener("click", (event) => {
     clearDetailRating();
     return;
   }
+  const detailBodyTabBtn = event.target.closest("[data-detail-body-tab]");
+  if (detailBodyTabBtn) {
+    setDetailBodyTab(detailBodyTabBtn.dataset.detailBodyTab);
+    return;
+  }
   if (event.target.closest("#detail-viewing-add")) {
     addDetailViewing();
     return;
@@ -249,6 +273,11 @@ detailDialog.addEventListener("change", (event) => {
   }
 });
 detailActions.addEventListener("click", (event) => {
+  const discoverPresetBtn = event.target.closest("[data-discover-preset-id]");
+  if (discoverPresetBtn) {
+    requestDiscoverDetailPreset(discoverPresetBtn.dataset.discoverPresetId);
+    return;
+  }
   if (event.target.id === "detail-remove-from-list") {
     requestRemoveFromCustomList(detailMovieId);
     return;
@@ -264,9 +293,19 @@ detailActions.addEventListener("click", (event) => {
 
 watchConfirmCancel.addEventListener("click", () => closeWatchConfirm());
 watchConfirmOk.addEventListener("click", () => confirmWatchMovie());
+watchConfirmDateToggle?.addEventListener("click", onWatchConfirmDateToggleClick);
+watchConfirmDateClear?.addEventListener("click", clearWatchConfirmWatchDate);
 watchConfirmDialog.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-watch-confirm")) {
     closeWatchConfirm();
+  }
+});
+
+discoverAddConfirmCancel.addEventListener("click", () => closeDiscoverAddConfirm());
+discoverAddConfirmOk.addEventListener("click", () => confirmDiscoverPresetAdd());
+discoverAddConfirmDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-discover-add-confirm")) {
+    closeDiscoverAddConfirm();
   }
 });
 
@@ -307,7 +346,9 @@ customListDeleteDialog?.addEventListener("click", (event) => {
   }
 });
 customListBackBtn?.addEventListener("click", () => {
-  if (isCustomListIndexActive()) {
+  if (isDiscoverActive()) {
+    navigateToMain();
+  } else if (isCustomListIndexActive()) {
     navigateToMain();
   } else {
     navigateToCustomListsIndex();
@@ -473,6 +514,10 @@ document.addEventListener("keydown", (event) => {
     }
     if (!watchConfirmDialog.hidden) {
       closeWatchConfirm();
+      return;
+    }
+    if (!discoverAddConfirmDialog.hidden) {
+      closeDiscoverAddConfirm();
       return;
     }
     if (!aboutDialog.hidden) {

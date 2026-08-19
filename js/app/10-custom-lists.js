@@ -22,39 +22,126 @@ function parseLocationHash() {
   if (hash === "#lists" || hash === "#lists/") {
     return { kind: "customIndex" };
   }
+  const discoverMatch = appDiscover.parseDiscoverHash(hash);
+  if (discoverMatch) {
+    return { kind: "discover", tab: discoverMatch.tab, page: discoverMatch.page };
+  }
   return { kind: "main" };
+}
+
+const VIEW_RESTORE_KEY = "moviecollector-view-restore";
+
+function persistViewRestoreContext() {
+  try {
+    sessionStorage.setItem(
+      VIEW_RESTORE_KEY,
+      JSON.stringify({
+        appView,
+        discoverTab: isDiscoverActive() ? discoverTab : null,
+        discoverPage: isDiscoverActive() ? discoverPage : null,
+        activeCustomListId: isCustomListDetailActive() ? activeCustomListId : null,
+      }),
+    );
+  } catch (_) {
+    /* Private browsing may refuse storage. */
+  }
+}
+
+function readViewRestoreContext() {
+  try {
+    const text = sessionStorage.getItem(VIEW_RESTORE_KEY);
+    if (!text) {
+      return null;
+    }
+    const parsed = JSON.parse(text);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function clearViewRestoreContext() {
+  try {
+    sessionStorage.removeItem(VIEW_RESTORE_KEY);
+  } catch (_) {
+    /* Ignore storage failures. */
+  }
+}
+
+function applyRestoredViewContext(restored) {
+  if (!restored) {
+    return false;
+  }
+  if (restored.appView === "discover") {
+    appView = "discover";
+    activeCustomListId = null;
+    if (restored.discoverTab) {
+      discoverTab = appDiscover.normalizeDiscoverTab(restored.discoverTab);
+    }
+    if (restored.discoverPage) {
+      discoverPage = appDiscover.normalizeDiscoverPage(restored.discoverPage);
+    }
+    return true;
+  }
+  if (restored.appView === "customDetail" && restored.activeCustomListId) {
+    const list = appCustomLists.findCustomList(userState.customLists, restored.activeCustomListId);
+    if (list) {
+      appView = "customDetail";
+      activeCustomListId = restored.activeCustomListId;
+      return true;
+    }
+  }
+  if (restored.appView === "customIndex") {
+    appView = "customIndex";
+    activeCustomListId = null;
+    return true;
+  }
+  return false;
 }
 
 function syncAppViewChrome() {
   document.body.classList.toggle("view-custom-index", isCustomListIndexActive());
   document.body.classList.toggle("view-custom-detail", isCustomListDetailActive());
+  document.body.classList.toggle("view-discover", isDiscoverActive());
   if (customListsIndex) {
     customListsIndex.hidden = !isCustomListIndexActive();
   }
   if (listTabs) {
-    listTabs.hidden = isCustomListView();
+    listTabs.hidden = isCustomListView() || isDiscoverActive();
+  }
+  if (discoverTabs) {
+    discoverTabs.hidden = !isDiscoverActive();
+  }
+  if (discoverEntryBtn) {
+    discoverEntryBtn.hidden = isCustomListView() || isDiscoverActive();
   }
   if (listsNavBtn) {
-    listsNavBtn.hidden = isCustomListView();
+    listsNavBtn.hidden = isCustomListView() || isDiscoverActive();
   }
   if (customListBackBtn) {
-    customListBackBtn.hidden = !isCustomListView();
+    customListBackBtn.hidden = !isCustomListView() && !isDiscoverActive();
   }
   if (customListBackLabel) {
-    customListBackLabel.textContent = isCustomListIndexActive() ? "Collection" : "All lists";
+    if (isDiscoverActive()) {
+      customListBackLabel.textContent = "Collection";
+    } else {
+      customListBackLabel.textContent = isCustomListIndexActive() ? "Collection" : "All lists";
+    }
   }
   if (customListsIndexActions) {
     customListsIndexActions.hidden = !isCustomListIndexActive();
   }
   if (addMovieFab) {
-    addMovieFab.hidden = isCustomListIndexActive();
+    addMovieFab.hidden = isCustomListIndexActive() || isDiscoverActive();
   }
   updateListHeader();
+  syncListSearchVisibility();
 }
 
 function navigateToMain(options = {}) {
   appView = "main";
   activeCustomListId = null;
+  clearViewRestoreContext();
   if (options.pushHistory !== false) {
     const base = window.location.pathname + window.location.search;
     history.pushState({ appView: "main" }, "", base);
@@ -131,14 +218,33 @@ function syncViewFromLocation() {
     if (state?.appView) {
       appView = state.appView;
       activeCustomListId = state.activeCustomListId ?? null;
-    } else if (!isCustomListView()) {
-      appView = "main";
-      activeCustomListId = null;
+      if (state.discoverTab) {
+        discoverTab = appDiscover.normalizeDiscoverTab(state.discoverTab);
+      }
+      if (state.discoverPage) {
+        discoverPage = appDiscover.normalizeDiscoverPage(state.discoverPage);
+      }
+    } else if (!applyRestoredViewContext(readViewRestoreContext())) {
+      if (!isCustomListView() && !isDiscoverActive()) {
+        appView = "main";
+        activeCustomListId = null;
+      }
     }
     syncAppViewChrome();
     refreshViewModeForActiveList();
     if (isCustomListIndexActive()) {
       renderCustomListsIndex();
+    } else if (isDiscoverActive()) {
+      const needsLoad =
+        !discoverMovieIds.length && !discoverLoading && !discoverLoadError;
+      if (needsLoad) {
+        loadDiscoverTab(discoverTab, { page: discoverPage, pushHistory: false });
+      } else {
+        renderDiscover();
+      }
+    } else if (isCustomListDetailActive()) {
+      render();
+      hydrateActiveList();
     } else {
       render();
     }
@@ -171,8 +277,30 @@ function syncViewFromLocation() {
     return;
   }
 
+  if (parsed.kind === "discover") {
+    appView = "discover";
+    activeCustomListId = null;
+    syncAppViewChrome();
+    refreshViewModeForActiveList();
+    const tab = appDiscover.normalizeDiscoverTab(parsed.tab);
+    const page = appDiscover.normalizeDiscoverPage(parsed.page);
+    const needsLoad =
+      tab !== discoverTab ||
+      page !== discoverPage ||
+      (!discoverMovieIds.length && !discoverLoading && !discoverLoadError);
+    if (needsLoad) {
+      loadDiscoverTab(tab, { page, pushHistory: false });
+    } else {
+      discoverTab = tab;
+      discoverPage = page;
+      renderDiscover();
+    }
+    return;
+  }
+
   appView = "main";
   activeCustomListId = null;
+  clearViewRestoreContext();
   syncAppViewChrome();
   refreshViewModeForActiveList();
   render();

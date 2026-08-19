@@ -47,6 +47,17 @@ const searchSuggest = document.getElementById("search-suggest");
 const searchClearBtn = document.getElementById("search-clear");
 const searchSpinner = document.getElementById("search-spinner");
 const searchDirectorToggle = document.getElementById("search-director-toggle");
+const discoverEntryBtn = document.getElementById("discover-entry-btn");
+
+const discoverTabs = document.getElementById("discover-tabs");
+const discoverPagination = document.getElementById("discover-pagination");
+const discoverPrevBtn = document.getElementById("discover-prev");
+const discoverNextBtn = document.getElementById("discover-next");
+const discoverPageLabel = document.getElementById("discover-page-label");
+const discoverPaginationBottom = document.getElementById("discover-pagination-bottom");
+const discoverPrevBottomBtn = document.getElementById("discover-prev-bottom");
+const discoverNextBottomBtn = document.getElementById("discover-next-bottom");
+const discoverPageLabelBottom = document.getElementById("discover-page-label-bottom");
 
 const addMovieFab = document.getElementById("add-movie-fab");
 const addMovieDialog = document.getElementById("add-movie-dialog");
@@ -64,8 +75,11 @@ const addMovieRatingSelect = document.getElementById("add-movie-rating-select");
 const addMovieRatingClear = document.getElementById("add-movie-rating-clear");
 const addMovieRatingValue = document.getElementById("add-movie-rating-value");
 const addMovieRatingField = document.getElementById("add-movie-rating-field");
+const addMovieWatchDateWrap = document.getElementById("add-movie-watch-date-wrap");
+const addMovieWatchDateToggle = document.getElementById("add-movie-watch-date-toggle");
 const addMovieWatchDateField = document.getElementById("add-movie-watch-date-field");
 const addMovieWatchDate = document.getElementById("add-movie-watch-date");
+const addMovieWatchDateClear = document.getElementById("add-movie-watch-date-clear");
 const addMovieBack = document.getElementById("add-movie-back");
 const addMoviePickTabs = document.getElementById("add-movie-pick-tabs");
 const addMovieTabAdd = document.getElementById("add-movie-tab-add");
@@ -151,7 +165,16 @@ const watchConfirmDialog = document.getElementById("watch-confirm-dialog");
 const watchConfirmMessage = document.getElementById("watch-confirm-message");
 const watchConfirmCancel = document.getElementById("watch-confirm-cancel");
 const watchConfirmOk = document.getElementById("watch-confirm-ok");
+const watchConfirmDateToggle = document.getElementById("watch-confirm-date-toggle");
+const watchConfirmDateField = document.getElementById("watch-confirm-date-field");
 const watchConfirmDate = document.getElementById("watch-confirm-date");
+const watchConfirmDateClear = document.getElementById("watch-confirm-date-clear");
+
+const discoverAddConfirmDialog = document.getElementById("discover-add-confirm-dialog");
+const discoverAddConfirmTitle = document.getElementById("discover-add-confirm-title");
+const discoverAddConfirmMessage = document.getElementById("discover-add-confirm-message");
+const discoverAddConfirmCancel = document.getElementById("discover-add-confirm-cancel");
+const discoverAddConfirmOk = document.getElementById("discover-add-confirm-ok");
 
 const hostedUnlockDialog = document.getElementById("hosted-unlock-dialog");
 const hostedUnlockInput = document.getElementById("hosted-unlock-input");
@@ -183,12 +206,17 @@ let detailRatingEditorSnapshot = null;
 let detailListPickerOpen = false;
 /** Staged custom-list membership while the detail list editor is open. */
 let detailListPickerSelectedIds = new Set();
+/** "overview" | "viewing-history" */
+let detailBodyTab = "overview";
 let pendingRemoveMovieId = null;
 let pendingWatchMovieId = null;
+let watchConfirmWatchDateActive = false;
+let pendingDiscoverAddMovieId = null;
+let pendingDiscoverAddListId = null;
 let pendingCustomListDeleteId = null;
 let tmdbCredential = "";
 
-/** "main" | "customIndex" | "customDetail" */
+/** "main" | "customIndex" | "customDetail" | "discover" */
 let appView = "main";
 let activeCustomListId = null;
 

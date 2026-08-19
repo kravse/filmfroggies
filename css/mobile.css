@@ -332,6 +332,43 @@
     font-size: 0.64rem;
   }
 
+  body.view-discover {
+    padding-bottom: calc(5.35rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  body.view-discover #discover-pagination {
+    display: none !important;
+  }
+
+  body.view-discover .discover-pagination-bottom:not([hidden]) {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(2.05rem + env(safe-area-inset-bottom, 0px));
+    z-index: 29;
+  }
+
+  body.view-discover .discover-pagination-banner {
+    gap: 0.65rem;
+    padding: 0.7rem max(0.75rem, env(safe-area-inset-left, 0px))
+      0.7rem max(0.75rem, env(safe-area-inset-right, 0px));
+    background: rgba(14, 16, 20, 0.96);
+    backdrop-filter: blur(8px);
+  }
+
+  body.view-discover .discover-pagination-bottom .discover-page-btn--nav {
+    min-width: 5.75rem;
+    min-height: 2.85rem;
+    padding: 0.7rem 1rem;
+    font-size: 0.74rem;
+  }
+
+  body.view-discover .discover-pagination-bottom .discover-page-label {
+    font-size: 0.86rem;
+    letter-spacing: 0.01em;
+  }
+
   .movie-detail-actions {
     flex-wrap: wrap;
   }

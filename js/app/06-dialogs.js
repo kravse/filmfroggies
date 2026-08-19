@@ -11,20 +11,28 @@ const TMDB_MOVIE_URL = "https://www.themoviedb.org/movie/";
 
 function detailMetaChips(record) {
   const chips = [];
-  const year = appCardHtml.formatYear(record.releaseDate);
-  const runtime = appCardHtml.formatRuntime(record.runtime);
+  if (isDiscoverActive()) {
+    const releaseDate = appCardHtml.formatReleaseDate(record.releaseDate);
+    if (releaseDate) {
+      chips.push(`<span class="meta-chip">${appCardHtml.escapeHtml(releaseDate)}</span>`);
+    }
+  } else {
+    const year = appCardHtml.formatYear(record.releaseDate);
+    const runtime = appCardHtml.formatRuntime(record.runtime);
+
+    if (year) {
+      chips.push(`<span class="meta-chip">${year}</span>`);
+    }
+    if (runtime) {
+      chips.push(`<span class="meta-chip">${runtime}</span>`);
+    }
+  }
   const rating = appCardHtml.formatRating(record.voteAverage);
 
-  if (year) {
-    chips.push(`<span class="meta-chip">${year}</span>`);
-  }
-  if (runtime) {
-    chips.push(`<span class="meta-chip">${runtime}</span>`);
-  }
   if (rating) {
     chips.push(`<span class="meta-chip">★ ${rating}</span>`);
   }
-  for (const genre of record.genres) {
+  for (const genre of Array.isArray(record.genres) ? record.genres : []) {
     chips.push(`<span class="meta-chip">${appCardHtml.escapeHtml(genre)}</span>`);
   }
   return chips.join("");
@@ -47,6 +55,9 @@ function detailCreditsHtml(record) {
 }
 
 function detailMovieAllowsRating() {
+  if (isDiscoverActive()) {
+    return false;
+  }
   return (
     detailMovieId != null &&
     appRatings.isRatingAllowed(
@@ -57,11 +68,140 @@ function detailMovieAllowsRating() {
   );
 }
 
-function detailMovieShowsListsBlock(movieId) {
-  if (appLists.isWatched(userState.lists, movieId)) {
-    return true;
+function detailPresetListAllowed(listId) {
+  if (!appLists.isListId(listId)) {
+    return false;
   }
-  return appCustomLists.customListsForMovie(userState.customLists, movieId).length > 0;
+  if (listId === appLists.WATCHED_ID && isDiscoverActive() && discoverTab !== "now-playing") {
+    return false;
+  }
+  return true;
+}
+
+function detailDiscoverPresetBtnHtml(listId, movieId) {
+  const preset = appLists.PRESET_LISTS.find((entry) => entry.id === listId);
+  if (!preset) {
+    return "";
+  }
+  const isMember =
+    listId === appLists.WATCHED_ID
+      ? appLists.isWatched(userState.lists, movieId)
+      : appLists.isOnWatchlist(userState.lists, movieId);
+  const label = preset.name;
+  const iconPreset = listId === appLists.WATCHLIST_ID ? "watchlist" : "watched";
+  return `<button type="button" class="detail-discover-preset-btn discover-preset-btn-with-icon${isMember ? " is-active" : ""}" data-discover-preset-id="${appCardHtml.escapeHtml(listId)}" aria-pressed="${isMember ? "true" : "false"}">${appCardHtml.discoverPresetButtonInnerHtml(iconPreset, label)}</button>`;
+}
+
+function discoverDetailPresetActionsHtml(movieId) {
+  const buttons = [];
+  if (discoverTab === "now-playing") {
+    buttons.push(detailDiscoverPresetBtnHtml(appLists.WATCHED_ID, movieId));
+  }
+  buttons.push(detailDiscoverPresetBtnHtml(appLists.WATCHLIST_ID, movieId));
+  return buttons.filter(Boolean).join("");
+}
+
+function detailWatchBtnHtml() {
+  return `<button type="button" class="detail-discover-preset-btn discover-preset-btn-with-icon detail-watch-btn" id="detail-watch" aria-label="Mark as watched" title="Mark as watched">${appCardHtml.discoverPresetButtonInnerHtml("watched", "Watched")}</button>`;
+}
+
+function discoverPresetMembership(listId, movieId) {
+  return listId === appLists.WATCHED_ID
+    ? appLists.isWatched(userState.lists, movieId)
+    : appLists.isOnWatchlist(userState.lists, movieId);
+}
+
+function discoverAddConfirmCopy(listId, title) {
+  const quotedTitle = `“${title}”`;
+  if (listId === appLists.WATCHED_ID) {
+    return {
+      title: "Mark as watched",
+      message: `Mark ${quotedTitle} as watched? It will be added to your Watched list.`,
+      okLabel: "Mark watched",
+    };
+  }
+  return {
+    title: "Add to watchlist",
+    message: `Add ${quotedTitle} to your watchlist?`,
+    okLabel: "Add to watchlist",
+  };
+}
+
+function addDiscoverPresetMembership(listId, movieId) {
+  const nextLists = appLists.assignMovieToList(userState.lists, listId, movieId);
+  if (!commitListChange(nextLists, { movieId, status: listId })) {
+    return;
+  }
+  recordAddedAt(movieId);
+  renderDiscover();
+  if (detailMovieId === movieId) {
+    renderDetail();
+  }
+}
+
+function removeDiscoverPresetMembership(listId, movieId) {
+  const nextLists = appLists.removeMovie(userState.lists, movieId);
+  if (!commitListChange(nextLists, { movieId, status: appSyncMerge.REMOVED_STATUS })) {
+    return;
+  }
+  renderDiscover();
+  if (detailMovieId === movieId) {
+    renderDetail();
+  }
+}
+
+function toggleDiscoverPresetMembership(listId, movieId) {
+  if (!isDiscoverActive() || !detailPresetListAllowed(listId)) {
+    return;
+  }
+  if (discoverPresetMembership(listId, movieId)) {
+    removeDiscoverPresetMembership(listId, movieId);
+  } else {
+    addDiscoverPresetMembership(listId, movieId);
+  }
+}
+
+function requestDiscoverPresetMembership(listId, movieId) {
+  if (!isDiscoverActive() || !detailPresetListAllowed(listId)) {
+    return;
+  }
+  if (discoverPresetMembership(listId, movieId)) {
+    removeDiscoverPresetMembership(listId, movieId);
+    return;
+  }
+  pendingDiscoverAddMovieId = Number(movieId);
+  pendingDiscoverAddListId = listId;
+  const record = movieById.get(pendingDiscoverAddMovieId);
+  const title = record?.title || `Movie ${pendingDiscoverAddMovieId}`;
+  const copy = discoverAddConfirmCopy(listId, title);
+  discoverAddConfirmTitle.textContent = copy.title;
+  discoverAddConfirmMessage.textContent = copy.message;
+  discoverAddConfirmOk.textContent = copy.okLabel;
+  discoverAddConfirmDialog.hidden = false;
+  discoverAddConfirmCancel.focus({ preventScroll: true });
+}
+
+function closeDiscoverAddConfirm() {
+  pendingDiscoverAddMovieId = null;
+  pendingDiscoverAddListId = null;
+  discoverAddConfirmDialog.hidden = true;
+}
+
+function confirmDiscoverPresetAdd() {
+  const movieId = pendingDiscoverAddMovieId;
+  const listId = pendingDiscoverAddListId;
+  closeDiscoverAddConfirm();
+  if (movieId == null || listId == null) {
+    return;
+  }
+  addDiscoverPresetMembership(listId, movieId);
+}
+
+function requestDiscoverDetailPreset(listId) {
+  if (detailMovieId == null) {
+    return;
+  }
+  requestDiscoverPresetMembership(listId, detailMovieId);
 }
 
 function detailListMembershipChipsHtml(movieId) {
@@ -93,6 +233,10 @@ function detailAddToListPickerHtml(movieId) {
     .join("")}</div>`;
 }
 
+function detailListsEditorBodyHtml(movieId) {
+  return detailAddToListPickerHtml(movieId);
+}
+
 function detailListsEditorUsesOverlay() {
   return window.matchMedia("(max-width: 640px)").matches;
 }
@@ -101,7 +245,7 @@ function renderDetailListsOverlay() {
   if (!detailListsDialogBody || detailMovieId == null) {
     return;
   }
-  detailListsDialogBody.innerHTML = detailAddToListPickerHtml(detailMovieId);
+  detailListsDialogBody.innerHTML = detailListsEditorBodyHtml(detailMovieId);
 }
 
 function openDetailListsOverlay() {
@@ -126,9 +270,6 @@ function syncDetailListsPickerUi() {
 }
 
 function detailListsBlockHtml(movieId) {
-  if (!detailMovieShowsListsBlock(movieId)) {
-    return "";
-  }
   const membership = detailListMembershipChipsHtml(movieId);
   const membershipHtml = membership
     ? membership
@@ -152,7 +293,7 @@ function detailListsBlockHtml(movieId) {
       <span class="detail-lists-editor-title">Lists</span>
     </div>
     <div class="detail-lists-editor-body">
-      ${detailAddToListPickerHtml(movieId)}
+      ${detailListsEditorBodyHtml(movieId)}
     </div>
     <div class="detail-lists-editor-actions">
       <button type="button" class="detail-lists-save-btn" id="detail-lists-save">Save</button>
@@ -167,7 +308,7 @@ function saveDetailListPicker() {
   }
   const movieId = detailMovieId;
   let nextLists = userState.customLists;
-  let changed = false;
+  let customChanged = false;
 
   for (const list of userState.customLists || []) {
     const isMember = list.movieIds.includes(movieId);
@@ -176,13 +317,13 @@ function saveDetailListPicker() {
       const updated = appCustomLists.addMovieToCustomList(nextLists, list.id, movieId);
       if (updated !== nextLists) {
         nextLists = updated;
-        changed = true;
+        customChanged = true;
       }
     } else if (!shouldBeMember && isMember) {
       const updated = appCustomLists.removeMovieFromCustomList(nextLists, list.id, movieId);
       if (updated !== nextLists) {
         nextLists = updated;
-        changed = true;
+        customChanged = true;
       }
     }
   }
@@ -191,14 +332,25 @@ function saveDetailListPicker() {
   detailListPickerSelectedIds.clear();
   closeDetailListsOverlay();
 
-  if (changed) {
+  if (customChanged) {
     persistCustomLists(nextLists);
+  }
+
+  if (customChanged) {
     if (isCustomListDetailActive() && !activeMovieIds().includes(movieId)) {
       closeDetail();
-      render();
+      if (isDiscoverActive()) {
+        renderDiscover();
+      } else {
+        render();
+      }
       return;
     }
-    render();
+    if (isDiscoverActive()) {
+      renderDiscover();
+    } else {
+      render();
+    }
   }
   renderDetail();
 }
@@ -245,6 +397,9 @@ function toggleDetailListPicker() {
 }
 
 function detailUserRatingBlockHtml(movieId) {
+  if (isDiscoverActive()) {
+    return "";
+  }
   if (!appRatings.isRatingAllowed(userState.lists, movieId, userState.customLists)) {
     return "";
   }
@@ -316,14 +471,21 @@ function formatViewingDate(value) {
 function detailViewingHistoryHtml(movieId) {
   const entries = appViewingHistory.viewingEntries(userState.viewingHistory, movieId);
   const allowed = appRatings.isRatingAllowed(userState.lists, movieId, userState.customLists);
-  if (!allowed && !entries.length) return "";
+  if (!allowed && !entries.length) {
+    return `<p class="detail-viewing-empty">Viewing dates are available for movies in Watched or a custom list.</p>`;
+  }
   const rows = entries.map((entry) => `<li class="detail-viewing-row">
     <input type="date" value="${entry.watchedOn}" max="${appViewingHistory.today()}" data-viewing-date-id="${appCardHtml.escapeHtml(entry.id)}" aria-label="Viewing date ${appCardHtml.escapeHtml(formatViewingDate(entry.watchedOn))}">
     <button type="button" data-viewing-remove-id="${appCardHtml.escapeHtml(entry.id)}" aria-label="Remove viewing on ${appCardHtml.escapeHtml(formatViewingDate(entry.watchedOn))}">Remove</button>
   </li>`).join("");
-  return `<section class="detail-viewing-history" aria-labelledby="detail-viewing-title">
-    <div class="detail-viewing-head"><h3 id="detail-viewing-title">Viewing history</h3><span>${entries.length} viewing${entries.length === 1 ? "" : "s"}</span></div>
-    ${rows ? `<ul>${rows}</ul>` : `<p class="detail-viewing-empty">No viewing dates recorded.</p>`}
+  const listHtml = rows ? `<ul>${rows}</ul>` : "";
+  const countLabel =
+    entries.length > 0
+      ? `<p class="detail-viewing-count">${entries.length} viewing${entries.length === 1 ? "" : "s"}</p>`
+      : "";
+  return `<section class="detail-viewing-history">
+    ${countLabel}
+    ${listHtml}
     <div class="detail-viewing-add">
       <input type="date" id="detail-viewing-new-date" value="${appViewingHistory.today()}" max="${appViewingHistory.today()}" aria-label="New viewing date">
       <button type="button" id="detail-viewing-add">Add viewing</button>
@@ -331,10 +493,54 @@ function detailViewingHistoryHtml(movieId) {
   </section>`;
 }
 
+function detailOverviewPanelHtml(movieId, record) {
+  const tagline = record.tagline
+    ? `<p class="movie-detail-tagline">${appCardHtml.escapeHtml(record.tagline)}</p>`
+    : "";
+  return `${tagline}<div class="movie-detail-meta">${detailMetaChips(record)}</div>
+${detailUserRatingBlockHtml(movieId)}
+<p class="movie-detail-overview">${appCardHtml.escapeHtml(record.overview || "No overview available.")}</p>
+<div class="movie-detail-credits">${detailCreditsHtml(record)}</div>
+${detailListsBlockHtml(movieId)}`;
+}
+
+function detailBodyTabsHtml(movieId, record) {
+  const entries = appViewingHistory.viewingEntries(userState.viewingHistory, movieId);
+  const countBadge =
+    entries.length > 0
+      ? `<span class="detail-body-tab-count">${entries.length}</span>`
+      : "";
+  const overviewSelected = detailBodyTab === "overview";
+  const historySelected = detailBodyTab === "viewing-history";
+  return `<nav class="detail-body-tabs" role="tablist" aria-label="Movie detail sections">
+  <button type="button" class="detail-body-tab" role="tab" id="detail-tab-overview" data-detail-body-tab="overview" aria-selected="${overviewSelected ? "true" : "false"}" tabindex="${overviewSelected ? "0" : "-1"}">Overview</button>
+  <button type="button" class="detail-body-tab" role="tab" id="detail-tab-viewing-history" data-detail-body-tab="viewing-history" aria-selected="${historySelected ? "true" : "false"}" tabindex="${historySelected ? "0" : "-1"}">Viewing history${countBadge}</button>
+</nav>
+<div class="detail-body-tabpanel" role="tabpanel" id="detail-panel-overview" aria-labelledby="detail-tab-overview"${overviewSelected ? "" : " hidden"}>
+${detailOverviewPanelHtml(movieId, record)}
+</div>
+<div class="detail-body-tabpanel" role="tabpanel" id="detail-panel-viewing-history" aria-labelledby="detail-tab-viewing-history"${historySelected ? "" : " hidden"}>
+${detailViewingHistoryHtml(movieId)}
+</div>`;
+}
+
+function setDetailBodyTab(tab) {
+  const next = tab === "viewing-history" ? "viewing-history" : "overview";
+  if (detailBodyTab === next) {
+    return;
+  }
+  if (next === "viewing-history" && detailRatingEditorOpen) {
+    cancelDetailRatingEditor();
+  }
+  detailBodyTab = next;
+  renderDetail();
+}
+
 function addDetailViewing() {
   const input = document.getElementById("detail-viewing-new-date");
   if (detailMovieId == null || !input?.value) return;
   if (!addMovieViewing(detailMovieId, input.value)) return;
+  detailBodyTab = "viewing-history";
   persistUserState();
   render();
   renderDetail();
@@ -518,7 +724,7 @@ function renderDetail() {
     return;
   }
 
-  const ids = displayMovieIds();
+  const ids = detailNavigationIds();
   const index = ids.indexOf(detailMovieId);
   const record = movieById.get(detailMovieId);
 
@@ -537,26 +743,22 @@ function renderDetail() {
       heading = "Could not load this movie";
       note = "TMDB did not return details. Check your credential and connection.";
     }
-    detailPoster.innerHTML = `<div class="placeholder"></div>`;
+    detailPoster.innerHTML = detailPosterSkeletonHtml();
     detailBody.innerHTML = `<h2 class="movie-detail-title" id="movie-detail-title">${heading}</h2>
 <p class="movie-detail-overview">${note}</p>`;
   } else {
-    detailPoster.innerHTML = posterHtml(record, appTmdb.POSTER_SIZES.detail);
+    detailPoster.innerHTML = detailPosterFrameHtml(record, appTmdb.POSTER_SIZES.detail);
     bindPosterImages(detailPoster);
     detailBody.innerHTML = `<h2 class="movie-detail-title" id="movie-detail-title">${appCardHtml.escapeHtml(record.title)}</h2>
-${record.tagline ? `<p class="movie-detail-tagline">${appCardHtml.escapeHtml(record.tagline)}</p>` : ""}
-<div class="movie-detail-meta">${detailMetaChips(record)}</div>
-${detailUserRatingBlockHtml(detailMovieId)}
-${detailViewingHistoryHtml(detailMovieId)}
-<p class="movie-detail-overview">${appCardHtml.escapeHtml(record.overview || "No overview available.")}</p>
-<div class="movie-detail-credits">${detailCreditsHtml(record)}</div>
-${detailListsBlockHtml(detailMovieId)}`;
+${detailBodyTabsHtml(detailMovieId, record)}`;
   }
 
   const leftActions = [];
   let removeBtn = "";
 
-  if (isCustomListDetailActive()) {
+  if (isDiscoverActive()) {
+    leftActions.push(discoverDetailPresetActionsHtml(detailMovieId));
+  } else if (isCustomListDetailActive()) {
     if (activeMovieIds().includes(detailMovieId)) {
       removeBtn = `<button type="button" class="detail-remove-btn" id="detail-remove-from-list">Remove from list</button>`;
     }
@@ -565,9 +767,7 @@ ${detailListsBlockHtml(detailMovieId)}`;
     const onWatchlist = appLists.isOnWatchlist(userState.lists, detailMovieId);
 
     if (inCollection && onWatchlist) {
-      leftActions.push(
-        `<button type="button" class="card-watch-btn detail-watch-btn" id="detail-watch" aria-label="Mark as watched" title="Mark as watched">&#10003;</button>`,
-      );
+      leftActions.push(detailWatchBtnHtml());
     }
 
     if (inCollection) {
@@ -582,6 +782,10 @@ ${detailListsBlockHtml(detailMovieId)}`;
   detailActions.innerHTML = `<div class="detail-actions-left">${leftActions.join("")}</div>
 <div class="detail-actions-right">
 <a class="detail-link" href="${TMDB_MOVIE_URL}${detailMovieId}" target="_blank" rel="noopener noreferrer">View on TMDB</a></div>`;
+  if (record) {
+    syncDetailRatingDisplay(appRatings.getRating(userState.ratings, detailMovieId));
+    syncDetailRatingEditorVisibility();
+  }
 }
 
 function openDetail(movieId, options = {}) {
@@ -591,6 +795,7 @@ function openDetail(movieId, options = {}) {
   }
 
   detailMovieId = id;
+  detailBodyTab = "overview";
   detailRatingEditorOpen = false;
   detailRatingEditorSnapshot = null;
   detailListPickerOpen = false;
@@ -598,18 +803,19 @@ function openDetail(movieId, options = {}) {
   closeDetailListsOverlay();
   detailDialog.hidden = false;
   document.body.classList.add("movie-detail-open");
+  persistViewRestoreContext();
   renderDetail();
   detailCloseBtn.focus({ preventScroll: true });
 
   if (options.pushHistory !== false) {
     history.pushState(
-      { detailMovieId: id, appView, activeCustomListId },
+      { detailMovieId: id, appView, activeCustomListId, discoverTab: isDiscoverActive() ? discoverTab : null },
       "",
       `#movie/${id}`,
     );
   }
 
-  if (!movieById.has(id)) {
+  if (!appTmdb.isDetailedMovieRecord(movieById.get(id))) {
     hydrateMovies([id], {
       onRecord: applyHydratedRecord,
       onUpdate: applyHydratedRecord,
@@ -638,7 +844,7 @@ function closeDetail(options = {}) {
 }
 
 function stepDetail(delta) {
-  const ids = displayMovieIds();
+  const ids = detailNavigationIds();
   const index = ids.indexOf(detailMovieId);
   const nextIndex = index + delta;
   if (index < 0 || nextIndex < 0 || nextIndex >= ids.length) {
@@ -646,18 +852,19 @@ function stepDetail(delta) {
   }
   commitDetailRating();
   detailMovieId = ids[nextIndex];
+  detailBodyTab = "overview";
   detailRatingEditorOpen = false;
   detailRatingEditorSnapshot = null;
   detailListPickerOpen = false;
   detailListPickerSelectedIds.clear();
   closeDetailListsOverlay();
   history.replaceState(
-    { detailMovieId, appView, activeCustomListId },
+    { detailMovieId, appView, activeCustomListId, discoverTab: isDiscoverActive() ? discoverTab : null },
     "",
     `#movie/${detailMovieId}`,
   );
   renderDetail();
-  if (!movieById.has(detailMovieId)) {
+  if (!appTmdb.isDetailedMovieRecord(movieById.get(detailMovieId))) {
     hydrateMovies([detailMovieId], {
       onRecord: applyHydratedRecord,
       onUpdate: applyHydratedRecord,

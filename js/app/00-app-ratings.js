@@ -12,6 +12,16 @@ const appRatings = (function () {
   const SLIDER_MAX = 90;
   const DEFAULT_SLIDER_VALUE = 60; // 7.0
 
+  function getCardHtml() {
+    if (typeof appCardHtml !== "undefined") {
+      return appCardHtml;
+    }
+    if (typeof require === "function") {
+      return require("./card-html");
+    }
+    throw new Error("appCardHtml is not available");
+  }
+
   function normalizeRating(value) {
     if (value == null || value === "") {
       return null;
@@ -29,10 +39,7 @@ const appRatings = (function () {
     if (normalized == null) {
       return "";
     }
-    if (Number.isInteger(normalized)) {
-      return String(normalized);
-    }
-    return normalized.toFixed(1);
+    return getCardHtml().formatRatingLabel(normalized) || "";
   }
 
   function ratingFromSliderValue(sliderValue) {

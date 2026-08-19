@@ -1,0 +1,308 @@
+/* TMDB upcoming / now playing browse view */
+
+body.view-discover #list-tabs,
+body.view-discover #list-search-row,
+body.view-discover #discover-entry-btn,
+body.view-discover #add-movie-fab,
+body.view-discover #sort-control,
+body.view-discover #sort-reverse,
+body.view-discover #view-mode-cycle {
+  display: none !important;
+}
+
+body.view-discover .toolbar-left {
+  display: flex;
+}
+
+body.view-discover #discover-pagination {
+  display: flex;
+}
+
+.discover-pagination {
+  display: none;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.discover-page-label {
+  min-width: 5.5rem;
+  font-family: var(--ui-font);
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.discover-page-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.discover-pagination-bottom {
+  display: none;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0;
+}
+
+.discover-pagination-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem var(--layout-gutter);
+  border-top: 1px solid var(--border);
+  background: var(--panel-raised);
+}
+
+.discover-pagination-bottom .discover-page-btn--nav {
+  flex: 0 0 auto;
+  min-width: 5.25rem;
+  min-height: 2.65rem;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  touch-action: manipulation;
+}
+
+.discover-pagination-bottom .discover-page-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+}
+
+.header-nav-btn--icon {
+  width: 1.75rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.detail-discover-add-block {
+  margin-top: 1.25rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--border);
+}
+
+.detail-discover-add-label {
+  margin: 0 0 0.65rem;
+  font-family: var(--ui-font);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.detail-discover-preset-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.detail-discover-custom-label {
+  margin: 0 0 0.5rem;
+  font-family: var(--ui-font);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.detail-discover-status {
+  margin: 0 0 0.75rem;
+  font-family: var(--ui-font);
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+/* Poster-less discover cards: faint logo behind centered title. */
+body.view-discover .discover-poster-placeholder {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0.65rem 0.55rem;
+  text-align: center;
+}
+
+body.view-discover .discover-poster-placeholder::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 158%;
+  aspect-ratio: 1;
+  max-height: none;
+  background-color: rgba(255, 255, 255, 0.1);
+  -webkit-mask-image: url("../images/projector.png");
+  mask-image: url("../images/projector.png");
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body.view-discover .discover-poster-title {
+  display: none;
+}
+
+body.view-discover .card.is-skeleton .discover-poster-placeholder .discover-poster-title,
+body.view-discover .card.is-error .discover-poster-placeholder .discover-poster-title {
+  color: var(--muted);
+  font-family: var(--ui-font);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+body.view-discover .card-meta-release-date {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.view-discover .card-body-ratings--interactive {
+  pointer-events: auto;
+}
+
+.discover-card-watchlist-btn {
+  padding: 0.12rem 0.38rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-strong);
+  background: rgba(14, 16, 20, 0.78);
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--ui-font);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.discover-card-watchlist-btn:hover {
+  border-color: var(--list-chip-border);
+  color: var(--list-chip-text);
+  background: rgba(14, 16, 20, 0.92);
+}
+
+.discover-card-watchlist-btn.is-active {
+  border-color: var(--list-chip-border);
+  background: var(--list-chip-dim);
+  color: var(--list-chip-text);
+}
+
+.discover-card-watchlist-btn--icon-only {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem;
+  border: 1px solid var(--border-strong);
+  background: rgba(14, 16, 20, 0.78);
+  border-radius: var(--radius-sm);
+  line-height: 0;
+}
+
+.discover-card-watchlist-btn--icon-only:hover {
+  border-color: var(--list-chip-border);
+  background: rgba(14, 16, 20, 0.92);
+}
+
+.discover-card-watchlist-btn--icon-only .add-list-icon {
+  width: 1.85rem;
+  height: 1.85rem;
+  font-size: 0.9rem;
+  border-radius: 5px;
+  transition:
+    background 0.12s ease,
+    filter 0.12s ease;
+}
+
+.discover-card-watchlist-btn--icon-only .add-list-icon-watchlist svg {
+  width: 15px;
+  height: 15px;
+}
+
+.discover-card-watchlist-btn--icon-only:hover .add-list-icon {
+  filter: brightness(1.08);
+}
+
+.discover-card-watchlist-btn--icon-only.is-active {
+  border-color: var(--list-chip-border);
+  background: var(--list-chip-dim);
+}
+
+.discover-card-watchlist-btn--icon-only.is-active .add-list-icon {
+  background: var(--panel);
+}
+
+.discover-preset-btn-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.discover-card-watchlist-btn.discover-preset-btn-with-icon {
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
+.discover-card-watchlist-btn .add-list-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  font-size: 0.62rem;
+  border-radius: 4px;
+}
+
+.discover-card-watchlist-btn .add-list-icon-watchlist svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* Poster-less discover detail overlay. */
+body.view-discover .movie-detail-poster-frame.discover-detail-poster-empty {
+  background: var(--placeholder);
+}
+
+body.view-discover .discover-detail-poster-mark {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+body.view-discover .discover-detail-poster-mark::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 158%;
+  aspect-ratio: 1;
+  max-height: none;
+  background-color: rgba(255, 255, 255, 0.1);
+  -webkit-mask-image: url("../images/projector.png");
+  mask-image: url("../images/projector.png");
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
