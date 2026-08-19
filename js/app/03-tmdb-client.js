@@ -544,7 +544,7 @@ async function searchMovies(query, options = {}) {
 async function hydrateMovies(ids, handlers = {}) {
   const queue = ids.filter((id) => !movieById.has(id));
   if (!queue.length) {
-    return;
+    return { hydratedFromNetwork: false };
   }
 
   // The snapshot resolves synchronously, so anything it covers is on screen
@@ -564,7 +564,7 @@ async function hydrateMovies(ids, handlers = {}) {
   // Without access every remaining request would fail, turning those cards into
   // error cards. Leaving the skeletons up reads better and stays accurate.
   if (!pending.length || !hasTmdbAccess()) {
-    return;
+    return { hydratedFromNetwork: false };
   }
 
   async function worker() {
@@ -584,4 +584,5 @@ async function hydrateMovies(ids, handlers = {}) {
 
   const workerCount = Math.min(HYDRATE_CONCURRENCY, pending.length);
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return { hydratedFromNetwork: true };
 }

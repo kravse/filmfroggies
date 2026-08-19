@@ -236,12 +236,12 @@ function displayMovieIds() {
   let ids = ctx.movieIds;
   if (ctx.searchable && typeof hasActiveListSearch === "function" && hasActiveListSearch()) {
     ids = appListSearch.filterMovieIds(ids, getListSearchFilter(), (id) =>
-      movieById.get(id),
+      movieById.get(id) ?? localMovieRecord(id),
     );
   }
   if (ctx.sortable) {
     const sortContext = {
-      getRecord: (id) => movieById.get(id),
+      getRecord: (id) => movieById.get(id) ?? localMovieRecord(id),
       getUserRating: (id) => appRatings.getRating(userState.ratings, id),
       getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
     };
@@ -5475,7 +5475,7 @@ async function searchMovies(query, options = {}) {
 async function hydrateMovies(ids, handlers = {}) {
   const queue = ids.filter((id) => !movieById.has(id));
   if (!queue.length) {
-    return;
+    return { hydratedFromNetwork: false };
   }
 
   // The snapshot resolves synchronously, so anything it covers is on screen
@@ -5495,7 +5495,7 @@ async function hydrateMovies(ids, handlers = {}) {
   // Without access every remaining request would fail, turning those cards into
   // error cards. Leaving the skeletons up reads better and stays accurate.
   if (!pending.length || !hasTmdbAccess()) {
-    return;
+    return { hydratedFromNetwork: false };
   }
 
   async function worker() {
@@ -5515,6 +5515,7 @@ async function hydrateMovies(ids, handlers = {}) {
 
   const workerCount = Math.min(HYDRATE_CONCURRENCY, pending.length);
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return { hydratedFromNetwork: true };
 }
 
 /* ===== Search box, TMDB autocomplete, and add-to-list ===== */
@@ -6754,10 +6755,22 @@ function applyHydratedRecord(movieId, options = {}) {
   }
 }
 
+function needsResortAfterHydration() {
+  if (!getActiveDisplayContext().sortable) {
+    return false;
+  }
+  const field = appSort.getSortField(userState.preferences.sort);
+  return field === "title" || field === "year" || field === "rating";
+}
+
 function hydrateActiveList() {
   return hydrateMovies(displayMovieIds(), {
     onRecord: applyHydratedRecord,
     onUpdate: applyHydratedRecord,
+  }).then((result) => {
+    if (result?.hydratedFromNetwork && needsResortAfterHydration()) {
+      render();
+    }
   });
 }
 
@@ -8660,11 +8673,17 @@ function primeMovieRecords(ids) {
   }
 }
 
+function watchedPickerDisplayIds() {
+  return appSort.sortMovieIds(watchedPickerAvailableIds, "title-asc", {
+    getRecord: (id) => movieById.get(id) ?? localMovieRecord(id),
+  });
+}
+
 function renderWatchedPickerList() {
   if (!watchlistPickerList) {
     return;
   }
-  const available = watchedPickerAvailableIds;
+  const available = watchedPickerDisplayIds();
   if (watchlistPickerEmpty) {
     watchlistPickerEmpty.hidden = available.length > 0;
   }

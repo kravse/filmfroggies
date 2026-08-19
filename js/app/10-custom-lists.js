@@ -420,11 +420,17 @@ function primeMovieRecords(ids) {
   }
 }
 
+function watchedPickerDisplayIds() {
+  return appSort.sortMovieIds(watchedPickerAvailableIds, "title-asc", {
+    getRecord: (id) => movieById.get(id) ?? localMovieRecord(id),
+  });
+}
+
 function renderWatchedPickerList() {
   if (!watchlistPickerList) {
     return;
   }
-  const available = watchedPickerAvailableIds;
+  const available = watchedPickerDisplayIds();
   if (watchlistPickerEmpty) {
     watchlistPickerEmpty.hidden = available.length > 0;
   }

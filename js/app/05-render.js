@@ -576,10 +576,22 @@ function applyHydratedRecord(movieId, options = {}) {
   }
 }
 
+function needsResortAfterHydration() {
+  if (!getActiveDisplayContext().sortable) {
+    return false;
+  }
+  const field = appSort.getSortField(userState.preferences.sort);
+  return field === "title" || field === "year" || field === "rating";
+}
+
 function hydrateActiveList() {
   return hydrateMovies(displayMovieIds(), {
     onRecord: applyHydratedRecord,
     onUpdate: applyHydratedRecord,
+  }).then((result) => {
+    if (result?.hydratedFromNetwork && needsResortAfterHydration()) {
+      render();
+    }
   });
 }
 
