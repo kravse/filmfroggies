@@ -15,6 +15,15 @@ let letterboxdSelections = {};
 let letterboxdLookupErrors = new Set();
 let letterboxdRunId = 0;
 
+function syncLetterboxdFileLabel() {
+  if (!letterboxdFileName) {
+    return;
+  }
+  const file = letterboxdFile?.files?.[0];
+  letterboxdFileName.textContent = file ? file.name : "No file chosen";
+  letterboxdFileName.classList.toggle("is-empty", !file);
+}
+
 function openLetterboxdReview() {
   closeSettings();
   letterboxdReviewDialog.hidden = false;

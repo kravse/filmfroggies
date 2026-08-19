@@ -113,6 +113,7 @@ const cacheStatus = document.getElementById("cache-status");
 const exportCsvBtn = document.getElementById("export-csv");
 const exportCsvStatus = document.getElementById("export-csv-status");
 const letterboxdFile = document.getElementById("letterboxd-file");
+const letterboxdFileName = document.getElementById("letterboxd-file-name");
 const letterboxdRead = document.getElementById("letterboxd-read");
 const letterboxdStatus = document.getElementById("letterboxd-status");
 const letterboxdReviewDialog = document.getElementById("letterboxd-review-dialog");

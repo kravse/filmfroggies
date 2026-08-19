@@ -762,8 +762,22 @@
               browser only. Watched films, watchlist films, ratings, and diary dates
               are supported; reviews, tags, likes, and custom lists are ignored.
             </p>
-            <div class="field-row">
-              <input type="file" id="letterboxd-file" accept=".zip,application/zip" aria-label="Letterboxd export ZIP" />
+            <div class="field-row letterboxd-file-row">
+              <div class="letterboxd-file-picker">
+                <input
+                  type="file"
+                  id="letterboxd-file"
+                  class="letterboxd-file-input"
+                  accept=".zip,application/zip"
+                  aria-label="Letterboxd export ZIP"
+                />
+                <span class="ghost-btn letterboxd-file-choose" aria-hidden="true">Choose ZIP</span>
+              </div>
+              <span
+                id="letterboxd-file-name"
+                class="letterboxd-file-name is-empty"
+                aria-live="polite"
+              >No file chosen</span>
               <button type="button" id="letterboxd-read" class="ghost-btn">Import</button>
             </div>
             <span class="status-text" id="letterboxd-status"></span>

@@ -363,6 +363,7 @@ tmdbKeyClear.addEventListener("click", onClearCredential);
 cacheClearBtn.addEventListener("click", onClearCache);
 exportCsvBtn.addEventListener("click", onExportCsv);
 letterboxdRead?.addEventListener("click", onReviewLetterboxdImport);
+letterboxdFile?.addEventListener("change", syncLetterboxdFileLabel);
 letterboxdMatches?.addEventListener("change", onLetterboxdMatchChange);
 letterboxdImport?.addEventListener("click", onCommitLetterboxdImport);
 letterboxdReviewClose?.addEventListener("click", closeLetterboxdReview);

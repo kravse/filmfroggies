@@ -115,6 +115,7 @@ const cacheStatus = document.getElementById("cache-status");
 const exportCsvBtn = document.getElementById("export-csv");
 const exportCsvStatus = document.getElementById("export-csv-status");
 const letterboxdFile = document.getElementById("letterboxd-file");
+const letterboxdFileName = document.getElementById("letterboxd-file-name");
 const letterboxdRead = document.getElementById("letterboxd-read");
 const letterboxdStatus = document.getElementById("letterboxd-status");
 const letterboxdReviewDialog = document.getElementById("letterboxd-review-dialog");
@@ -9884,6 +9885,15 @@ let letterboxdSelections = {};
 let letterboxdLookupErrors = new Set();
 let letterboxdRunId = 0;
 
+function syncLetterboxdFileLabel() {
+  if (!letterboxdFileName) {
+    return;
+  }
+  const file = letterboxdFile?.files?.[0];
+  letterboxdFileName.textContent = file ? file.name : "No file chosen";
+  letterboxdFileName.classList.toggle("is-empty", !file);
+}
+
 function openLetterboxdReview() {
   closeSettings();
   letterboxdReviewDialog.hidden = false;
@@ -10511,6 +10521,7 @@ tmdbKeyClear.addEventListener("click", onClearCredential);
 cacheClearBtn.addEventListener("click", onClearCache);
 exportCsvBtn.addEventListener("click", onExportCsv);
 letterboxdRead?.addEventListener("click", onReviewLetterboxdImport);
+letterboxdFile?.addEventListener("change", syncLetterboxdFileLabel);
 letterboxdMatches?.addEventListener("change", onLetterboxdMatchChange);
 letterboxdImport?.addEventListener("click", onCommitLetterboxdImport);
 letterboxdReviewClose?.addEventListener("click", closeLetterboxdReview);
