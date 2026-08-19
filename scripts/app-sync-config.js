@@ -292,6 +292,7 @@ const APP_SYNC_ENTRIES = [
       "isDuplicateName",
       "createCustomListId",
       "createCustomList",
+      "ensureCustomListsFromImport",
       "renameCustomList",
       "deleteCustomList",
       "addMovieToCustomList",

@@ -2226,6 +2226,7 @@ const appCustomLists = (function () {
     isDuplicateName,
     createCustomListId,
     createCustomList,
+    ensureCustomListsFromImport,
     renameCustomList,
     deleteCustomList,
     addMovieToCustomList,
