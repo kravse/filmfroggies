@@ -17,12 +17,13 @@ function movie(id, { title, releaseDate, voteAverage } = {}) {
   };
 }
 
-function context(records, ratings = {}, addedAt = {}) {
+function context(records, ratings = {}, addedAt = {}, watchedOn = {}) {
   const byId = new Map(records.map((entry) => [entry.id, entry]));
   return {
     getRecord: (id) => byId.get(id) || null,
     getUserRating: (id) => ratings[id] ?? null,
     getAddedAt: (id) => addedAt[id] ?? null,
+    getWatchedOn: (id) => watchedOn[id] ?? null,
   };
 }
 
@@ -87,6 +88,13 @@ test("added-asc sorts oldest additions first", () => {
   );
 });
 
+test("watched sort uses the latest viewing date and keeps undated movies last", () => {
+  const watchedOn = { 1: "2026-01-01", 2: "2026-06-01", 3: "2026-03-01" };
+  const records = [movie(1), movie(2), movie(3), movie(4)];
+  assert.deepEqual(sortMovieIds([1, 2, 3, 4], "watched-desc", context(records, {}, {}, watchedOn)), [2, 3, 1, 4]);
+  assert.deepEqual(sortMovieIds([1, 2, 3, 4], "watched-asc", context(records, {}, {}, watchedOn)), [1, 3, 2, 4]);
+});
+
 test("added sort uses list join index when provided", () => {
   const listOrder = buildOrderIndex([10, 20, 30]);
   const listContext = {
@@ -146,6 +154,7 @@ test("getSortField maps stored modes to dropdown fields", () => {
   assert.equal(getSortField("custom"), "custom");
   assert.equal(getSortField("year-desc"), "year");
   assert.equal(getSortField("user-rating-asc"), "user-rating");
+  assert.equal(getSortField("watched-desc"), "watched");
   assert.equal(isSortDescending("rating-desc"), true);
   assert.equal(isSortDescending("title-asc"), false);
   assert.equal(toggleSortDirection("year-desc"), "year-asc");
@@ -154,12 +163,14 @@ test("getSortField maps stored modes to dropdown fields", () => {
   assert.equal(sortModeForField("year", "year-asc"), "year-asc");
   assert.equal(sortModeForField("custom", "year-desc"), "user-rating-desc");
   assert.equal(sortModeForField("title", "rating-desc"), "title-desc");
+  assert.equal(sortModeForField("watched", "rating-desc"), "watched-desc");
 });
 
 test("sortDirectionLabel describes the active order", () => {
   const { sortDirectionLabel } = require("../scripts/lib/sort");
   assert.equal(sortDirectionLabel("year", true), "Newest first");
   assert.equal(sortDirectionLabel("year", false), "Oldest first");
+  assert.equal(sortDirectionLabel("watched", true), "Newest first");
   assert.equal(sortDirectionLabel("rating", true), "Highest first");
   assert.equal(sortDirectionLabel("title", false), "A to Z");
   assert.equal(sortDirectionLabel("title", true), "Z to A");
@@ -169,6 +180,7 @@ test("getSortFieldLabel returns full and short toolbar labels", () => {
   const { getSortFieldLabel } = require("../scripts/lib/sort");
   assert.equal(getSortFieldLabel("user-rating"), "My Rating");
   assert.equal(getSortFieldLabel("added"), "Date Added");
+  assert.equal(getSortFieldLabel("watched"), "Date Watched");
   assert.equal(getSortFieldLabel("user-rating", true), "My Rating");
   assert.equal(getSortFieldLabel("added", true), "Added");
   assert.equal(getSortFieldLabel("year", true), "Year");
@@ -196,6 +208,7 @@ test("formatSortCardHint shows the sorted field in small-card view", () => {
   );
   assert.equal(formatSortCardHint("rating-desc", { record }), "8.7");
   assert.equal(formatSortCardHint("user-rating-desc", { record, userRating: 9 }), "9");
+  assert.equal(formatSortCardHint("watched-desc", { record, watchedOn: "2026-08-19" }), "2026-08-19");
   assert.equal(formatSortCardHint("title-asc", { record }), "The Matrix");
   assert.equal(
     formatSortCardHint("year-desc", { record: movie(2, { releaseDate: null }) }),

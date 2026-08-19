@@ -258,6 +258,7 @@ function displayMovieIds() {
       getRecord: (id) => movieById.get(id) ?? localMovieRecord(id),
       getUserRating: (id) => appRatings.getRating(userState.ratings, id),
       getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
+      getWatchedOn: (id) => appViewingHistory.latestViewingDate(userState.viewingHistory, id),
     };
     if (ctx.listKind === "custom") {
       const joinOrder = appSort.buildOrderIndex(ctx.movieIds);

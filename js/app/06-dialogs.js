@@ -336,6 +336,7 @@ function addDetailViewing() {
   if (detailMovieId == null || !input?.value) return;
   if (!addMovieViewing(detailMovieId, input.value)) return;
   persistUserState();
+  render();
   renderDetail();
 }
 
@@ -344,6 +345,7 @@ function updateDetailViewing(entryId, watchedOn) {
   const next = appViewingHistory.updateViewing(userState.viewingHistory, detailMovieId, entryId, watchedOn);
   if (!updateViewingHistory(next)) return;
   persistUserState();
+  render();
   renderDetail();
 }
 
@@ -352,6 +354,7 @@ function removeDetailViewing(entryId) {
   const next = appViewingHistory.removeViewing(userState.viewingHistory, detailMovieId, entryId);
   if (!updateViewingHistory(next)) return;
   persistUserState();
+  render();
   renderDetail();
 }
 

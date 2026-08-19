@@ -57,7 +57,7 @@ When you are viewing a custom list (`#lists/{id}`), the add dialog can also **Ad
 | **Watchlist** | Always detail grid | Stored order only | No | **Reorder** toggle → drag handles |
 | **Custom list** (`#lists/{id}`) | Card or detail | Same sort controls as Watched | No | No |
 
-On **Watched** (and custom lists), the **Sort** dropdown offers My Rating, Fan Rating, Release Year, Title, and Date Added, plus a reverse button for direction. Default is My Rating, highest first. Sort never rewrites stored order.
+On **Watched** (and custom lists), the **Sort** dropdown offers My Rating, Fan Rating, Release Year, Title, Date Added, and Date Watched (using the latest viewing), plus a reverse button for direction. Default is My Rating, highest first. Sort never rewrites stored order.
 
 Click any card to open the detail overlay — poster, year, runtime, genres, fan rating, your rating, director, cast, and overview. Edit **My rating** and list membership in the overlay (desktop inline; mobile via a lists sheet). Arrow keys move between movies; Escape closes. Overlays deep-link as `#movie/{id}`.
 

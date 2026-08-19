@@ -186,7 +186,7 @@ const APP_SYNC_ENTRIES = [
     header: "Generated from scripts/lib/viewing-history.js — run npm run bundle",
     exports: [
       "normalizeDate", "today", "createViewingId", "normalizeViewingHistory",
-      "viewingEntries", "addViewing", "updateViewing", "removeViewing", "mergeViewingHistory",
+      "viewingEntries", "latestViewingDate", "addViewing", "updateViewing", "removeViewing", "mergeViewingHistory",
     ],
   },
   {

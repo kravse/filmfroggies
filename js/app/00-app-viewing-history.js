@@ -75,6 +75,10 @@ const appViewingHistory = (function () {
       .sort((a, b) => b.watchedOn.localeCompare(a.watchedOn) || b.updatedAt.localeCompare(a.updatedAt));
   }
 
+  function latestViewingDate(history, movieId) {
+    return viewingEntries(history, movieId)[0]?.watchedOn || null;
+  }
+
   function addViewing(history, movieId, watchedOn, now = new Date(), id = createViewingId(now)) {
     const movie = Number(movieId);
     const date = normalizeDate(watchedOn);
@@ -122,6 +126,7 @@ const appViewingHistory = (function () {
     createViewingId,
     normalizeViewingHistory,
     viewingEntries,
+    latestViewingDate,
     addViewing,
     updateViewing,
     removeViewing,

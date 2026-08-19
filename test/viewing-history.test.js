@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
-  normalizeDate, today, normalizeViewingHistory, viewingEntries, addViewing,
+  normalizeDate, today, normalizeViewingHistory, viewingEntries, latestViewingDate, addViewing,
   updateViewing, removeViewing, mergeViewingHistory,
 } = require("../scripts/lib/viewing-history");
 
@@ -23,6 +23,7 @@ test("viewings can be added, edited, and tombstoned", () => {
   let history = addViewing({}, 42, "2026-01-01", T1, "a");
   history = addViewing(history, 42, "2026-02-02", T2, "b");
   assert.deepEqual(viewingEntries(history, 42).map((x) => x.watchedOn), ["2026-02-02", "2026-01-01"]);
+  assert.equal(latestViewingDate(history, 42), "2026-02-02");
   history = updateViewing(history, 42, "a", "2026-01-03", T3);
   assert.equal(viewingEntries(history, 42).find((x) => x.id === "a").watchedOn, "2026-01-03");
   history = removeViewing(history, 42, "b", T3);
