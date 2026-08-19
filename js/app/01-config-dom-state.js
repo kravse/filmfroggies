@@ -29,6 +29,7 @@ const addMovieCustomListsEmpty = document.getElementById("add-movie-custom-lists
 const addMovieCreateListsLink = document.getElementById("add-movie-create-lists-link");
 
 const watchlistPickerDialog = document.getElementById("watchlist-picker-dialog");
+const watchlistPickerBack = document.getElementById("watchlist-picker-back");
 const watchlistPickerClose = document.getElementById("watchlist-picker-close");
 const watchlistPickerList = document.getElementById("watchlist-picker-list");
 const watchlistPickerEmpty = document.getElementById("watchlist-picker-empty");
@@ -49,11 +50,13 @@ const searchDirectorToggle = document.getElementById("search-director-toggle");
 
 const addMovieFab = document.getElementById("add-movie-fab");
 const addMovieDialog = document.getElementById("add-movie-dialog");
+const addMovieTitle = document.getElementById("add-movie-title");
 const addMovieClose = document.getElementById("add-movie-close");
 const addMovieHint = document.getElementById("add-movie-hint");
 const addMovieSearchStep = document.getElementById("add-movie-search-step");
 const addMoviePickStep = document.getElementById("add-movie-pick-step");
 const addMoviePicked = document.getElementById("add-movie-picked");
+const addMoviePresetSection = document.getElementById("add-movie-preset-section");
 const addMovieListPicker = document.getElementById("add-movie-list-picker");
 const addMovieSubmit = document.getElementById("add-movie-submit");
 const addMovieRatingSlider = document.getElementById("add-movie-rating-slider");

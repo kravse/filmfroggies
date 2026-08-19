@@ -31,6 +31,7 @@ const addMovieCustomListsEmpty = document.getElementById("add-movie-custom-lists
 const addMovieCreateListsLink = document.getElementById("add-movie-create-lists-link");
 
 const watchlistPickerDialog = document.getElementById("watchlist-picker-dialog");
+const watchlistPickerBack = document.getElementById("watchlist-picker-back");
 const watchlistPickerClose = document.getElementById("watchlist-picker-close");
 const watchlistPickerList = document.getElementById("watchlist-picker-list");
 const watchlistPickerEmpty = document.getElementById("watchlist-picker-empty");
@@ -51,11 +52,13 @@ const searchDirectorToggle = document.getElementById("search-director-toggle");
 
 const addMovieFab = document.getElementById("add-movie-fab");
 const addMovieDialog = document.getElementById("add-movie-dialog");
+const addMovieTitle = document.getElementById("add-movie-title");
 const addMovieClose = document.getElementById("add-movie-close");
 const addMovieHint = document.getElementById("add-movie-hint");
 const addMovieSearchStep = document.getElementById("add-movie-search-step");
 const addMoviePickStep = document.getElementById("add-movie-pick-step");
 const addMoviePicked = document.getElementById("add-movie-picked");
+const addMoviePresetSection = document.getElementById("add-movie-preset-section");
 const addMovieListPicker = document.getElementById("add-movie-list-picker");
 const addMovieSubmit = document.getElementById("add-movie-submit");
 const addMovieRatingSlider = document.getElementById("add-movie-rating-slider");
@@ -5619,6 +5622,13 @@ function initAddMovieRatingSelect() {
 }
 
 function syncAddMoviePickStep() {
+  if (isCustomListDetailActive()) {
+    if (addMovieRatingField) {
+      addMovieRatingField.hidden = true;
+    }
+    resetAddMovieRatingControls();
+    return;
+  }
   const watched = selectedAddListId === appLists.WATCHED_ID;
   if (addMovieRatingField) {
     addMovieRatingField.hidden = !watched;
@@ -5626,6 +5636,30 @@ function syncAddMoviePickStep() {
   if (!watched) {
     resetAddMovieRatingControls();
   }
+}
+
+function syncAddMovieDialogChrome() {
+  const customAdd = isCustomListDetailActive();
+  const listName = customAdd ? getActiveDisplayContext().listName : "";
+
+  if (addMovieTitle) {
+    addMovieTitle.textContent = customAdd ? `Add a movie to ${listName}` : "Add a movie";
+  }
+  if (addMoviePresetSection) {
+    addMoviePresetSection.hidden = customAdd;
+  }
+  if (addMovieCustomListsSection) {
+    if (customAdd) {
+      addMovieCustomListsSection.hidden = true;
+    } else {
+      renderAddMovieCustomListPicker();
+    }
+  }
+  if (addMoviePickTabs && customAdd) {
+    addMoviePickTabs.hidden = true;
+  }
+  addMovieDialog?.classList.toggle("is-custom-list-add", customAdd);
+  syncAddMoviePickStep();
 }
 
 function isAddMovieDialogOpen() {
@@ -5832,8 +5866,12 @@ function showAddSearchStep() {
     addMoviePickTabs.hidden = true;
   }
   addMovieDialog?.classList.remove("is-pick-step");
+  if (addMovieBack) {
+    addMovieBack.hidden = true;
+  }
   addMovieSearchStep.hidden = false;
   addMoviePickStep.hidden = true;
+  syncAddMovieDialogChrome();
 }
 
 function syncAddMoviePickTabs() {
@@ -5984,15 +6022,18 @@ function showAddPickStep(result) {
   resetAddMovieRatingControls();
   resetAddMovieCustomListSelection();
   if (addMoviePickTabs) {
-    addMoviePickTabs.hidden = false;
+    addMoviePickTabs.hidden = isCustomListDetailActive();
   }
   addMovieDialog?.classList.add("is-pick-step");
+  if (addMovieBack) {
+    addMovieBack.hidden = false;
+  }
   setAddMoviePickTab("add");
   addMovieSearchStep.hidden = true;
   addMoviePickStep.hidden = false;
   renderAddMoviePicked(result);
   updateAddListPickerSelection(selectedAddListId);
-  syncAddMoviePickStep();
+  syncAddMovieDialogChrome();
   syncAddMovieSubmitState();
   prefetchAddMovieDetail(result.id);
   addMovieSubmit.focus({ preventScroll: true });
@@ -6002,16 +6043,18 @@ function confirmAddMovie() {
   if (!pendingAddResult) {
     return;
   }
-  const hasPreset = selectedAddListId != null;
-  const hasCustom = selectedAddCustomListIds.size > 0;
-  if (!hasPreset && !hasCustom) {
+  if (isCustomListDetailActive()) {
+    if (selectedAddCustomListIds.size === 0) {
+      return;
+    }
+  } else if (selectedAddListId == null) {
     return;
   }
 
   const movieId = pendingAddResult.id;
   let changed = false;
 
-  if (hasPreset) {
+  if (!isCustomListDetailActive() && selectedAddListId != null) {
     const nextLists = appLists.assignMovieToList(userState.lists, selectedAddListId, movieId);
     if (updateLists(nextLists)) {
       changed = true;
@@ -6061,6 +6104,7 @@ function syncAddMovieFromWatchedSection() {
   if (addMovieFromWatchedSection) {
     addMovieFromWatchedSection.hidden = !isCustomListDetailActive();
   }
+  syncAddMovieDialogChrome();
 }
 
 function openAddMovieDialog() {
@@ -6177,7 +6221,7 @@ function onAddListOptionClick(event) {
   if (listId !== appLists.WATCHED_ID && listId !== appLists.WATCHLIST_ID) {
     return;
   }
-  selectedAddListId = selectedAddListId === listId ? null : listId;
+  selectedAddListId = listId;
   updateAddListPickerSelection(selectedAddListId);
   syncAddMoviePickStep();
   syncAddMovieSubmitState();
@@ -8658,10 +8702,14 @@ function resetAddMovieCustomListSelection() {
 }
 
 function syncAddMovieSubmitState() {
-  const hasPreset = selectedAddListId != null;
-  const hasCustom = selectedAddCustomListIds.size > 0;
+  if (isCustomListDetailActive()) {
+    if (addMovieSubmit) {
+      addMovieSubmit.disabled = selectedAddCustomListIds.size === 0;
+    }
+    return;
+  }
   if (addMovieSubmit) {
-    addMovieSubmit.disabled = !hasPreset && !hasCustom;
+    addMovieSubmit.disabled = selectedAddListId == null;
   }
 }
 
@@ -8760,6 +8808,11 @@ function closeWatchedPicker() {
   watchlistPickerDialog.hidden = true;
   watchedPickerSelectedIds.clear();
   watchedPickerAvailableIds = [];
+}
+
+function backFromWatchedPickerToAddMovie() {
+  closeWatchedPicker();
+  openAddMovieDialog();
 }
 
 function syncWatchedPickerSubmit() {
@@ -9127,6 +9180,7 @@ addMovieFromWatchedBtn?.addEventListener("click", () => {
   closeAddMovieDialog();
   openWatchedPicker();
 });
+watchlistPickerBack?.addEventListener("click", backFromWatchedPickerToAddMovie);
 watchlistPickerClose?.addEventListener("click", closeWatchedPicker);
 watchlistPickerSubmit?.addEventListener("click", confirmWatchedPicker);
 watchlistPickerList?.addEventListener("click", onWatchedPickerClick);

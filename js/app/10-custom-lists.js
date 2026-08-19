@@ -397,10 +397,14 @@ function resetAddMovieCustomListSelection() {
 }
 
 function syncAddMovieSubmitState() {
-  const hasPreset = selectedAddListId != null;
-  const hasCustom = selectedAddCustomListIds.size > 0;
+  if (isCustomListDetailActive()) {
+    if (addMovieSubmit) {
+      addMovieSubmit.disabled = selectedAddCustomListIds.size === 0;
+    }
+    return;
+  }
   if (addMovieSubmit) {
-    addMovieSubmit.disabled = !hasPreset && !hasCustom;
+    addMovieSubmit.disabled = selectedAddListId == null;
   }
 }
 
@@ -499,6 +503,11 @@ function closeWatchedPicker() {
   watchlistPickerDialog.hidden = true;
   watchedPickerSelectedIds.clear();
   watchedPickerAvailableIds = [];
+}
+
+function backFromWatchedPickerToAddMovie() {
+  closeWatchedPicker();
+  openAddMovieDialog();
 }
 
 function syncWatchedPickerSubmit() {

@@ -96,6 +96,13 @@ function initAddMovieRatingSelect() {
 }
 
 function syncAddMoviePickStep() {
+  if (isCustomListDetailActive()) {
+    if (addMovieRatingField) {
+      addMovieRatingField.hidden = true;
+    }
+    resetAddMovieRatingControls();
+    return;
+  }
   const watched = selectedAddListId === appLists.WATCHED_ID;
   if (addMovieRatingField) {
     addMovieRatingField.hidden = !watched;
@@ -103,6 +110,30 @@ function syncAddMoviePickStep() {
   if (!watched) {
     resetAddMovieRatingControls();
   }
+}
+
+function syncAddMovieDialogChrome() {
+  const customAdd = isCustomListDetailActive();
+  const listName = customAdd ? getActiveDisplayContext().listName : "";
+
+  if (addMovieTitle) {
+    addMovieTitle.textContent = customAdd ? `Add a movie to ${listName}` : "Add a movie";
+  }
+  if (addMoviePresetSection) {
+    addMoviePresetSection.hidden = customAdd;
+  }
+  if (addMovieCustomListsSection) {
+    if (customAdd) {
+      addMovieCustomListsSection.hidden = true;
+    } else {
+      renderAddMovieCustomListPicker();
+    }
+  }
+  if (addMoviePickTabs && customAdd) {
+    addMoviePickTabs.hidden = true;
+  }
+  addMovieDialog?.classList.toggle("is-custom-list-add", customAdd);
+  syncAddMoviePickStep();
 }
 
 function isAddMovieDialogOpen() {
@@ -309,8 +340,12 @@ function showAddSearchStep() {
     addMoviePickTabs.hidden = true;
   }
   addMovieDialog?.classList.remove("is-pick-step");
+  if (addMovieBack) {
+    addMovieBack.hidden = true;
+  }
   addMovieSearchStep.hidden = false;
   addMoviePickStep.hidden = true;
+  syncAddMovieDialogChrome();
 }
 
 function syncAddMoviePickTabs() {
@@ -461,15 +496,18 @@ function showAddPickStep(result) {
   resetAddMovieRatingControls();
   resetAddMovieCustomListSelection();
   if (addMoviePickTabs) {
-    addMoviePickTabs.hidden = false;
+    addMoviePickTabs.hidden = isCustomListDetailActive();
   }
   addMovieDialog?.classList.add("is-pick-step");
+  if (addMovieBack) {
+    addMovieBack.hidden = false;
+  }
   setAddMoviePickTab("add");
   addMovieSearchStep.hidden = true;
   addMoviePickStep.hidden = false;
   renderAddMoviePicked(result);
   updateAddListPickerSelection(selectedAddListId);
-  syncAddMoviePickStep();
+  syncAddMovieDialogChrome();
   syncAddMovieSubmitState();
   prefetchAddMovieDetail(result.id);
   addMovieSubmit.focus({ preventScroll: true });
@@ -479,16 +517,18 @@ function confirmAddMovie() {
   if (!pendingAddResult) {
     return;
   }
-  const hasPreset = selectedAddListId != null;
-  const hasCustom = selectedAddCustomListIds.size > 0;
-  if (!hasPreset && !hasCustom) {
+  if (isCustomListDetailActive()) {
+    if (selectedAddCustomListIds.size === 0) {
+      return;
+    }
+  } else if (selectedAddListId == null) {
     return;
   }
 
   const movieId = pendingAddResult.id;
   let changed = false;
 
-  if (hasPreset) {
+  if (!isCustomListDetailActive() && selectedAddListId != null) {
     const nextLists = appLists.assignMovieToList(userState.lists, selectedAddListId, movieId);
     if (updateLists(nextLists)) {
       changed = true;
@@ -538,6 +578,7 @@ function syncAddMovieFromWatchedSection() {
   if (addMovieFromWatchedSection) {
     addMovieFromWatchedSection.hidden = !isCustomListDetailActive();
   }
+  syncAddMovieDialogChrome();
 }
 
 function openAddMovieDialog() {
@@ -654,7 +695,7 @@ function onAddListOptionClick(event) {
   if (listId !== appLists.WATCHED_ID && listId !== appLists.WATCHLIST_ID) {
     return;
   }
-  selectedAddListId = selectedAddListId === listId ? null : listId;
+  selectedAddListId = listId;
   updateAddListPickerSelection(selectedAddListId);
   syncAddMoviePickStep();
   syncAddMovieSubmitState();

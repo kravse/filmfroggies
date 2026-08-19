@@ -266,6 +266,7 @@ addMovieFromWatchedBtn?.addEventListener("click", () => {
   closeAddMovieDialog();
   openWatchedPicker();
 });
+watchlistPickerBack?.addEventListener("click", backFromWatchedPickerToAddMovie);
 watchlistPickerClose?.addEventListener("click", closeWatchedPicker);
 watchlistPickerSubmit?.addEventListener("click", confirmWatchedPicker);
 watchlistPickerList?.addEventListener("click", onWatchedPickerClick);

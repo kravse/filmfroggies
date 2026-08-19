@@ -304,6 +304,12 @@ body.view-custom-index .toolbar-right > :not(.custom-lists-index-actions) {
   color: var(--accent);
 }
 
+.watchlist-picker-actions {
+  margin-top: 0;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid var(--border);
+}
+
 .watchlist-picker-body {
   max-height: min(60vh, 28rem);
   overflow-y: auto;
@@ -391,11 +397,6 @@ body.view-custom-index .toolbar-right > :not(.custom-lists-index-actions) {
 
 .watchlist-picker-empty a {
   color: var(--accent);
-}
-
-.watchlist-picker-actions {
-  padding: 0.85rem 1rem;
-  border-top: 1px solid var(--border);
 }
 
 body.view-mode-detail .card-body--custom-list {
