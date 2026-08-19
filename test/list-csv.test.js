@@ -78,6 +78,15 @@ test("listCsvRows includes my_rating and release_year when available", () => {
   );
 });
 
+test("listCsvRows exports active viewing dates oldest first", () => {
+  const state = stateWith([[603, "watched"]]);
+  state.viewingHistory = { 603: [
+    { id: "b", watchedOn: "2026-08-19", updatedAt: "2026-08-19T12:00:00.000Z" },
+    { id: "a", watchedOn: "2025-01-02", updatedAt: "2025-01-02T12:00:00.000Z" },
+  ] };
+  assert.equal(listCsvRows(state, records({}))[0].watchDates, "2025-01-02;2026-08-19");
+});
+
 test("removed movies never reach the csv", () => {
   let state = stateWith([
     [603, "watched"],
@@ -204,7 +213,7 @@ test("buildListCsv writes a header and one row per movie", () => {
   ]);
   assert.equal(
     csv,
-    "tmdb_id,title,list_id,list_name,my_rating,release_year\n603,The Matrix,watched,Watched,8.5,1999\n",
+    "tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates\n603,The Matrix,watched,Watched,8.5,1999,\n",
   );
 });
 
@@ -237,10 +246,10 @@ test("buildListCsv quotes titles that would otherwise break the row", () => {
   ]);
   assert.equal(
     csv,
-    "tmdb_id,title,list_id,list_name,my_rating,release_year\n" +
-      '1,"Lock, Stock and Two Smoking Barrels",watched,Watched,,1998\n' +
-      '2,"The ""Burbs",watched,Watched,7.0,\n' +
-      '3,"Line\nBreak",watchlist,Watchlist,,2020\n',
+    "tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates\n" +
+      '1,"Lock, Stock and Two Smoking Barrels",watched,Watched,,1998,\n' +
+      '2,"The ""Burbs",watched,Watched,7.0,,\n' +
+      '3,"Line\nBreak",watchlist,Watchlist,,2020,\n',
   );
 });
 

@@ -158,14 +158,16 @@ body.view-mode-detail .card {
   border-color: var(--border-strong);
 }
 
-.card.is-unrated {
+.card.is-unrated,
+.card.is-no-watch-date {
   opacity: 0.72;
   border-style: dashed;
   border-color: var(--muted-dim);
   background: color-mix(in srgb, var(--panel) 82%, var(--bg));
 }
 
-.card.is-unrated .poster-wrap::after {
+.card.is-unrated .poster-wrap::after,
+.card.is-no-watch-date .poster-wrap::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -174,25 +176,31 @@ body.view-mode-detail .card {
   pointer-events: none;
 }
 
-.card.is-unrated .poster-wrap img {
+.card.is-unrated .poster-wrap img,
+.card.is-no-watch-date .poster-wrap img {
   filter: saturate(0.55) brightness(0.82);
 }
 
 .card.is-unrated .card-footer,
-.card.is-unrated .card-body {
+.card.is-unrated .card-body,
+.card.is-no-watch-date .card-footer,
+.card.is-no-watch-date .card-body {
   color: var(--muted);
 }
 
-.card.is-unrated:hover {
+.card.is-unrated:hover,
+.card.is-no-watch-date:hover {
   opacity: 0.82;
   border-color: var(--muted);
 }
 
-body.view-mode-cards .card.is-unrated {
+body.view-mode-cards .card.is-unrated,
+body.view-mode-cards .card.is-no-watch-date {
   opacity: 1;
 }
 
-body.view-mode-cards .card.is-unrated:hover {
+body.view-mode-cards .card.is-unrated:hover,
+body.view-mode-cards .card.is-no-watch-date:hover {
   opacity: 1;
   border-color: var(--muted);
 }

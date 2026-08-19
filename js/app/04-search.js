@@ -15,6 +15,7 @@ let pendingAddResult = null;
 let selectedAddListId = null;
 let pendingAddRating = null;
 let addMovieRatingTouched = false;
+let addMovieWatchDateActive = false;
 let addMoviePickTab = "add";
 let searchDirectorMode = false;
 
@@ -33,6 +34,41 @@ function resetAddMovieRatingControls() {
   addMovieRatingValue.textContent = "—";
   addMovieRatingValue.classList.add("is-empty");
   addMovieRatingField?.classList.remove("is-active");
+}
+
+function resetAddMovieWatchDate() {
+  addMovieWatchDateActive = false;
+  if (addMovieWatchDate) {
+    addMovieWatchDate.value = appViewingHistory.today();
+    addMovieWatchDate.max = appViewingHistory.today();
+  }
+  syncAddMovieWatchDateUi();
+}
+
+function syncAddMovieWatchDateUi() {
+  const watched = !isCustomListDetailActive() && selectedAddListId === appLists.WATCHED_ID;
+  if (addMovieWatchDateWrap) {
+    addMovieWatchDateWrap.hidden = !watched;
+  }
+  if (!watched) {
+    addMovieWatchDateActive = false;
+  }
+  if (addMovieWatchDateToggle) {
+    addMovieWatchDateToggle.hidden = !watched || addMovieWatchDateActive;
+  }
+  if (addMovieWatchDateField) {
+    addMovieWatchDateField.hidden = !watched || !addMovieWatchDateActive;
+  }
+}
+
+function onAddMovieWatchDateToggleClick() {
+  addMovieWatchDateActive = true;
+  syncAddMovieWatchDateUi();
+  addMovieWatchDate?.focus({ preventScroll: true });
+}
+
+function clearAddMovieWatchDate() {
+  resetAddMovieWatchDate();
 }
 
 function syncAddMovieRatingDisplay() {
@@ -101,6 +137,8 @@ function syncAddMoviePickStep() {
       addMovieRatingField.hidden = true;
     }
     resetAddMovieRatingControls();
+    if (addMovieWatchDateWrap) addMovieWatchDateWrap.hidden = true;
+    resetAddMovieWatchDate();
     return;
   }
   const watched = selectedAddListId === appLists.WATCHED_ID;
@@ -109,6 +147,9 @@ function syncAddMoviePickStep() {
   }
   if (!watched) {
     resetAddMovieRatingControls();
+    resetAddMovieWatchDate();
+  } else {
+    syncAddMovieWatchDateUi();
   }
 }
 
@@ -335,6 +376,7 @@ function showAddSearchStep() {
   selectedAddListId = null;
   resetAddMovieCustomListSelection();
   resetAddMovieRatingControls();
+  resetAddMovieWatchDate();
   setAddMoviePickTab("add");
   if (addMoviePickTabs) {
     addMoviePickTabs.hidden = true;
@@ -539,6 +581,9 @@ function confirmAddMovie() {
       ) {
         changed = true;
       }
+    }
+    if (selectedAddListId === appLists.WATCHED_ID && addMovieWatchDateActive && addMovieWatchDate?.value) {
+      if (addMovieViewing(movieId, addMovieWatchDate.value)) changed = true;
     }
     if (changed) {
       recordAddedAt(movieId);

@@ -64,6 +64,10 @@ const PARTS = [
     title: "Date added stamps (generated from scripts/lib/added-at.js)",
   },
   {
+    file: "00-app-viewing-history.js",
+    title: "Per-movie viewing history (generated from scripts/lib/viewing-history.js)",
+  },
+  {
     file: "00-app-sort.js",
     title: "Watched list display sort (generated from scripts/lib/sort.js)",
   },

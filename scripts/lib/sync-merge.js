@@ -44,6 +44,12 @@ function getAddedAt() {
   throw new Error("appAddedAt is not available");
 }
 
+function getViewingHistory() {
+  if (typeof appViewingHistory !== "undefined") return appViewingHistory;
+  if (typeof require === "function") return require("./viewing-history");
+  throw new Error("appViewingHistory is not available");
+}
+
 function getCustomListMerge() {
   if (typeof appCustomListMerge !== "undefined") {
     return appCustomListMerge;
@@ -280,6 +286,10 @@ function mergeUserStates(a, b) {
     addedAt: getAddedAt().mergeAddedAt(
       secondary.addedAt && typeof secondary.addedAt === "object" ? secondary.addedAt : {},
       primary.addedAt && typeof primary.addedAt === "object" ? primary.addedAt : {},
+    ),
+    viewingHistory: getViewingHistory().mergeViewingHistory(
+      secondary.viewingHistory,
+      primary.viewingHistory,
     ),
     statuses,
     customLists: customListState.customLists,

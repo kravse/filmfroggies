@@ -7,6 +7,8 @@ const SORT_MODES = new Set([
   "custom",
   "added-asc",
   "added-desc",
+  "watched-asc",
+  "watched-desc",
   "year-asc",
   "year-desc",
   "rating-desc",
@@ -21,10 +23,11 @@ const DEFAULT_SORT = "custom";
 const DEFAULT_PREFERENCE_SORT = "user-rating-desc";
 const MISSING_SORT_HINT = "—";
 
-const SORT_FIELDS = new Set(["added", "year", "rating", "user-rating", "title"]);
+const SORT_FIELDS = new Set(["added", "watched", "year", "rating", "user-rating", "title"]);
 
 const SORT_FIELD_DEFAULTS = {
   added: "added-desc",
+  watched: "watched-desc",
   year: "year-desc",
   rating: "rating-desc",
   "user-rating": "user-rating-desc",
@@ -34,6 +37,7 @@ const SORT_FIELD_DEFAULTS = {
 const SORT_FIELD_LABELS = {
   "user-rating": "My Rating",
   added: "Date Added",
+  watched: "Date Watched",
   year: "Release Year",
   rating: "Fan Rating",
   title: "Title",
@@ -42,6 +46,7 @@ const SORT_FIELD_LABELS = {
 const SORT_FIELD_LABELS_SHORT = {
   "user-rating": "My Rating",
   added: "Added",
+  watched: "Watched",
   year: "Year",
   rating: "Fan Rating",
   title: "Title",
@@ -70,6 +75,7 @@ function getSortField(mode) {
   if (normalized.startsWith("added-")) {
     return "added";
   }
+  if (normalized.startsWith("watched-")) return "watched";
   if (normalized.startsWith("year-")) {
     return "year";
   }
@@ -128,6 +134,7 @@ function normalizeWatchedSort(raw, fallback = DEFAULT_PREFERENCE_SORT) {
 function sortDirectionLabel(field, descending) {
   switch (field) {
     case "added":
+    case "watched":
       return descending ? "Newest first" : "Oldest first";
     case "year":
       return descending ? "Newest first" : "Oldest first";
@@ -248,6 +255,8 @@ function sortMovieIds(movieIds, mode, context = {}) {
     typeof context.getUserRating === "function" ? context.getUserRating : () => null;
   const getAddedAt =
     typeof context.getAddedAt === "function" ? context.getAddedAt : () => null;
+  const getWatchedOn =
+    typeof context.getWatchedOn === "function" ? context.getWatchedOn : () => null;
   const getListJoinIndex =
     typeof context.getListJoinIndex === "function" ? context.getListJoinIndex : null;
   const tiebreak = (a, b) => compareOrderTiebreak(a, b, orderIndex);
@@ -266,6 +275,18 @@ function sortMovieIds(movieIds, mode, context = {}) {
       compareNullableNumber(
         parseAddedTime(getAddedAt(a)),
         parseAddedTime(getAddedAt(b)),
+        direction,
+        () => tiebreak(a, b),
+      ),
+    );
+  }
+
+  if (normalized === "watched-asc" || normalized === "watched-desc") {
+    const direction = normalized === "watched-asc" ? "asc" : "desc";
+    return copy.sort((a, b) =>
+      compareNullableNumber(
+        parseAddedTime(getWatchedOn(a)),
+        parseAddedTime(getWatchedOn(b)),
         direction,
         () => tiebreak(a, b),
       ),
@@ -332,6 +353,10 @@ function formatSortCardHint(mode, context = {}) {
 
   if (normalized === "added-asc" || normalized === "added-desc") {
     return formatAddedHint(context.addedAt) || MISSING_SORT_HINT;
+  }
+
+  if (normalized === "watched-asc" || normalized === "watched-desc") {
+    return formatAddedHint(context.watchedOn) || MISSING_SORT_HINT;
   }
 
   if (normalized === "rating-asc" || normalized === "rating-desc") {

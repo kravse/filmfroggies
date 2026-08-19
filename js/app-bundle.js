@@ -77,6 +77,11 @@ const addMovieRatingSelect = document.getElementById("add-movie-rating-select");
 const addMovieRatingClear = document.getElementById("add-movie-rating-clear");
 const addMovieRatingValue = document.getElementById("add-movie-rating-value");
 const addMovieRatingField = document.getElementById("add-movie-rating-field");
+const addMovieWatchDateWrap = document.getElementById("add-movie-watch-date-wrap");
+const addMovieWatchDateToggle = document.getElementById("add-movie-watch-date-toggle");
+const addMovieWatchDateField = document.getElementById("add-movie-watch-date-field");
+const addMovieWatchDate = document.getElementById("add-movie-watch-date");
+const addMovieWatchDateClear = document.getElementById("add-movie-watch-date-clear");
 const addMovieBack = document.getElementById("add-movie-back");
 const addMoviePickTabs = document.getElementById("add-movie-pick-tabs");
 const addMovieTabAdd = document.getElementById("add-movie-tab-add");
@@ -151,6 +156,10 @@ const watchConfirmDialog = document.getElementById("watch-confirm-dialog");
 const watchConfirmMessage = document.getElementById("watch-confirm-message");
 const watchConfirmCancel = document.getElementById("watch-confirm-cancel");
 const watchConfirmOk = document.getElementById("watch-confirm-ok");
+const watchConfirmDateToggle = document.getElementById("watch-confirm-date-toggle");
+const watchConfirmDateField = document.getElementById("watch-confirm-date-field");
+const watchConfirmDate = document.getElementById("watch-confirm-date");
+const watchConfirmDateClear = document.getElementById("watch-confirm-date-clear");
 
 const discoverAddConfirmDialog = document.getElementById("discover-add-confirm-dialog");
 const discoverAddConfirmTitle = document.getElementById("discover-add-confirm-title");
@@ -188,8 +197,11 @@ let detailRatingEditorSnapshot = null;
 let detailListPickerOpen = false;
 /** Staged custom-list membership while the detail list editor is open. */
 let detailListPickerSelectedIds = new Set();
+/** "overview" | "viewing-history" */
+let detailBodyTab = "overview";
 let pendingRemoveMovieId = null;
 let pendingWatchMovieId = null;
+let watchConfirmWatchDateActive = false;
 let pendingDiscoverAddMovieId = null;
 let pendingDiscoverAddListId = null;
 let pendingCustomListDeleteId = null;
@@ -276,6 +288,7 @@ function displayMovieIds() {
       getRecord: (id) => movieById.get(id) ?? localMovieRecord(id),
       getUserRating: (id) => appRatings.getRating(userState.ratings, id),
       getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
+      getWatchedOn: (id) => appViewingHistory.latestViewingDate(userState.viewingHistory, id),
     };
     if (ctx.listKind === "custom") {
       const joinOrder = appSort.buildOrderIndex(ctx.movieIds);
@@ -1934,7 +1947,7 @@ const appListCsv = (function () {
    * ignores them.
    */
 
-  const CSV_HEADER = ["tmdb_id", "title", "list_id", "list_name", "my_rating", "release_year"];
+  const CSV_HEADER = ["tmdb_id", "title", "list_id", "list_name", "my_rating", "release_year", "watch_dates"];
   const CSV_FILENAME = "my_list.csv";
 
   function getLists() {
@@ -1967,6 +1980,12 @@ const appListCsv = (function () {
     throw new Error("appRatings is not available");
   }
 
+  function getViewingHistory() {
+    if (typeof appViewingHistory !== "undefined") return appViewingHistory;
+    if (typeof require === "function") return require("./viewing-history");
+    throw new Error("appViewingHistory is not available");
+  }
+
   function releaseYearFrom(releaseDate) {
     const match = /^(\d{4})/.exec(String(releaseDate || "").trim());
     return match ? match[1] : "";
@@ -1979,7 +1998,9 @@ const appListCsv = (function () {
     const myRating = getRatings().formatUserRating(
       getRatings().getRating(state?.ratings, id),
     );
-    return { title, releaseYear, myRating };
+    const watchDates = getViewingHistory().viewingEntries(state?.viewingHistory, id)
+      .map((entry) => entry.watchedOn).sort().join(";");
+    return { title, releaseYear, myRating, ...(watchDates ? { watchDates } : {}) };
   }
 
   function listNameFor(state, listId) {
@@ -2062,6 +2083,7 @@ const appListCsv = (function () {
           row.listName,
           row.myRating,
           row.releaseYear,
+          row.watchDates,
         ]),
       );
     }
@@ -2526,6 +2548,144 @@ const appAddedAt = (function () {
   };
 })();
 
+/* ===== Per-movie viewing history (generated from scripts/lib/viewing-history.js) ===== */
+
+/* Generated from scripts/lib/viewing-history.js — run npm run bundle */
+
+const appViewingHistory = (function () {
+  /** Per-movie viewing dates with entry-level merge metadata for Gist sync. */
+
+  function normalizeDate(value) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
+    if (!match) return null;
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value
+      ? value
+      : null;
+  }
+
+  function normalizeStamp(value) {
+    const time = Date.parse(value || "");
+    return Number.isFinite(time) ? new Date(time).toISOString() : null;
+  }
+
+  function today(now = new Date()) {
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function createViewingId(now = new Date()) {
+    const random = globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2);
+    return `view-${now.getTime().toString(36)}-${random}`;
+  }
+
+  function normalizeEntry(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    const id = String(raw.id || "").trim();
+    const watchedOn = normalizeDate(raw.watchedOn);
+    const updatedAt = normalizeStamp(raw.updatedAt);
+    const deletedAt = normalizeStamp(raw.deletedAt);
+    if (!id || !watchedOn || !updatedAt) return null;
+    return { id, watchedOn, updatedAt, ...(deletedAt ? { deletedAt } : {}) };
+  }
+
+  function chooseEntry(a, b) {
+    if (!a) return b;
+    if (!b) return a;
+    const aTime = Date.parse(a.deletedAt || a.updatedAt);
+    const bTime = Date.parse(b.deletedAt || b.updatedAt);
+    if (bTime > aTime) return b;
+    if (aTime > bTime) return a;
+    if (a.deletedAt && !b.deletedAt) return a;
+    if (b.deletedAt && !a.deletedAt) return b;
+    // Equal-time concurrent edits must converge regardless of merge direction.
+    return b.watchedOn > a.watchedOn ? b : a;
+  }
+
+  function normalizeViewingHistory(raw) {
+    const out = {};
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+    for (const [key, entries] of Object.entries(raw)) {
+      const movieId = Number(key);
+      if (!Number.isInteger(movieId) || movieId <= 0 || !Array.isArray(entries)) continue;
+      const byId = new Map();
+      for (const rawEntry of entries) {
+        const entry = normalizeEntry(rawEntry);
+        if (entry) byId.set(entry.id, chooseEntry(byId.get(entry.id), entry));
+      }
+      if (byId.size) out[String(movieId)] = [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+    }
+    return out;
+  }
+
+  function viewingEntries(history, movieId, options = {}) {
+    const entries = normalizeViewingHistory(history)[String(Number(movieId))] || [];
+    return entries
+      .filter((entry) => options.includeDeleted || !entry.deletedAt)
+      .sort((a, b) => b.watchedOn.localeCompare(a.watchedOn) || b.updatedAt.localeCompare(a.updatedAt));
+  }
+
+  function latestViewingDate(history, movieId) {
+    return viewingEntries(history, movieId)[0]?.watchedOn || null;
+  }
+
+  function addViewing(history, movieId, watchedOn, now = new Date(), id = createViewingId(now)) {
+    const movie = Number(movieId);
+    const date = normalizeDate(watchedOn);
+    if (!Number.isInteger(movie) || movie <= 0 || !date || date > today(now) || !id) return history || {};
+    const base = normalizeViewingHistory(history);
+    const entries = base[String(movie)] || [];
+    return { ...base, [String(movie)]: [...entries, { id: String(id), watchedOn: date, updatedAt: now.toISOString() }] };
+  }
+
+  function updateViewing(history, movieId, entryId, watchedOn, now = new Date()) {
+    const movie = Number(movieId);
+    const date = normalizeDate(watchedOn);
+    const base = normalizeViewingHistory(history);
+    const entries = base[String(movie)] || [];
+    if (!date || date > today(now) || !entries.some((entry) => entry.id === entryId && !entry.deletedAt)) return history || {};
+    return { ...base, [String(movie)]: entries.map((entry) => entry.id === entryId ? { id: entry.id, watchedOn: date, updatedAt: now.toISOString() } : entry) };
+  }
+
+  function removeViewing(history, movieId, entryId, now = new Date()) {
+    const movie = Number(movieId);
+    const base = normalizeViewingHistory(history);
+    const entries = base[String(movie)] || [];
+    if (!entries.some((entry) => entry.id === entryId && !entry.deletedAt)) return history || {};
+    const stamp = now.toISOString();
+    return { ...base, [String(movie)]: entries.map((entry) => entry.id === entryId ? { ...entry, updatedAt: stamp, deletedAt: stamp } : entry) };
+  }
+
+  function mergeViewingHistory(a, b) {
+    const left = normalizeViewingHistory(a);
+    const right = normalizeViewingHistory(b);
+    const merged = {};
+    for (const movieId of new Set([...Object.keys(left), ...Object.keys(right)])) {
+      const byId = new Map();
+      for (const entry of [...(left[movieId] || []), ...(right[movieId] || [])]) {
+        byId.set(entry.id, chooseEntry(byId.get(entry.id), entry));
+      }
+      merged[movieId] = [...byId.values()].sort((x, y) => x.id.localeCompare(y.id));
+    }
+    return merged;
+  }
+
+  return {
+    normalizeDate,
+    today,
+    createViewingId,
+    normalizeViewingHistory,
+    viewingEntries,
+    latestViewingDate,
+    addViewing,
+    updateViewing,
+    removeViewing,
+    mergeViewingHistory,
+  };
+})();
+
 /* ===== Watched list display sort (generated from scripts/lib/sort.js) ===== */
 
 /* Generated from scripts/lib/sort.js — run npm run bundle */
@@ -2540,6 +2700,8 @@ const appSort = (function () {
     "custom",
     "added-asc",
     "added-desc",
+    "watched-asc",
+    "watched-desc",
     "year-asc",
     "year-desc",
     "rating-desc",
@@ -2554,10 +2716,11 @@ const appSort = (function () {
   const DEFAULT_PREFERENCE_SORT = "user-rating-desc";
   const MISSING_SORT_HINT = "—";
 
-  const SORT_FIELDS = new Set(["added", "year", "rating", "user-rating", "title"]);
+  const SORT_FIELDS = new Set(["added", "watched", "year", "rating", "user-rating", "title"]);
 
   const SORT_FIELD_DEFAULTS = {
     added: "added-desc",
+    watched: "watched-desc",
     year: "year-desc",
     rating: "rating-desc",
     "user-rating": "user-rating-desc",
@@ -2567,6 +2730,7 @@ const appSort = (function () {
   const SORT_FIELD_LABELS = {
     "user-rating": "My Rating",
     added: "Date Added",
+    watched: "Date Watched",
     year: "Release Year",
     rating: "Fan Rating",
     title: "Title",
@@ -2575,6 +2739,7 @@ const appSort = (function () {
   const SORT_FIELD_LABELS_SHORT = {
     "user-rating": "My Rating",
     added: "Added",
+    watched: "Watched",
     year: "Year",
     rating: "Fan Rating",
     title: "Title",
@@ -2603,6 +2768,7 @@ const appSort = (function () {
     if (normalized.startsWith("added-")) {
       return "added";
     }
+    if (normalized.startsWith("watched-")) return "watched";
     if (normalized.startsWith("year-")) {
       return "year";
     }
@@ -2661,6 +2827,7 @@ const appSort = (function () {
   function sortDirectionLabel(field, descending) {
     switch (field) {
       case "added":
+      case "watched":
         return descending ? "Newest first" : "Oldest first";
       case "year":
         return descending ? "Newest first" : "Oldest first";
@@ -2781,6 +2948,8 @@ const appSort = (function () {
       typeof context.getUserRating === "function" ? context.getUserRating : () => null;
     const getAddedAt =
       typeof context.getAddedAt === "function" ? context.getAddedAt : () => null;
+    const getWatchedOn =
+      typeof context.getWatchedOn === "function" ? context.getWatchedOn : () => null;
     const getListJoinIndex =
       typeof context.getListJoinIndex === "function" ? context.getListJoinIndex : null;
     const tiebreak = (a, b) => compareOrderTiebreak(a, b, orderIndex);
@@ -2799,6 +2968,18 @@ const appSort = (function () {
         compareNullableNumber(
           parseAddedTime(getAddedAt(a)),
           parseAddedTime(getAddedAt(b)),
+          direction,
+          () => tiebreak(a, b),
+        ),
+      );
+    }
+
+    if (normalized === "watched-asc" || normalized === "watched-desc") {
+      const direction = normalized === "watched-asc" ? "asc" : "desc";
+      return copy.sort((a, b) =>
+        compareNullableNumber(
+          parseAddedTime(getWatchedOn(a)),
+          parseAddedTime(getWatchedOn(b)),
           direction,
           () => tiebreak(a, b),
         ),
@@ -2865,6 +3046,10 @@ const appSort = (function () {
 
     if (normalized === "added-asc" || normalized === "added-desc") {
       return formatAddedHint(context.addedAt) || MISSING_SORT_HINT;
+    }
+
+    if (normalized === "watched-asc" || normalized === "watched-desc") {
+      return formatAddedHint(context.watchedOn) || MISSING_SORT_HINT;
     }
 
     if (normalized === "rating-asc" || normalized === "rating-desc") {
@@ -2955,6 +3140,12 @@ const appSyncMerge = (function () {
       return require("./added-at");
     }
     throw new Error("appAddedAt is not available");
+  }
+
+  function getViewingHistory() {
+    if (typeof appViewingHistory !== "undefined") return appViewingHistory;
+    if (typeof require === "function") return require("./viewing-history");
+    throw new Error("appViewingHistory is not available");
   }
 
   function getCustomListMerge() {
@@ -3194,6 +3385,10 @@ const appSyncMerge = (function () {
         secondary.addedAt && typeof secondary.addedAt === "object" ? secondary.addedAt : {},
         primary.addedAt && typeof primary.addedAt === "object" ? primary.addedAt : {},
       ),
+      viewingHistory: getViewingHistory().mergeViewingHistory(
+        secondary.viewingHistory,
+        primary.viewingHistory,
+      ),
       statuses,
       customLists: customListState.customLists,
       customListTombstones: customListState.customListTombstones,
@@ -3339,7 +3534,7 @@ const appUserState = (function () {
   const GIST_SYNC_KEY = "moviecollector-gist-sync";
   const TMDB_AUTH_KEY = "moviecollector-tmdb-auth";
   const HOSTED_SESSION_KEY = "moviecollector-hosted-session";
-  const USER_STATE_VERSION = 3;
+  const USER_STATE_VERSION = 4;
 
   const VIEW_MODES = new Set(["cards", "detail"]);
   const STORAGE_MODES = new Set(["local", "gist"]);
@@ -3372,6 +3567,12 @@ const appUserState = (function () {
       return require("./added-at");
     }
     throw new Error("appAddedAt is not available");
+  }
+
+  function getViewingHistory() {
+    if (typeof appViewingHistory !== "undefined") return appViewingHistory;
+    if (typeof require === "function") return require("./viewing-history");
+    throw new Error("appViewingHistory is not available");
   }
 
   function getSort() {
@@ -3419,6 +3620,7 @@ const appUserState = (function () {
       preferences: defaultPreferences(),
       ratings: {},
       addedAt: {},
+      viewingHistory: {},
       statuses: {},
       customLists: getCustomLists().defaultCustomLists(),
       customListTombstones: getCustomLists().defaultCustomListTombstones(),
@@ -3480,6 +3682,7 @@ const appUserState = (function () {
       preferences: normalizePreferences(raw.preferences),
       ratings: getRatings().normalizeRatings(raw.ratings, normalizedLists, customLists),
       addedAt: getAddedAt().normalizeAddedAt(raw.addedAt, normalizedLists),
+      viewingHistory: getViewingHistory().normalizeViewingHistory(raw.viewingHistory),
       statuses,
       customLists,
       customListTombstones,
@@ -3540,6 +3743,7 @@ const appUserState = (function () {
       lists: normalized.lists.map((list) => [list.id, list.movieIds]),
       ratings: sortedIdMap(normalized.ratings),
       addedAt: sortedIdMap(normalized.addedAt),
+      viewingHistory: sortedIdMap(normalized.viewingHistory),
       statuses: sortedIdMap(normalized.statuses),
       customLists: normalized.customLists.map((list) => [
         list.id,
@@ -4871,6 +5075,18 @@ function updateRatings(nextRatings) {
   }
   userState = { ...userState, ratings: nextRatings };
   return true;
+}
+
+function updateViewingHistory(nextHistory) {
+  if (nextHistory === userState.viewingHistory) return false;
+  userState = { ...userState, viewingHistory: nextHistory };
+  return true;
+}
+
+function addMovieViewing(movieId, watchedOn) {
+  return updateViewingHistory(
+    appViewingHistory.addViewing(userState.viewingHistory, movieId, watchedOn),
+  );
 }
 
 function setMovieRating(movieId, rating) {
@@ -6245,6 +6461,7 @@ let pendingAddResult = null;
 let selectedAddListId = null;
 let pendingAddRating = null;
 let addMovieRatingTouched = false;
+let addMovieWatchDateActive = false;
 let addMoviePickTab = "add";
 let searchDirectorMode = false;
 
@@ -6263,6 +6480,41 @@ function resetAddMovieRatingControls() {
   addMovieRatingValue.textContent = "—";
   addMovieRatingValue.classList.add("is-empty");
   addMovieRatingField?.classList.remove("is-active");
+}
+
+function resetAddMovieWatchDate() {
+  addMovieWatchDateActive = false;
+  if (addMovieWatchDate) {
+    addMovieWatchDate.value = appViewingHistory.today();
+    addMovieWatchDate.max = appViewingHistory.today();
+  }
+  syncAddMovieWatchDateUi();
+}
+
+function syncAddMovieWatchDateUi() {
+  const watched = !isCustomListDetailActive() && selectedAddListId === appLists.WATCHED_ID;
+  if (addMovieWatchDateWrap) {
+    addMovieWatchDateWrap.hidden = !watched;
+  }
+  if (!watched) {
+    addMovieWatchDateActive = false;
+  }
+  if (addMovieWatchDateToggle) {
+    addMovieWatchDateToggle.hidden = !watched || addMovieWatchDateActive;
+  }
+  if (addMovieWatchDateField) {
+    addMovieWatchDateField.hidden = !watched || !addMovieWatchDateActive;
+  }
+}
+
+function onAddMovieWatchDateToggleClick() {
+  addMovieWatchDateActive = true;
+  syncAddMovieWatchDateUi();
+  addMovieWatchDate?.focus({ preventScroll: true });
+}
+
+function clearAddMovieWatchDate() {
+  resetAddMovieWatchDate();
 }
 
 function syncAddMovieRatingDisplay() {
@@ -6331,6 +6583,8 @@ function syncAddMoviePickStep() {
       addMovieRatingField.hidden = true;
     }
     resetAddMovieRatingControls();
+    if (addMovieWatchDateWrap) addMovieWatchDateWrap.hidden = true;
+    resetAddMovieWatchDate();
     return;
   }
   const watched = selectedAddListId === appLists.WATCHED_ID;
@@ -6339,6 +6593,9 @@ function syncAddMoviePickStep() {
   }
   if (!watched) {
     resetAddMovieRatingControls();
+    resetAddMovieWatchDate();
+  } else {
+    syncAddMovieWatchDateUi();
   }
 }
 
@@ -6565,6 +6822,7 @@ function showAddSearchStep() {
   selectedAddListId = null;
   resetAddMovieCustomListSelection();
   resetAddMovieRatingControls();
+  resetAddMovieWatchDate();
   setAddMoviePickTab("add");
   if (addMoviePickTabs) {
     addMoviePickTabs.hidden = true;
@@ -6769,6 +7027,9 @@ function confirmAddMovie() {
       ) {
         changed = true;
       }
+    }
+    if (selectedAddListId === appLists.WATCHED_ID && addMovieWatchDateActive && addMovieWatchDate?.value) {
+      if (addMovieViewing(movieId, addMovieWatchDate.value)) changed = true;
     }
     if (changed) {
       recordAddedAt(movieId);
@@ -7044,7 +7305,7 @@ function cardFanRatingHtml(movieId) {
 function discoverUpcomingCardWatchlistHtml(movieId) {
   const isMember = appLists.isOnWatchlist(userState.lists, movieId);
   return `<div class="card-body-ratings card-body-ratings--interactive">
-    <button type="button" class="discover-card-watchlist-btn discover-preset-btn-with-icon${isMember ? " is-active" : ""}" data-discover-preset-id="${appCardHtml.escapeHtml(appLists.WATCHLIST_ID)}" aria-pressed="${isMember ? "true" : "false"}">${appCardHtml.discoverPresetButtonInnerHtml("watchlist", "Watchlist")}</button>
+    <button type="button" class="discover-card-watchlist-btn discover-card-watchlist-btn--icon-only${isMember ? " is-active" : ""}" data-discover-preset-id="${appCardHtml.escapeHtml(appLists.WATCHLIST_ID)}" aria-label="Watchlist" title="Watchlist" aria-pressed="${isMember ? "true" : "false"}">${appCardHtml.addListPresetIconHtml("watchlist")}</button>
   </div>`;
 }
 
@@ -7107,6 +7368,14 @@ function isAddedSortMode() {
   return sortMode === "added-asc" || sortMode === "added-desc";
 }
 
+function isWatchedSortMode() {
+  if (!usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
+    return false;
+  }
+  const sortMode = userState?.preferences.sort;
+  return sortMode === "watched-asc" || sortMode === "watched-desc";
+}
+
 function cardUserRatingChipHtml(movieId, { showEmpty = false } = {}) {
   if (isDiscoverActive()) {
     return "";
@@ -7130,6 +7399,13 @@ function cardReleaseYearFooterHtml(movieId) {
   return `<span class="card-footer-main${emptyClass}" aria-label="Release year ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
 }
 
+function cardWatchDateFooterHtml(movieId) {
+  const watchedOn = appViewingHistory.latestViewingDate(userState.viewingHistory, movieId);
+  const text = watchedOn || "—";
+  const emptyClass = watchedOn ? "" : " is-empty";
+  return `<span class="card-footer-main${emptyClass}" aria-label="Date watched ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
+}
+
 function cardSmallWatchedFooterContentHtml(movieId) {
   if (isTitleSortMode() || isAddedSortMode()) {
     return "";
@@ -7143,6 +7419,9 @@ function cardSmallWatchedFooterContentHtml(movieId) {
   if (isYearSortMode()) {
     return cardReleaseYearFooterHtml(movieId);
   }
+  if (isWatchedSortMode()) {
+    return cardWatchDateFooterHtml(movieId);
+  }
   return "";
 }
 
@@ -7151,7 +7430,7 @@ function cardSmallFooterHtml(movieId) {
     return "";
   }
 
-  if (userState.activeListId === appLists.WATCHLIST_ID) {
+  if (isWatchlistActive()) {
     const panel = watchlistCardPanelHtml(movieId);
     return panel ? `<div class="card-footer card-footer--watchlist">${panel}</div>` : "";
   }
@@ -7167,14 +7446,23 @@ function cardSmallFooterHtml(movieId) {
   return `<div class="card-footer card-footer--sort"><div class="card-footer-sort">${content}</div></div>`;
 }
 
-function cardUnratedClass(movieId) {
-  if (isDiscoverActive() || !isUserRatingSortMode()) {
+function cardSortDimClass(movieId) {
+  if (isDiscoverActive() || !usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
     return "";
   }
-  if (appRatings.getRating(userState.ratings, movieId) != null) {
-    return "";
+  if (isUserRatingSortMode()) {
+    if (appRatings.getRating(userState.ratings, movieId) != null) {
+      return "";
+    }
+    return " is-unrated";
   }
-  return " is-unrated";
+  if (isWatchedSortMode()) {
+    if (appViewingHistory.latestViewingDate(userState.viewingHistory, movieId)) {
+      return "";
+    }
+    return " is-no-watch-date";
+  }
+  return "";
 }
 
 function cardRemoveIconHtml() {
@@ -7187,7 +7475,7 @@ function cardRemoveIconHtml() {
  * Watchlist cards use a dedicated bottom panel: title text, then split actions.
  */
 function watchlistCardPanelHtml(movieId) {
-  if (userState.activeListId !== appLists.WATCHLIST_ID) {
+  if (!isWatchlistActive()) {
     return "";
   }
   const record = movieById.get(movieId);
@@ -7349,7 +7637,7 @@ function cardInnerHtml(movieId) {
 </div>`;
   }
 
-  if (!isDiscoverActive() && userState.activeListId === appLists.WATCHLIST_ID) {
+  if (!isDiscoverActive() && isWatchlistActive()) {
     return `${posterWrapOpen(movieId)}
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
   ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
@@ -7384,11 +7672,11 @@ function rowInnerHtml(movieId) {
   const title = record ? appCardHtml.escapeHtml(record.title) : `Movie ${movieId}`;
 
   const watchlistCard =
-    !isDiscoverActive() && userState.activeListId === appLists.WATCHLIST_ID
+    !isDiscoverActive() && isWatchlistActive()
       ? " card--watchlist"
       : "";
 
-  return `<article class="card${stateClass}${cardUnratedClass(movieId)}${watchlistCard}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
+  return `<article class="card${stateClass}${cardSortDimClass(movieId)}${watchlistCard}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
 ${cardInnerHtml(movieId)}
 </article>`;
 }
@@ -7639,12 +7927,15 @@ function commitListChange(nextLists, statusChange) {
   return true;
 }
 
-function watchMovie(movieId) {
+function watchMovie(movieId, watchedOn) {
   const nextLists = appLists.assignMovieToList(
     userState.lists,
     appLists.WATCHED_ID,
     movieId,
   );
+  if (watchedOn) {
+    addMovieViewing(movieId, watchedOn);
+  }
   if (!commitListChange(nextLists, { movieId, status: appLists.WATCHED_ID })) {
     return;
   }
@@ -7657,27 +7948,59 @@ function watchMovie(movieId) {
   }
 }
 
+function resetWatchConfirmWatchDate() {
+  watchConfirmWatchDateActive = false;
+  if (watchConfirmDate) {
+    watchConfirmDate.value = appViewingHistory.today();
+    watchConfirmDate.max = appViewingHistory.today();
+  }
+  syncWatchConfirmWatchDateUi();
+}
+
+function syncWatchConfirmWatchDateUi() {
+  if (watchConfirmDateToggle) {
+    watchConfirmDateToggle.hidden = watchConfirmWatchDateActive;
+  }
+  if (watchConfirmDateField) {
+    watchConfirmDateField.hidden = !watchConfirmWatchDateActive;
+  }
+}
+
+function onWatchConfirmDateToggleClick() {
+  watchConfirmWatchDateActive = true;
+  syncWatchConfirmWatchDateUi();
+  watchConfirmDate?.focus({ preventScroll: true });
+}
+
+function clearWatchConfirmWatchDate() {
+  resetWatchConfirmWatchDate();
+}
+
 function requestWatchMovie(movieId) {
   pendingWatchMovieId = Number(movieId);
   const record = movieById.get(pendingWatchMovieId);
   const title = record?.title || `Movie ${pendingWatchMovieId}`;
   watchConfirmMessage.textContent = `Mark “${title}” as watched? It will move to your Watched list.`;
+  resetWatchConfirmWatchDate();
   watchConfirmDialog.hidden = false;
   watchConfirmCancel.focus({ preventScroll: true });
 }
 
 function closeWatchConfirm() {
   pendingWatchMovieId = null;
+  watchConfirmWatchDateActive = false;
   watchConfirmDialog.hidden = true;
 }
 
 function confirmWatchMovie() {
   const movieId = pendingWatchMovieId;
+  const watchedOn =
+    watchConfirmWatchDateActive && watchConfirmDate?.value ? watchConfirmDate.value : null;
   closeWatchConfirm();
   if (movieId == null) {
     return;
   }
-  watchMovie(movieId);
+  watchMovie(movieId, watchedOn);
 }
 
 function removeMovieFromCollection(movieId) {
@@ -7849,6 +8172,10 @@ function discoverDetailPresetActionsHtml(movieId) {
   return buttons.filter(Boolean).join("");
 }
 
+function detailWatchBtnHtml() {
+  return `<button type="button" class="detail-discover-preset-btn discover-preset-btn-with-icon detail-watch-btn" id="detail-watch" aria-label="Mark as watched" title="Mark as watched">${appCardHtml.discoverPresetButtonInnerHtml("watched", "Watched")}</button>`;
+}
+
 function discoverPresetMembership(listId, movieId) {
   return listId === appLists.WATCHED_ID
     ? appLists.isWatched(userState.lists, movieId)
@@ -7967,11 +8294,9 @@ function syncDetailListPickerSelection(movieId) {
 function detailAddToListPickerHtml(movieId) {
   const allLists = userState.customLists || [];
   if (!allLists.length) {
-    return `<p class="detail-lists-editor-section-label">Custom lists</p>
-<p class="detail-add-to-list-hint"><a href="#lists" class="detail-add-to-list-link">Create lists…</a></p>`;
+    return `<p class="detail-add-to-list-hint"><a href="#lists" class="detail-add-to-list-link">Create lists…</a></p>`;
   }
-  return `<p class="detail-lists-editor-section-label">Custom lists</p>
-<div class="add-custom-list-picker detail-custom-list-picker">${allLists
+  return `<div class="add-custom-list-picker detail-custom-list-picker">${allLists
     .map((list) => {
       const selected = detailListPickerSelectedIds.has(list.id);
       return `<button type="button" class="add-custom-list-chip" data-detail-list-toggle-id="${appCardHtml.escapeHtml(list.id)}" aria-pressed="${selected}">${appCardHtml.escapeHtml(list.name)}</button>`;
@@ -8207,6 +8532,109 @@ function detailUserRatingBlockHtml(movieId) {
 </div>`;
 }
 
+function formatViewingDate(value) {
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isFinite(date.getTime())
+    ? date.toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" })
+    : value;
+}
+
+function detailViewingHistoryHtml(movieId) {
+  const entries = appViewingHistory.viewingEntries(userState.viewingHistory, movieId);
+  const allowed = appRatings.isRatingAllowed(userState.lists, movieId, userState.customLists);
+  if (!allowed && !entries.length) {
+    return `<p class="detail-viewing-empty">Viewing dates are available for movies in Watched or a custom list.</p>`;
+  }
+  const rows = entries.map((entry) => `<li class="detail-viewing-row">
+    <input type="date" value="${entry.watchedOn}" max="${appViewingHistory.today()}" data-viewing-date-id="${appCardHtml.escapeHtml(entry.id)}" aria-label="Viewing date ${appCardHtml.escapeHtml(formatViewingDate(entry.watchedOn))}">
+    <button type="button" data-viewing-remove-id="${appCardHtml.escapeHtml(entry.id)}" aria-label="Remove viewing on ${appCardHtml.escapeHtml(formatViewingDate(entry.watchedOn))}">Remove</button>
+  </li>`).join("");
+  const listHtml = rows ? `<ul>${rows}</ul>` : "";
+  const countLabel =
+    entries.length > 0
+      ? `<p class="detail-viewing-count">${entries.length} viewing${entries.length === 1 ? "" : "s"}</p>`
+      : "";
+  return `<section class="detail-viewing-history">
+    ${countLabel}
+    ${listHtml}
+    <div class="detail-viewing-add">
+      <input type="date" id="detail-viewing-new-date" value="${appViewingHistory.today()}" max="${appViewingHistory.today()}" aria-label="New viewing date">
+      <button type="button" id="detail-viewing-add">Add viewing</button>
+    </div>
+  </section>`;
+}
+
+function detailOverviewPanelHtml(movieId, record) {
+  const tagline = record.tagline
+    ? `<p class="movie-detail-tagline">${appCardHtml.escapeHtml(record.tagline)}</p>`
+    : "";
+  return `${tagline}<div class="movie-detail-meta">${detailMetaChips(record)}</div>
+${detailUserRatingBlockHtml(movieId)}
+<p class="movie-detail-overview">${appCardHtml.escapeHtml(record.overview || "No overview available.")}</p>
+<div class="movie-detail-credits">${detailCreditsHtml(record)}</div>
+${detailListsBlockHtml(movieId)}`;
+}
+
+function detailBodyTabsHtml(movieId, record) {
+  const entries = appViewingHistory.viewingEntries(userState.viewingHistory, movieId);
+  const countBadge =
+    entries.length > 0
+      ? `<span class="detail-body-tab-count">${entries.length}</span>`
+      : "";
+  const overviewSelected = detailBodyTab === "overview";
+  const historySelected = detailBodyTab === "viewing-history";
+  return `<nav class="detail-body-tabs" role="tablist" aria-label="Movie detail sections">
+  <button type="button" class="detail-body-tab" role="tab" id="detail-tab-overview" data-detail-body-tab="overview" aria-selected="${overviewSelected ? "true" : "false"}" tabindex="${overviewSelected ? "0" : "-1"}">Overview</button>
+  <button type="button" class="detail-body-tab" role="tab" id="detail-tab-viewing-history" data-detail-body-tab="viewing-history" aria-selected="${historySelected ? "true" : "false"}" tabindex="${historySelected ? "0" : "-1"}">Viewing history${countBadge}</button>
+</nav>
+<div class="detail-body-tabpanel" role="tabpanel" id="detail-panel-overview" aria-labelledby="detail-tab-overview"${overviewSelected ? "" : " hidden"}>
+${detailOverviewPanelHtml(movieId, record)}
+</div>
+<div class="detail-body-tabpanel" role="tabpanel" id="detail-panel-viewing-history" aria-labelledby="detail-tab-viewing-history"${historySelected ? "" : " hidden"}>
+${detailViewingHistoryHtml(movieId)}
+</div>`;
+}
+
+function setDetailBodyTab(tab) {
+  const next = tab === "viewing-history" ? "viewing-history" : "overview";
+  if (detailBodyTab === next) {
+    return;
+  }
+  if (next === "viewing-history" && detailRatingEditorOpen) {
+    cancelDetailRatingEditor();
+  }
+  detailBodyTab = next;
+  renderDetail();
+}
+
+function addDetailViewing() {
+  const input = document.getElementById("detail-viewing-new-date");
+  if (detailMovieId == null || !input?.value) return;
+  if (!addMovieViewing(detailMovieId, input.value)) return;
+  detailBodyTab = "viewing-history";
+  persistUserState();
+  render();
+  renderDetail();
+}
+
+function updateDetailViewing(entryId, watchedOn) {
+  if (detailMovieId == null) return;
+  const next = appViewingHistory.updateViewing(userState.viewingHistory, detailMovieId, entryId, watchedOn);
+  if (!updateViewingHistory(next)) return;
+  persistUserState();
+  render();
+  renderDetail();
+}
+
+function removeDetailViewing(entryId) {
+  if (detailMovieId == null) return;
+  const next = appViewingHistory.removeViewing(userState.viewingHistory, detailMovieId, entryId);
+  if (!updateViewingHistory(next)) return;
+  persistUserState();
+  render();
+  renderDetail();
+}
+
 function syncDetailRatingDisplay(rating) {
   const chipValue = document.getElementById("detail-rating-summary-value");
   if (chipValue) {
@@ -8393,12 +8821,7 @@ function renderDetail() {
     detailPoster.innerHTML = detailPosterFrameHtml(record, appTmdb.POSTER_SIZES.detail);
     bindPosterImages(detailPoster);
     detailBody.innerHTML = `<h2 class="movie-detail-title" id="movie-detail-title">${appCardHtml.escapeHtml(record.title)}</h2>
-${record.tagline ? `<p class="movie-detail-tagline">${appCardHtml.escapeHtml(record.tagline)}</p>` : ""}
-<div class="movie-detail-meta">${detailMetaChips(record)}</div>
-${detailUserRatingBlockHtml(detailMovieId)}
-<p class="movie-detail-overview">${appCardHtml.escapeHtml(record.overview || "No overview available.")}</p>
-<div class="movie-detail-credits">${detailCreditsHtml(record)}</div>
-${detailListsBlockHtml(detailMovieId)}`;
+${detailBodyTabsHtml(detailMovieId, record)}`;
   }
 
   const leftActions = [];
@@ -8415,9 +8838,7 @@ ${detailListsBlockHtml(detailMovieId)}`;
     const onWatchlist = appLists.isOnWatchlist(userState.lists, detailMovieId);
 
     if (inCollection && onWatchlist) {
-      leftActions.push(
-        `<button type="button" class="card-watch-btn detail-watch-btn" id="detail-watch" aria-label="Mark as watched" title="Mark as watched">&#10003;</button>`,
-      );
+      leftActions.push(detailWatchBtnHtml());
     }
 
     if (inCollection) {
@@ -8432,6 +8853,10 @@ ${detailListsBlockHtml(detailMovieId)}`;
   detailActions.innerHTML = `<div class="detail-actions-left">${leftActions.join("")}</div>
 <div class="detail-actions-right">
 <a class="detail-link" href="${TMDB_MOVIE_URL}${detailMovieId}" target="_blank" rel="noopener noreferrer">View on TMDB</a></div>`;
+  if (record) {
+    syncDetailRatingDisplay(appRatings.getRating(userState.ratings, detailMovieId));
+    syncDetailRatingEditorVisibility();
+  }
 }
 
 function openDetail(movieId, options = {}) {
@@ -8441,6 +8866,7 @@ function openDetail(movieId, options = {}) {
   }
 
   detailMovieId = id;
+  detailBodyTab = "overview";
   detailRatingEditorOpen = false;
   detailRatingEditorSnapshot = null;
   detailListPickerOpen = false;
@@ -8497,6 +8923,7 @@ function stepDetail(delta) {
   }
   commitDetailRating();
   detailMovieId = ids[nextIndex];
+  detailBodyTab = "overview";
   detailRatingEditorOpen = false;
   detailRatingEditorSnapshot = null;
   detailListPickerOpen = false;
@@ -10518,6 +10945,8 @@ initAddMovieRatingSelect();
 bindRangeSliderLiveInput(addMovieRatingSlider, onAddMovieRatingSliderInput);
 addMovieRatingSelect?.addEventListener("change", onAddMovieRatingSelectChange);
 addMovieRatingClear?.addEventListener("click", clearAddMovieRating);
+addMovieWatchDateToggle?.addEventListener("click", onAddMovieWatchDateToggleClick);
+addMovieWatchDateClear?.addEventListener("click", clearAddMovieWatchDate);
 
 /* --- Grid --- */
 
@@ -10679,6 +11108,20 @@ detailDialog.addEventListener("click", (event) => {
     clearDetailRating();
     return;
   }
+  const detailBodyTabBtn = event.target.closest("[data-detail-body-tab]");
+  if (detailBodyTabBtn) {
+    setDetailBodyTab(detailBodyTabBtn.dataset.detailBodyTab);
+    return;
+  }
+  if (event.target.closest("#detail-viewing-add")) {
+    addDetailViewing();
+    return;
+  }
+  const removeViewingBtn = event.target.closest("[data-viewing-remove-id]");
+  if (removeViewingBtn) {
+    removeDetailViewing(removeViewingBtn.dataset.viewingRemoveId);
+    return;
+  }
   if (event.target.closest("#detail-lists-edit")) {
     toggleDetailListPicker();
     return;
@@ -10699,6 +11142,10 @@ detailDialog.addEventListener("click", (event) => {
 });
 delegateRangeSliderLiveInput(detailDialog, "detail-rating-slider", onDetailRatingSliderInput);
 detailDialog.addEventListener("change", (event) => {
+  if (event.target.matches("[data-viewing-date-id]")) {
+    updateDetailViewing(event.target.dataset.viewingDateId, event.target.value);
+    return;
+  }
   if (event.target.id === "detail-rating-slider") {
     commitDetailRating();
     return;
@@ -10729,6 +11176,8 @@ detailActions.addEventListener("click", (event) => {
 
 watchConfirmCancel.addEventListener("click", () => closeWatchConfirm());
 watchConfirmOk.addEventListener("click", () => confirmWatchMovie());
+watchConfirmDateToggle?.addEventListener("click", onWatchConfirmDateToggleClick);
+watchConfirmDateClear?.addEventListener("click", clearWatchConfirmWatchDate);
 watchConfirmDialog.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-watch-confirm")) {
     closeWatchConfirm();

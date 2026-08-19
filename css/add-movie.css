@@ -399,6 +399,44 @@
   color: var(--muted-dim);
 }
 
+.add-movie-watch-date-wrap,
+.watch-confirm-date-wrap {
+  margin-top: 1rem;
+}
+
+.add-movie-watch-date-toggle,
+.watch-confirm-date-toggle {
+  width: 100%;
+}
+
+.add-movie-watch-date,
+.watch-confirm-date {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+  font-family: var(--ui-font);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.add-movie-watch-date input,
+.watch-confirm-date input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem 0.75rem;
+  color: var(--text);
+  background: var(--panel-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  color-scheme: dark;
+}
+
+.add-movie-watch-date .user-rating-clear-btn,
+.watch-confirm-date .user-rating-clear-btn {
+  justify-self: start;
+}
+
 .add-list-picker {
   display: flex;
   flex-direction: column;

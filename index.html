@@ -230,6 +230,7 @@
               <option value="year">Release Year</option>
               <option value="title">Title</option>
               <option value="added">Date Added</option>
+              <option value="watched">Date Watched</option>
             </select>
             <button
               type="button"
@@ -633,6 +634,22 @@
               <button type="button" class="user-rating-clear-btn" id="add-movie-rating-clear" hidden>
                 Clear rating
               </button>
+            </div>
+            <div class="add-movie-watch-date-wrap" id="add-movie-watch-date-wrap" hidden>
+              <button
+                type="button"
+                class="ghost-btn add-movie-watch-date-toggle"
+                id="add-movie-watch-date-toggle"
+              >
+                Add viewing date
+              </button>
+              <div class="add-movie-watch-date" id="add-movie-watch-date-field" hidden>
+                <span class="add-movie-pick-label">Watched on</span>
+                <input type="date" id="add-movie-watch-date" aria-label="Date watched" />
+                <button type="button" class="user-rating-clear-btn" id="add-movie-watch-date-clear">
+                  Clear viewing date
+                </button>
+              </div>
             </div>
             <div class="add-movie-custom-lists" id="add-movie-custom-lists-section" hidden>
               <p class="add-movie-pick-label">Also add to</p>
@@ -1180,6 +1197,22 @@
         </div>
         <div class="sheet-scroll">
           <p id="watch-confirm-message" class="confirm-message"></p>
+          <div class="watch-confirm-date-wrap">
+            <button
+              type="button"
+              class="ghost-btn watch-confirm-date-toggle"
+              id="watch-confirm-date-toggle"
+            >
+              Add viewing date
+            </button>
+            <div class="watch-confirm-date" id="watch-confirm-date-field" hidden>
+              <span>Watched on</span>
+              <input type="date" id="watch-confirm-date" aria-label="Date watched" />
+              <button type="button" class="user-rating-clear-btn" id="watch-confirm-date-clear">
+                Clear viewing date
+              </button>
+            </div>
+          </div>
         </div>
         <div class="confirm-actions">
           <button type="button" id="watch-confirm-cancel" class="ghost-btn">

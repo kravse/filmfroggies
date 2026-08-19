@@ -62,6 +62,8 @@ initAddMovieRatingSelect();
 bindRangeSliderLiveInput(addMovieRatingSlider, onAddMovieRatingSliderInput);
 addMovieRatingSelect?.addEventListener("change", onAddMovieRatingSelectChange);
 addMovieRatingClear?.addEventListener("click", clearAddMovieRating);
+addMovieWatchDateToggle?.addEventListener("click", onAddMovieWatchDateToggleClick);
+addMovieWatchDateClear?.addEventListener("click", clearAddMovieWatchDate);
 
 /* --- Grid --- */
 
@@ -223,6 +225,20 @@ detailDialog.addEventListener("click", (event) => {
     clearDetailRating();
     return;
   }
+  const detailBodyTabBtn = event.target.closest("[data-detail-body-tab]");
+  if (detailBodyTabBtn) {
+    setDetailBodyTab(detailBodyTabBtn.dataset.detailBodyTab);
+    return;
+  }
+  if (event.target.closest("#detail-viewing-add")) {
+    addDetailViewing();
+    return;
+  }
+  const removeViewingBtn = event.target.closest("[data-viewing-remove-id]");
+  if (removeViewingBtn) {
+    removeDetailViewing(removeViewingBtn.dataset.viewingRemoveId);
+    return;
+  }
   if (event.target.closest("#detail-lists-edit")) {
     toggleDetailListPicker();
     return;
@@ -243,6 +259,10 @@ detailDialog.addEventListener("click", (event) => {
 });
 delegateRangeSliderLiveInput(detailDialog, "detail-rating-slider", onDetailRatingSliderInput);
 detailDialog.addEventListener("change", (event) => {
+  if (event.target.matches("[data-viewing-date-id]")) {
+    updateDetailViewing(event.target.dataset.viewingDateId, event.target.value);
+    return;
+  }
   if (event.target.id === "detail-rating-slider") {
     commitDetailRating();
     return;
@@ -273,6 +293,8 @@ detailActions.addEventListener("click", (event) => {
 
 watchConfirmCancel.addEventListener("click", () => closeWatchConfirm());
 watchConfirmOk.addEventListener("click", () => confirmWatchMovie());
+watchConfirmDateToggle?.addEventListener("click", onWatchConfirmDateToggleClick);
+watchConfirmDateClear?.addEventListener("click", clearWatchConfirmWatchDate);
 watchConfirmDialog.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-watch-confirm")) {
     closeWatchConfirm();

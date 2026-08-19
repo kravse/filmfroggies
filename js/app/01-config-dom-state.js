@@ -75,6 +75,11 @@ const addMovieRatingSelect = document.getElementById("add-movie-rating-select");
 const addMovieRatingClear = document.getElementById("add-movie-rating-clear");
 const addMovieRatingValue = document.getElementById("add-movie-rating-value");
 const addMovieRatingField = document.getElementById("add-movie-rating-field");
+const addMovieWatchDateWrap = document.getElementById("add-movie-watch-date-wrap");
+const addMovieWatchDateToggle = document.getElementById("add-movie-watch-date-toggle");
+const addMovieWatchDateField = document.getElementById("add-movie-watch-date-field");
+const addMovieWatchDate = document.getElementById("add-movie-watch-date");
+const addMovieWatchDateClear = document.getElementById("add-movie-watch-date-clear");
 const addMovieBack = document.getElementById("add-movie-back");
 const addMoviePickTabs = document.getElementById("add-movie-pick-tabs");
 const addMovieTabAdd = document.getElementById("add-movie-tab-add");
@@ -149,6 +154,10 @@ const watchConfirmDialog = document.getElementById("watch-confirm-dialog");
 const watchConfirmMessage = document.getElementById("watch-confirm-message");
 const watchConfirmCancel = document.getElementById("watch-confirm-cancel");
 const watchConfirmOk = document.getElementById("watch-confirm-ok");
+const watchConfirmDateToggle = document.getElementById("watch-confirm-date-toggle");
+const watchConfirmDateField = document.getElementById("watch-confirm-date-field");
+const watchConfirmDate = document.getElementById("watch-confirm-date");
+const watchConfirmDateClear = document.getElementById("watch-confirm-date-clear");
 
 const discoverAddConfirmDialog = document.getElementById("discover-add-confirm-dialog");
 const discoverAddConfirmTitle = document.getElementById("discover-add-confirm-title");
@@ -186,8 +195,11 @@ let detailRatingEditorSnapshot = null;
 let detailListPickerOpen = false;
 /** Staged custom-list membership while the detail list editor is open. */
 let detailListPickerSelectedIds = new Set();
+/** "overview" | "viewing-history" */
+let detailBodyTab = "overview";
 let pendingRemoveMovieId = null;
 let pendingWatchMovieId = null;
+let watchConfirmWatchDateActive = false;
 let pendingDiscoverAddMovieId = null;
 let pendingDiscoverAddListId = null;
 let pendingCustomListDeleteId = null;
@@ -274,6 +286,7 @@ function displayMovieIds() {
       getRecord: (id) => movieById.get(id) ?? localMovieRecord(id),
       getUserRating: (id) => appRatings.getRating(userState.ratings, id),
       getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
+      getWatchedOn: (id) => appViewingHistory.latestViewingDate(userState.viewingHistory, id),
     };
     if (ctx.listKind === "custom") {
       const joinOrder = appSort.buildOrderIndex(ctx.movieIds);
