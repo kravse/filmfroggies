@@ -195,7 +195,7 @@ test("formatSortCardHint shows the sorted field in small-card view", () => {
     "2026-08-18",
   );
   assert.equal(formatSortCardHint("rating-desc", { record }), "8.7");
-  assert.equal(formatSortCardHint("user-rating-desc", { record, userRating: 9 }), "9");
+  assert.equal(formatSortCardHint("user-rating-desc", { record, userRating: 9 }), "9.0");
   assert.equal(formatSortCardHint("title-asc", { record }), "The Matrix");
   assert.equal(
     formatSortCardHint("year-desc", { record: movie(2, { releaseDate: null }) }),

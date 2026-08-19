@@ -26,9 +26,6 @@ function formatUserRating(value) {
   if (normalized == null) {
     return "";
   }
-  if (Number.isInteger(normalized)) {
-    return String(normalized);
-  }
   return normalized.toFixed(1);
 }
 

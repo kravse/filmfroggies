@@ -148,9 +148,6 @@ function formatUserRatingHint(userRating) {
   if (!Number.isFinite(value)) {
     return null;
   }
-  if (Number.isInteger(value)) {
-    return String(value);
-  }
   return value.toFixed(1);
 }
 

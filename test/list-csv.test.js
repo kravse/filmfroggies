@@ -223,7 +223,7 @@ test("buildListCsv quotes titles that would otherwise break the row", () => {
       title: 'The "Burbs',
       listId: "watched",
       listName: "Watched",
-      myRating: "7",
+      myRating: "7.0",
       releaseYear: "",
     },
     {
@@ -239,7 +239,7 @@ test("buildListCsv quotes titles that would otherwise break the row", () => {
     csv,
     "tmdb_id,title,list_id,list_name,my_rating,release_year\n" +
       '1,"Lock, Stock and Two Smoking Barrels",watched,Watched,,1998\n' +
-      '2,"The ""Burbs",watched,Watched,7,\n' +
+      '2,"The ""Burbs",watched,Watched,7.0,\n' +
       '3,"Line\nBreak",watchlist,Watchlist,,2020\n',
   );
 });

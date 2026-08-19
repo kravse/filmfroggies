@@ -1806,9 +1806,6 @@ const appRatings = (function () {
     if (normalized == null) {
       return "";
     }
-    if (Number.isInteger(normalized)) {
-      return String(normalized);
-    }
     return normalized.toFixed(1);
   }
 
@@ -2342,9 +2339,6 @@ const appSort = (function () {
     const value = Number(userRating);
     if (!Number.isFinite(value)) {
       return null;
-    }
-    if (Number.isInteger(value)) {
-      return String(value);
     }
     return value.toFixed(1);
   }
