@@ -106,11 +106,37 @@ function cardFanRatingHtml(movieId) {
   return `<span class="card-fan-rating${emptyClass}" aria-label="Fan rating ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
 }
 
-function discoverUpcomingCardWatchlistHtml(movieId) {
-  const isMember = appLists.isOnWatchlist(userState.lists, movieId);
-  return `<div class="card-body-ratings card-body-ratings--interactive">
-    <button type="button" class="discover-card-watchlist-btn discover-card-watchlist-btn--icon-only${isMember ? " is-active" : ""}" data-discover-preset-id="${appCardHtml.escapeHtml(appLists.WATCHLIST_ID)}" aria-label="Watchlist" title="Watchlist" aria-pressed="${isMember ? "true" : "false"}">${appCardHtml.addListPresetIconHtml("watchlist")}</button>
-  </div>`;
+function discoverCardPresetButtonHtml(listId, movieId) {
+  const isWatchlist = listId === appLists.WATCHLIST_ID;
+  const isMember = isWatchlist
+    ? appLists.isOnWatchlist(userState.lists, movieId)
+    : appLists.isWatched(userState.lists, movieId);
+  const label = isWatchlist ? "Watchlist" : "Watched";
+  const iconPreset = isWatchlist ? "watchlist" : "watched";
+  return `<button type="button" class="discover-card-watchlist-btn discover-card-watchlist-btn--icon-only${isMember ? " is-active" : ""}" data-discover-preset-id="${appCardHtml.escapeHtml(listId)}" aria-label="${label}" title="${label}" aria-pressed="${isMember ? "true" : "false"}">${appCardHtml.addListPresetIconHtml(iconPreset)}</button>`;
+}
+
+function discoverCardActionsHtml(movieId) {
+  const buttons =
+    discoverTab === "now-playing"
+      ? `${discoverCardPresetButtonHtml(appLists.WATCHLIST_ID, movieId)}${discoverCardPresetButtonHtml(appLists.WATCHED_ID, movieId)}`
+      : discoverCardPresetButtonHtml(appLists.WATCHLIST_ID, movieId);
+  return `<div class="card-body-ratings card-body-ratings--interactive discover-card-actions">${buttons}</div>`;
+}
+
+function discoverCardTextHtml(movieId, record) {
+  const titleRating =
+    discoverTab === "now-playing" ? cardFanRatingHtml(movieId) : "";
+  return `<div class="card-text discover-card-text">
+  <div class="discover-card-title-row">
+    <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>
+    ${titleRating}
+  </div>
+  <div class="card-meta-row">
+    <div class="card-meta">${cardMetaHtml(record)}</div>
+    ${discoverCardActionsHtml(movieId)}
+  </div>
+</div>`;
 }
 
 function cardDetailRatingsHtml(movieId) {
@@ -118,11 +144,7 @@ function cardDetailRatingsHtml(movieId) {
     return "";
   }
   if (isDiscoverActive()) {
-    if (discoverTab === "upcoming") {
-      return discoverUpcomingCardWatchlistHtml(movieId);
-    }
-    const fan = cardFanRatingHtml(movieId);
-    return fan ? `<div class="card-body-ratings">${fan}</div>` : "";
+    return "";
   }
   if (!usesWatchedStyleDisplay()) {
     return "";
@@ -448,6 +470,15 @@ function cardInnerHtml(movieId) {
 </div>
 <div class="card-body card-body--watchlist">
   ${watchlistCardPanelHtml(movieId)}
+</div>`;
+  }
+
+  if (isDiscoverActive()) {
+    return `${posterWrapOpen(movieId)}
+  ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
+</div>
+<div class="card-body">
+  ${discoverCardTextHtml(movieId, record)}
 </div>`;
   }
 

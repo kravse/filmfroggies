@@ -32,6 +32,12 @@ const appTmdb = (function () {
 
   const CAST_LIMIT = 8;
   const DEFAULT_NOW_PLAYING_WINDOW_DAYS = 84;
+  /** Drop classic re-releases: primary premiere must be within this many days. */
+  const DEFAULT_NOW_PLAYING_PRIMARY_WINDOW_DAYS = 730;
+  /** Rough match to TMDB’s upcoming browse window (primary release dates). */
+  const DEFAULT_UPCOMING_WINDOW_DAYS = 90;
+  /** Minimum TMDB vote count for discover browse queries (drops zero-interest listings). */
+  const DEFAULT_DISCOVER_MIN_VOTE_COUNT = 10;
 
   /**
    * Only the v4 API Read Access Token is accepted. It is a JWT: three
@@ -133,15 +139,6 @@ const appTmdb = (function () {
     return buildUrl("/configuration", {});
   }
 
-  function buildDiscoverListUrl(pathname, options = {}) {
-    const page = Number(options.page);
-    return buildUrl(pathname, {
-      language: options.language || "en-US",
-      page: Number.isInteger(page) && page > 0 ? String(page) : "1",
-      region: options.region || "US",
-    });
-  }
-
   function formatIsoDate(date) {
     const value = date instanceof Date ? date : new Date(date);
     if (Number.isNaN(value.getTime())) {
@@ -162,12 +159,64 @@ const appTmdb = (function () {
     return formatIsoDate(value);
   }
 
+  function buildDiscoverMovieUrl(options = {}) {
+    const page = Number(options.page);
+    const params = {
+      include_adult: "false",
+      include_video: "false",
+      language: options.language || "en-US",
+      page: Number.isInteger(page) && page > 0 ? String(page) : "1",
+      region: options.region || "US",
+      with_release_type: "2|3",
+      sort_by: options.sortBy || "popularity.desc",
+    };
+    if (options.releaseDateGte) {
+      params["release_date.gte"] = options.releaseDateGte;
+    }
+    if (options.releaseDateLte) {
+      params["release_date.lte"] = options.releaseDateLte;
+    }
+    if (options.primaryReleaseDateGte) {
+      params["primary_release_date.gte"] = options.primaryReleaseDateGte;
+    }
+    if (options.primaryReleaseDateLte) {
+      params["primary_release_date.lte"] = options.primaryReleaseDateLte;
+    }
+    if (options.voteCountGte != null) {
+      params["vote_count.gte"] = String(options.voteCountGte);
+    }
+    return buildUrl("/discover/movie", params);
+  }
+
   function buildUpcomingUrl(options = {}) {
-    return buildDiscoverListUrl("/movie/upcoming", options);
+    const today = options.today || formatIsoDate(new Date());
+    const windowDays = Number(options.windowDays) || DEFAULT_UPCOMING_WINDOW_DAYS;
+    return buildDiscoverMovieUrl({
+      language: options.language,
+      page: options.page,
+      region: options.region,
+      releaseDateGte: today,
+      releaseDateLte: offsetIsoDate(today, windowDays),
+      sortBy: "popularity.desc",
+    });
   }
 
   function buildNowPlayingUrl(options = {}) {
-    return buildDiscoverListUrl("/movie/now_playing", options);
+    const today = options.today || formatIsoDate(new Date());
+    const windowDays = Number(options.windowDays) || DEFAULT_NOW_PLAYING_WINDOW_DAYS;
+    const primaryWindowDays =
+      Number(options.primaryWindowDays) || DEFAULT_NOW_PLAYING_PRIMARY_WINDOW_DAYS;
+    const minVotes = Number(options.minVoteCount) || DEFAULT_DISCOVER_MIN_VOTE_COUNT;
+    return buildDiscoverMovieUrl({
+      language: options.language,
+      page: options.page,
+      region: options.region,
+      releaseDateGte: offsetIsoDate(today, -windowDays),
+      releaseDateLte: today,
+      primaryReleaseDateGte: offsetIsoDate(today, -primaryWindowDays),
+      voteCountGte: minVotes,
+      sortBy: "popularity.desc",
+    });
   }
 
   function isValidImagePath(imagePath) {
@@ -346,6 +395,9 @@ const appTmdb = (function () {
     formatIsoDate,
     offsetIsoDate,
     DEFAULT_NOW_PLAYING_WINDOW_DAYS,
+    DEFAULT_NOW_PLAYING_PRIMARY_WINDOW_DAYS,
+    DEFAULT_UPCOMING_WINDOW_DAYS,
+    DEFAULT_DISCOVER_MIN_VOTE_COUNT,
     buildUpcomingUrl,
     buildNowPlayingUrl,
     isValidImagePath,

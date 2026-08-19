@@ -135,17 +135,28 @@ test("buildConfigurationUrl points at the configuration endpoint", () => {
   assert.equal(url.pathname, "/3/configuration");
 });
 
-test("buildUpcomingUrl and buildNowPlayingUrl use TMDB list endpoints", () => {
-  const upcoming = new URL(buildUpcomingUrl({ page: 2, region: "US" }));
-  assert.equal(upcoming.pathname, "/3/movie/upcoming");
+test("buildUpcomingUrl and buildNowPlayingUrl use discover/movie with release filters", () => {
+  const today = "2026-08-19";
+  const upcoming = new URL(buildUpcomingUrl({ page: 2, region: "US", today }));
+  assert.equal(upcoming.pathname, "/3/discover/movie");
   assert.equal(upcoming.searchParams.get("page"), "2");
   assert.equal(upcoming.searchParams.get("region"), "US");
   assert.equal(upcoming.searchParams.get("language"), "en-US");
+  assert.equal(upcoming.searchParams.get("release_date.gte"), today);
+  assert.equal(upcoming.searchParams.get("release_date.lte"), "2026-11-17");
+  assert.equal(upcoming.searchParams.get("primary_release_date.gte"), null);
+  assert.equal(upcoming.searchParams.get("with_release_type"), "2|3");
+  assert.equal(upcoming.searchParams.get("sort_by"), "popularity.desc");
+  assert.equal(upcoming.searchParams.get("vote_count.gte"), null);
+  assert.equal(upcoming.searchParams.get("include_adult"), "false");
 
-  const nowPlaying = new URL(buildNowPlayingUrl({ page: 1 }));
-  assert.equal(nowPlaying.pathname, "/3/movie/now_playing");
-  assert.equal(nowPlaying.searchParams.get("language"), "en-US");
-  assert.equal(nowPlaying.searchParams.get("region"), "US");
+  const nowPlaying = new URL(buildNowPlayingUrl({ page: 1, today }));
+  assert.equal(nowPlaying.pathname, "/3/discover/movie");
+  assert.equal(nowPlaying.searchParams.get("release_date.gte"), "2026-05-27");
+  assert.equal(nowPlaying.searchParams.get("release_date.lte"), today);
+  assert.equal(nowPlaying.searchParams.get("primary_release_date.gte"), "2024-08-19");
+  assert.equal(nowPlaying.searchParams.get("vote_count.gte"), "10");
+  assert.equal(nowPlaying.searchParams.get("sort_by"), "popularity.desc");
 });
 
 test("isValidImagePath accepts TMDB-shaped paths", () => {

@@ -614,6 +614,12 @@ const appTmdb = (function () {
 
   const CAST_LIMIT = 8;
   const DEFAULT_NOW_PLAYING_WINDOW_DAYS = 84;
+  /** Drop classic re-releases: primary premiere must be within this many days. */
+  const DEFAULT_NOW_PLAYING_PRIMARY_WINDOW_DAYS = 730;
+  /** Rough match to TMDB’s upcoming browse window (primary release dates). */
+  const DEFAULT_UPCOMING_WINDOW_DAYS = 90;
+  /** Minimum TMDB vote count for discover browse queries (drops zero-interest listings). */
+  const DEFAULT_DISCOVER_MIN_VOTE_COUNT = 10;
 
   /**
    * Only the v4 API Read Access Token is accepted. It is a JWT: three
@@ -715,15 +721,6 @@ const appTmdb = (function () {
     return buildUrl("/configuration", {});
   }
 
-  function buildDiscoverListUrl(pathname, options = {}) {
-    const page = Number(options.page);
-    return buildUrl(pathname, {
-      language: options.language || "en-US",
-      page: Number.isInteger(page) && page > 0 ? String(page) : "1",
-      region: options.region || "US",
-    });
-  }
-
   function formatIsoDate(date) {
     const value = date instanceof Date ? date : new Date(date);
     if (Number.isNaN(value.getTime())) {
@@ -744,12 +741,64 @@ const appTmdb = (function () {
     return formatIsoDate(value);
   }
 
+  function buildDiscoverMovieUrl(options = {}) {
+    const page = Number(options.page);
+    const params = {
+      include_adult: "false",
+      include_video: "false",
+      language: options.language || "en-US",
+      page: Number.isInteger(page) && page > 0 ? String(page) : "1",
+      region: options.region || "US",
+      with_release_type: "2|3",
+      sort_by: options.sortBy || "popularity.desc",
+    };
+    if (options.releaseDateGte) {
+      params["release_date.gte"] = options.releaseDateGte;
+    }
+    if (options.releaseDateLte) {
+      params["release_date.lte"] = options.releaseDateLte;
+    }
+    if (options.primaryReleaseDateGte) {
+      params["primary_release_date.gte"] = options.primaryReleaseDateGte;
+    }
+    if (options.primaryReleaseDateLte) {
+      params["primary_release_date.lte"] = options.primaryReleaseDateLte;
+    }
+    if (options.voteCountGte != null) {
+      params["vote_count.gte"] = String(options.voteCountGte);
+    }
+    return buildUrl("/discover/movie", params);
+  }
+
   function buildUpcomingUrl(options = {}) {
-    return buildDiscoverListUrl("/movie/upcoming", options);
+    const today = options.today || formatIsoDate(new Date());
+    const windowDays = Number(options.windowDays) || DEFAULT_UPCOMING_WINDOW_DAYS;
+    return buildDiscoverMovieUrl({
+      language: options.language,
+      page: options.page,
+      region: options.region,
+      releaseDateGte: today,
+      releaseDateLte: offsetIsoDate(today, windowDays),
+      sortBy: "popularity.desc",
+    });
   }
 
   function buildNowPlayingUrl(options = {}) {
-    return buildDiscoverListUrl("/movie/now_playing", options);
+    const today = options.today || formatIsoDate(new Date());
+    const windowDays = Number(options.windowDays) || DEFAULT_NOW_PLAYING_WINDOW_DAYS;
+    const primaryWindowDays =
+      Number(options.primaryWindowDays) || DEFAULT_NOW_PLAYING_PRIMARY_WINDOW_DAYS;
+    const minVotes = Number(options.minVoteCount) || DEFAULT_DISCOVER_MIN_VOTE_COUNT;
+    return buildDiscoverMovieUrl({
+      language: options.language,
+      page: options.page,
+      region: options.region,
+      releaseDateGte: offsetIsoDate(today, -windowDays),
+      releaseDateLte: today,
+      primaryReleaseDateGte: offsetIsoDate(today, -primaryWindowDays),
+      voteCountGte: minVotes,
+      sortBy: "popularity.desc",
+    });
   }
 
   function isValidImagePath(imagePath) {
@@ -928,6 +977,9 @@ const appTmdb = (function () {
     formatIsoDate,
     offsetIsoDate,
     DEFAULT_NOW_PLAYING_WINDOW_DAYS,
+    DEFAULT_NOW_PLAYING_PRIMARY_WINDOW_DAYS,
+    DEFAULT_UPCOMING_WINDOW_DAYS,
+    DEFAULT_DISCOVER_MIN_VOTE_COUNT,
     buildUpcomingUrl,
     buildNowPlayingUrl,
     isValidImagePath,
@@ -956,10 +1008,14 @@ const appDiscover = (function () {
   const DEFAULT_DISCOVER_TAB = "upcoming";
   const DISCOVER_DEFAULT_PAGE = 1;
   const DISCOVER_MAX_MOVIES = 50;
+  /** Fixed discover columns: 4 on wide viewports, 2 on mobile (see discover.css). */
+  const DISCOVER_GRID_COLUMNS = 4;
+  const DISCOVER_GRID_COLUMNS_MOBILE = 2;
+  /** lcm(2, 4) — page sizes aligned to this fill both grids without a trailing orphan. */
+  const DISCOVER_PAGE_COMPLETE_UNIT = 4;
   const DEFAULT_DISCOVER_REGION = "US";
   /** Bumped when discover list query semantics change so session memo refreshes. */
-  const DISCOVER_LIST_CACHE_VERSION = 8;
-  const NOW_PLAYING_WINDOW_DAYS = 84;
+  const DISCOVER_LIST_CACHE_VERSION = 25;
   /** Skip obscure listings unless TMDB shows real interest. */
   const DISCOVER_MIN_VOTE_COUNT = 10;
   const DISCOVER_MIN_POPULARITY = 8;
@@ -1039,25 +1095,6 @@ const appDiscover = (function () {
     return releaseTime >= todayTime;
   }
 
-  /** Theatrical releases in region within the recent window, not future dated. */
-  function isNowPlayingReleaseEntry(entry, todayIso, windowDays = NOW_PLAYING_WINDOW_DAYS) {
-    const releaseDate = String(entry?.releaseDate || "").trim();
-    if (!releaseDate) {
-      return false;
-    }
-    const releaseTime = Date.parse(releaseDate);
-    const todayTime = Date.parse(todayIso);
-    const windowStartTime = Date.parse(shiftIsoDate(todayIso, -windowDays));
-    if (
-      !Number.isFinite(releaseTime) ||
-      !Number.isFinite(todayTime) ||
-      !Number.isFinite(windowStartTime)
-    ) {
-      return false;
-    }
-    return releaseTime <= todayTime && releaseTime >= windowStartTime;
-  }
-
   function isProminentDiscoverEntry(entry, options = {}) {
     const minVotes = options.minVoteCount ?? DISCOVER_MIN_VOTE_COUNT;
     const minPopularity = options.minPopularity ?? DISCOVER_MIN_POPULARITY;
@@ -1069,7 +1106,6 @@ const appDiscover = (function () {
   function mergeDiscoverListEntries(pageResults, options = {}) {
     const max = options.max ?? DISCOVER_MAX_MOVIES;
     const filterUpcoming = options.filterUpcoming === true;
-    const filterNowPlaying = options.filterNowPlaying === true;
     const filterProminent = options.filterProminent === true;
     const todayIso = options.todayIso;
     const seen = new Set();
@@ -1083,9 +1119,6 @@ const appDiscover = (function () {
           continue;
         }
         if (filterUpcoming && todayIso && !isUpcomingReleaseEntry(entry, todayIso)) {
-          continue;
-        }
-        if (filterNowPlaying && todayIso && !isNowPlayingReleaseEntry(entry, todayIso)) {
           continue;
         }
         const id = Number(entry?.id);
@@ -1106,10 +1139,44 @@ const appDiscover = (function () {
     if (!Array.isArray(pageResults)) {
       return [];
     }
-    return mergeDiscoverListEntries([pageResults], {
+    const entries = mergeDiscoverListEntries([pageResults], {
       ...options,
       max: Number.MAX_SAFE_INTEGER,
     });
+    return trimDiscoverPageToGrid(entries, options);
+  }
+
+  /**
+   * Largest count <= n that fills complete rows on both 2- and 4-column discover grids.
+   * Uses 4 (lcm of 2 and 4) when possible; smaller pages fall back to min(⌊n/4⌋×4, ⌊n/2⌋×2).
+   */
+  function discoverCompleteCount(count) {
+    if (!Number.isInteger(count) || count <= 0) {
+      return 0;
+    }
+    const byUnit = Math.floor(count / DISCOVER_PAGE_COMPLETE_UNIT) * DISCOVER_PAGE_COMPLETE_UNIT;
+    if (byUnit > 0) {
+      return byUnit;
+    }
+    const byDesktop = Math.floor(count / DISCOVER_GRID_COLUMNS) * DISCOVER_GRID_COLUMNS;
+    const byMobile = Math.floor(count / DISCOVER_GRID_COLUMNS_MOBILE) * DISCOVER_GRID_COLUMNS_MOBILE;
+    const byBoth = Math.min(byDesktop, byMobile);
+    return byBoth > 0 ? byBoth : count;
+  }
+
+  /**
+   * Drop trailing incomplete rows on non-final pages so the grid never ends with
+   * a lone movie. The last TMDB page keeps whatever count remains.
+   */
+  function trimDiscoverPageToGrid(entries, options = {}) {
+    if (!Array.isArray(entries) || options.isLastPage) {
+      return entries;
+    }
+    const completeCount = discoverCompleteCount(entries.length);
+    if (completeCount === 0 || completeCount >= entries.length) {
+      return entries;
+    }
+    return entries.slice(0, completeCount);
   }
 
   function mergeDiscoverMovieIds(pageResults, options = {}) {
@@ -1121,9 +1188,11 @@ const appDiscover = (function () {
     DEFAULT_DISCOVER_TAB,
     DISCOVER_DEFAULT_PAGE,
     DISCOVER_MAX_MOVIES,
+    DISCOVER_GRID_COLUMNS,
+    DISCOVER_GRID_COLUMNS_MOBILE,
+    DISCOVER_PAGE_COMPLETE_UNIT,
     DEFAULT_DISCOVER_REGION,
     DISCOVER_LIST_CACHE_VERSION,
-    NOW_PLAYING_WINDOW_DAYS,
     DISCOVER_MIN_VOTE_COUNT,
     DISCOVER_MIN_POPULARITY,
     normalizeDiscoverTab,
@@ -1134,11 +1203,12 @@ const appDiscover = (function () {
     todayIsoDate,
     shiftIsoDate,
     isUpcomingReleaseEntry,
-    isNowPlayingReleaseEntry,
     isProminentDiscoverEntry,
     mergeDiscoverMovieIds,
     mergeDiscoverListEntries,
     filterDiscoverPageEntries,
+    trimDiscoverPageToGrid,
+    discoverCompleteCount,
   };
 })();
 
@@ -6149,10 +6219,26 @@ function tmdbUrlToProxyRequest(url) {
   const parsed = new URL(String(url));
   const match = /^\/3(\/.+)$/.exec(parsed.pathname);
   const path = match ? match[1] : parsed.pathname;
+  const allowed = new Set([
+    "query",
+    "language",
+    "page",
+    "include_adult",
+    "append_to_response",
+    "region",
+    "sort_by",
+    "include_video",
+    "primary_release_date.gte",
+    "primary_release_date.lte",
+    "release_date.gte",
+    "release_date.lte",
+    "with_release_type",
+    "with_original_language",
+    "vote_count.gte",
+  ]);
   const searchParams = {};
-  for (const key of ["query", "language", "page", "include_adult", "append_to_response", "region"]) {
-    const value = parsed.searchParams.get(key);
-    if (value != null && value !== "") {
+  for (const [key, value] of parsed.searchParams.entries()) {
+    if (allowed.has(key) && value !== "") {
       searchParams[key] = value;
     }
   }
@@ -6713,22 +6799,16 @@ async function fetchDiscoverMovies(tab, options = {}) {
     const signal = options.signal;
     const buildUrl =
       normalizedTab === "now-playing" ? appTmdb.buildNowPlayingUrl : appTmdb.buildUpcomingUrl;
-    const todayIso = appDiscover.todayIsoDate();
-    const mergeOpts = {
-      filterUpcoming: normalizedTab === "upcoming",
-      todayIso,
-    };
     const payload = await fetchTmdb(
-      buildUrl({
-        page,
-        today: todayIso,
-      }),
+      buildUrl({ page }),
       { signal },
     ).then((response) => response.json());
     const meta = appDiscover.normalizeDiscoverListMeta(payload);
     const entries = appDiscover.filterDiscoverPageEntries(
       appTmdb.normalizeSearchResults(payload),
-      mergeOpts,
+      {
+        isLastPage: meta.page >= meta.totalPages,
+      },
     );
     return { ...meta, entries };
   })();
@@ -7655,11 +7735,37 @@ function cardFanRatingHtml(movieId) {
   return `<span class="card-fan-rating${emptyClass}" aria-label="Fan rating ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
 }
 
-function discoverUpcomingCardWatchlistHtml(movieId) {
-  const isMember = appLists.isOnWatchlist(userState.lists, movieId);
-  return `<div class="card-body-ratings card-body-ratings--interactive">
-    <button type="button" class="discover-card-watchlist-btn discover-card-watchlist-btn--icon-only${isMember ? " is-active" : ""}" data-discover-preset-id="${appCardHtml.escapeHtml(appLists.WATCHLIST_ID)}" aria-label="Watchlist" title="Watchlist" aria-pressed="${isMember ? "true" : "false"}">${appCardHtml.addListPresetIconHtml("watchlist")}</button>
-  </div>`;
+function discoverCardPresetButtonHtml(listId, movieId) {
+  const isWatchlist = listId === appLists.WATCHLIST_ID;
+  const isMember = isWatchlist
+    ? appLists.isOnWatchlist(userState.lists, movieId)
+    : appLists.isWatched(userState.lists, movieId);
+  const label = isWatchlist ? "Watchlist" : "Watched";
+  const iconPreset = isWatchlist ? "watchlist" : "watched";
+  return `<button type="button" class="discover-card-watchlist-btn discover-card-watchlist-btn--icon-only${isMember ? " is-active" : ""}" data-discover-preset-id="${appCardHtml.escapeHtml(listId)}" aria-label="${label}" title="${label}" aria-pressed="${isMember ? "true" : "false"}">${appCardHtml.addListPresetIconHtml(iconPreset)}</button>`;
+}
+
+function discoverCardActionsHtml(movieId) {
+  const buttons =
+    discoverTab === "now-playing"
+      ? `${discoverCardPresetButtonHtml(appLists.WATCHLIST_ID, movieId)}${discoverCardPresetButtonHtml(appLists.WATCHED_ID, movieId)}`
+      : discoverCardPresetButtonHtml(appLists.WATCHLIST_ID, movieId);
+  return `<div class="card-body-ratings card-body-ratings--interactive discover-card-actions">${buttons}</div>`;
+}
+
+function discoverCardTextHtml(movieId, record) {
+  const titleRating =
+    discoverTab === "now-playing" ? cardFanRatingHtml(movieId) : "";
+  return `<div class="card-text discover-card-text">
+  <div class="discover-card-title-row">
+    <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>
+    ${titleRating}
+  </div>
+  <div class="card-meta-row">
+    <div class="card-meta">${cardMetaHtml(record)}</div>
+    ${discoverCardActionsHtml(movieId)}
+  </div>
+</div>`;
 }
 
 function cardDetailRatingsHtml(movieId) {
@@ -7667,11 +7773,7 @@ function cardDetailRatingsHtml(movieId) {
     return "";
   }
   if (isDiscoverActive()) {
-    if (discoverTab === "upcoming") {
-      return discoverUpcomingCardWatchlistHtml(movieId);
-    }
-    const fan = cardFanRatingHtml(movieId);
-    return fan ? `<div class="card-body-ratings">${fan}</div>` : "";
+    return "";
   }
   if (!usesWatchedStyleDisplay()) {
     return "";
@@ -7997,6 +8099,15 @@ function cardInnerHtml(movieId) {
 </div>
 <div class="card-body card-body--watchlist">
   ${watchlistCardPanelHtml(movieId)}
+</div>`;
+  }
+
+  if (isDiscoverActive()) {
+    return `${posterWrapOpen(movieId)}
+  ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
+</div>
+<div class="card-body">
+  ${discoverCardTextHtml(movieId, record)}
 </div>`;
   }
 
