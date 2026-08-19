@@ -32,6 +32,12 @@ const addMovieRatingClear = document.getElementById("add-movie-rating-clear");
 const addMovieRatingValue = document.getElementById("add-movie-rating-value");
 const addMovieRatingField = document.getElementById("add-movie-rating-field");
 const addMovieBack = document.getElementById("add-movie-back");
+const addMoviePickTabs = document.getElementById("add-movie-pick-tabs");
+const addMovieTabAdd = document.getElementById("add-movie-tab-add");
+const addMovieTabDetail = document.getElementById("add-movie-tab-detail");
+const addMovieAddPanel = document.getElementById("add-movie-add-panel");
+const addMovieDetailPanel = document.getElementById("add-movie-detail-panel");
+const addMovieDetailContent = document.getElementById("add-movie-detail-content");
 
 const viewModeCycleBtn = document.getElementById("view-mode-cycle");
 const sortControl = document.getElementById("sort-control");
@@ -3591,6 +3597,9 @@ let pendingAddResult = null;
 let selectedAddListId = null;
 let pendingAddRating = null;
 let addMovieRatingTouched = false;
+let addMoviePickTab = "add";
+
+const ADD_MOVIE_TMDB_URL = "https://www.themoviedb.org/movie/";
 
 function resetAddMovieRatingControls() {
   pendingAddRating = null;
@@ -3825,8 +3834,127 @@ function showAddSearchStep() {
   pendingAddResult = null;
   selectedAddListId = null;
   resetAddMovieRatingControls();
+  setAddMoviePickTab("add");
+  if (addMoviePickTabs) {
+    addMoviePickTabs.hidden = true;
+  }
+  addMovieDialog?.classList.remove("is-pick-step");
   addMovieSearchStep.hidden = false;
   addMoviePickStep.hidden = true;
+}
+
+function syncAddMoviePickTabs() {
+  const onAdd = addMoviePickTab === "add";
+  addMovieTabAdd?.setAttribute("aria-selected", String(onAdd));
+  addMovieTabDetail?.setAttribute("aria-selected", String(!onAdd));
+  addMovieTabAdd?.setAttribute("tabindex", onAdd ? "0" : "-1");
+  addMovieTabDetail?.setAttribute("tabindex", onAdd ? "-1" : "0");
+  addMovieDialog?.classList.toggle("is-detail-tab", !onAdd);
+  if (addMovieAddPanel) {
+    addMovieAddPanel.hidden = !onAdd;
+  }
+  if (addMovieDetailPanel) {
+    addMovieDetailPanel.hidden = onAdd;
+  }
+}
+
+function setAddMoviePickTab(tab) {
+  addMoviePickTab = tab === "detail" ? "detail" : "add";
+  syncAddMoviePickTabs();
+  if (addMoviePickTab === "detail") {
+    renderAddMovieDetail();
+    addMovieTabDetail?.focus({ preventScroll: true });
+  } else {
+    addMovieTabAdd?.focus({ preventScroll: true });
+  }
+}
+
+function onAddMoviePickTabClick(event) {
+  const tab = event.target.closest(".add-movie-pick-tab");
+  if (!tab || !pendingAddResult) {
+    return;
+  }
+  if (tab.id === "add-movie-tab-detail") {
+    setAddMoviePickTab("detail");
+  } else if (tab.id === "add-movie-tab-add") {
+    setAddMoviePickTab("add");
+  }
+}
+
+function prefetchAddMovieDetail(movieId) {
+  if (!Number.isInteger(movieId) || movieId <= 0 || movieById.has(movieId)) {
+    return;
+  }
+  if (!hasTmdbAccess()) {
+    return;
+  }
+  hydrateMovies([movieId], {
+    onRecord: (id, record) => {
+      if (pendingAddResult?.id === id && addMoviePickTab === "detail") {
+        renderAddMovieDetail();
+      }
+    },
+  });
+}
+
+function addMovieDetailPosterHtml(record) {
+  const url = appTmdb.buildImageUrl(record.posterPath, appTmdb.POSTER_SIZES.card);
+  if (!url) {
+    return `<div class="add-movie-detail-poster add-movie-detail-poster--empty"></div>`;
+  }
+  return `<img class="add-movie-detail-poster" data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy">`;
+}
+
+function renderAddMovieDetail() {
+  if (!pendingAddResult || !addMovieDetailContent) {
+    return;
+  }
+
+  const movieId = pendingAddResult.id;
+  const record = movieById.get(movieId);
+  const canLoad = hasTmdbAccess();
+
+  if (!record) {
+    const year = appCardHtml.formatYear(pendingAddResult.releaseDate);
+    let statusText;
+    if (movieErrors.has(movieId)) {
+      statusText = "Could not load details. Check your credential and connection.";
+    } else if (canLoad) {
+      statusText = "Loading details…";
+    } else {
+      statusText = "Add a TMDB credential in Settings to load details.";
+    }
+    addMovieDetailContent.innerHTML = `<div class="add-movie-detail-layout">
+  ${addMovieDetailPosterHtml(pendingAddResult)}
+  <div class="add-movie-detail-body">
+    <h3 class="add-movie-detail-title">${appCardHtml.escapeHtml(pendingAddResult.title)}</h3>
+    ${year ? `<p class="add-movie-detail-tagline">${year}</p>` : ""}
+    <p class="add-movie-detail-status">${appCardHtml.escapeHtml(statusText)}</p>
+  </div>
+</div>`;
+    bindPosterImages(addMovieDetailContent);
+    if (canLoad) {
+      prefetchAddMovieDetail(movieId);
+    }
+    return;
+  }
+
+  const tagline = record.tagline
+    ? `<p class="add-movie-detail-tagline">${appCardHtml.escapeHtml(record.tagline)}</p>`
+    : "";
+
+  addMovieDetailContent.innerHTML = `<div class="add-movie-detail-layout">
+  ${addMovieDetailPosterHtml(record)}
+  <div class="add-movie-detail-body">
+    <h3 class="add-movie-detail-title">${appCardHtml.escapeHtml(record.title)}</h3>
+    ${tagline}
+    <div class="add-movie-detail-meta">${detailMetaChips(record)}</div>
+    <p class="add-movie-detail-overview">${appCardHtml.escapeHtml(record.overview || "No overview available.")}</p>
+    <div class="add-movie-detail-credits">${detailCreditsHtml(record)}</div>
+    <a class="add-movie-detail-link" href="${ADD_MOVIE_TMDB_URL}${movieId}" target="_blank" rel="noopener noreferrer">View on TMDB</a>
+  </div>
+</div>`;
+  bindPosterImages(addMovieDetailContent);
 }
 
 function pickedPosterHtml(result) {
@@ -3860,11 +3988,17 @@ function showAddPickStep(result) {
     ? userState.activeListId
     : appLists.DEFAULT_LIST_ID;
   resetAddMovieRatingControls();
+  if (addMoviePickTabs) {
+    addMoviePickTabs.hidden = false;
+  }
+  addMovieDialog?.classList.add("is-pick-step");
+  setAddMoviePickTab("add");
   addMovieSearchStep.hidden = true;
   addMoviePickStep.hidden = false;
   renderAddMoviePicked(result);
   updateAddListPickerSelection(selectedAddListId);
   syncAddMoviePickStep();
+  prefetchAddMovieDetail(result.id);
   addMovieSubmit.focus({ preventScroll: true });
 }
 
@@ -5413,6 +5547,8 @@ addMovieBack.addEventListener("click", () => {
   showAddSearchStep();
   searchInput.focus();
 });
+addMovieTabAdd?.addEventListener("click", onAddMoviePickTabClick);
+addMovieTabDetail?.addEventListener("click", onAddMoviePickTabClick);
 addMovieListPicker.addEventListener("click", onAddListOptionClick);
 addMovieSubmit.addEventListener("click", confirmAddMovie);
 initAddMovieRatingSelect();
@@ -5699,6 +5835,10 @@ document.addEventListener("keydown", (event) => {
     }
     if (!addMovieDialog.hidden) {
       if (!addMoviePickStep.hidden) {
+        if (addMoviePickTab === "detail") {
+          setAddMoviePickTab("add");
+          return;
+        }
         showAddSearchStep();
         searchInput.focus();
       } else {

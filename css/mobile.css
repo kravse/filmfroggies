@@ -121,12 +121,23 @@
     min-width: 5.5rem;
   }
 
+  /* Flank the poster (fixed while the detail scrolls). */
   .movie-detail-nav {
-    top: auto;
-    bottom: 4.5rem;
-    transform: none;
+    --detail-poster-width: min(200px, 100vw - 2rem);
+    --detail-poster-half-height: calc(var(--detail-poster-width) * 0.75);
+    top: calc(3.2rem + 1rem + var(--detail-poster-half-height));
+    bottom: auto;
+    transform: translateY(-50%);
     width: 38px;
     height: 38px;
+  }
+
+  .movie-detail-nav--prev {
+    left: max(0.5rem, calc(50% - var(--detail-poster-width) / 2 - 2.75rem));
+  }
+
+  .movie-detail-nav--next {
+    right: max(0.5rem, calc(50% - var(--detail-poster-width) / 2 - 2.75rem));
   }
 
   .sheet-dialog {

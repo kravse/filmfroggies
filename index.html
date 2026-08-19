@@ -210,6 +210,35 @@
             </svg>
           </button>
         </div>
+        <div
+          class="add-movie-pick-tabs"
+          id="add-movie-pick-tabs"
+          role="tablist"
+          aria-label="Add movie views"
+          hidden
+        >
+          <button
+            type="button"
+            class="add-movie-pick-tab"
+            id="add-movie-tab-add"
+            role="tab"
+            aria-selected="true"
+            aria-controls="add-movie-add-panel"
+          >
+            Add
+          </button>
+          <button
+            type="button"
+            class="add-movie-pick-tab"
+            id="add-movie-tab-detail"
+            role="tab"
+            aria-selected="false"
+            aria-controls="add-movie-detail-panel"
+            tabindex="-1"
+          >
+            Details
+          </button>
+        </div>
         <div class="sheet-body add-movie-body">
           <div id="add-movie-search-step">
             <p class="add-movie-hint" id="add-movie-hint">
@@ -256,6 +285,12 @@
             </div>
           </div>
           <div id="add-movie-pick-step" hidden tabindex="-1">
+            <div
+              id="add-movie-add-panel"
+              class="add-movie-pick-panel"
+              role="tabpanel"
+              aria-labelledby="add-movie-tab-add"
+            >
             <div class="add-movie-picked" id="add-movie-picked"></div>
             <p class="add-movie-pick-label">Add to</p>
             <div
@@ -326,6 +361,16 @@
               <button type="button" class="primary-btn" id="add-movie-submit">
                 Add to list
               </button>
+            </div>
+            </div>
+            <div
+              id="add-movie-detail-panel"
+              class="add-movie-pick-panel"
+              role="tabpanel"
+              aria-labelledby="add-movie-tab-detail"
+              hidden
+            >
+              <div class="add-movie-detail-scroll" id="add-movie-detail-content"></div>
             </div>
           </div>
         </div>

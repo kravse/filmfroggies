@@ -45,6 +45,8 @@ addMovieBack.addEventListener("click", () => {
   showAddSearchStep();
   searchInput.focus();
 });
+addMovieTabAdd?.addEventListener("click", onAddMoviePickTabClick);
+addMovieTabDetail?.addEventListener("click", onAddMoviePickTabClick);
 addMovieListPicker.addEventListener("click", onAddListOptionClick);
 addMovieSubmit.addEventListener("click", confirmAddMovie);
 initAddMovieRatingSelect();
@@ -331,6 +333,10 @@ document.addEventListener("keydown", (event) => {
     }
     if (!addMovieDialog.hidden) {
       if (!addMoviePickStep.hidden) {
+        if (addMoviePickTab === "detail") {
+          setAddMoviePickTab("add");
+          return;
+        }
         showAddSearchStep();
         searchInput.focus();
       } else {

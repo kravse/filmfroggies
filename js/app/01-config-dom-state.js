@@ -30,6 +30,12 @@ const addMovieRatingClear = document.getElementById("add-movie-rating-clear");
 const addMovieRatingValue = document.getElementById("add-movie-rating-value");
 const addMovieRatingField = document.getElementById("add-movie-rating-field");
 const addMovieBack = document.getElementById("add-movie-back");
+const addMoviePickTabs = document.getElementById("add-movie-pick-tabs");
+const addMovieTabAdd = document.getElementById("add-movie-tab-add");
+const addMovieTabDetail = document.getElementById("add-movie-tab-detail");
+const addMovieAddPanel = document.getElementById("add-movie-add-panel");
+const addMovieDetailPanel = document.getElementById("add-movie-detail-panel");
+const addMovieDetailContent = document.getElementById("add-movie-detail-content");
 
 const viewModeCycleBtn = document.getElementById("view-mode-cycle");
 const sortControl = document.getElementById("sort-control");
