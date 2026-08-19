@@ -100,7 +100,7 @@ const appUserState = (function () {
     }
     return {
       viewMode: VIEW_MODES.has(viewMode) ? viewMode : base.viewMode,
-      sort: getSort().normalizeSort(raw.sort, base.sort),
+      sort: getSort().normalizeWatchedSort(raw.sort, base.sort),
     };
   }
 

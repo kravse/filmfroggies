@@ -453,19 +453,6 @@ header {
   display: block;
 }
 
-/* --- List action bar (below header border) --- */
-
-.list-action-bar {
-  display: none;
-  width: 100%;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
-}
-
-.list-action-bar:has(#reorder-bar-slot .reorder-toggle:not([hidden])) {
-  display: block;
-}
-
 #reorder-toolbar-slot {
   display: flex;
   align-items: center;
@@ -474,20 +461,6 @@ header {
 
 #reorder-toolbar-slot:not(:has(.reorder-toggle:not([hidden]))) {
   display: none;
-}
-
-#reorder-bar-slot {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-}
-
-.list-action-bar-inner {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  min-height: 0;
-  padding-block: 0.5rem;
 }
 
 .reorder-toggle {

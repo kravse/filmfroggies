@@ -163,6 +163,7 @@ const APP_SYNC_ENTRIES = [
       "DEFAULT_SORT",
       "DEFAULT_PREFERENCE_SORT",
       "normalizeSort",
+      "normalizeWatchedSort",
       "isCustomSort",
       "getSortField",
       "isSortDescending",

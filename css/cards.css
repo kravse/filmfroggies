@@ -170,6 +170,15 @@ body.view-mode-detail .card {
   border-color: var(--muted);
 }
 
+body.view-mode-cards .card.is-unrated {
+  opacity: 1;
+}
+
+body.view-mode-cards .card.is-unrated:hover {
+  opacity: 1;
+  border-color: var(--muted);
+}
+
 .poster-wrap {
   position: relative;
   aspect-ratio: 2 / 3;
@@ -184,6 +193,60 @@ body.view-mode-detail .card {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+body.view-mode-cards .card-poster-overlays {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+body.view-mode-cards .card-poster-overlay {
+  position: absolute;
+  right: 0.14rem;
+  display: flex;
+  max-width: calc(100% - 0.28rem);
+}
+
+body.view-mode-cards .card-poster-overlay--bottom {
+  bottom: 0.14rem;
+}
+
+body.view-mode-cards .card-poster-overlay .card-fan-rating,
+body.view-mode-cards .card-poster-overlay .card-user-rating,
+body.view-mode-cards .card-poster-overlay .card-release-year {
+  flex: none;
+  padding: 0.06rem 0.26rem;
+  border-radius: 3px;
+  font-family: var(--ui-font);
+  font-size: 0.54rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  opacity: 1;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+}
+
+body.view-mode-cards .card-poster-overlay .card-fan-rating,
+body.view-mode-cards .card-poster-overlay .card-release-year,
+body.view-mode-cards .card-poster-overlay .card-user-rating.is-empty {
+  background: var(--panel-raised);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+}
+
+body.view-mode-cards .card-poster-overlay .card-fan-rating.is-empty,
+body.view-mode-cards .card-poster-overlay .card-release-year.is-empty,
+body.view-mode-cards .card-poster-overlay .card-user-rating.is-empty {
+  color: var(--muted);
+}
+
+body.view-mode-cards .card-poster-overlay .card-user-rating:not(.is-empty) {
+  background: color-mix(in srgb, var(--accent) 36%, var(--panel-raised));
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--accent) 62%, var(--border-strong));
 }
 
 .placeholder {

@@ -142,7 +142,7 @@ test("getSortField maps stored modes to dropdown fields", () => {
   assert.equal(toggleSortDirection("title-asc"), "title-desc");
   assert.equal(sortModeForField("year", "rating-desc"), "year-desc");
   assert.equal(sortModeForField("year", "year-asc"), "year-asc");
-  assert.equal(sortModeForField("custom", "year-desc"), "custom");
+  assert.equal(sortModeForField("custom", "year-desc"), "user-rating-desc");
   assert.equal(sortModeForField("title", "rating-desc"), "title-desc");
 });
 
@@ -157,13 +157,13 @@ test("sortDirectionLabel describes the active order", () => {
 
 test("getSortFieldLabel returns full and short toolbar labels", () => {
   const { getSortFieldLabel } = require("../scripts/lib/sort");
-  assert.equal(getSortFieldLabel("user-rating"), "My rating");
-  assert.equal(getSortFieldLabel("added"), "Date added");
-  assert.equal(getSortFieldLabel("user-rating", true), "My rating");
+  assert.equal(getSortFieldLabel("user-rating"), "My Rating");
+  assert.equal(getSortFieldLabel("added"), "Date Added");
+  assert.equal(getSortFieldLabel("user-rating", true), "My Rating");
   assert.equal(getSortFieldLabel("added", true), "Added");
   assert.equal(getSortFieldLabel("year", true), "Year");
-  assert.equal(getSortFieldLabel("rating", true), "Rating");
-  assert.equal(getSortFieldLabel("unknown"), "Custom");
+  assert.equal(getSortFieldLabel("rating", true), "Fan Rating");
+  assert.equal(getSortFieldLabel("unknown"), "Title");
 });
 
 test("formatSortCardHint returns null for custom sort or missing records", () => {

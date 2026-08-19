@@ -45,7 +45,6 @@ const sortControl = document.getElementById("sort-control");
 const listSortSelect = document.getElementById("list-sort");
 const sortReverseBtn = document.getElementById("sort-reverse");
 const reorderToolbarSlot = document.getElementById("reorder-toolbar-slot");
-const reorderBarSlot = document.getElementById("reorder-bar-slot");
 const reorderModeControl = document.getElementById("reorder-mode-control");
 const reorderModeToggle = document.getElementById("reorder-mode-toggle");
 const grid = document.getElementById("grid");
@@ -147,7 +146,7 @@ function isWatchlistActive() {
 }
 
 function usesCustomDisplayOrder() {
-  return !isWatchedListActive() || appSort.isCustomSort(userState.preferences.sort);
+  return isWatchlistActive();
 }
 
 function displayMovieIds() {
@@ -1611,7 +1610,7 @@ const appAddedAt = (function () {
 const appSort = (function () {
   /**
    * Display-only sort for the Watched list. Stored `movieIds` order is untouched;
-   * custom order matches storage and is the only mode compatible with drag reorder.
+   * Watchlist always uses stored order (drag reorder). Watched never uses custom sort.
    */
 
   const SORT_MODES = new Set([
@@ -1629,11 +1628,10 @@ const appSort = (function () {
   ]);
 
   const DEFAULT_SORT = "custom";
-  /** Default sort for new users opening Watched. Reorder still uses `custom`. */
   const DEFAULT_PREFERENCE_SORT = "user-rating-desc";
   const MISSING_SORT_HINT = "—";
 
-  const SORT_FIELDS = new Set(["custom", "added", "year", "rating", "user-rating", "title"]);
+  const SORT_FIELDS = new Set(["added", "year", "rating", "user-rating", "title"]);
 
   const SORT_FIELD_DEFAULTS = {
     added: "added-desc",
@@ -1644,26 +1642,24 @@ const appSort = (function () {
   };
 
   const SORT_FIELD_LABELS = {
-    "user-rating": "My rating",
-    added: "Date added",
-    year: "Release year",
-    rating: "Fan rating",
+    "user-rating": "My Rating",
+    added: "Date Added",
+    year: "Release Year",
+    rating: "Fan Rating",
     title: "Title",
-    custom: "Custom",
   };
 
   const SORT_FIELD_LABELS_SHORT = {
-    "user-rating": "My rating",
+    "user-rating": "My Rating",
     added: "Added",
     year: "Year",
-    rating: "Rating",
+    rating: "Fan Rating",
     title: "Title",
-    custom: "Custom",
   };
 
   function getSortFieldLabel(field, short = false) {
     const labels = short ? SORT_FIELD_LABELS_SHORT : SORT_FIELD_LABELS;
-    return labels[field] || SORT_FIELD_LABELS.custom;
+    return labels[field] || SORT_FIELD_LABELS.title;
   }
 
   function getSortField(mode) {
@@ -1709,14 +1705,23 @@ const appSort = (function () {
   }
 
   function sortModeForField(field, currentMode) {
-    if (!field || field === "custom" || !SORT_FIELDS.has(field)) {
-      return DEFAULT_SORT;
+    if (!field || !SORT_FIELDS.has(field)) {
+      return DEFAULT_PREFERENCE_SORT;
     }
     const normalized = normalizeSort(currentMode);
     if (getSortField(normalized) === field) {
       return normalized;
     }
-    return SORT_FIELD_DEFAULTS[field] || DEFAULT_SORT;
+    return SORT_FIELD_DEFAULTS[field] || DEFAULT_PREFERENCE_SORT;
+  }
+
+  /** Watched preferences never keep custom; watchlist ignores sort entirely. */
+  function normalizeWatchedSort(raw, fallback = DEFAULT_PREFERENCE_SORT) {
+    const normalized = normalizeSort(raw, fallback);
+    if (normalized === DEFAULT_SORT) {
+      return fallback;
+    }
+    return normalized;
   }
 
   /** Human label for the active sort direction (toolbar state). */
@@ -1950,6 +1955,7 @@ const appSort = (function () {
     DEFAULT_SORT,
     DEFAULT_PREFERENCE_SORT,
     normalizeSort,
+    normalizeWatchedSort,
     isCustomSort,
     getSortField,
     isSortDescending,
@@ -2363,7 +2369,7 @@ const appUserState = (function () {
     }
     return {
       viewMode: VIEW_MODES.has(viewMode) ? viewMode : base.viewMode,
-      sort: getSort().normalizeSort(raw.sort, base.sort),
+      sort: getSort().normalizeWatchedSort(raw.sort, base.sort),
     };
   }
 
@@ -4392,13 +4398,7 @@ function cardMetaHtml(record) {
 }
 
 function cardUserRatingHtml(movieId) {
-  const label = appRatings.formatUserRating(
-    appRatings.getRating(userState.ratings, movieId),
-  );
-  if (!label) {
-    return "";
-  }
-  return `<span class="card-user-rating" aria-label="Your rating ${appCardHtml.escapeHtml(label)}">${appCardHtml.escapeHtml(label)}</span>`;
+  return cardUserRatingChipHtml(movieId);
 }
 
 function cardFanRatingHtml(movieId) {
@@ -4430,6 +4430,60 @@ function isUserRatingSortMode() {
   }
   const sortMode = userState?.preferences.sort;
   return sortMode === "user-rating-asc" || sortMode === "user-rating-desc";
+}
+
+function isFanRatingSortMode() {
+  if (!isWatchedListActive() || usesCustomDisplayOrder()) {
+    return false;
+  }
+  const sortMode = userState?.preferences.sort;
+  return sortMode === "rating-asc" || sortMode === "rating-desc";
+}
+
+function isYearSortMode() {
+  if (!isWatchedListActive() || usesCustomDisplayOrder()) {
+    return false;
+  }
+  const sortMode = userState?.preferences.sort;
+  return sortMode === "year-asc" || sortMode === "year-desc";
+}
+
+function cardUserRatingChipHtml(movieId, { showEmpty = false } = {}) {
+  const label = appRatings.formatUserRating(
+    appRatings.getRating(userState.ratings, movieId),
+  );
+  if (!label && !showEmpty) {
+    return "";
+  }
+  const text = label || "—";
+  const emptyClass = label ? "" : " is-empty";
+  return `<span class="card-user-rating${emptyClass}" aria-label="Your rating ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
+}
+
+function cardReleaseYearChipHtml(movieId) {
+  const record = movieById.get(movieId);
+  const year = record ? appCardHtml.formatYear(record.releaseDate) : "";
+  const text = year || "—";
+  const emptyClass = year ? "" : " is-empty";
+  return `<span class="card-release-year${emptyClass}" aria-label="Release year ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
+}
+
+function cardSmallPosterOverlayHtml(movieId) {
+  if (gridViewMode !== "cards" || !isWatchedListActive() || usesCustomDisplayOrder()) {
+    return "";
+  }
+  let bottom = "";
+  if (isUserRatingSortMode()) {
+    bottom = cardUserRatingChipHtml(movieId, { showEmpty: true });
+  } else if (isFanRatingSortMode()) {
+    bottom = cardFanRatingHtml(movieId);
+  } else if (isYearSortMode()) {
+    bottom = cardReleaseYearChipHtml(movieId);
+  }
+  if (!bottom) {
+    return "";
+  }
+  return `<div class="card-poster-overlays"><div class="card-poster-overlay card-poster-overlay--bottom">${bottom}</div></div>`;
 }
 
 function cardUnratedClass(movieId) {
@@ -4479,7 +4533,7 @@ function cardPosterOnlyHtml(movieId) {
   const grip = listShowsReorderGrip()
     ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>`
     : "";
-  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>`;
+  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${cardSmallPosterOverlayHtml(movieId)}${grip}</div>`;
 }
 
 function listShowsReorderGrip() {
@@ -4506,7 +4560,6 @@ function syncSortControlUi() {
   const show =
     isWatchedListActive() && activeMovieIds().length > 0 && hasMovieData();
   const sort = userState.preferences.sort;
-  const custom = appSort.isCustomSort(sort);
   if (sortControl) {
     sortControl.hidden = !show;
   }
@@ -4516,7 +4569,7 @@ function syncSortControlUi() {
     }
   }
   if (sortReverseBtn) {
-    sortReverseBtn.hidden = !show || custom;
+    sortReverseBtn.hidden = !show;
     const descending = appSort.isSortDescending(sort);
     const field = appSort.getSortField(sort);
     sortReverseBtn.classList.toggle("is-descending", descending);
@@ -4533,24 +4586,16 @@ function syncSortControlUi() {
 
 function syncReorderModeUi() {
   const canReorder =
+    isWatchlistActive() &&
     appLists.isListReorderable(userState.activeListId) &&
-    activeMovieIds().length > 0 &&
-    usesCustomDisplayOrder();
+    activeMovieIds().length > 0;
   if (!canReorder) {
     reorderModeActive = false;
   }
   const orderLocked = !reorderModeActive;
-  const showInToolbar = canReorder && isWatchlistActive();
-  const showInBar =
-    canReorder &&
-    isWatchedListActive() &&
-    appSort.isCustomSort(userState.preferences.sort);
   if (reorderModeControl) {
-    if (showInToolbar && reorderToolbarSlot) {
+    if (canReorder && reorderToolbarSlot) {
       reorderToolbarSlot.appendChild(reorderModeControl);
-      reorderModeControl.hidden = false;
-    } else if (showInBar && reorderBarSlot) {
-      reorderBarSlot.appendChild(reorderModeControl);
       reorderModeControl.hidden = false;
     } else {
       reorderModeControl.hidden = true;
@@ -4578,9 +4623,6 @@ function setSortMode(mode) {
     return;
   }
   userState = { ...userState, preferences: { ...userState.preferences, sort: next } };
-  if (!appSort.isCustomSort(next)) {
-    reorderModeActive = false;
-  }
   persistUserState();
   render();
 }
@@ -4590,9 +4632,6 @@ function setSortField(field) {
 }
 
 function toggleSortOrder() {
-  if (appSort.isCustomSort(userState.preferences.sort)) {
-    return;
-  }
   setSortMode(appSort.toggleSortDirection(userState.preferences.sort));
   sortReverseBtn?.blur();
 }
@@ -4695,7 +4734,7 @@ function updateListHeader() {
   } else if (count) {
     if (reorderModeActive) {
       listSubtitleEl.textContent = "+ Add a movie · drag to reorder";
-    } else if (!usesCustomDisplayOrder()) {
+    } else if (isWatchedListActive()) {
       listSubtitleEl.textContent = "+ Add a movie · sorted view";
     } else {
       listSubtitleEl.textContent =
@@ -4883,7 +4922,7 @@ function removeMovieFromCollection(movieId) {
 }
 
 function refreshMovieRating(movieId) {
-  if (isWatchedListActive() && !usesCustomDisplayOrder()) {
+  if (isWatchedListActive()) {
     render();
     if (detailMovieId === movieId) {
       syncDetailRatingDisplay(appRatings.getRating(userState.ratings, movieId));

@@ -143,6 +143,10 @@ test("normalizePreferences normalizes watched sort modes", () => {
     viewMode: "cards",
     sort: "user-rating-desc",
   });
+  assert.deepEqual(normalizePreferences({ sort: "custom" }), {
+    viewMode: "cards",
+    sort: "user-rating-desc",
+  });
 });
 
 test("normalizeUserState falls back when the active list id is not a preset", () => {

@@ -3,7 +3,7 @@
 const appSort = (function () {
   /**
    * Display-only sort for the Watched list. Stored `movieIds` order is untouched;
-   * custom order matches storage and is the only mode compatible with drag reorder.
+   * Watchlist always uses stored order (drag reorder). Watched never uses custom sort.
    */
 
   const SORT_MODES = new Set([
@@ -21,11 +21,10 @@ const appSort = (function () {
   ]);
 
   const DEFAULT_SORT = "custom";
-  /** Default sort for new users opening Watched. Reorder still uses `custom`. */
   const DEFAULT_PREFERENCE_SORT = "user-rating-desc";
   const MISSING_SORT_HINT = "—";
 
-  const SORT_FIELDS = new Set(["custom", "added", "year", "rating", "user-rating", "title"]);
+  const SORT_FIELDS = new Set(["added", "year", "rating", "user-rating", "title"]);
 
   const SORT_FIELD_DEFAULTS = {
     added: "added-desc",
@@ -36,26 +35,24 @@ const appSort = (function () {
   };
 
   const SORT_FIELD_LABELS = {
-    "user-rating": "My rating",
-    added: "Date added",
-    year: "Release year",
-    rating: "Fan rating",
+    "user-rating": "My Rating",
+    added: "Date Added",
+    year: "Release Year",
+    rating: "Fan Rating",
     title: "Title",
-    custom: "Custom",
   };
 
   const SORT_FIELD_LABELS_SHORT = {
-    "user-rating": "My rating",
+    "user-rating": "My Rating",
     added: "Added",
     year: "Year",
-    rating: "Rating",
+    rating: "Fan Rating",
     title: "Title",
-    custom: "Custom",
   };
 
   function getSortFieldLabel(field, short = false) {
     const labels = short ? SORT_FIELD_LABELS_SHORT : SORT_FIELD_LABELS;
-    return labels[field] || SORT_FIELD_LABELS.custom;
+    return labels[field] || SORT_FIELD_LABELS.title;
   }
 
   function getSortField(mode) {
@@ -101,14 +98,23 @@ const appSort = (function () {
   }
 
   function sortModeForField(field, currentMode) {
-    if (!field || field === "custom" || !SORT_FIELDS.has(field)) {
-      return DEFAULT_SORT;
+    if (!field || !SORT_FIELDS.has(field)) {
+      return DEFAULT_PREFERENCE_SORT;
     }
     const normalized = normalizeSort(currentMode);
     if (getSortField(normalized) === field) {
       return normalized;
     }
-    return SORT_FIELD_DEFAULTS[field] || DEFAULT_SORT;
+    return SORT_FIELD_DEFAULTS[field] || DEFAULT_PREFERENCE_SORT;
+  }
+
+  /** Watched preferences never keep custom; watchlist ignores sort entirely. */
+  function normalizeWatchedSort(raw, fallback = DEFAULT_PREFERENCE_SORT) {
+    const normalized = normalizeSort(raw, fallback);
+    if (normalized === DEFAULT_SORT) {
+      return fallback;
+    }
+    return normalized;
   }
 
   /** Human label for the active sort direction (toolbar state). */
@@ -342,6 +348,7 @@ const appSort = (function () {
     DEFAULT_SORT,
     DEFAULT_PREFERENCE_SORT,
     normalizeSort,
+    normalizeWatchedSort,
     isCustomSort,
     getSortField,
     isSortDescending,

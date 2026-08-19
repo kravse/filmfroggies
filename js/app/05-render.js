@@ -32,13 +32,7 @@ function cardMetaHtml(record) {
 }
 
 function cardUserRatingHtml(movieId) {
-  const label = appRatings.formatUserRating(
-    appRatings.getRating(userState.ratings, movieId),
-  );
-  if (!label) {
-    return "";
-  }
-  return `<span class="card-user-rating" aria-label="Your rating ${appCardHtml.escapeHtml(label)}">${appCardHtml.escapeHtml(label)}</span>`;
+  return cardUserRatingChipHtml(movieId);
 }
 
 function cardFanRatingHtml(movieId) {
@@ -70,6 +64,60 @@ function isUserRatingSortMode() {
   }
   const sortMode = userState?.preferences.sort;
   return sortMode === "user-rating-asc" || sortMode === "user-rating-desc";
+}
+
+function isFanRatingSortMode() {
+  if (!isWatchedListActive() || usesCustomDisplayOrder()) {
+    return false;
+  }
+  const sortMode = userState?.preferences.sort;
+  return sortMode === "rating-asc" || sortMode === "rating-desc";
+}
+
+function isYearSortMode() {
+  if (!isWatchedListActive() || usesCustomDisplayOrder()) {
+    return false;
+  }
+  const sortMode = userState?.preferences.sort;
+  return sortMode === "year-asc" || sortMode === "year-desc";
+}
+
+function cardUserRatingChipHtml(movieId, { showEmpty = false } = {}) {
+  const label = appRatings.formatUserRating(
+    appRatings.getRating(userState.ratings, movieId),
+  );
+  if (!label && !showEmpty) {
+    return "";
+  }
+  const text = label || "—";
+  const emptyClass = label ? "" : " is-empty";
+  return `<span class="card-user-rating${emptyClass}" aria-label="Your rating ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
+}
+
+function cardReleaseYearChipHtml(movieId) {
+  const record = movieById.get(movieId);
+  const year = record ? appCardHtml.formatYear(record.releaseDate) : "";
+  const text = year || "—";
+  const emptyClass = year ? "" : " is-empty";
+  return `<span class="card-release-year${emptyClass}" aria-label="Release year ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
+}
+
+function cardSmallPosterOverlayHtml(movieId) {
+  if (gridViewMode !== "cards" || !isWatchedListActive() || usesCustomDisplayOrder()) {
+    return "";
+  }
+  let bottom = "";
+  if (isUserRatingSortMode()) {
+    bottom = cardUserRatingChipHtml(movieId, { showEmpty: true });
+  } else if (isFanRatingSortMode()) {
+    bottom = cardFanRatingHtml(movieId);
+  } else if (isYearSortMode()) {
+    bottom = cardReleaseYearChipHtml(movieId);
+  }
+  if (!bottom) {
+    return "";
+  }
+  return `<div class="card-poster-overlays"><div class="card-poster-overlay card-poster-overlay--bottom">${bottom}</div></div>`;
 }
 
 function cardUnratedClass(movieId) {
@@ -119,7 +167,7 @@ function cardPosterOnlyHtml(movieId) {
   const grip = listShowsReorderGrip()
     ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>`
     : "";
-  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>`;
+  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${cardSmallPosterOverlayHtml(movieId)}${grip}</div>`;
 }
 
 function listShowsReorderGrip() {
@@ -146,7 +194,6 @@ function syncSortControlUi() {
   const show =
     isWatchedListActive() && activeMovieIds().length > 0 && hasMovieData();
   const sort = userState.preferences.sort;
-  const custom = appSort.isCustomSort(sort);
   if (sortControl) {
     sortControl.hidden = !show;
   }
@@ -156,7 +203,7 @@ function syncSortControlUi() {
     }
   }
   if (sortReverseBtn) {
-    sortReverseBtn.hidden = !show || custom;
+    sortReverseBtn.hidden = !show;
     const descending = appSort.isSortDescending(sort);
     const field = appSort.getSortField(sort);
     sortReverseBtn.classList.toggle("is-descending", descending);
@@ -173,24 +220,16 @@ function syncSortControlUi() {
 
 function syncReorderModeUi() {
   const canReorder =
+    isWatchlistActive() &&
     appLists.isListReorderable(userState.activeListId) &&
-    activeMovieIds().length > 0 &&
-    usesCustomDisplayOrder();
+    activeMovieIds().length > 0;
   if (!canReorder) {
     reorderModeActive = false;
   }
   const orderLocked = !reorderModeActive;
-  const showInToolbar = canReorder && isWatchlistActive();
-  const showInBar =
-    canReorder &&
-    isWatchedListActive() &&
-    appSort.isCustomSort(userState.preferences.sort);
   if (reorderModeControl) {
-    if (showInToolbar && reorderToolbarSlot) {
+    if (canReorder && reorderToolbarSlot) {
       reorderToolbarSlot.appendChild(reorderModeControl);
-      reorderModeControl.hidden = false;
-    } else if (showInBar && reorderBarSlot) {
-      reorderBarSlot.appendChild(reorderModeControl);
       reorderModeControl.hidden = false;
     } else {
       reorderModeControl.hidden = true;
@@ -218,9 +257,6 @@ function setSortMode(mode) {
     return;
   }
   userState = { ...userState, preferences: { ...userState.preferences, sort: next } };
-  if (!appSort.isCustomSort(next)) {
-    reorderModeActive = false;
-  }
   persistUserState();
   render();
 }
@@ -230,9 +266,6 @@ function setSortField(field) {
 }
 
 function toggleSortOrder() {
-  if (appSort.isCustomSort(userState.preferences.sort)) {
-    return;
-  }
   setSortMode(appSort.toggleSortDirection(userState.preferences.sort));
   sortReverseBtn?.blur();
 }
@@ -335,7 +368,7 @@ function updateListHeader() {
   } else if (count) {
     if (reorderModeActive) {
       listSubtitleEl.textContent = "+ Add a movie · drag to reorder";
-    } else if (!usesCustomDisplayOrder()) {
+    } else if (isWatchedListActive()) {
       listSubtitleEl.textContent = "+ Add a movie · sorted view";
     } else {
       listSubtitleEl.textContent =
@@ -523,7 +556,7 @@ function removeMovieFromCollection(movieId) {
 }
 
 function refreshMovieRating(movieId) {
-  if (isWatchedListActive() && !usesCustomDisplayOrder()) {
+  if (isWatchedListActive()) {
     render();
     if (detailMovieId === movieId) {
       syncDetailRatingDisplay(appRatings.getRating(userState.ratings, movieId));
