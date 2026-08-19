@@ -1962,8 +1962,8 @@ const appLetterboxdImport = (function () {
 
   /**
    * Letterboxd and TMDB can differ by one year when one uses a festival premiere
-   * and the other a wider release. Only accept that tolerance for one unique,
-   * exact-title candidate; ambiguity still goes to review.
+   * and the other a wider release. Exact titles are required; where several
+   * candidates remain, TMDB's relevance ordering supplies the tie-break.
    */
   function pickTmdbMatch(film, candidates) {
     const title = normalizeMatchTitle(film?.title);
@@ -9873,6 +9873,7 @@ const LETTERBOXD_MATCH_CACHE_KEY = "moviecollector-letterboxd-matches-v1";
 const LETTERBOXD_MAX_ZIP_BYTES = 25 * 1024 * 1024;
 const LETTERBOXD_MAX_CSV_BYTES = 10 * 1024 * 1024;
 const LETTERBOXD_MAX_TOTAL_BYTES = 50 * 1024 * 1024;
+const LETTERBOXD_MAX_CSV_FILES = 20;
 const LETTERBOXD_MATCH_CONCURRENCY = 2;
 const LETTERBOXD_MATCH_DELAY_MS = 140;
 const LETTERBOXD_MATCH_RETRIES = 4;
@@ -9881,6 +9882,7 @@ let letterboxdParsed = null;
 let letterboxdCandidates = new Map();
 let letterboxdSelections = {};
 let letterboxdLookupErrors = new Set();
+let letterboxdRunId = 0;
 
 function openLetterboxdReview() {
   closeSettings();
@@ -9892,6 +9894,7 @@ function openLetterboxdReview() {
 }
 
 function closeLetterboxdReview() {
+  letterboxdRunId += 1;
   letterboxdReviewDialog.hidden = true;
   settingsBtn.focus({ preventScroll: true });
 }
@@ -9923,11 +9926,21 @@ async function extractLetterboxdCsv(file) {
   if (file.size > LETTERBOXD_MAX_ZIP_BYTES) throw new Error("That ZIP is larger than the 25 MB import limit.");
   if (typeof fflate === "undefined") throw new Error("The ZIP reader did not load. Refresh and try again.");
   const supported = appLetterboxdImport.SUPPORTED_FILES;
+  let selectedBytes = 0;
+  let selectedFiles = 0;
   const archive = fflate.unzipSync(new Uint8Array(await file.arrayBuffer()), {
     filter(entry) {
-      return appLetterboxdImport.isSupportedPath(entry.name)
-        && supported.has(letterboxdBaseName(entry.name))
-        && entry.originalSize <= LETTERBOXD_MAX_CSV_BYTES;
+      if (!appLetterboxdImport.isSupportedPath(entry.name)
+        || !supported.has(letterboxdBaseName(entry.name))) return false;
+      if (entry.originalSize > LETTERBOXD_MAX_CSV_BYTES) {
+        throw new Error(`${letterboxdBaseName(entry.name)} exceeds the 10 MB file limit.`);
+      }
+      selectedBytes += entry.originalSize;
+      selectedFiles += 1;
+      if (selectedBytes > LETTERBOXD_MAX_TOTAL_BYTES || selectedFiles > LETTERBOXD_MAX_CSV_FILES) {
+        throw new Error("The Letterboxd export contains too much data to import safely.");
+      }
+      return true;
     },
   });
   const files = {};
@@ -9957,7 +9970,8 @@ async function searchLetterboxdFilm(film) {
       return results;
     } catch (error) {
       lastError = error;
-      if (attempt === LETTERBOXD_MATCH_RETRIES) break;
+      const transient = /\b429\b|\b5\d\d\b|network|failed to fetch|abort/i.test(String(error?.message || error));
+      if (!transient || attempt === LETTERBOXD_MATCH_RETRIES) break;
       const backoff = 600 * (2 ** attempt) + Math.floor(Math.random() * 250);
       await delayLetterboxdLookup(backoff);
     }
@@ -10042,6 +10056,11 @@ async function onReviewLetterboxdImport() {
     setStatus(letterboxdStatus, "Choose a Letterboxd export ZIP first.", "error");
     return;
   }
+  if (!hasTmdbAccess()) {
+    setStatus(letterboxdStatus, "Connect TMDB or unlock hosted access before importing.", "error");
+    return;
+  }
+  const runId = ++letterboxdRunId;
   letterboxdRead.disabled = true;
   openLetterboxdReview();
   setStatus(letterboxdStatus, "Reading export…", null);
@@ -10054,6 +10073,7 @@ async function onReviewLetterboxdImport() {
     const cache = readLetterboxdMatchCache();
     let finished = 0;
     await mapWithConcurrency(letterboxdParsed.films, async (film) => {
+      if (runId !== letterboxdRunId) return;
       if (cache[film.sourceKey]) {
         letterboxdSelections[film.sourceKey] = cache[film.sourceKey];
       } else {
@@ -10067,15 +10087,18 @@ async function onReviewLetterboxdImport() {
           letterboxdLookupErrors.add(film.sourceKey);
         }
       }
+      if (runId !== letterboxdRunId) return;
       finished += 1;
       letterboxdSummary.textContent = `Matching films with TMDB… ${finished}/${letterboxdParsed.films.length}`;
     });
+    if (runId !== letterboxdRunId) return;
     const ignored = letterboxdParsed.ignoredFiles.length
       ? ` Ignored ${letterboxdParsed.ignoredFiles.length} unsupported CSV file(s).`
       : "";
     setStatus(letterboxdStatus, `Export ready for review.${ignored}`, "ok");
     renderLetterboxdPreview();
   } catch (error) {
+    if (runId !== letterboxdRunId) return;
     letterboxdParsed = null;
     setStatus(letterboxdStatus, error.message || "Could not read that export.", "error");
     letterboxdSummary.textContent = error.message || "Could not read that export.";

@@ -201,8 +201,8 @@ const appLetterboxdImport = (function () {
 
   /**
    * Letterboxd and TMDB can differ by one year when one uses a festival premiere
-   * and the other a wider release. Only accept that tolerance for one unique,
-   * exact-title candidate; ambiguity still goes to review.
+   * and the other a wider release. Exact titles are required; where several
+   * candidates remain, TMDB's relevance ordering supplies the tie-break.
    */
   function pickTmdbMatch(film, candidates) {
     const title = normalizeMatchTitle(film?.title);
