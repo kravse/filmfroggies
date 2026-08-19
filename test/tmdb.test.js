@@ -143,8 +143,9 @@ test("buildUpcomingUrl and buildNowPlayingUrl use discover/movie with release fi
   assert.equal(upcoming.searchParams.get("region"), "US");
   assert.equal(upcoming.searchParams.get("language"), "en-US");
   assert.equal(upcoming.searchParams.get("release_date.gte"), today);
-  assert.equal(upcoming.searchParams.get("release_date.lte"), "2026-11-17");
-  assert.equal(upcoming.searchParams.get("primary_release_date.gte"), null);
+  assert.equal(upcoming.searchParams.get("release_date.lte"), "2026-09-16");
+  assert.equal(upcoming.searchParams.get("primary_release_date.gte"), today);
+  assert.equal(upcoming.searchParams.get("primary_release_date.lte"), "2026-09-16");
   assert.equal(upcoming.searchParams.get("with_release_type"), "2|3");
   assert.equal(upcoming.searchParams.get("sort_by"), "popularity.desc");
   assert.equal(upcoming.searchParams.get("vote_count.gte"), null);
@@ -154,7 +155,8 @@ test("buildUpcomingUrl and buildNowPlayingUrl use discover/movie with release fi
   assert.equal(nowPlaying.pathname, "/3/discover/movie");
   assert.equal(nowPlaying.searchParams.get("release_date.gte"), "2026-05-27");
   assert.equal(nowPlaying.searchParams.get("release_date.lte"), today);
-  assert.equal(nowPlaying.searchParams.get("primary_release_date.gte"), "2024-08-19");
+  assert.equal(nowPlaying.searchParams.get("primary_release_date.gte"), "2026-05-27");
+  assert.equal(nowPlaying.searchParams.get("primary_release_date.lte"), today);
   assert.equal(nowPlaying.searchParams.get("vote_count.gte"), "10");
   assert.equal(nowPlaying.searchParams.get("sort_by"), "popularity.desc");
 });
@@ -201,6 +203,7 @@ test("normalizeSearchResults keeps id, title, year source, and poster", () => {
       id: 603,
       title: "The Matrix",
       releaseDate: "1999-03-30",
+      primaryReleaseDate: null,
       posterPath: "/matrix.jpg",
       overview: "A hacker learns the truth.",
       voteCount: 0,

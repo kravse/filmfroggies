@@ -13,10 +13,15 @@ const DISCOVER_GRID_COLUMNS_MOBILE = 2;
 const DISCOVER_PAGE_COMPLETE_UNIT = 4;
 const DEFAULT_DISCOVER_REGION = "US";
 /** Bumped when discover list query semantics change so session memo refreshes. */
-const DISCOVER_LIST_CACHE_VERSION = 25;
+const DISCOVER_LIST_CACHE_VERSION = 28;
 /** Skip obscure listings unless TMDB shows real interest. */
 const DISCOVER_MIN_VOTE_COUNT = 10;
 const DISCOVER_MIN_POPULARITY = 8;
+/**
+ * When TMDB returns a primary premiere date, drop rows whose listed release
+ * is much later — classic re-releases keep an old primary but get a new date.
+ */
+const DISCOVER_MAX_PREMIERE_LAG_DAYS = 120;
 
 function normalizeDiscoverTab(raw) {
   const tab = String(raw || "").trim();
@@ -79,11 +84,11 @@ function shiftIsoDate(isoDate, dayOffset) {
   return value.toISOString().slice(0, 10);
 }
 
-/** Keep TBA rows; drop titles whose list release date is already past. */
+/** Drop past and dateless rows; upcoming needs a concrete future premiere. */
 function isUpcomingReleaseEntry(entry, todayIso) {
   const releaseDate = String(entry?.releaseDate || "").trim();
   if (!releaseDate) {
-    return true;
+    return false;
   }
   const releaseTime = Date.parse(releaseDate);
   const todayTime = Date.parse(todayIso);
@@ -91,6 +96,72 @@ function isUpcomingReleaseEntry(entry, todayIso) {
     return false;
   }
   return releaseTime >= todayTime;
+}
+
+function isNowPlayingReleaseEntry(entry, todayIso, windowDays) {
+  const releaseDate = String(entry?.releaseDate || "").trim();
+  if (!releaseDate) {
+    return false;
+  }
+  const days = Number(windowDays);
+  if (!Number.isFinite(days) || days < 0) {
+    return false;
+  }
+  const releaseTime = Date.parse(releaseDate);
+  const todayTime = Date.parse(todayIso);
+  const startTime = Date.parse(shiftIsoDate(todayIso, -days));
+  if (!Number.isFinite(releaseTime) || !Number.isFinite(todayTime) || !Number.isFinite(startTime)) {
+    return false;
+  }
+  return releaseTime >= startTime && releaseTime <= todayTime;
+}
+
+/**
+ * Reject re-releases when TMDB includes primary_release_date on the stub.
+ * Without it, rely on discover query filters (primary_release_date.*).
+ */
+function isNewPremiereEntry(entry, options = {}) {
+  const primaryDate = String(entry?.primaryReleaseDate || "").trim();
+  const releaseDate = String(entry?.releaseDate || "").trim();
+  if (!primaryDate) {
+    return true;
+  }
+  const primaryTime = Date.parse(primaryDate);
+  if (!Number.isFinite(primaryTime)) {
+    return false;
+  }
+  if (options.upcomingOnly && options.todayIso) {
+    const todayTime = Date.parse(options.todayIso);
+    if (!Number.isFinite(todayTime) || primaryTime < todayTime) {
+      return false;
+    }
+  }
+  if (options.nowPlayingOnly && options.todayIso) {
+    const todayTime = Date.parse(options.todayIso);
+    if (!Number.isFinite(todayTime) || primaryTime > todayTime) {
+      return false;
+    }
+    const days = Number(options.nowPlayingWindowDays);
+    if (Number.isFinite(days) && days >= 0) {
+      const startTime = Date.parse(shiftIsoDate(options.todayIso, -days));
+      if (Number.isFinite(startTime) && primaryTime < startTime) {
+        return false;
+      }
+    }
+  }
+  if (!releaseDate) {
+    return true;
+  }
+  const releaseTime = Date.parse(releaseDate);
+  if (!Number.isFinite(releaseTime)) {
+    return false;
+  }
+  const maxLag = Number(options.maxPremiereLagDays ?? DISCOVER_MAX_PREMIERE_LAG_DAYS);
+  if (!Number.isFinite(maxLag) || maxLag < 0) {
+    return true;
+  }
+  const lagDays = (releaseTime - primaryTime) / 86400000;
+  return lagDays <= maxLag;
 }
 
 function isProminentDiscoverEntry(entry, options = {}) {
@@ -104,6 +175,8 @@ function isProminentDiscoverEntry(entry, options = {}) {
 function mergeDiscoverListEntries(pageResults, options = {}) {
   const max = options.max ?? DISCOVER_MAX_MOVIES;
   const filterUpcoming = options.filterUpcoming === true;
+  const filterNowPlaying = options.filterNowPlaying === true;
+  const filterNewPremiere = options.filterNewPremiere === true;
   const filterProminent = options.filterProminent === true;
   const todayIso = options.todayIso;
   const seen = new Set();
@@ -117,6 +190,25 @@ function mergeDiscoverListEntries(pageResults, options = {}) {
         continue;
       }
       if (filterUpcoming && todayIso && !isUpcomingReleaseEntry(entry, todayIso)) {
+        continue;
+      }
+      if (
+        filterNowPlaying &&
+        todayIso &&
+        !isNowPlayingReleaseEntry(entry, todayIso, options.nowPlayingWindowDays)
+      ) {
+        continue;
+      }
+      if (
+        filterNewPremiere &&
+        !isNewPremiereEntry(entry, {
+          todayIso,
+          upcomingOnly: filterUpcoming,
+          nowPlayingOnly: filterNowPlaying,
+          nowPlayingWindowDays: options.nowPlayingWindowDays,
+          maxPremiereLagDays: options.maxPremiereLagDays,
+        })
+      ) {
         continue;
       }
       const id = Number(entry?.id);
@@ -193,6 +285,7 @@ module.exports = {
   DISCOVER_LIST_CACHE_VERSION,
   DISCOVER_MIN_VOTE_COUNT,
   DISCOVER_MIN_POPULARITY,
+  DISCOVER_MAX_PREMIERE_LAG_DAYS,
   normalizeDiscoverTab,
   normalizeDiscoverPage,
   buildDiscoverHash,
@@ -201,6 +294,8 @@ module.exports = {
   todayIsoDate,
   shiftIsoDate,
   isUpcomingReleaseEntry,
+  isNowPlayingReleaseEntry,
+  isNewPremiereEntry,
   isProminentDiscoverEntry,
   mergeDiscoverMovieIds,
   mergeDiscoverListEntries,

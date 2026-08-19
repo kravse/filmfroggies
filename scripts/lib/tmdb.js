@@ -29,10 +29,10 @@ const IMAGE_PATH_PATTERN = /^\/[A-Za-z0-9._-]+\.(jpg|jpeg|png|webp)$/i;
 
 const CAST_LIMIT = 8;
 const DEFAULT_NOW_PLAYING_WINDOW_DAYS = 84;
-/** Drop classic re-releases: primary premiere must be within this many days. */
-const DEFAULT_NOW_PLAYING_PRIMARY_WINDOW_DAYS = 730;
-/** Rough match to TMDB’s upcoming browse window (primary release dates). */
-const DEFAULT_UPCOMING_WINDOW_DAYS = 90;
+/** World premiere must fall in the same window as the US theatrical run (new only). */
+const DEFAULT_NOW_PLAYING_PRIMARY_WINDOW_DAYS = DEFAULT_NOW_PLAYING_WINDOW_DAYS;
+/** Match TMDB’s /movie/upcoming window (~4 weeks of US theatrical dates). */
+const DEFAULT_UPCOMING_WINDOW_DAYS = 28;
 /** Minimum TMDB vote count for discover browse queries (drops zero-interest listings). */
 const DEFAULT_DISCOVER_MIN_VOTE_COUNT = 10;
 
@@ -188,12 +188,15 @@ function buildDiscoverMovieUrl(options = {}) {
 function buildUpcomingUrl(options = {}) {
   const today = options.today || formatIsoDate(new Date());
   const windowDays = Number(options.windowDays) || DEFAULT_UPCOMING_WINDOW_DAYS;
+  const windowEnd = offsetIsoDate(today, windowDays);
   return buildDiscoverMovieUrl({
     language: options.language,
     page: options.page,
     region: options.region,
     releaseDateGte: today,
-    releaseDateLte: offsetIsoDate(today, windowDays),
+    releaseDateLte: windowEnd,
+    primaryReleaseDateGte: today,
+    primaryReleaseDateLte: windowEnd,
     sortBy: "popularity.desc",
   });
 }
@@ -211,6 +214,7 @@ function buildNowPlayingUrl(options = {}) {
     releaseDateGte: offsetIsoDate(today, -windowDays),
     releaseDateLte: today,
     primaryReleaseDateGte: offsetIsoDate(today, -primaryWindowDays),
+    primaryReleaseDateLte: today,
     voteCountGte: minVotes,
     sortBy: "popularity.desc",
   });
@@ -249,6 +253,7 @@ function normalizeSearchMovieEntry(entry) {
     id: Number(entry.id),
     title: cleanText(entry.title) || cleanText(entry.original_title) || "Untitled",
     releaseDate: cleanText(entry.release_date),
+    primaryReleaseDate: cleanText(entry.primary_release_date),
     posterPath: cleanImagePath(entry.poster_path),
     overview: cleanText(entry.overview),
     voteCount: Number(entry.vote_count) || 0,

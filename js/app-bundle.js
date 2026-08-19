@@ -614,10 +614,10 @@ const appTmdb = (function () {
 
   const CAST_LIMIT = 8;
   const DEFAULT_NOW_PLAYING_WINDOW_DAYS = 84;
-  /** Drop classic re-releases: primary premiere must be within this many days. */
-  const DEFAULT_NOW_PLAYING_PRIMARY_WINDOW_DAYS = 730;
-  /** Rough match to TMDB’s upcoming browse window (primary release dates). */
-  const DEFAULT_UPCOMING_WINDOW_DAYS = 90;
+  /** World premiere must fall in the same window as the US theatrical run (new only). */
+  const DEFAULT_NOW_PLAYING_PRIMARY_WINDOW_DAYS = DEFAULT_NOW_PLAYING_WINDOW_DAYS;
+  /** Match TMDB’s /movie/upcoming window (~4 weeks of US theatrical dates). */
+  const DEFAULT_UPCOMING_WINDOW_DAYS = 28;
   /** Minimum TMDB vote count for discover browse queries (drops zero-interest listings). */
   const DEFAULT_DISCOVER_MIN_VOTE_COUNT = 10;
 
@@ -773,12 +773,15 @@ const appTmdb = (function () {
   function buildUpcomingUrl(options = {}) {
     const today = options.today || formatIsoDate(new Date());
     const windowDays = Number(options.windowDays) || DEFAULT_UPCOMING_WINDOW_DAYS;
+    const windowEnd = offsetIsoDate(today, windowDays);
     return buildDiscoverMovieUrl({
       language: options.language,
       page: options.page,
       region: options.region,
       releaseDateGte: today,
-      releaseDateLte: offsetIsoDate(today, windowDays),
+      releaseDateLte: windowEnd,
+      primaryReleaseDateGte: today,
+      primaryReleaseDateLte: windowEnd,
       sortBy: "popularity.desc",
     });
   }
@@ -796,6 +799,7 @@ const appTmdb = (function () {
       releaseDateGte: offsetIsoDate(today, -windowDays),
       releaseDateLte: today,
       primaryReleaseDateGte: offsetIsoDate(today, -primaryWindowDays),
+      primaryReleaseDateLte: today,
       voteCountGte: minVotes,
       sortBy: "popularity.desc",
     });
@@ -834,6 +838,7 @@ const appTmdb = (function () {
       id: Number(entry.id),
       title: cleanText(entry.title) || cleanText(entry.original_title) || "Untitled",
       releaseDate: cleanText(entry.release_date),
+      primaryReleaseDate: cleanText(entry.primary_release_date),
       posterPath: cleanImagePath(entry.poster_path),
       overview: cleanText(entry.overview),
       voteCount: Number(entry.vote_count) || 0,
@@ -1015,10 +1020,15 @@ const appDiscover = (function () {
   const DISCOVER_PAGE_COMPLETE_UNIT = 4;
   const DEFAULT_DISCOVER_REGION = "US";
   /** Bumped when discover list query semantics change so session memo refreshes. */
-  const DISCOVER_LIST_CACHE_VERSION = 25;
+  const DISCOVER_LIST_CACHE_VERSION = 28;
   /** Skip obscure listings unless TMDB shows real interest. */
   const DISCOVER_MIN_VOTE_COUNT = 10;
   const DISCOVER_MIN_POPULARITY = 8;
+  /**
+   * When TMDB returns a primary premiere date, drop rows whose listed release
+   * is much later — classic re-releases keep an old primary but get a new date.
+   */
+  const DISCOVER_MAX_PREMIERE_LAG_DAYS = 120;
 
   function normalizeDiscoverTab(raw) {
     const tab = String(raw || "").trim();
@@ -1081,11 +1091,11 @@ const appDiscover = (function () {
     return value.toISOString().slice(0, 10);
   }
 
-  /** Keep TBA rows; drop titles whose list release date is already past. */
+  /** Drop past and dateless rows; upcoming needs a concrete future premiere. */
   function isUpcomingReleaseEntry(entry, todayIso) {
     const releaseDate = String(entry?.releaseDate || "").trim();
     if (!releaseDate) {
-      return true;
+      return false;
     }
     const releaseTime = Date.parse(releaseDate);
     const todayTime = Date.parse(todayIso);
@@ -1093,6 +1103,72 @@ const appDiscover = (function () {
       return false;
     }
     return releaseTime >= todayTime;
+  }
+
+  function isNowPlayingReleaseEntry(entry, todayIso, windowDays) {
+    const releaseDate = String(entry?.releaseDate || "").trim();
+    if (!releaseDate) {
+      return false;
+    }
+    const days = Number(windowDays);
+    if (!Number.isFinite(days) || days < 0) {
+      return false;
+    }
+    const releaseTime = Date.parse(releaseDate);
+    const todayTime = Date.parse(todayIso);
+    const startTime = Date.parse(shiftIsoDate(todayIso, -days));
+    if (!Number.isFinite(releaseTime) || !Number.isFinite(todayTime) || !Number.isFinite(startTime)) {
+      return false;
+    }
+    return releaseTime >= startTime && releaseTime <= todayTime;
+  }
+
+  /**
+   * Reject re-releases when TMDB includes primary_release_date on the stub.
+   * Without it, rely on discover query filters (primary_release_date.*).
+   */
+  function isNewPremiereEntry(entry, options = {}) {
+    const primaryDate = String(entry?.primaryReleaseDate || "").trim();
+    const releaseDate = String(entry?.releaseDate || "").trim();
+    if (!primaryDate) {
+      return true;
+    }
+    const primaryTime = Date.parse(primaryDate);
+    if (!Number.isFinite(primaryTime)) {
+      return false;
+    }
+    if (options.upcomingOnly && options.todayIso) {
+      const todayTime = Date.parse(options.todayIso);
+      if (!Number.isFinite(todayTime) || primaryTime < todayTime) {
+        return false;
+      }
+    }
+    if (options.nowPlayingOnly && options.todayIso) {
+      const todayTime = Date.parse(options.todayIso);
+      if (!Number.isFinite(todayTime) || primaryTime > todayTime) {
+        return false;
+      }
+      const days = Number(options.nowPlayingWindowDays);
+      if (Number.isFinite(days) && days >= 0) {
+        const startTime = Date.parse(shiftIsoDate(options.todayIso, -days));
+        if (Number.isFinite(startTime) && primaryTime < startTime) {
+          return false;
+        }
+      }
+    }
+    if (!releaseDate) {
+      return true;
+    }
+    const releaseTime = Date.parse(releaseDate);
+    if (!Number.isFinite(releaseTime)) {
+      return false;
+    }
+    const maxLag = Number(options.maxPremiereLagDays ?? DISCOVER_MAX_PREMIERE_LAG_DAYS);
+    if (!Number.isFinite(maxLag) || maxLag < 0) {
+      return true;
+    }
+    const lagDays = (releaseTime - primaryTime) / 86400000;
+    return lagDays <= maxLag;
   }
 
   function isProminentDiscoverEntry(entry, options = {}) {
@@ -1106,6 +1182,8 @@ const appDiscover = (function () {
   function mergeDiscoverListEntries(pageResults, options = {}) {
     const max = options.max ?? DISCOVER_MAX_MOVIES;
     const filterUpcoming = options.filterUpcoming === true;
+    const filterNowPlaying = options.filterNowPlaying === true;
+    const filterNewPremiere = options.filterNewPremiere === true;
     const filterProminent = options.filterProminent === true;
     const todayIso = options.todayIso;
     const seen = new Set();
@@ -1119,6 +1197,25 @@ const appDiscover = (function () {
           continue;
         }
         if (filterUpcoming && todayIso && !isUpcomingReleaseEntry(entry, todayIso)) {
+          continue;
+        }
+        if (
+          filterNowPlaying &&
+          todayIso &&
+          !isNowPlayingReleaseEntry(entry, todayIso, options.nowPlayingWindowDays)
+        ) {
+          continue;
+        }
+        if (
+          filterNewPremiere &&
+          !isNewPremiereEntry(entry, {
+            todayIso,
+            upcomingOnly: filterUpcoming,
+            nowPlayingOnly: filterNowPlaying,
+            nowPlayingWindowDays: options.nowPlayingWindowDays,
+            maxPremiereLagDays: options.maxPremiereLagDays,
+          })
+        ) {
           continue;
         }
         const id = Number(entry?.id);
@@ -1195,6 +1292,7 @@ const appDiscover = (function () {
     DISCOVER_LIST_CACHE_VERSION,
     DISCOVER_MIN_VOTE_COUNT,
     DISCOVER_MIN_POPULARITY,
+    DISCOVER_MAX_PREMIERE_LAG_DAYS,
     normalizeDiscoverTab,
     normalizeDiscoverPage,
     buildDiscoverHash,
@@ -1203,6 +1301,8 @@ const appDiscover = (function () {
     todayIsoDate,
     shiftIsoDate,
     isUpcomingReleaseEntry,
+    isNowPlayingReleaseEntry,
+    isNewPremiereEntry,
     isProminentDiscoverEntry,
     mergeDiscoverMovieIds,
     mergeDiscoverListEntries,
@@ -6804,9 +6904,16 @@ async function fetchDiscoverMovies(tab, options = {}) {
       { signal },
     ).then((response) => response.json());
     const meta = appDiscover.normalizeDiscoverListMeta(payload);
+    const todayIso = appDiscover.todayIsoDate();
     const entries = appDiscover.filterDiscoverPageEntries(
       appTmdb.normalizeSearchResults(payload),
       {
+        filterUpcoming: normalizedTab === "upcoming",
+        filterNowPlaying: normalizedTab === "now-playing",
+        filterNewPremiere: true,
+        todayIso,
+        nowPlayingWindowDays: appTmdb.DEFAULT_NOW_PLAYING_WINDOW_DAYS,
+        maxPremiereLagDays: appDiscover.DISCOVER_MAX_PREMIERE_LAG_DAYS,
         isLastPage: meta.page >= meta.totalPages,
       },
     );
@@ -9039,6 +9146,9 @@ ${detailListsBlockHtml(movieId)}`;
 }
 
 function detailBodyTabsHtml(movieId, record) {
+  if (isDiscoverActive()) {
+    return detailOverviewPanelHtml(movieId, record);
+  }
   const entries = appViewingHistory.viewingEntries(userState.viewingHistory, movieId);
   const countBadge =
     entries.length > 0
@@ -9059,6 +9169,9 @@ ${detailViewingHistoryHtml(movieId)}
 }
 
 function setDetailBodyTab(tab) {
+  if (isDiscoverActive()) {
+    return;
+  }
   const next = tab === "viewing-history" ? "viewing-history" : "overview";
   if (detailBodyTab === next) {
     return;

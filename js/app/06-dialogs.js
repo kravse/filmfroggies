@@ -505,6 +505,9 @@ ${detailListsBlockHtml(movieId)}`;
 }
 
 function detailBodyTabsHtml(movieId, record) {
+  if (isDiscoverActive()) {
+    return detailOverviewPanelHtml(movieId, record);
+  }
   const entries = appViewingHistory.viewingEntries(userState.viewingHistory, movieId);
   const countBadge =
     entries.length > 0
@@ -525,6 +528,9 @@ ${detailViewingHistoryHtml(movieId)}
 }
 
 function setDetailBodyTab(tab) {
+  if (isDiscoverActive()) {
+    return;
+  }
   const next = tab === "viewing-history" ? "viewing-history" : "overview";
   if (detailBodyTab === next) {
     return;

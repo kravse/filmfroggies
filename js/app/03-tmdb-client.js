@@ -726,9 +726,16 @@ async function fetchDiscoverMovies(tab, options = {}) {
       { signal },
     ).then((response) => response.json());
     const meta = appDiscover.normalizeDiscoverListMeta(payload);
+    const todayIso = appDiscover.todayIsoDate();
     const entries = appDiscover.filterDiscoverPageEntries(
       appTmdb.normalizeSearchResults(payload),
       {
+        filterUpcoming: normalizedTab === "upcoming",
+        filterNowPlaying: normalizedTab === "now-playing",
+        filterNewPremiere: true,
+        todayIso,
+        nowPlayingWindowDays: appTmdb.DEFAULT_NOW_PLAYING_WINDOW_DAYS,
+        maxPremiereLagDays: appDiscover.DISCOVER_MAX_PREMIERE_LAG_DAYS,
         isLastPage: meta.page >= meta.totalPages,
       },
     );

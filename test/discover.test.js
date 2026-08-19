@@ -13,6 +13,8 @@ const {
   trimDiscoverPageToGrid,
   discoverCompleteCount,
   isUpcomingReleaseEntry,
+  isNowPlayingReleaseEntry,
+  isNewPremiereEntry,
   isProminentDiscoverEntry,
   DISCOVER_MAX_MOVIES,
 } = require("../scripts/lib/discover");
@@ -157,12 +159,43 @@ test("mergeDiscoverListEntries keeps stub records in display order", () => {
   ]);
 });
 
-test("isUpcomingReleaseEntry keeps TBA and future dates only", () => {
+test("isUpcomingReleaseEntry keeps future dates only", () => {
   const today = "2026-08-19";
-  assert.equal(isUpcomingReleaseEntry({ releaseDate: "" }, today), true);
+  assert.equal(isUpcomingReleaseEntry({ releaseDate: "" }, today), false);
   assert.equal(isUpcomingReleaseEntry({ releaseDate: "2026-09-01" }, today), true);
   assert.equal(isUpcomingReleaseEntry({ releaseDate: "2026-08-19" }, today), true);
   assert.equal(isUpcomingReleaseEntry({ releaseDate: "2004-05-14" }, today), false);
+});
+
+test("isNowPlayingReleaseEntry keeps rows in the theatrical window", () => {
+  const today = "2026-08-19";
+  assert.equal(isNowPlayingReleaseEntry({ releaseDate: "2026-06-01" }, today, 84), true);
+  assert.equal(isNowPlayingReleaseEntry({ releaseDate: "2026-05-26" }, today, 84), false);
+  assert.equal(isNowPlayingReleaseEntry({ releaseDate: "" }, today, 84), false);
+});
+
+test("isNewPremiereEntry rejects classic re-releases when primary is known", () => {
+  const today = "2026-08-19";
+  assert.equal(
+    isNewPremiereEntry(
+      {
+        primaryReleaseDate: "2006-10-11",
+        releaseDate: "2026-09-01",
+      },
+      { todayIso: today, upcomingOnly: true },
+    ),
+    false,
+  );
+  assert.equal(
+    isNewPremiereEntry(
+      {
+        primaryReleaseDate: "2026-09-01",
+        releaseDate: "2026-10-01",
+      },
+      { todayIso: today, upcomingOnly: true },
+    ),
+    true,
+  );
 });
 
 test("isProminentDiscoverEntry requires votes or TMDB popularity", () => {
@@ -189,6 +222,6 @@ test("mergeDiscoverMovieIds can drop past upcoming rows", () => {
   ];
   assert.deepEqual(
     mergeDiscoverMovieIds([page], { filterUpcoming: true, todayIso: today, filterProminent: true }),
-    [2, 3],
+    [2],
   );
 });
