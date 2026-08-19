@@ -80,7 +80,7 @@ The snapshot is a cache, not an edit layer. Every field in it came from TMDB and
 
 Refreshing it is three steps:
 
-1. On the running site, open **Settings → Repo data** and click **Export list CSV**. It downloads `my_list.csv`: one row per movie, `tmdb_id,title,list`. Only the id is used — the title and list are there so the committed file is readable in a diff.
+1. On the running site, open **Settings → Repo data** and click **Export list CSV**. It downloads `my_list.csv`: one row per movie with `tmdb_id`, `title`, `list`, `my_rating`, and `release_year`, including movies that live only on custom lists. Only `tmdb_id` is used by the scraper — the other columns are a readable backup of your list data.
 2. Commit it to the repo as `data/my_list.csv`.
 3. Run the scraper, then commit what it writes:
 

@@ -824,15 +824,20 @@ async function onClearCache() {
 }
 
 /**
- * Titles are for reading the committed file; only the ids drive the scrape. The
- * snapshot is the second source because only the active list gets hydrated.
+ * Titles and release years are for reading the committed file; only the ids drive
+ * the scrape. The snapshot is the second source because only the active list gets
+ * hydrated.
  */
-function csvTitleFor(movieId) {
-  return movieById.get(movieId)?.title || localMovieRecord(movieId)?.title || "";
+function csvRecordFor(movieId) {
+  const record = movieById.get(movieId) || localMovieRecord(movieId);
+  return {
+    title: record?.title || "",
+    releaseDate: record?.releaseDate || "",
+  };
 }
 
 function onExportCsv() {
-  const rows = appListCsv.listCsvRows(userState, csvTitleFor);
+  const rows = appListCsv.listCsvRows(userState, csvRecordFor);
   if (!rows.length) {
     setStatus(exportCsvStatus, "Nothing to export yet.", null);
     return;

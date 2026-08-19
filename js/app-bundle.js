@@ -1559,11 +1559,12 @@ const appListCsv = (function () {
    * file, you commit it, and `npm run scrape` reads it back. Both ends share these
    * functions so the format has exactly one definition.
    *
-   * Only `tmdb_id` is load-bearing. `title` and `list` exist so the committed file
-   * is readable in a diff; the scraper ignores them.
+   * Only `tmdb_id` is load-bearing. The other columns are for reading the
+   * committed file in a diff and as a portable backup of list metadata; the scraper
+   * ignores them.
    */
 
-  const CSV_HEADER = ["tmdb_id", "title", "list"];
+  const CSV_HEADER = ["tmdb_id", "title", "list", "my_rating", "release_year"];
   const CSV_FILENAME = "my_list.csv";
 
   function getLists() {
@@ -1574,6 +1575,41 @@ const appListCsv = (function () {
       return require("./lists");
     }
     throw new Error("appLists is not available");
+  }
+
+  function getCustomLists() {
+    if (typeof appCustomLists !== "undefined") {
+      return appCustomLists;
+    }
+    if (typeof require === "function") {
+      return require("./custom-lists");
+    }
+    throw new Error("appCustomLists is not available");
+  }
+
+  function getRatings() {
+    if (typeof appRatings !== "undefined") {
+      return appRatings;
+    }
+    if (typeof require === "function") {
+      return require("./ratings");
+    }
+    throw new Error("appRatings is not available");
+  }
+
+  function releaseYearFrom(releaseDate) {
+    const match = /^(\d{4})/.exec(String(releaseDate || "").trim());
+    return match ? match[1] : "";
+  }
+
+  function rowMeta(state, id, recordFor) {
+    const record = typeof recordFor === "function" ? recordFor(id) : null;
+    const title = String(record?.title || "");
+    const releaseYear = releaseYearFrom(record?.releaseDate);
+    const myRating = getRatings().formatUserRating(
+      getRatings().getRating(state?.ratings, id),
+    );
+    return { title, releaseYear, myRating };
   }
 
   /** Quote whenever a field could otherwise change the shape of the row. */
@@ -1590,21 +1626,37 @@ const appListCsv = (function () {
   }
 
   /**
-   * Watched first, then watchlist, each in stored order. Removal records live only
-   * in `statuses` and never in `movieIds`, so they are excluded for free.
+   * Watched first, then watchlist, each in stored order. Then movies that appear
+   * only on custom lists, in list order. Removal records live only in `statuses`
+   * and never in `movieIds`, so they are excluded for free.
    */
-  function listCsvRows(state, titleFor) {
+  function listCsvRows(state, recordFor) {
     const lists = Array.isArray(state?.lists) ? state.lists : [];
-    const resolveTitle = typeof titleFor === "function" ? titleFor : () => "";
+    const customLists = Array.isArray(state?.customLists) ? state.customLists : [];
     const rows = [];
+    const seen = new Set();
     for (const listId of getLists().LIST_IDS) {
       const list = lists.find((entry) => entry && entry.id === listId);
       for (const movieId of list?.movieIds || []) {
         const id = Number(movieId);
-        if (!Number.isInteger(id) || id <= 0) {
+        if (!Number.isInteger(id) || id <= 0 || seen.has(id)) {
           continue;
         }
-        rows.push({ id, title: String(resolveTitle(id) || ""), listId });
+        seen.add(id);
+        rows.push({ id, listId, ...rowMeta(state, id, recordFor) });
+      }
+    }
+    for (const list of customLists) {
+      if (!list || !getCustomLists().isCustomListId(list.id)) {
+        continue;
+      }
+      for (const movieId of list.movieIds || []) {
+        const id = Number(movieId);
+        if (!Number.isInteger(id) || id <= 0 || seen.has(id)) {
+          continue;
+        }
+        seen.add(id);
+        rows.push({ id, listId: list.id, ...rowMeta(state, id, recordFor) });
       }
     }
     return rows;
@@ -1613,7 +1665,9 @@ const appListCsv = (function () {
   function buildListCsv(rows) {
     const lines = [csvRow(CSV_HEADER)];
     for (const row of rows || []) {
-      lines.push(csvRow([row.id, row.title, row.listId]));
+      lines.push(
+        csvRow([row.id, row.title, row.listId, row.myRating, row.releaseYear]),
+      );
     }
     return `${lines.join("\n")}\n`;
   }
@@ -7810,15 +7864,20 @@ async function onClearCache() {
 }
 
 /**
- * Titles are for reading the committed file; only the ids drive the scrape. The
- * snapshot is the second source because only the active list gets hydrated.
+ * Titles and release years are for reading the committed file; only the ids drive
+ * the scrape. The snapshot is the second source because only the active list gets
+ * hydrated.
  */
-function csvTitleFor(movieId) {
-  return movieById.get(movieId)?.title || localMovieRecord(movieId)?.title || "";
+function csvRecordFor(movieId) {
+  const record = movieById.get(movieId) || localMovieRecord(movieId);
+  return {
+    title: record?.title || "",
+    releaseDate: record?.releaseDate || "",
+  };
 }
 
 function onExportCsv() {
-  const rows = appListCsv.listCsvRows(userState, csvTitleFor);
+  const rows = appListCsv.listCsvRows(userState, csvRecordFor);
   if (!rows.length) {
     setStatus(exportCsvStatus, "Nothing to export yet.", null);
     return;
