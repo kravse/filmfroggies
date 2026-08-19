@@ -209,7 +209,7 @@ function cancelDetailRatingEditor() {
         : appRatings.setRating(userState.ratings, detailMovieId, snapshot);
     updateRatings(nextRatings);
     persistUserState();
-    applyHydratedRecord(detailMovieId, { skipDetail: true });
+    refreshMovieRating(detailMovieId);
   }
   syncDetailRatingDisplay(snapshot);
   detailRatingEditorOpen = false;
@@ -230,7 +230,7 @@ function commitDetailRating() {
     return;
   }
   persistUserState();
-  applyHydratedRecord(detailMovieId, { skipDetail: true });
+  refreshMovieRating(detailMovieId);
 }
 
 function onDetailRatingSliderInput(event) {
@@ -263,7 +263,7 @@ function clearDetailRating() {
     return;
   }
   persistUserState();
-  applyHydratedRecord(detailMovieId, { skipDetail: true });
+  refreshMovieRating(detailMovieId);
   syncDetailRatingDisplay(null);
 }
 
