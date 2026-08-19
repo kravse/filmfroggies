@@ -142,7 +142,10 @@ listTabs.addEventListener("keydown", (event) => {
 
 /* --- Toolbar --- */
 
-viewModeCycleBtn.addEventListener("click", () => {
+viewModeCycleBtn?.addEventListener("click", () => {
+  if (isWatchlistActive()) {
+    return;
+  }
   setViewMode(nextViewMode(gridViewMode));
   persistUserState();
   render();
@@ -375,7 +378,7 @@ async function startApp() {
   loadHostedSession();
   loadGistConfig();
   loadUserState();
-  setViewMode(userState.preferences.viewMode);
+  refreshViewModeForActiveList();
   updateSearchClearVisibility();
 
   // One static file, read before the first paint. When it covers the list that

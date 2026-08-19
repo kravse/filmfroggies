@@ -411,6 +411,7 @@ function setActiveList(listId) {
   reorderModeActive = false;
   persistUserState();
   closeDetail({ popHistory: false });
+  refreshViewModeForActiveList();
   render();
   hydrateActiveList();
 }
@@ -446,7 +447,7 @@ function renderEmptyState(count) {
  * redraws instead of sitting on a list that no longer matches storage.
  */
 function onRemoteStateAdopted() {
-  setViewMode(gridViewMode);
+  refreshViewModeForActiveList();
   syncDetailFromLocation();
   render();
   hydrateActiveList();

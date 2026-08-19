@@ -139,6 +139,10 @@ function isWatchedListActive() {
   return userState?.activeListId === appLists.WATCHED_ID;
 }
 
+function isWatchlistActive() {
+  return userState?.activeListId === appLists.WATCHLIST_ID;
+}
+
 function usesCustomDisplayOrder() {
   return !isWatchedListActive() || appSort.isCustomSort(userState.preferences.sort);
 }
@@ -2870,11 +2874,26 @@ function syncViewModeButton() {
   if (!viewModeCycleBtn) {
     return;
   }
+  viewModeCycleBtn.hidden = isWatchlistActive();
+  if (isWatchlistActive()) {
+    return;
+  }
   viewModeCycleBtn.dataset.viewMode = gridViewMode;
   viewModeCycleBtn.setAttribute("aria-label", VIEW_MODE_LABELS[gridViewMode]);
 }
 
+function refreshViewModeForActiveList() {
+  gridViewMode = isWatchlistActive() ? "detail" : userState.preferences.viewMode;
+  document.body.classList.toggle("view-mode-cards", gridViewMode === "cards");
+  document.body.classList.toggle("view-mode-detail", gridViewMode === "detail");
+  syncViewModeButton();
+}
+
 function setViewMode(mode) {
+  if (isWatchlistActive()) {
+    refreshViewModeForActiveList();
+    return;
+  }
   gridViewMode = appUserState.normalizePreferences({ viewMode: mode }).viewMode;
   userState = {
     ...userState,
@@ -4749,6 +4768,7 @@ function setActiveList(listId) {
   reorderModeActive = false;
   persistUserState();
   closeDetail({ popHistory: false });
+  refreshViewModeForActiveList();
   render();
   hydrateActiveList();
 }
@@ -4784,7 +4804,7 @@ function renderEmptyState(count) {
  * redraws instead of sitting on a list that no longer matches storage.
  */
 function onRemoteStateAdopted() {
-  setViewMode(gridViewMode);
+  refreshViewModeForActiveList();
   syncDetailFromLocation();
   render();
   hydrateActiveList();
@@ -5523,7 +5543,7 @@ async function onConnectGist() {
       "ok",
     );
     gistTokenInput.value = "";
-    setViewMode(gridViewMode);
+    refreshViewModeForActiveList();
     render();
     hydrateActiveList();
   } finally {
@@ -5905,7 +5925,10 @@ listTabs.addEventListener("keydown", (event) => {
 
 /* --- Toolbar --- */
 
-viewModeCycleBtn.addEventListener("click", () => {
+viewModeCycleBtn?.addEventListener("click", () => {
+  if (isWatchlistActive()) {
+    return;
+  }
   setViewMode(nextViewMode(gridViewMode));
   persistUserState();
   render();
@@ -6138,7 +6161,7 @@ async function startApp() {
   loadHostedSession();
   loadGistConfig();
   loadUserState();
-  setViewMode(userState.preferences.viewMode);
+  refreshViewModeForActiveList();
   updateSearchClearVisibility();
 
   // One static file, read before the first paint. When it covers the list that

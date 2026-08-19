@@ -346,7 +346,7 @@ body.view-mode-detail .card--watchlist .card-body--watchlist {
   gap: 0.2rem;
   border: none;
   border-radius: 0;
-  padding: 0.48rem 0.35rem;
+  padding: 0.48rem 0;
   cursor: pointer;
   font-family: var(--ui-font);
   font-size: 0.78rem;
@@ -420,7 +420,7 @@ body.view-mode-cards .watchlist-card-actions {
 }
 
 body.view-mode-cards .watchlist-action-btn {
-  padding: 0.28rem 0.2rem;
+  padding: 0.28rem 0;
   font-size: 0.62rem;
 }
 

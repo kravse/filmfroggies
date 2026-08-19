@@ -168,11 +168,26 @@ function syncViewModeButton() {
   if (!viewModeCycleBtn) {
     return;
   }
+  viewModeCycleBtn.hidden = isWatchlistActive();
+  if (isWatchlistActive()) {
+    return;
+  }
   viewModeCycleBtn.dataset.viewMode = gridViewMode;
   viewModeCycleBtn.setAttribute("aria-label", VIEW_MODE_LABELS[gridViewMode]);
 }
 
+function refreshViewModeForActiveList() {
+  gridViewMode = isWatchlistActive() ? "detail" : userState.preferences.viewMode;
+  document.body.classList.toggle("view-mode-cards", gridViewMode === "cards");
+  document.body.classList.toggle("view-mode-detail", gridViewMode === "detail");
+  syncViewModeButton();
+}
+
 function setViewMode(mode) {
+  if (isWatchlistActive()) {
+    refreshViewModeForActiveList();
+    return;
+  }
   gridViewMode = appUserState.normalizePreferences({ viewMode: mode }).viewMode;
   userState = {
     ...userState,

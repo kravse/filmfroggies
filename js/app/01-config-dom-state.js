@@ -137,6 +137,10 @@ function isWatchedListActive() {
   return userState?.activeListId === appLists.WATCHED_ID;
 }
 
+function isWatchlistActive() {
+  return userState?.activeListId === appLists.WATCHLIST_ID;
+}
+
 function usesCustomDisplayOrder() {
   return !isWatchedListActive() || appSort.isCustomSort(userState.preferences.sort);
 }

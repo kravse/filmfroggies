@@ -35,10 +35,50 @@
     gap: 0.35rem;
   }
 
-  body.view-mode-cards .card-footer {
+  body.view-mode-cards .card-footer:not(.card-footer--watchlist) {
     padding: 0.12rem 0.16rem 0.14rem;
     min-height: 0.9rem;
     gap: 0.15rem;
+  }
+
+  body.view-mode-cards .card-footer--watchlist {
+    padding: 0;
+    min-height: 0;
+    gap: 0;
+    border-top: none;
+  }
+
+  body.view-mode-cards .watchlist-card-panel {
+    width: 100%;
+  }
+
+  body.view-mode-cards .watchlist-card-actions {
+    min-height: 1.2rem;
+    width: 100%;
+    margin: 0;
+  }
+
+  body.view-mode-cards .watchlist-action-btn {
+    padding: 0.24rem 0;
+    font-size: 0.54rem;
+  }
+
+  body.view-mode-detail .card-body--watchlist {
+    padding: 0;
+  }
+
+  body.view-mode-detail .card--watchlist .watchlist-card-actions {
+    width: 100%;
+    margin: 0;
+  }
+
+  body.view-mode-detail .card--watchlist .watchlist-action-btn {
+    padding: 0.32rem 0;
+  }
+
+  body.view-mode-cards .watchlist-action-btn .card-remove-icon {
+    width: 9px;
+    height: 9px;
   }
 
   body.view-mode-cards .card-footer-main {
@@ -60,20 +100,6 @@
     --watchlist-title-font: 0.52rem;
     --watchlist-title-pad-block: 0.16rem;
     --watchlist-title-pad-inline: 0.2rem;
-  }
-
-  body.view-mode-cards .watchlist-card-actions {
-    min-height: 1.2rem;
-  }
-
-  body.view-mode-cards .watchlist-action-btn {
-    padding: 0.24rem 0.15rem;
-    font-size: 0.54rem;
-  }
-
-  body.view-mode-cards .watchlist-action-btn .card-remove-icon {
-    width: 9px;
-    height: 9px;
   }
 
   body.view-mode-cards .card-grip {

@@ -555,7 +555,7 @@ async function onConnectGist() {
       "ok",
     );
     gistTokenInput.value = "";
-    setViewMode(gridViewMode);
+    refreshViewModeForActiveList();
     render();
     hydrateActiveList();
   } finally {
