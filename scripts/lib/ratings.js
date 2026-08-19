@@ -95,8 +95,38 @@ function collectMovieIds(lists) {
   return ids;
 }
 
+function getLists() {
+  if (typeof appLists !== "undefined") {
+    return appLists;
+  }
+  if (typeof require === "function") {
+    return require("./lists");
+  }
+  throw new Error("appLists is not available");
+}
+
+function collectWatchedMovieIds(lists) {
+  const { WATCHED_ID, findList } = getLists();
+  const ids = new Set();
+  const watched = findList(lists, WATCHED_ID);
+  if (!watched || !Array.isArray(watched.movieIds)) {
+    return ids;
+  }
+  for (const id of watched.movieIds) {
+    const movieId = Number(id);
+    if (Number.isInteger(movieId) && movieId > 0) {
+      ids.add(movieId);
+    }
+  }
+  return ids;
+}
+
+function isRatingAllowed(lists, movieId) {
+  return getLists().isWatched(lists, movieId);
+}
+
 function normalizeRatings(raw, lists) {
-  const allowed = collectMovieIds(lists);
+  const allowed = collectWatchedMovieIds(lists);
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     return {};
   }
@@ -170,6 +200,8 @@ module.exports = {
   ratingSelectDisplayValue,
   ratingSelectInnerHtml,
   collectMovieIds,
+  collectWatchedMovieIds,
+  isRatingAllowed,
   normalizeRatings,
   getRating,
   setRating,

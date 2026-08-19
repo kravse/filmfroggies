@@ -3,7 +3,7 @@
 }
 
 body.view-mode-cards .grid {
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
   gap: 0.5rem;
   align-items: stretch;
 }
@@ -54,34 +54,50 @@ body.view-mode-cards .card {
   border-radius: var(--radius-sm);
 }
 
-body.view-mode-cards .card-sort-hint {
+body.view-mode-cards .card-footer {
   flex: none;
-  padding: 0.22rem 0.3rem 0.28rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.28rem 0.24rem;
+  min-height: 1.15rem;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+}
+
+body.view-mode-cards .card-footer-main {
+  flex: 1;
+  min-width: 0;
   font-family: var(--ui-font);
   font-size: 0.62rem;
   line-height: 1.2;
   letter-spacing: 0.02em;
-  text-align: center;
+  text-align: left;
   color: var(--muted);
-  background: var(--panel);
-  border-top: 1px solid var(--border);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-body.view-mode-cards .card-sort-hint.is-user-rating {
-  color: var(--accent);
   font-variant-numeric: tabular-nums;
 }
 
-body.view-mode-cards .card-sort-hint.is-user-rating.is-empty {
+body.view-mode-cards .card-footer-main.is-user-rating {
+  color: var(--accent);
+}
+
+body.view-mode-cards .card-footer-main.is-user-rating.is-empty {
   color: var(--muted-dim);
 }
 
-body.view-mode-cards .card-sort-hint.is-fan-rating {
+body.view-mode-cards .card-footer-main.is-fan-rating {
   color: var(--muted);
-  font-variant-numeric: tabular-nums;
+}
+
+body.view-mode-cards .card-footer-ratings {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.18rem;
+  margin-left: auto;
 }
 
 body.view-mode-cards .card-grip {
@@ -114,6 +130,36 @@ body.view-mode-detail .card {
 
 .card:hover {
   border-color: var(--border-strong);
+}
+
+.card.is-unrated {
+  opacity: 0.72;
+  border-style: dashed;
+  border-color: var(--muted-dim);
+  background: color-mix(in srgb, var(--panel) 82%, var(--bg));
+}
+
+.card.is-unrated .poster-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgba(14, 16, 20, 0.22);
+  pointer-events: none;
+}
+
+.card.is-unrated .poster-wrap img {
+  filter: saturate(0.55) brightness(0.82);
+}
+
+.card.is-unrated .card-footer,
+.card.is-unrated .card-body {
+  color: var(--muted);
+}
+
+.card.is-unrated:hover {
+  opacity: 0.82;
+  border-color: var(--muted);
 }
 
 .poster-wrap {
@@ -185,7 +231,17 @@ body.view-mode-detail .card-title {
   max-height: var(--card-title-block-height);
 }
 
+body.view-mode-detail .card-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: var(--card-meta-block-height);
+  min-width: 0;
+}
+
 body.view-mode-detail .card-meta {
+  flex: 1;
+  min-width: 0;
   font-size: var(--card-meta-font);
   min-height: var(--card-meta-block-height);
   overflow: hidden;

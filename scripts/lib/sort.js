@@ -5,6 +5,8 @@
 
 const SORT_MODES = new Set([
   "custom",
+  "added-asc",
+  "added-desc",
   "year-asc",
   "year-desc",
   "rating-desc",
@@ -16,7 +18,90 @@ const SORT_MODES = new Set([
 ]);
 
 const DEFAULT_SORT = "custom";
+/** Default sort for new users opening Watched. Reorder still uses `custom`. */
+const DEFAULT_PREFERENCE_SORT = "user-rating-desc";
 const MISSING_SORT_HINT = "—";
+
+const SORT_FIELDS = new Set(["custom", "added", "year", "rating", "user-rating", "title"]);
+
+const SORT_FIELD_DEFAULTS = {
+  added: "added-desc",
+  year: "year-desc",
+  rating: "rating-desc",
+  "user-rating": "user-rating-desc",
+  title: "title-desc",
+};
+
+function getSortField(mode) {
+  const normalized = normalizeSort(mode);
+  if (normalized === "custom") {
+    return "custom";
+  }
+  if (normalized.startsWith("added-")) {
+    return "added";
+  }
+  if (normalized.startsWith("year-")) {
+    return "year";
+  }
+  if (normalized.startsWith("user-rating-")) {
+    return "user-rating";
+  }
+  if (normalized.startsWith("rating-")) {
+    return "rating";
+  }
+  if (normalized.startsWith("title-")) {
+    return "title";
+  }
+  return "custom";
+}
+
+function isSortDescending(mode) {
+  const normalized = normalizeSort(mode);
+  return normalized.endsWith("-desc");
+}
+
+function toggleSortDirection(mode) {
+  const normalized = normalizeSort(mode);
+  if (normalized === "custom") {
+    return normalized;
+  }
+  if (normalized.endsWith("-asc")) {
+    return normalized.replace(/-asc$/, "-desc");
+  }
+  if (normalized.endsWith("-desc")) {
+    return normalized.replace(/-desc$/, "-asc");
+  }
+  return normalized;
+}
+
+function sortModeForField(field, currentMode) {
+  if (!field || field === "custom" || !SORT_FIELDS.has(field)) {
+    return DEFAULT_SORT;
+  }
+  const normalized = normalizeSort(currentMode);
+  if (getSortField(normalized) === field) {
+    return normalized;
+  }
+  return SORT_FIELD_DEFAULTS[field] || DEFAULT_SORT;
+}
+
+/** Human label for the active sort direction (toolbar state). */
+function sortDirectionLabel(field, descending) {
+  switch (field) {
+    case "added":
+      return descending ? "Newest first" : "Oldest first";
+    case "year":
+      return descending ? "Newest first" : "Oldest first";
+    case "rating":
+      return descending ? "Highest first" : "Lowest first";
+    case "user-rating":
+      return descending ? "Highest first" : "Lowest first";
+    case "title":
+      return descending ? "Z to A" : "A to Z";
+    default:
+      return descending ? "Descending" : "Ascending";
+  }
+}
 
 function formatFanRating(voteAverage) {
   const value = Number(voteAverage);
@@ -57,6 +142,17 @@ function parseYear(releaseDate) {
   }
   const match = String(releaseDate).match(/\d{4}/);
   return match ? match[0] : null;
+}
+
+function parseAddedTime(iso) {
+  const time = Date.parse(iso || "");
+  return Number.isFinite(time) ? time : null;
+}
+
+/** Card hint: ISO calendar date from an addedAt stamp. */
+function formatAddedHint(iso) {
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(String(iso || "").trim());
+  return match ? match[1] : null;
 }
 
 function buildOrderIndex(movieIds) {
@@ -118,8 +214,22 @@ function sortMovieIds(movieIds, mode, context = {}) {
   const getRecord = typeof context.getRecord === "function" ? context.getRecord : () => null;
   const getUserRating =
     typeof context.getUserRating === "function" ? context.getUserRating : () => null;
+  const getAddedAt =
+    typeof context.getAddedAt === "function" ? context.getAddedAt : () => null;
   const tiebreak = (a, b) => compareOrderTiebreak(a, b, orderIndex);
   const copy = [...movieIds];
+
+  if (normalized === "added-asc" || normalized === "added-desc") {
+    const direction = normalized === "added-asc" ? "asc" : "desc";
+    return copy.sort((a, b) =>
+      compareNullableNumber(
+        parseAddedTime(getAddedAt(a)),
+        parseAddedTime(getAddedAt(b)),
+        direction,
+        () => tiebreak(a, b),
+      ),
+    );
+  }
 
   if (normalized === "title-asc" || normalized === "title-desc") {
     return copy.sort((a, b) => {
@@ -179,6 +289,10 @@ function formatSortCardHint(mode, context = {}) {
     return parseYear(record.releaseDate) || MISSING_SORT_HINT;
   }
 
+  if (normalized === "added-asc" || normalized === "added-desc") {
+    return formatAddedHint(context.addedAt) || MISSING_SORT_HINT;
+  }
+
   if (normalized === "rating-asc" || normalized === "rating-desc") {
     return formatFanRating(record.voteAverage) || MISSING_SORT_HINT;
   }
@@ -197,10 +311,20 @@ function formatSortCardHint(mode, context = {}) {
 
 module.exports = {
   SORT_MODES,
+  SORT_FIELDS,
+  SORT_FIELD_DEFAULTS,
   DEFAULT_SORT,
+  DEFAULT_PREFERENCE_SORT,
   normalizeSort,
   isCustomSort,
+  getSortField,
+  isSortDescending,
+  toggleSortDirection,
+  sortModeForField,
+  sortDirectionLabel,
   parseYear,
+  parseAddedTime,
+  formatAddedHint,
   buildOrderIndex,
   compareOrderTiebreak,
   sortMovieIds,

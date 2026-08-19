@@ -9,6 +9,7 @@
 const fs = require("fs");
 const path = require("path");
 const { syncAllAppModules } = require("./sync-app-module");
+const { checkBrowserBundle } = require("./check-browser-bundle");
 
 const ROOT = path.join(__dirname, "..");
 const APP_DIR = path.join(ROOT, "js", "app");
@@ -45,6 +46,10 @@ const PARTS = [
   {
     file: "00-app-ratings.js",
     title: "User movie ratings (generated from scripts/lib/ratings.js)",
+  },
+  {
+    file: "00-app-added-at.js",
+    title: "Date added stamps (generated from scripts/lib/added-at.js)",
   },
   {
     file: "00-app-sort.js",
@@ -118,6 +123,7 @@ function writeBundle() {
 function bundleAppJs() {
   syncAllAppModules();
   writeBundle();
+  checkBrowserBundle();
 }
 
 if (require.main === module) {

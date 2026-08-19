@@ -46,9 +46,15 @@ function detailCreditsHtml(record) {
   return rows.join("");
 }
 
+function detailMovieAllowsRating() {
+  return (
+    detailMovieId != null && appLists.isWatched(userState.lists, detailMovieId)
+  );
+}
+
 function detailUserRatingBlockHtml(movieId) {
   const inCollection = appLists.findListIdsForMovie(userState.lists, movieId).length > 0;
-  if (!inCollection) {
+  if (!inCollection || !appLists.isWatched(userState.lists, movieId)) {
     return "";
   }
 
@@ -167,7 +173,7 @@ function syncDetailRatingEditorVisibility() {
 }
 
 function openDetailRatingEditor() {
-  if (detailMovieId == null) {
+  if (detailMovieId == null || !detailMovieAllowsRating()) {
     return;
   }
   detailRatingEditorSnapshot = appRatings.getRating(userState.ratings, detailMovieId);
@@ -228,7 +234,7 @@ function commitDetailRating() {
 }
 
 function onDetailRatingSliderInput(event) {
-  if (detailMovieId == null) {
+  if (detailMovieId == null || !detailMovieAllowsRating()) {
     return;
   }
   const rating = appRatings.ratingFromSliderValue(Number(event.target.value));
@@ -239,7 +245,7 @@ function onDetailRatingSliderInput(event) {
 }
 
 function onDetailRatingSelectChange(event) {
-  if (detailMovieId == null) {
+  if (detailMovieId == null || !detailMovieAllowsRating()) {
     return;
   }
   const rating = appRatings.normalizeRating(event.target.value);
@@ -250,7 +256,7 @@ function onDetailRatingSelectChange(event) {
 }
 
 function clearDetailRating() {
-  if (detailMovieId == null) {
+  if (detailMovieId == null || !detailMovieAllowsRating()) {
     return;
   }
   if (!updateRatings(appRatings.removeRating(userState.ratings, detailMovieId))) {

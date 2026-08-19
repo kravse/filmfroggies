@@ -36,6 +36,7 @@ const addMovieBack = document.getElementById("add-movie-back");
 const viewModeCycleBtn = document.getElementById("view-mode-cycle");
 const sortControl = document.getElementById("sort-control");
 const listSortSelect = document.getElementById("list-sort");
+const sortReverseBtn = document.getElementById("sort-reverse");
 const reorderModeBtn = document.getElementById("reorder-mode-btn");
 const grid = document.getElementById("grid");
 const emptyState = document.getElementById("empty-state");
@@ -143,6 +144,7 @@ function displayMovieIds() {
   return appSort.sortMovieIds(ids, userState.preferences.sort, {
     getRecord: (id) => movieById.get(id),
     getUserRating: (id) => appRatings.getRating(userState.ratings, id),
+    getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
   });
 }
 
@@ -1196,8 +1198,38 @@ const appRatings = (function () {
     return ids;
   }
 
+  function getLists() {
+    if (typeof appLists !== "undefined") {
+      return appLists;
+    }
+    if (typeof require === "function") {
+      return require("./lists");
+    }
+    throw new Error("appLists is not available");
+  }
+
+  function collectWatchedMovieIds(lists) {
+    const { WATCHED_ID, findList } = getLists();
+    const ids = new Set();
+    const watched = findList(lists, WATCHED_ID);
+    if (!watched || !Array.isArray(watched.movieIds)) {
+      return ids;
+    }
+    for (const id of watched.movieIds) {
+      const movieId = Number(id);
+      if (Number.isInteger(movieId) && movieId > 0) {
+        ids.add(movieId);
+      }
+    }
+    return ids;
+  }
+
+  function isRatingAllowed(lists, movieId) {
+    return getLists().isWatched(lists, movieId);
+  }
+
   function normalizeRatings(raw, lists) {
-    const allowed = collectMovieIds(lists);
+    const allowed = collectWatchedMovieIds(lists);
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
       return {};
     }
@@ -1277,6 +1309,184 @@ const appRatings = (function () {
   };
 })();
 
+/* ===== Date added stamps (generated from scripts/lib/added-at.js) ===== */
+
+/* Generated from scripts/lib/added-at.js — run npm run bundle */
+
+const appAddedAt = (function () {
+  /**
+   * When each movie first entered the collection. Stored beside ratings in user
+   * state, never in TMDB records or the data/ snapshot.
+   *
+   * Set once on add, cleared on remove, and stamped again when a removed movie is
+   * re-added. Moving watchlist → watched does not touch it. Sync merges by keeping
+   * the later stamp so a re-add beats a stale pre-delete copy left on another device.
+   *
+   * Legacy payloads with no per-movie stamp are backfilled from list order: the
+   * last movie in the list is treated as added today, each earlier one one day
+   * before. A collection where every stamp is identical — the old "all today"
+   * migration — is repaired the same way on the next normalize.
+   */
+
+  const MS_PER_DAY = 86_400_000;
+
+  function getLists() {
+    if (typeof appLists !== "undefined") {
+      return appLists;
+    }
+    if (typeof require === "function") {
+      return require("./lists");
+    }
+    throw new Error("appLists is not available");
+  }
+
+  function parseStamp(value) {
+    const time = Date.parse(value || "");
+    return Number.isFinite(time) ? time : null;
+  }
+
+  function normalizeStamp(value) {
+    const time = parseStamp(value);
+    return time == null ? null : new Date(time).toISOString();
+  }
+
+  /** Watched first, then watchlist, each in stored order — same as list export. */
+  function orderedMovieIds(lists) {
+    const ids = [];
+    const seen = new Set();
+    for (const listId of getLists().LIST_IDS) {
+      const list = Array.isArray(lists) ? lists.find((entry) => entry?.id === listId) : null;
+      for (const movieId of list?.movieIds || []) {
+        const id = Number(movieId);
+        if (!Number.isInteger(id) || id <= 0 || seen.has(id)) {
+          continue;
+        }
+        seen.add(id);
+        ids.push(id);
+      }
+    }
+    return ids;
+  }
+
+  function stampFromListIndex(index, total, now) {
+    const endMs = parseStamp(normalizeStamp(now));
+    const daysAgo = Math.max(0, total - 1 - index);
+    return new Date(endMs - daysAgo * MS_PER_DAY).toISOString();
+  }
+
+  /** When every movie shares one stamp, spread them by list order so sort works. */
+  function repairUniformAddedAt(next, ordered, now) {
+    if (ordered.length < 2) {
+      return next;
+    }
+    const stamps = ordered.map((id) => next[String(id)]).filter(Boolean);
+    if (stamps.length < 2 || new Set(stamps).size !== 1) {
+      return next;
+    }
+    const repaired = {};
+    for (let index = 0; index < ordered.length; index++) {
+      repaired[String(ordered[index])] = stampFromListIndex(index, ordered.length, now);
+    }
+    return repaired;
+  }
+
+  function normalizeAddedAt(raw, lists, now = new Date()) {
+    const ordered = orderedMovieIds(lists);
+    const rawMap = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+    const next = {};
+
+    for (let index = 0; index < ordered.length; index++) {
+      const id = ordered[index];
+      const key = String(id);
+      const fromRaw = normalizeStamp(rawMap[key]);
+      next[key] = fromRaw || stampFromListIndex(index, ordered.length, now);
+    }
+
+    return repairUniformAddedAt(next, ordered, now);
+  }
+
+  function getAddedAt(addedAt, movieId) {
+    const id = Number(movieId);
+    if (!addedAt || typeof addedAt !== "object" || !Number.isInteger(id) || id <= 0) {
+      return null;
+    }
+    return normalizeStamp(addedAt[String(id)]);
+  }
+
+  /** Overwrites only when the stamp actually changes. */
+  function setAddedAt(addedAt, movieId, at) {
+    const id = Number(movieId);
+    const stamp = normalizeStamp(at);
+    if (!Number.isInteger(id) || id <= 0 || !stamp) {
+      return addedAt || {};
+    }
+
+    const base =
+      addedAt && typeof addedAt === "object" && !Array.isArray(addedAt) ? addedAt : {};
+    const key = String(id);
+    if (getAddedAt(base, id) === stamp) {
+      return base;
+    }
+    return { ...base, [key]: stamp };
+  }
+
+  /** First add only, unless `readded` — then always stamp again. */
+  function recordAddedAt(addedAt, movieId, at = new Date(), options = {}) {
+    if (!options.readded && getAddedAt(addedAt, movieId)) {
+      return addedAt || {};
+    }
+    return setAddedAt(addedAt, movieId, at);
+  }
+
+  function removeAddedAt(addedAt, movieId) {
+    const id = Number(movieId);
+    if (!Number.isInteger(id) || id <= 0) {
+      return addedAt || {};
+    }
+    const base =
+      addedAt && typeof addedAt === "object" && !Array.isArray(addedAt) ? addedAt : {};
+    const key = String(id);
+    if (!(key in base)) {
+      return base;
+    }
+    const next = { ...base };
+    delete next[key];
+    return next;
+  }
+
+  /** Later stamp wins so a re-add after removal beats a stale pre-delete copy. */
+  function mergeAddedAt(a, b) {
+    const left = a && typeof a === "object" && !Array.isArray(a) ? a : {};
+    const right = b && typeof b === "object" && !Array.isArray(b) ? b : {};
+    const merged = {};
+
+    for (const key of new Set([...Object.keys(left), ...Object.keys(right)])) {
+      const leftStamp = normalizeStamp(left[key]);
+      const rightStamp = normalizeStamp(right[key]);
+      if (leftStamp == null) {
+        merged[key] = right[key];
+        continue;
+      }
+      if (rightStamp == null) {
+        merged[key] = left[key];
+        continue;
+      }
+      merged[key] = leftStamp >= rightStamp ? left[key] : right[key];
+    }
+    return merged;
+  }
+
+  return {
+    normalizeStamp,
+    normalizeAddedAt,
+    getAddedAt,
+    setAddedAt,
+    recordAddedAt,
+    removeAddedAt,
+    mergeAddedAt,
+  };
+})();
+
 /* ===== Watched list display sort (generated from scripts/lib/sort.js) ===== */
 
 /* Generated from scripts/lib/sort.js — run npm run bundle */
@@ -1289,6 +1499,8 @@ const appSort = (function () {
 
   const SORT_MODES = new Set([
     "custom",
+    "added-asc",
+    "added-desc",
     "year-asc",
     "year-desc",
     "rating-desc",
@@ -1300,7 +1512,90 @@ const appSort = (function () {
   ]);
 
   const DEFAULT_SORT = "custom";
+  /** Default sort for new users opening Watched. Reorder still uses `custom`. */
+  const DEFAULT_PREFERENCE_SORT = "user-rating-desc";
   const MISSING_SORT_HINT = "—";
+
+  const SORT_FIELDS = new Set(["custom", "added", "year", "rating", "user-rating", "title"]);
+
+  const SORT_FIELD_DEFAULTS = {
+    added: "added-desc",
+    year: "year-desc",
+    rating: "rating-desc",
+    "user-rating": "user-rating-desc",
+    title: "title-desc",
+  };
+
+  function getSortField(mode) {
+    const normalized = normalizeSort(mode);
+    if (normalized === "custom") {
+      return "custom";
+    }
+    if (normalized.startsWith("added-")) {
+      return "added";
+    }
+    if (normalized.startsWith("year-")) {
+      return "year";
+    }
+    if (normalized.startsWith("user-rating-")) {
+      return "user-rating";
+    }
+    if (normalized.startsWith("rating-")) {
+      return "rating";
+    }
+    if (normalized.startsWith("title-")) {
+      return "title";
+    }
+    return "custom";
+  }
+
+  function isSortDescending(mode) {
+    const normalized = normalizeSort(mode);
+    return normalized.endsWith("-desc");
+  }
+
+  function toggleSortDirection(mode) {
+    const normalized = normalizeSort(mode);
+    if (normalized === "custom") {
+      return normalized;
+    }
+    if (normalized.endsWith("-asc")) {
+      return normalized.replace(/-asc$/, "-desc");
+    }
+    if (normalized.endsWith("-desc")) {
+      return normalized.replace(/-desc$/, "-asc");
+    }
+    return normalized;
+  }
+
+  function sortModeForField(field, currentMode) {
+    if (!field || field === "custom" || !SORT_FIELDS.has(field)) {
+      return DEFAULT_SORT;
+    }
+    const normalized = normalizeSort(currentMode);
+    if (getSortField(normalized) === field) {
+      return normalized;
+    }
+    return SORT_FIELD_DEFAULTS[field] || DEFAULT_SORT;
+  }
+
+  /** Human label for the active sort direction (toolbar state). */
+  function sortDirectionLabel(field, descending) {
+    switch (field) {
+      case "added":
+        return descending ? "Newest first" : "Oldest first";
+      case "year":
+        return descending ? "Newest first" : "Oldest first";
+      case "rating":
+        return descending ? "Highest first" : "Lowest first";
+      case "user-rating":
+        return descending ? "Highest first" : "Lowest first";
+      case "title":
+        return descending ? "Z to A" : "A to Z";
+      default:
+        return descending ? "Descending" : "Ascending";
+    }
+  }
 
   function formatFanRating(voteAverage) {
     const value = Number(voteAverage);
@@ -1341,6 +1636,17 @@ const appSort = (function () {
     }
     const match = String(releaseDate).match(/\d{4}/);
     return match ? match[0] : null;
+  }
+
+  function parseAddedTime(iso) {
+    const time = Date.parse(iso || "");
+    return Number.isFinite(time) ? time : null;
+  }
+
+  /** Card hint: ISO calendar date from an addedAt stamp. */
+  function formatAddedHint(iso) {
+    const match = /^(\d{4}-\d{2}-\d{2})/.exec(String(iso || "").trim());
+    return match ? match[1] : null;
   }
 
   function buildOrderIndex(movieIds) {
@@ -1402,8 +1708,22 @@ const appSort = (function () {
     const getRecord = typeof context.getRecord === "function" ? context.getRecord : () => null;
     const getUserRating =
       typeof context.getUserRating === "function" ? context.getUserRating : () => null;
+    const getAddedAt =
+      typeof context.getAddedAt === "function" ? context.getAddedAt : () => null;
     const tiebreak = (a, b) => compareOrderTiebreak(a, b, orderIndex);
     const copy = [...movieIds];
+
+    if (normalized === "added-asc" || normalized === "added-desc") {
+      const direction = normalized === "added-asc" ? "asc" : "desc";
+      return copy.sort((a, b) =>
+        compareNullableNumber(
+          parseAddedTime(getAddedAt(a)),
+          parseAddedTime(getAddedAt(b)),
+          direction,
+          () => tiebreak(a, b),
+        ),
+      );
+    }
 
     if (normalized === "title-asc" || normalized === "title-desc") {
       return copy.sort((a, b) => {
@@ -1463,6 +1783,10 @@ const appSort = (function () {
       return parseYear(record.releaseDate) || MISSING_SORT_HINT;
     }
 
+    if (normalized === "added-asc" || normalized === "added-desc") {
+      return formatAddedHint(context.addedAt) || MISSING_SORT_HINT;
+    }
+
     if (normalized === "rating-asc" || normalized === "rating-desc") {
       return formatFanRating(record.voteAverage) || MISSING_SORT_HINT;
     }
@@ -1481,9 +1805,17 @@ const appSort = (function () {
 
   return {
     SORT_MODES,
+    SORT_FIELDS,
+    SORT_FIELD_DEFAULTS,
     DEFAULT_SORT,
+    DEFAULT_PREFERENCE_SORT,
     normalizeSort,
     isCustomSort,
+    getSortField,
+    isSortDescending,
+    toggleSortDirection,
+    sortModeForField,
+    sortDirectionLabel,
     parseYear,
     buildOrderIndex,
     compareOrderTiebreak,
@@ -1531,6 +1863,16 @@ const appSyncMerge = (function () {
       return require("./lists");
     }
     throw new Error("appLists is not available");
+  }
+
+  function getAddedAt() {
+    if (typeof appAddedAt !== "undefined") {
+      return appAddedAt;
+    }
+    if (typeof require === "function") {
+      return require("./added-at");
+    }
+    throw new Error("appAddedAt is not available");
   }
 
   function parseStamp(value) {
@@ -1754,6 +2096,10 @@ const appSyncMerge = (function () {
         ...(secondary.ratings && typeof secondary.ratings === "object" ? secondary.ratings : {}),
         ...(primary.ratings && typeof primary.ratings === "object" ? primary.ratings : {}),
       },
+      addedAt: getAddedAt().mergeAddedAt(
+        secondary.addedAt && typeof secondary.addedAt === "object" ? secondary.addedAt : {},
+        primary.addedAt && typeof primary.addedAt === "object" ? primary.addedAt : {},
+      ),
       statuses,
     };
   }
@@ -1816,6 +2162,16 @@ const appUserState = (function () {
     throw new Error("appRatings is not available");
   }
 
+  function getAddedAt() {
+    if (typeof appAddedAt !== "undefined") {
+      return appAddedAt;
+    }
+    if (typeof require === "function") {
+      return require("./added-at");
+    }
+    throw new Error("appAddedAt is not available");
+  }
+
   function getSort() {
     if (typeof appSort !== "undefined") {
       return appSort;
@@ -1837,7 +2193,7 @@ const appUserState = (function () {
   }
 
   function defaultPreferences() {
-    return { viewMode: "cards", sort: getSort().DEFAULT_SORT };
+    return { viewMode: "cards", sort: getSort().DEFAULT_PREFERENCE_SORT };
   }
 
   function defaultUserState() {
@@ -1850,6 +2206,7 @@ const appUserState = (function () {
       activeListId: lists.DEFAULT_LIST_ID,
       preferences: defaultPreferences(),
       ratings: {},
+      addedAt: {},
       statuses: {},
     };
   }
@@ -1883,6 +2240,12 @@ const appUserState = (function () {
       activeListId = lists.WATCHED_ID;
     }
 
+    const statuses = getSyncMerge().normalizeStatuses(
+      raw.statuses,
+      normalizedLists,
+      raw.updatedAt,
+    );
+
     return {
       version: USER_STATE_VERSION,
       updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : null,
@@ -1893,11 +2256,8 @@ const appUserState = (function () {
         : lists.DEFAULT_LIST_ID,
       preferences: normalizePreferences(raw.preferences),
       ratings: getRatings().normalizeRatings(raw.ratings, normalizedLists),
-      statuses: getSyncMerge().normalizeStatuses(
-        raw.statuses,
-        normalizedLists,
-        raw.updatedAt,
-      ),
+      addedAt: getAddedAt().normalizeAddedAt(raw.addedAt, normalizedLists),
+      statuses,
     };
   }
 
@@ -1946,6 +2306,7 @@ const appUserState = (function () {
       preferences: normalized.preferences,
       lists: normalized.lists.map((list) => [list.id, list.movieIds]),
       ratings: sortedIdMap(normalized.ratings),
+      addedAt: sortedIdMap(normalized.addedAt),
       statuses: sortedIdMap(normalized.statuses),
     });
   }
@@ -2305,6 +2666,9 @@ function updateRatings(nextRatings) {
 }
 
 function setMovieRating(movieId, rating) {
+  if (rating != null && !appLists.isWatched(userState.lists, movieId)) {
+    return false;
+  }
   const nextRatings = appRatings.setRating(userState.ratings, movieId, rating);
   if (!updateRatings(nextRatings)) {
     return false;
@@ -2317,7 +2681,11 @@ function updateLists(nextLists) {
   if (nextLists === userState.lists) {
     return false;
   }
-  userState = { ...userState, lists: nextLists };
+  userState = {
+    ...userState,
+    lists: nextLists,
+    ratings: appRatings.normalizeRatings(userState.ratings, nextLists),
+  };
   return true;
 }
 
@@ -2331,6 +2699,24 @@ function recordMovieStatus(movieId, status) {
     ...userState,
     statuses: appSyncMerge.setMovieStatus(userState.statuses, movieId, status),
   };
+}
+
+/** First add only; a removed movie being added again always gets a fresh stamp. */
+function recordAddedAt(movieId, at) {
+  const readded = appSyncMerge.isRemoved(userState.statuses, movieId);
+  const next = appAddedAt.recordAddedAt(userState.addedAt, movieId, at, { readded });
+  if (next === userState.addedAt) {
+    return;
+  }
+  userState = { ...userState, addedAt: next };
+}
+
+function updateAddedAt(nextAddedAt) {
+  if (nextAddedAt === userState.addedAt) {
+    return false;
+  }
+  userState = { ...userState, addedAt: nextAddedAt };
+  return true;
 }
 
 const VIEW_MODE_CYCLE = ["cards", "detail"];
@@ -3518,6 +3904,7 @@ function addMovieToList(result, listId, rating) {
   if (!listsChanged && !ratingsChanged) {
     return;
   }
+  recordAddedAt(result.id);
   recordMovieStatus(result.id, listId);
   persistUserState();
   closeAddMovieDialog();
@@ -3654,6 +4041,24 @@ function isFanRatingSortMode() {
   return sortMode === "rating-asc" || sortMode === "rating-desc";
 }
 
+function isUserRatingSortMode() {
+  if (!isWatchedListActive() || usesCustomDisplayOrder()) {
+    return false;
+  }
+  const sortMode = userState?.preferences.sort;
+  return sortMode === "user-rating-asc" || sortMode === "user-rating-desc";
+}
+
+function cardUnratedClass(movieId) {
+  if (!isUserRatingSortMode()) {
+    return "";
+  }
+  if (appRatings.getRating(userState.ratings, movieId) != null) {
+    return "";
+  }
+  return " is-unrated";
+}
+
 function cardFanRatingHtml(movieId) {
   if (!isWatchedListActive() || usesCustomDisplayOrder() || !isFanRatingSortMode()) {
     return "";
@@ -3668,7 +4073,7 @@ function cardFanRatingHtml(movieId) {
   return `<span class="card-fan-rating${emptyClass}" aria-label="Fan rating ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
 }
 
-function cardPosterRatingsHtml(movieId) {
+function cardDetailRatingsHtml(movieId) {
   if (gridViewMode !== "detail") {
     return "";
   }
@@ -3677,7 +4082,7 @@ function cardPosterRatingsHtml(movieId) {
   if (!fan && !user) {
     return "";
   }
-  return `<div class="card-poster-ratings">${fan}${user}</div>`;
+  return `<div class="card-body-ratings">${fan}${user}</div>`;
 }
 
 /**
@@ -3691,36 +4096,50 @@ function watchlistWatchBtnHtml() {
   return `<button type="button" class="card-watch-btn" aria-label="Mark as watched" title="Mark as watched">&#10003;</button>`;
 }
 
-function cardSortHintHtml(movieId) {
-  if (
-    gridViewMode !== "cards" ||
-    !isWatchedListActive() ||
-    usesCustomDisplayOrder()
-  ) {
+function cardSmallFooterYearText(movieId) {
+  const record = movieById.get(movieId);
+  if (!record) {
     return "";
   }
-  const sortMode = userState.preferences.sort;
-  const userRating = appRatings.getRating(userState.ratings, movieId);
-  const hint = appSort.formatSortCardHint(sortMode, {
-    record: movieById.get(movieId),
-    userRating,
-  });
-  if (!hint) {
+  return appCardHtml.formatYear(record.releaseDate);
+}
+
+function cardSmallFooterHtml(movieId) {
+  if (gridViewMode !== "cards") {
     return "";
   }
-  const isUserRatingSort =
-    sortMode === "user-rating-asc" || sortMode === "user-rating-desc";
-  const isFanRatingSort = isFanRatingSortMode();
-  let className = "card-sort-hint";
-  if (isUserRatingSort) {
-    className += " is-user-rating";
-    if (userRating == null) {
-      className += " is-empty";
+
+  let mainClass = "card-footer-main";
+  let mainText = "";
+
+  if (isWatchedListActive() && !usesCustomDisplayOrder()) {
+    const sortMode = userState.preferences.sort;
+    const userRating = appRatings.getRating(userState.ratings, movieId);
+    const isUserRatingSort = isUserRatingSortMode();
+
+    if (!isUserRatingSort && !isFanRatingSortMode()) {
+      const hint = appSort.formatSortCardHint(sortMode, {
+        record: movieById.get(movieId),
+        userRating,
+        addedAt: appAddedAt.getAddedAt(userState.addedAt, movieId),
+      });
+      if (hint) {
+        mainText = hint;
+      }
     }
-  } else if (isFanRatingSort) {
-    className += " is-fan-rating";
   }
-  return `<div class="${className}">${appCardHtml.escapeHtml(hint)}</div>`;
+
+  if (!mainText) {
+    mainText = cardSmallFooterYearText(movieId);
+  }
+
+  const fanChip = cardFanRatingHtml(movieId);
+  const userChip = cardUserRatingHtml(movieId);
+  const ratingChips =
+    fanChip || userChip
+      ? `<div class="card-footer-ratings">${fanChip}${userChip}</div>`
+      : "";
+  return `<div class="card-footer"><div class="${mainClass}">${appCardHtml.escapeHtml(mainText)}</div>${ratingChips}</div>`;
 }
 
 function cardPosterOnlyHtml(movieId) {
@@ -3730,12 +4149,12 @@ function cardPosterOnlyHtml(movieId) {
     const body = failed
       ? `<div class="placeholder">Could not load</div>`
       : `<div class="placeholder"></div>`;
-    return `<div class="poster-wrap">${body}</div>${cardSortHintHtml(movieId)}`;
+    return `<div class="poster-wrap">${body}</div>${cardSmallFooterHtml(movieId)}`;
   }
   const grip = listShowsReorderGrip()
     ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>`
     : "";
-  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}${watchlistWatchBtnHtml()}</div>${cardSortHintHtml(movieId)}`;
+  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}${watchlistWatchBtnHtml()}</div>${cardSmallFooterHtml(movieId)}`;
 }
 
 function listShowsReorderGrip() {
@@ -3749,14 +4168,30 @@ function listShowsReorderGrip() {
 function syncSortControlUi() {
   const show =
     isWatchedListActive() && activeMovieIds().length > 0 && hasMovieData();
+  const sort = userState.preferences.sort;
+  const custom = appSort.isCustomSort(sort);
   if (sortControl) {
     sortControl.hidden = !show;
   }
   if (listSortSelect) {
     if (show) {
-      listSortSelect.value = userState.preferences.sort;
+      listSortSelect.value = appSort.getSortField(sort);
       listSortSelect.disabled = reorderModeActive;
     }
+  }
+  if (sortReverseBtn) {
+    sortReverseBtn.hidden = !show || custom;
+    sortReverseBtn.disabled = reorderModeActive;
+    const descending = appSort.isSortDescending(sort);
+    const field = appSort.getSortField(sort);
+    sortReverseBtn.classList.toggle("is-descending", descending);
+    sortReverseBtn.classList.toggle("is-ascending", !descending);
+    const directionLabel = appSort.sortDirectionLabel(field, descending);
+    sortReverseBtn.title = `${directionLabel} · click to reverse`;
+    sortReverseBtn.setAttribute(
+      "aria-label",
+      `Sort order: ${directionLabel}. Reverse.`,
+    );
   }
 }
 
@@ -3802,6 +4237,17 @@ function setSortMode(mode) {
   render();
 }
 
+function setSortField(field) {
+  setSortMode(appSort.sortModeForField(field, userState.preferences.sort));
+}
+
+function toggleSortOrder() {
+  if (appSort.isCustomSort(userState.preferences.sort)) {
+    return;
+  }
+  setSortMode(appSort.toggleSortDirection(userState.preferences.sort));
+}
+
 function setReorderMode(active) {
   const next = Boolean(active);
   if (reorderModeActive === next) {
@@ -3840,7 +4286,6 @@ function cardInnerHtml(movieId) {
 
   return `<div class="poster-wrap">
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
-  ${cardPosterRatingsHtml(movieId)}
   ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
   ${watchlistWatchBtnHtml()}
   <button type="button" class="card-remove" aria-label="Remove ${appCardHtml.escapeHtml(record.title)}" title="Remove movie">&times;</button>
@@ -3848,7 +4293,10 @@ function cardInnerHtml(movieId) {
 <div class="card-body">
   <div class="card-text">
     <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>
-    <div class="card-meta">${cardMetaText(record)}</div>
+    <div class="card-meta-row">
+      <div class="card-meta">${cardMetaText(record)}</div>
+      ${cardDetailRatingsHtml(movieId)}
+    </div>
   </div>
 </div>`;
 }
@@ -3862,7 +4310,7 @@ function rowInnerHtml(movieId) {
       : " is-skeleton";
   const title = record ? appCardHtml.escapeHtml(record.title) : `Movie ${movieId}`;
 
-  return `<article class="card${stateClass}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
+  return `<article class="card${stateClass}${cardUnratedClass(movieId)}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
 ${cardInnerHtml(movieId)}
 </article>`;
 }
@@ -4075,6 +4523,7 @@ function removeMovieFromCollection(movieId) {
     return;
   }
   updateRatings(appRatings.removeRating(userState.ratings, movieId));
+  updateAddedAt(appAddedAt.removeAddedAt(userState.addedAt, movieId));
   recordMovieStatus(movieId, appSyncMerge.REMOVED_STATUS);
   persistUserState();
   if (detailMovieId === movieId) {
@@ -4170,9 +4619,15 @@ function detailCreditsHtml(record) {
   return rows.join("");
 }
 
+function detailMovieAllowsRating() {
+  return (
+    detailMovieId != null && appLists.isWatched(userState.lists, detailMovieId)
+  );
+}
+
 function detailUserRatingBlockHtml(movieId) {
   const inCollection = appLists.findListIdsForMovie(userState.lists, movieId).length > 0;
-  if (!inCollection) {
+  if (!inCollection || !appLists.isWatched(userState.lists, movieId)) {
     return "";
   }
 
@@ -4291,7 +4746,7 @@ function syncDetailRatingEditorVisibility() {
 }
 
 function openDetailRatingEditor() {
-  if (detailMovieId == null) {
+  if (detailMovieId == null || !detailMovieAllowsRating()) {
     return;
   }
   detailRatingEditorSnapshot = appRatings.getRating(userState.ratings, detailMovieId);
@@ -4352,7 +4807,7 @@ function commitDetailRating() {
 }
 
 function onDetailRatingSliderInput(event) {
-  if (detailMovieId == null) {
+  if (detailMovieId == null || !detailMovieAllowsRating()) {
     return;
   }
   const rating = appRatings.ratingFromSliderValue(Number(event.target.value));
@@ -4363,7 +4818,7 @@ function onDetailRatingSliderInput(event) {
 }
 
 function onDetailRatingSelectChange(event) {
-  if (detailMovieId == null) {
+  if (detailMovieId == null || !detailMovieAllowsRating()) {
     return;
   }
   const rating = appRatings.normalizeRating(event.target.value);
@@ -4374,7 +4829,7 @@ function onDetailRatingSelectChange(event) {
 }
 
 function clearDetailRating() {
-  if (detailMovieId == null) {
+  if (detailMovieId == null || !detailMovieAllowsRating()) {
     return;
   }
   if (!updateRatings(appRatings.removeRating(userState.ratings, detailMovieId))) {
@@ -5058,8 +5513,9 @@ viewModeCycleBtn.addEventListener("click", () => {
   render();
 });
 listSortSelect?.addEventListener("change", () => {
-  setSortMode(listSortSelect.value);
+  setSortField(listSortSelect.value);
 });
+sortReverseBtn?.addEventListener("click", toggleSortOrder);
 reorderModeBtn?.addEventListener("click", toggleReorderMode);
 
 /* --- Detail overlay --- */

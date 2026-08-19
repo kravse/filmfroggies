@@ -356,6 +356,58 @@ header {
   cursor: not-allowed;
 }
 
+.sort-reverse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  flex: none;
+}
+
+.sort-reverse-btn .sort-direction-icon--asc {
+  display: block;
+}
+
+.sort-reverse-btn .sort-direction-icon--desc {
+  display: none;
+}
+
+.sort-reverse-btn.is-descending .sort-direction-icon--asc {
+  display: none;
+}
+
+.sort-reverse-btn.is-descending .sort-direction-icon--desc {
+  display: block;
+}
+
+.sort-reverse-btn[hidden] {
+  display: none;
+}
+
+.sort-reverse-btn:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-dim);
+}
+
+.sort-reverse-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.sort-reverse-btn.is-ascending {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-dim);
+}
+
 .view-mode-btn {
   display: flex;
   align-items: center;

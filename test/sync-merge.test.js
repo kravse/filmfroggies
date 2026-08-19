@@ -32,11 +32,12 @@ function statusMap(entries) {
   return out;
 }
 
-function state({ watched = [], watchlist = [], statuses, updatedAt = null, ratings = {} }) {
+function state({ watched = [], watchlist = [], statuses, updatedAt = null, ratings = {}, addedAt = {} }) {
   return {
     updatedAt,
     lists: listsOf(watched, watchlist),
     ratings,
+    addedAt,
     statuses: statuses || {},
   };
 }
@@ -244,6 +245,23 @@ test("merging unions ratings and lets the newer payload settle a conflict", () =
   });
 
   assert.deepEqual(mergeUserStates(newer, older).ratings, { 1: 9, 2: 7 });
+});
+
+test("merging addedAt keeps the later stamp on conflict", () => {
+  const newer = state({
+    watched: [1],
+    statuses: statusMap([[1, "watched", T0]]),
+    addedAt: { 1: T2 },
+    updatedAt: T2,
+  });
+  const older = state({
+    watched: [1],
+    statuses: statusMap([[1, "watched", T0]]),
+    addedAt: { 1: T1 },
+    updatedAt: T1,
+  });
+
+  assert.deepEqual(mergeUserStates(newer, older).addedAt, { 1: T2 });
 });
 
 test("mergeUserStates falls back to whichever side exists", () => {

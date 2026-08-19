@@ -98,6 +98,9 @@ function updateRatings(nextRatings) {
 }
 
 function setMovieRating(movieId, rating) {
+  if (rating != null && !appLists.isWatched(userState.lists, movieId)) {
+    return false;
+  }
   const nextRatings = appRatings.setRating(userState.ratings, movieId, rating);
   if (!updateRatings(nextRatings)) {
     return false;
@@ -110,7 +113,11 @@ function updateLists(nextLists) {
   if (nextLists === userState.lists) {
     return false;
   }
-  userState = { ...userState, lists: nextLists };
+  userState = {
+    ...userState,
+    lists: nextLists,
+    ratings: appRatings.normalizeRatings(userState.ratings, nextLists),
+  };
   return true;
 }
 
@@ -124,6 +131,24 @@ function recordMovieStatus(movieId, status) {
     ...userState,
     statuses: appSyncMerge.setMovieStatus(userState.statuses, movieId, status),
   };
+}
+
+/** First add only; a removed movie being added again always gets a fresh stamp. */
+function recordAddedAt(movieId, at) {
+  const readded = appSyncMerge.isRemoved(userState.statuses, movieId);
+  const next = appAddedAt.recordAddedAt(userState.addedAt, movieId, at, { readded });
+  if (next === userState.addedAt) {
+    return;
+  }
+  userState = { ...userState, addedAt: next };
+}
+
+function updateAddedAt(nextAddedAt) {
+  if (nextAddedAt === userState.addedAt) {
+    return false;
+  }
+  userState = { ...userState, addedAt: nextAddedAt };
+  return true;
 }
 
 const VIEW_MODE_CYCLE = ["cards", "detail"];

@@ -145,8 +145,9 @@ viewModeCycleBtn.addEventListener("click", () => {
   render();
 });
 listSortSelect?.addEventListener("change", () => {
-  setSortMode(listSortSelect.value);
+  setSortField(listSortSelect.value);
 });
+sortReverseBtn?.addEventListener("click", toggleSortOrder);
 reorderModeBtn?.addEventListener("click", toggleReorderMode);
 
 /* --- Detail overlay --- */

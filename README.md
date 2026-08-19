@@ -32,7 +32,7 @@ The token is stored in your browser's `localStorage` under `moviecollector-tmdb-
 1. Type in the search box to get TMDB autocomplete. Arrow keys navigate, Enter or click adds the movie to the active list.
 2. Toggle **card** and **detail** view in the toolbar; the choice persists.
 3. Click any card to open the detail overlay — poster, year, runtime, genres, rating, director, cast, and overview. Arrow keys move between movies; Escape closes. Overlays deep-link as `#movie/{id}`.
-4. On **Watched**, use the **Sort** dropdown for display order (custom order, release year, fan rating, my rating, title). Sort never changes stored order; switch back to **Custom order** to drag-reorder. **Watchlist** is always manual order.
+4. On **Watched**, use the **Sort** dropdown for display order (custom order, date added, release year, fan rating, my rating, title). Sort never changes stored order; switch back to **Custom order** to drag-reorder. **Watchlist** is always manual order.
 5. On **Watched** or **Watchlist**, tap **reorder** (bottom left) to unlock drag handles when **Custom order** is selected. Tap again to lock when finished.
 6. **Settings** stores your TMDB token and, optionally, connects GitHub Gist sync so lists follow you across devices.
 
@@ -52,7 +52,7 @@ That leaves two states a movie can be in: on the watchlist, or watched. The rule
 
 | Key | Contents |
 |-----|----------|
-| `moviecollector-user-state` | The two lists with their ordered `movieIds`, per-movie statuses, active list, view preference |
+| `moviecollector-user-state` | The two lists with their ordered `movieIds`, per-movie statuses, ratings, date-added stamps, active list, view preference |
 | `moviecollector-user-state-backup` | The payload from just before the last merge, kept for recovery |
 | `moviecollector-tmdb-auth` | Your TMDB read access token only |
 | `moviecollector-hosted-session` | Opaque hosted-access session token (Netlify only; not synced) |
@@ -172,7 +172,7 @@ Vanilla HTML/CSS/JS — no TypeScript, no framework, no runtime dependencies. `e
 | Script | Purpose |
 |--------|---------|
 | `serve` | Local static server on port 8743 (`PORT` to override) |
-| `bundle` | Sync `js/app/00-*.js` from `scripts/lib/`, then concatenate `js/app-bundle.js` |
+| `bundle` | Sync `js/app/00-*.js` from `scripts/lib/`, concatenate `js/app-bundle.js`, and verify the bundle has no unguarded `require()` |
 | `scrape` | Refresh the `data/` snapshot from `data/my_list.csv` (needs `TMDB_READ_TOKEN`) |
 | `test` | Run Node tests (`test/`) |
 | `build` | Write the static site to `build/` |

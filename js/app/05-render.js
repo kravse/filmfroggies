@@ -42,6 +42,24 @@ function isFanRatingSortMode() {
   return sortMode === "rating-asc" || sortMode === "rating-desc";
 }
 
+function isUserRatingSortMode() {
+  if (!isWatchedListActive() || usesCustomDisplayOrder()) {
+    return false;
+  }
+  const sortMode = userState?.preferences.sort;
+  return sortMode === "user-rating-asc" || sortMode === "user-rating-desc";
+}
+
+function cardUnratedClass(movieId) {
+  if (!isUserRatingSortMode()) {
+    return "";
+  }
+  if (appRatings.getRating(userState.ratings, movieId) != null) {
+    return "";
+  }
+  return " is-unrated";
+}
+
 function cardFanRatingHtml(movieId) {
   if (!isWatchedListActive() || usesCustomDisplayOrder() || !isFanRatingSortMode()) {
     return "";
@@ -56,7 +74,7 @@ function cardFanRatingHtml(movieId) {
   return `<span class="card-fan-rating${emptyClass}" aria-label="Fan rating ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
 }
 
-function cardPosterRatingsHtml(movieId) {
+function cardDetailRatingsHtml(movieId) {
   if (gridViewMode !== "detail") {
     return "";
   }
@@ -65,7 +83,7 @@ function cardPosterRatingsHtml(movieId) {
   if (!fan && !user) {
     return "";
   }
-  return `<div class="card-poster-ratings">${fan}${user}</div>`;
+  return `<div class="card-body-ratings">${fan}${user}</div>`;
 }
 
 /**
@@ -79,36 +97,50 @@ function watchlistWatchBtnHtml() {
   return `<button type="button" class="card-watch-btn" aria-label="Mark as watched" title="Mark as watched">&#10003;</button>`;
 }
 
-function cardSortHintHtml(movieId) {
-  if (
-    gridViewMode !== "cards" ||
-    !isWatchedListActive() ||
-    usesCustomDisplayOrder()
-  ) {
+function cardSmallFooterYearText(movieId) {
+  const record = movieById.get(movieId);
+  if (!record) {
     return "";
   }
-  const sortMode = userState.preferences.sort;
-  const userRating = appRatings.getRating(userState.ratings, movieId);
-  const hint = appSort.formatSortCardHint(sortMode, {
-    record: movieById.get(movieId),
-    userRating,
-  });
-  if (!hint) {
+  return appCardHtml.formatYear(record.releaseDate);
+}
+
+function cardSmallFooterHtml(movieId) {
+  if (gridViewMode !== "cards") {
     return "";
   }
-  const isUserRatingSort =
-    sortMode === "user-rating-asc" || sortMode === "user-rating-desc";
-  const isFanRatingSort = isFanRatingSortMode();
-  let className = "card-sort-hint";
-  if (isUserRatingSort) {
-    className += " is-user-rating";
-    if (userRating == null) {
-      className += " is-empty";
+
+  let mainClass = "card-footer-main";
+  let mainText = "";
+
+  if (isWatchedListActive() && !usesCustomDisplayOrder()) {
+    const sortMode = userState.preferences.sort;
+    const userRating = appRatings.getRating(userState.ratings, movieId);
+    const isUserRatingSort = isUserRatingSortMode();
+
+    if (!isUserRatingSort && !isFanRatingSortMode()) {
+      const hint = appSort.formatSortCardHint(sortMode, {
+        record: movieById.get(movieId),
+        userRating,
+        addedAt: appAddedAt.getAddedAt(userState.addedAt, movieId),
+      });
+      if (hint) {
+        mainText = hint;
+      }
     }
-  } else if (isFanRatingSort) {
-    className += " is-fan-rating";
   }
-  return `<div class="${className}">${appCardHtml.escapeHtml(hint)}</div>`;
+
+  if (!mainText) {
+    mainText = cardSmallFooterYearText(movieId);
+  }
+
+  const fanChip = cardFanRatingHtml(movieId);
+  const userChip = cardUserRatingHtml(movieId);
+  const ratingChips =
+    fanChip || userChip
+      ? `<div class="card-footer-ratings">${fanChip}${userChip}</div>`
+      : "";
+  return `<div class="card-footer"><div class="${mainClass}">${appCardHtml.escapeHtml(mainText)}</div>${ratingChips}</div>`;
 }
 
 function cardPosterOnlyHtml(movieId) {
@@ -118,12 +150,12 @@ function cardPosterOnlyHtml(movieId) {
     const body = failed
       ? `<div class="placeholder">Could not load</div>`
       : `<div class="placeholder"></div>`;
-    return `<div class="poster-wrap">${body}</div>${cardSortHintHtml(movieId)}`;
+    return `<div class="poster-wrap">${body}</div>${cardSmallFooterHtml(movieId)}`;
   }
   const grip = listShowsReorderGrip()
     ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>`
     : "";
-  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}${watchlistWatchBtnHtml()}</div>${cardSortHintHtml(movieId)}`;
+  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}${watchlistWatchBtnHtml()}</div>${cardSmallFooterHtml(movieId)}`;
 }
 
 function listShowsReorderGrip() {
@@ -137,14 +169,30 @@ function listShowsReorderGrip() {
 function syncSortControlUi() {
   const show =
     isWatchedListActive() && activeMovieIds().length > 0 && hasMovieData();
+  const sort = userState.preferences.sort;
+  const custom = appSort.isCustomSort(sort);
   if (sortControl) {
     sortControl.hidden = !show;
   }
   if (listSortSelect) {
     if (show) {
-      listSortSelect.value = userState.preferences.sort;
+      listSortSelect.value = appSort.getSortField(sort);
       listSortSelect.disabled = reorderModeActive;
     }
+  }
+  if (sortReverseBtn) {
+    sortReverseBtn.hidden = !show || custom;
+    sortReverseBtn.disabled = reorderModeActive;
+    const descending = appSort.isSortDescending(sort);
+    const field = appSort.getSortField(sort);
+    sortReverseBtn.classList.toggle("is-descending", descending);
+    sortReverseBtn.classList.toggle("is-ascending", !descending);
+    const directionLabel = appSort.sortDirectionLabel(field, descending);
+    sortReverseBtn.title = `${directionLabel} · click to reverse`;
+    sortReverseBtn.setAttribute(
+      "aria-label",
+      `Sort order: ${directionLabel}. Reverse.`,
+    );
   }
 }
 
@@ -190,6 +238,17 @@ function setSortMode(mode) {
   render();
 }
 
+function setSortField(field) {
+  setSortMode(appSort.sortModeForField(field, userState.preferences.sort));
+}
+
+function toggleSortOrder() {
+  if (appSort.isCustomSort(userState.preferences.sort)) {
+    return;
+  }
+  setSortMode(appSort.toggleSortDirection(userState.preferences.sort));
+}
+
 function setReorderMode(active) {
   const next = Boolean(active);
   if (reorderModeActive === next) {
@@ -228,7 +287,6 @@ function cardInnerHtml(movieId) {
 
   return `<div class="poster-wrap">
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
-  ${cardPosterRatingsHtml(movieId)}
   ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
   ${watchlistWatchBtnHtml()}
   <button type="button" class="card-remove" aria-label="Remove ${appCardHtml.escapeHtml(record.title)}" title="Remove movie">&times;</button>
@@ -236,7 +294,10 @@ function cardInnerHtml(movieId) {
 <div class="card-body">
   <div class="card-text">
     <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>
-    <div class="card-meta">${cardMetaText(record)}</div>
+    <div class="card-meta-row">
+      <div class="card-meta">${cardMetaText(record)}</div>
+      ${cardDetailRatingsHtml(movieId)}
+    </div>
   </div>
 </div>`;
 }
@@ -250,7 +311,7 @@ function rowInnerHtml(movieId) {
       : " is-skeleton";
   const title = record ? appCardHtml.escapeHtml(record.title) : `Movie ${movieId}`;
 
-  return `<article class="card${stateClass}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
+  return `<article class="card${stateClass}${cardUnratedClass(movieId)}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
 ${cardInnerHtml(movieId)}
 </article>`;
 }
@@ -463,6 +524,7 @@ function removeMovieFromCollection(movieId) {
     return;
   }
   updateRatings(appRatings.removeRating(userState.ratings, movieId));
+  updateAddedAt(appAddedAt.removeAddedAt(userState.addedAt, movieId));
   recordMovieStatus(movieId, appSyncMerge.REMOVED_STATUS);
   persistUserState();
   if (detailMovieId === movieId) {

@@ -74,12 +74,18 @@ test("ratingSelectInnerHtml can include an unrated option for add-movie", () => 
   assert.doesNotMatch(rated, /value="" selected/);
 });
 
-test("normalizeRatings keeps only valid ratings for movies in lists", () => {
+test("normalizeRatings keeps only valid ratings for watched movies", () => {
   const normalized = normalizeRatings(
     { 1: 8.5, 2: "7", 3: 11, 4: 6, 5: 2.25 },
     sampleLists,
   );
-  assert.deepEqual(normalized, { 1: 8.5, 2: 7, 3: 10 });
+  assert.deepEqual(normalized, { 1: 8.5, 2: 7 });
+});
+
+test("isRatingAllowed is true only for movies on watched", () => {
+  const { isRatingAllowed } = require("../scripts/lib/ratings");
+  assert.equal(isRatingAllowed(sampleLists, 1), true);
+  assert.equal(isRatingAllowed(sampleLists, 3), false);
 });
 
 test("setRating and removeRating are immutable no-ops when unchanged", () => {

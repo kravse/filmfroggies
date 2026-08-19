@@ -40,6 +40,16 @@ const appUserState = (function () {
     throw new Error("appRatings is not available");
   }
 
+  function getAddedAt() {
+    if (typeof appAddedAt !== "undefined") {
+      return appAddedAt;
+    }
+    if (typeof require === "function") {
+      return require("./added-at");
+    }
+    throw new Error("appAddedAt is not available");
+  }
+
   function getSort() {
     if (typeof appSort !== "undefined") {
       return appSort;
@@ -61,7 +71,7 @@ const appUserState = (function () {
   }
 
   function defaultPreferences() {
-    return { viewMode: "cards", sort: getSort().DEFAULT_SORT };
+    return { viewMode: "cards", sort: getSort().DEFAULT_PREFERENCE_SORT };
   }
 
   function defaultUserState() {
@@ -74,6 +84,7 @@ const appUserState = (function () {
       activeListId: lists.DEFAULT_LIST_ID,
       preferences: defaultPreferences(),
       ratings: {},
+      addedAt: {},
       statuses: {},
     };
   }
@@ -107,6 +118,12 @@ const appUserState = (function () {
       activeListId = lists.WATCHED_ID;
     }
 
+    const statuses = getSyncMerge().normalizeStatuses(
+      raw.statuses,
+      normalizedLists,
+      raw.updatedAt,
+    );
+
     return {
       version: USER_STATE_VERSION,
       updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : null,
@@ -117,11 +134,8 @@ const appUserState = (function () {
         : lists.DEFAULT_LIST_ID,
       preferences: normalizePreferences(raw.preferences),
       ratings: getRatings().normalizeRatings(raw.ratings, normalizedLists),
-      statuses: getSyncMerge().normalizeStatuses(
-        raw.statuses,
-        normalizedLists,
-        raw.updatedAt,
-      ),
+      addedAt: getAddedAt().normalizeAddedAt(raw.addedAt, normalizedLists),
+      statuses,
     };
   }
 
@@ -170,6 +184,7 @@ const appUserState = (function () {
       preferences: normalized.preferences,
       lists: normalized.lists.map((list) => [list.id, list.movieIds]),
       ratings: sortedIdMap(normalized.ratings),
+      addedAt: sortedIdMap(normalized.addedAt),
       statuses: sortedIdMap(normalized.statuses),
     });
   }

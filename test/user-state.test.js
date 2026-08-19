@@ -49,6 +49,17 @@ test("normalizeUserState backfills statuses from list membership", () => {
   });
 });
 
+test("normalizeUserState backfills missing addedAt from list order", () => {
+  const state = normalizeUserState({
+    lists: [
+      { id: "watched", movieIds: [1, 2] },
+      { id: "watchlist", movieIds: [3] },
+    ],
+  });
+  assert.ok(Date.parse(state.addedAt["1"]) < Date.parse(state.addedAt["2"]));
+  assert.ok(Date.parse(state.addedAt["2"]) < Date.parse(state.addedAt["3"]));
+});
+
 test("a removal record survives a serialize and parse round trip", () => {
   const json = serializeUserState({
     updatedAt: "2026-08-02T00:00:00.000Z",
@@ -87,12 +98,14 @@ test("defaultUserState starts on local storage with the two preset lists", () =>
   assert.equal(state.version, USER_STATE_VERSION);
   assert.equal(state.storageMode, "local");
   assert.equal(state.activeListId, "watched");
+  assert.equal(state.preferences.sort, "user-rating-desc");
   assert.deepEqual(
     state.lists.map((list) => list.id),
     ["watched", "watchlist"],
   );
   assert.equal(state.updatedAt, null);
   assert.deepEqual(state.ratings, {});
+  assert.deepEqual(state.addedAt, {});
 });
 
 test("the serialized payload carries no credential fields", () => {
@@ -105,19 +118,19 @@ test("the serialized payload carries no credential fields", () => {
 test("normalizePreferences rejects an unknown view mode and migrates list to cards", () => {
   assert.deepEqual(normalizePreferences({ viewMode: "carousel" }), {
     viewMode: "cards",
-    sort: "custom",
+    sort: "user-rating-desc",
   });
   assert.deepEqual(normalizePreferences({ viewMode: "cards" }), {
     viewMode: "cards",
-    sort: "custom",
+    sort: "user-rating-desc",
   });
   assert.deepEqual(normalizePreferences({ viewMode: "detail" }), {
     viewMode: "detail",
-    sort: "custom",
+    sort: "user-rating-desc",
   });
   assert.deepEqual(normalizePreferences({ viewMode: "list" }), {
     viewMode: "cards",
-    sort: "custom",
+    sort: "user-rating-desc",
   });
 });
 
@@ -128,7 +141,7 @@ test("normalizePreferences normalizes watched sort modes", () => {
   });
   assert.deepEqual(normalizePreferences({ sort: "invalid" }), {
     viewMode: "cards",
-    sort: "custom",
+    sort: "user-rating-desc",
   });
 });
 
@@ -166,12 +179,12 @@ test("normalizeUserState cleans movie ids inside lists", () => {
   assert.deepEqual(watched.movieIds, [5, 6]);
 });
 
-test("normalizeUserState normalizes ratings to movies in lists", () => {
+test("normalizeUserState normalizes ratings to watched movies only", () => {
   const state = normalizeUserState({
     lists: [{ id: "watchlist", name: "Watchlist", movieIds: [42] }],
     ratings: { 42: 8.25, 99: 7 },
   });
-  assert.deepEqual(state.ratings, { 42: 8.3 });
+  assert.deepEqual(state.ratings, {});
 });
 
 test("parseUserState round-trips a serialized state", () => {

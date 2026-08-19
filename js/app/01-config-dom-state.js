@@ -34,6 +34,7 @@ const addMovieBack = document.getElementById("add-movie-back");
 const viewModeCycleBtn = document.getElementById("view-mode-cycle");
 const sortControl = document.getElementById("sort-control");
 const listSortSelect = document.getElementById("list-sort");
+const sortReverseBtn = document.getElementById("sort-reverse");
 const reorderModeBtn = document.getElementById("reorder-mode-btn");
 const grid = document.getElementById("grid");
 const emptyState = document.getElementById("empty-state");
@@ -141,6 +142,7 @@ function displayMovieIds() {
   return appSort.sortMovieIds(ids, userState.preferences.sort, {
     getRecord: (id) => movieById.get(id),
     getUserRating: (id) => appRatings.getRating(userState.ratings, id),
+    getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
   });
 }
 

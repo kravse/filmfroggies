@@ -34,6 +34,16 @@ function getLists() {
   throw new Error("appLists is not available");
 }
 
+function getAddedAt() {
+  if (typeof appAddedAt !== "undefined") {
+    return appAddedAt;
+  }
+  if (typeof require === "function") {
+    return require("./added-at");
+  }
+  throw new Error("appAddedAt is not available");
+}
+
 function parseStamp(value) {
   const time = Date.parse(value || "");
   return Number.isFinite(time) ? time : null;
@@ -255,6 +265,10 @@ function mergeUserStates(a, b) {
       ...(secondary.ratings && typeof secondary.ratings === "object" ? secondary.ratings : {}),
       ...(primary.ratings && typeof primary.ratings === "object" ? primary.ratings : {}),
     },
+    addedAt: getAddedAt().mergeAddedAt(
+      secondary.addedAt && typeof secondary.addedAt === "object" ? secondary.addedAt : {},
+      primary.addedAt && typeof primary.addedAt === "object" ? primary.addedAt : {},
+    ),
     statuses,
   };
 }
