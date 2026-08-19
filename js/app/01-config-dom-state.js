@@ -172,6 +172,8 @@ let detailRatingEditorSnapshot = null;
 let detailListPickerOpen = false;
 /** Staged custom-list membership while the detail list editor is open. */
 let detailListPickerSelectedIds = new Set();
+/** Staged preset-list membership while the detail list editor is open. */
+let detailListPickerSelectedPresets = new Set();
 let pendingRemoveMovieId = null;
 let pendingWatchMovieId = null;
 let pendingCustomListDeleteId = null;

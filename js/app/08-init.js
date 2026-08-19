@@ -185,6 +185,10 @@ detailListsDialog?.addEventListener("click", (event) => {
     toggleDetailListPickerChip(listToggleChip.dataset.detailListToggleId);
     return;
   }
+  const presetToggleChip = event.target.closest("[data-detail-preset-toggle-id]");
+  if (presetToggleChip) {
+    toggleDetailPresetPickerChip(presetToggleChip.dataset.detailPresetToggleId);
+  }
 });
 
 detailCloseBtn.addEventListener("click", () => closeDetail());
@@ -229,14 +233,9 @@ detailDialog.addEventListener("click", (event) => {
     toggleDetailListPickerChip(listToggleChip.dataset.detailListToggleId);
     return;
   }
-  const discoverPreset = event.target.closest("[data-discover-preset]");
-  if (discoverPreset) {
-    addDiscoverMovieToPreset(discoverPreset.dataset.discoverPreset);
-    return;
-  }
-  const discoverCustom = event.target.closest("[data-discover-custom-list-id]");
-  if (discoverCustom) {
-    toggleDiscoverCustomListMembership(discoverCustom.dataset.discoverCustomListId);
+  const presetToggleChip = event.target.closest("[data-detail-preset-toggle-id]");
+  if (presetToggleChip) {
+    toggleDetailPresetPickerChip(presetToggleChip.dataset.detailPresetToggleId);
   }
 });
 delegateRangeSliderLiveInput(detailDialog, "detail-rating-slider", onDetailRatingSliderInput);

@@ -174,6 +174,8 @@ let detailRatingEditorSnapshot = null;
 let detailListPickerOpen = false;
 /** Staged custom-list membership while the detail list editor is open. */
 let detailListPickerSelectedIds = new Set();
+/** Staged preset-list membership while the detail list editor is open. */
+let detailListPickerSelectedPresets = new Set();
 let pendingRemoveMovieId = null;
 let pendingWatchMovieId = null;
 let pendingCustomListDeleteId = null;
@@ -6049,22 +6051,40 @@ async function fetchDiscoverMovies(tab, options = {}) {
     const signal = options.signal;
     const buildUrl =
       normalizedTab === "now-playing" ? appTmdb.buildNowPlayingUrl : appTmdb.buildUpcomingUrl;
-    const pages = [];
     const todayIso = appDiscover.todayIsoDate();
-    for (let page = 1; page <= appDiscover.DISCOVER_PAGES; page++) {
+    const mergeOpts = {
+      filterUpcoming: normalizedTab === "upcoming",
+      todayIso,
+    };
+    const pages = new Array(appDiscover.DISCOVER_PAGES);
+    let partialEmitted = false;
+
+    const fetchPage = async (pageIndex) => {
       const payload = await fetchTmdb(
         buildUrl({
-          page,
+          page: pageIndex + 1,
           today: todayIso,
         }),
         { signal },
       ).then((response) => response.json());
-      pages.push(appTmdb.normalizeSearchResults(payload));
-    }
-    return appDiscover.mergeDiscoverListEntries(pages, {
-      filterUpcoming: normalizedTab === "upcoming",
-      todayIso,
-    });
+      pages[pageIndex] = appTmdb.normalizeSearchResults(payload);
+      if (
+        pageIndex === 0 &&
+        !partialEmitted &&
+        typeof options.onPartialEntries === "function"
+      ) {
+        partialEmitted = true;
+        options.onPartialEntries(appDiscover.mergeDiscoverListEntries([pages[0]], mergeOpts));
+      }
+    };
+
+    await Promise.all(
+      Array.from({ length: appDiscover.DISCOVER_PAGES }, (_, pageIndex) => fetchPage(pageIndex)),
+    );
+    return appDiscover.mergeDiscoverListEntries(
+      pages.filter((page) => Array.isArray(page)),
+      mergeOpts,
+    );
   })();
 
   discoverInflight.set(memoKey, promise);
@@ -7704,11 +7724,25 @@ function detailMovieAllowsRating() {
   );
 }
 
-function detailMovieShowsListsBlock(movieId) {
-  if (appLists.isWatched(userState.lists, movieId)) {
-    return true;
+function detailPresetListAllowed(listId) {
+  if (!appLists.isListId(listId)) {
+    return false;
   }
-  return appCustomLists.customListsForMovie(userState.customLists, movieId).length > 0;
+  if (listId === appLists.WATCHED_ID && isDiscoverActive() && discoverTab !== "now-playing") {
+    return false;
+  }
+  return true;
+}
+
+function detailPresetMembershipChipsHtml(movieId) {
+  const chips = [];
+  if (appLists.isWatched(userState.lists, movieId)) {
+    chips.push(`<span class="add-custom-list-chip is-member is-static">Watched</span>`);
+  }
+  if (appLists.isOnWatchlist(userState.lists, movieId)) {
+    chips.push(`<span class="add-custom-list-chip is-member is-static">Watchlist</span>`);
+  }
+  return chips.join("");
 }
 
 function detailListMembershipChipsHtml(movieId) {
@@ -7725,19 +7759,46 @@ function syncDetailListPickerSelection(movieId) {
   detailListPickerSelectedIds = new Set(
     appCustomLists.customListsForMovie(userState.customLists, movieId).map((list) => list.id),
   );
+  detailListPickerSelectedPresets = new Set();
+  if (appLists.isWatched(userState.lists, movieId)) {
+    detailListPickerSelectedPresets.add(appLists.WATCHED_ID);
+  }
+  if (appLists.isOnWatchlist(userState.lists, movieId)) {
+    detailListPickerSelectedPresets.add(appLists.WATCHLIST_ID);
+  }
+}
+
+function detailPresetListPickerHtml() {
+  const chips = appLists.PRESET_LISTS.filter((preset) => detailPresetListAllowed(preset.id)).map(
+    (preset) => {
+      const selected = detailListPickerSelectedPresets.has(preset.id);
+      return `<button type="button" class="add-custom-list-chip detail-preset-chip" data-detail-preset-toggle-id="${appCardHtml.escapeHtml(preset.id)}" aria-pressed="${selected}">${appCardHtml.escapeHtml(preset.name)}</button>`;
+    },
+  );
+  if (!chips.length) {
+    return "";
+  }
+  return `<p class="detail-lists-editor-section-label">Watched &amp; watchlist</p>
+<div class="add-custom-list-picker detail-preset-list-picker">${chips.join("")}</div>`;
 }
 
 function detailAddToListPickerHtml(movieId) {
   const allLists = userState.customLists || [];
   if (!allLists.length) {
-    return `<p class="detail-add-to-list-hint"><a href="#lists" class="detail-add-to-list-link">Create lists…</a></p>`;
+    return `<p class="detail-lists-editor-section-label">Custom lists</p>
+<p class="detail-add-to-list-hint"><a href="#lists" class="detail-add-to-list-link">Create lists…</a></p>`;
   }
-  return `<div class="add-custom-list-picker detail-custom-list-picker">${allLists
+  return `<p class="detail-lists-editor-section-label">Custom lists</p>
+<div class="add-custom-list-picker detail-custom-list-picker">${allLists
     .map((list) => {
       const selected = detailListPickerSelectedIds.has(list.id);
       return `<button type="button" class="add-custom-list-chip" data-detail-list-toggle-id="${appCardHtml.escapeHtml(list.id)}" aria-pressed="${selected}">${appCardHtml.escapeHtml(list.name)}</button>`;
     })
     .join("")}</div>`;
+}
+
+function detailListsEditorBodyHtml(movieId) {
+  return `${detailPresetListPickerHtml()}${detailAddToListPickerHtml(movieId)}`;
 }
 
 function detailListsEditorUsesOverlay() {
@@ -7748,7 +7809,7 @@ function renderDetailListsOverlay() {
   if (!detailListsDialogBody || detailMovieId == null) {
     return;
   }
-  detailListsDialogBody.innerHTML = detailAddToListPickerHtml(detailMovieId);
+  detailListsDialogBody.innerHTML = detailListsEditorBodyHtml(detailMovieId);
 }
 
 function openDetailListsOverlay() {
@@ -7773,10 +7834,7 @@ function syncDetailListsPickerUi() {
 }
 
 function detailListsBlockHtml(movieId) {
-  if (!detailMovieShowsListsBlock(movieId)) {
-    return "";
-  }
-  const membership = detailListMembershipChipsHtml(movieId);
+  const membership = `${detailPresetMembershipChipsHtml(movieId)}${detailListMembershipChipsHtml(movieId)}`;
   const membershipHtml = membership
     ? membership
     : `<span class="detail-lists-empty">Not on any lists</span>`;
@@ -7799,7 +7857,7 @@ function detailListsBlockHtml(movieId) {
       <span class="detail-lists-editor-title">Lists</span>
     </div>
     <div class="detail-lists-editor-body">
-      ${detailAddToListPickerHtml(movieId)}
+      ${detailListsEditorBodyHtml(movieId)}
     </div>
     <div class="detail-lists-editor-actions">
       <button type="button" class="detail-lists-save-btn" id="detail-lists-save">Save</button>
@@ -7808,13 +7866,48 @@ function detailListsBlockHtml(movieId) {
 </div>`;
 }
 
+function applyDetailPresetMembershipFromPicker(movieId) {
+  const wantWatched = detailListPickerSelectedPresets.has(appLists.WATCHED_ID);
+  const wantWatchlist = detailListPickerSelectedPresets.has(appLists.WATCHLIST_ID);
+  const hasWatched = appLists.isWatched(userState.lists, movieId);
+  const hasWatchlist = appLists.isOnWatchlist(userState.lists, movieId);
+  let nextLists = userState.lists;
+  let changed = false;
+
+  if (wantWatched) {
+    if (!hasWatched) {
+      nextLists = appLists.assignMovieToList(nextLists, appLists.WATCHED_ID, movieId);
+      recordMovieStatus(movieId, appLists.WATCHED_ID);
+      recordAddedAt(movieId);
+      changed = true;
+    }
+  } else if (wantWatchlist) {
+    if (!hasWatchlist) {
+      nextLists = appLists.assignMovieToList(nextLists, appLists.WATCHLIST_ID, movieId);
+      recordMovieStatus(movieId, appLists.WATCHLIST_ID);
+      recordAddedAt(movieId);
+      changed = true;
+    }
+  } else if (hasWatched || hasWatchlist) {
+    nextLists = appLists.removeMovie(nextLists, movieId);
+    recordMovieStatus(movieId, appSyncMerge.REMOVED_STATUS);
+    changed = true;
+  }
+
+  if (changed && !updateLists(nextLists)) {
+    return false;
+  }
+  return changed;
+}
+
 function saveDetailListPicker() {
   if (detailMovieId == null) {
     return;
   }
   const movieId = detailMovieId;
+  const listsChanged = applyDetailPresetMembershipFromPicker(movieId);
   let nextLists = userState.customLists;
-  let changed = false;
+  let customChanged = false;
 
   for (const list of userState.customLists || []) {
     const isMember = list.movieIds.includes(movieId);
@@ -7823,31 +7916,63 @@ function saveDetailListPicker() {
       const updated = appCustomLists.addMovieToCustomList(nextLists, list.id, movieId);
       if (updated !== nextLists) {
         nextLists = updated;
-        changed = true;
+        customChanged = true;
       }
     } else if (!shouldBeMember && isMember) {
       const updated = appCustomLists.removeMovieFromCustomList(nextLists, list.id, movieId);
       if (updated !== nextLists) {
         nextLists = updated;
-        changed = true;
+        customChanged = true;
       }
     }
   }
 
   detailListPickerOpen = false;
   detailListPickerSelectedIds.clear();
+  detailListPickerSelectedPresets.clear();
   closeDetailListsOverlay();
 
-  if (changed) {
+  if (customChanged) {
     persistCustomLists(nextLists);
+  }
+  if (listsChanged && !customChanged) {
+    persistUserState();
+  }
+
+  if (listsChanged || customChanged) {
     if (isCustomListDetailActive() && !activeMovieIds().includes(movieId)) {
       closeDetail();
-      render();
+      if (isDiscoverActive()) {
+        renderDiscover();
+      } else {
+        render();
+      }
       return;
     }
-    render();
+    if (isDiscoverActive()) {
+      renderDiscover();
+    } else {
+      render();
+    }
   }
   renderDetail();
+}
+
+function toggleDetailPresetPickerChip(listId) {
+  if (!detailPresetListAllowed(listId)) {
+    return;
+  }
+  if (detailListPickerSelectedPresets.has(listId)) {
+    detailListPickerSelectedPresets.delete(listId);
+  } else {
+    if (listId === appLists.WATCHED_ID) {
+      detailListPickerSelectedPresets.delete(appLists.WATCHLIST_ID);
+    } else if (listId === appLists.WATCHLIST_ID) {
+      detailListPickerSelectedPresets.delete(appLists.WATCHED_ID);
+    }
+    detailListPickerSelectedPresets.add(listId);
+  }
+  syncDetailListsPickerUi();
 }
 
 function toggleDetailListPickerChip(listId) {
@@ -7868,6 +7993,7 @@ function closeDetailListPicker() {
   }
   detailListPickerOpen = false;
   detailListPickerSelectedIds.clear();
+  detailListPickerSelectedPresets.clear();
   closeDetailListsOverlay();
   renderDetail();
 }
@@ -7889,57 +8015,6 @@ function toggleDetailListPicker() {
     return;
   }
   renderDetail();
-}
-
-function detailDiscoverPresetButtonHtml(listId, label, iconHtml) {
-  return `<button type="button" class="add-list-option detail-discover-add-btn" data-discover-preset="${appCardHtml.escapeHtml(listId)}" aria-pressed="false">
-  ${iconHtml}
-  <span class="add-list-name">${appCardHtml.escapeHtml(label)}</span>
-</button>`;
-}
-
-function detailDiscoverAddBlockHtml(movieId) {
-  if (!isDiscoverActive()) {
-    return "";
-  }
-  const inCollection = appLists.findListIdsForMovie(userState.lists, movieId).length > 0;
-  if (inCollection) {
-    const statusId = appLists.primaryListIdForMovie(userState.lists, movieId);
-    const status = statusId ? appLists.findList(userState.lists, statusId) : null;
-    const label = status ? `In ${status.name}` : "In your collection";
-    return `<p class="detail-discover-status">${appCardHtml.escapeHtml(label)}</p>`;
-  }
-
-  const watchedIcon = `<span class="add-list-icon" aria-hidden="true">✓</span>`;
-  const watchlistIcon = `<span class="add-list-icon add-list-icon-watchlist" aria-hidden="true">
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
-    </svg>
-  </span>`;
-
-  const presetBtns = [];
-  if (discoverTab === "now-playing") {
-    presetBtns.push(detailDiscoverPresetButtonHtml(appLists.WATCHED_ID, "Watched", watchedIcon));
-  }
-  presetBtns.push(
-    detailDiscoverPresetButtonHtml(appLists.WATCHLIST_ID, "Watchlist", watchlistIcon),
-  );
-
-  const customLists = userState.customLists || [];
-  const customHtml = customLists.length
-    ? `<p class="detail-discover-custom-label">Custom lists</p><div class="add-custom-list-picker detail-discover-custom-picker">${customLists
-        .map((list) => {
-          const selected = list.movieIds.includes(movieId);
-          return `<button type="button" class="add-custom-list-chip${selected ? " is-member" : ""}" data-discover-custom-list-id="${appCardHtml.escapeHtml(list.id)}" aria-pressed="${selected}">${appCardHtml.escapeHtml(list.name)}</button>`;
-        })
-        .join("")}</div>`
-    : `<p class="detail-add-to-list-hint"><a href="#lists" class="detail-add-to-list-link">Create lists…</a></p>`;
-
-  return `<div class="detail-discover-add-block" id="detail-discover-add-block">
-  <p class="detail-discover-add-label">Add to</p>
-  <div class="detail-discover-preset-btns add-list-picker">${presetBtns.join("")}</div>
-  ${customHtml}
-</div>`;
 }
 
 function detailUserRatingBlockHtml(movieId) {
@@ -8071,6 +8146,7 @@ function openDetailRatingEditor() {
   detailRatingEditorSnapshot = appRatings.getRating(userState.ratings, detailMovieId);
   detailListPickerOpen = false;
   detailListPickerSelectedIds.clear();
+  detailListPickerSelectedPresets.clear();
   closeDetailListsOverlay();
   detailRatingEditorOpen = true;
   renderDetail();
@@ -8198,7 +8274,6 @@ ${record.tagline ? `<p class="movie-detail-tagline">${appCardHtml.escapeHtml(rec
 ${detailUserRatingBlockHtml(detailMovieId)}
 <p class="movie-detail-overview">${appCardHtml.escapeHtml(record.overview || "No overview available.")}</p>
 <div class="movie-detail-credits">${detailCreditsHtml(record)}</div>
-${detailDiscoverAddBlockHtml(detailMovieId)}
 ${detailListsBlockHtml(detailMovieId)}`;
   }
 
@@ -8244,6 +8319,7 @@ function openDetail(movieId, options = {}) {
   detailRatingEditorSnapshot = null;
   detailListPickerOpen = false;
   detailListPickerSelectedIds.clear();
+  detailListPickerSelectedPresets.clear();
   closeDetailListsOverlay();
   detailDialog.hidden = false;
   document.body.classList.add("movie-detail-open");
@@ -8278,6 +8354,7 @@ function closeDetail(options = {}) {
   detailRatingEditorSnapshot = null;
   detailListPickerOpen = false;
   detailListPickerSelectedIds.clear();
+  detailListPickerSelectedPresets.clear();
   closeDetailListsOverlay();
   detailDialog.hidden = true;
   document.body.classList.remove("movie-detail-open");
@@ -8300,6 +8377,7 @@ function stepDetail(delta) {
   detailRatingEditorSnapshot = null;
   detailListPickerOpen = false;
   detailListPickerSelectedIds.clear();
+  detailListPickerSelectedPresets.clear();
   closeDetailListsOverlay();
   history.replaceState(
     { detailMovieId, appView, activeCustomListId, discoverTab: isDiscoverActive() ? discoverTab : null },
@@ -10115,7 +10193,19 @@ async function loadDiscoverTab(tab, options = {}) {
   }
 
   try {
-    const entries = await fetchDiscoverMovies(discoverTab);
+    let firstPaint = false;
+    const entries = await fetchDiscoverMovies(discoverTab, {
+      onPartialEntries(partialEntries) {
+        if (token !== discoverLoadToken || firstPaint) {
+          return;
+        }
+        firstPaint = true;
+        discoverMovieIds = partialEntries.map((entry) => entry.id);
+        seedDiscoverMovieStubs(partialEntries);
+        discoverLoading = false;
+        renderDiscoverAfterLoad();
+      },
+    });
     if (token !== discoverLoadToken) {
       return;
     }
@@ -10165,51 +10255,6 @@ function onDiscoverTabClick(event) {
 
 function openDiscover() {
   navigateToDiscover(appDiscover.DEFAULT_DISCOVER_TAB);
-}
-
-function addDiscoverMovieToPreset(presetListId) {
-  if (detailMovieId == null || !isDiscoverActive()) {
-    return;
-  }
-  if (presetListId === appLists.WATCHED_ID && discoverTab !== "now-playing") {
-    return;
-  }
-  const movieId = detailMovieId;
-  const nextLists = appLists.assignMovieToList(userState.lists, presetListId, movieId);
-  if (!updateLists(nextLists)) {
-    return;
-  }
-  recordAddedAt(movieId);
-  recordMovieStatus(movieId, presetListId);
-  persistUserState();
-  renderDiscover();
-  renderDetail();
-}
-
-function toggleDiscoverCustomListMembership(listId) {
-  if (detailMovieId == null || !isDiscoverActive()) {
-    return;
-  }
-  const movieId = detailMovieId;
-  const list = appCustomLists.findCustomList(userState.customLists, listId);
-  if (!list) {
-    return;
-  }
-  const isMember = list.movieIds.includes(movieId);
-  const nextLists = isMember
-    ? appCustomLists.removeMovieFromCustomList(userState.customLists, listId, movieId)
-    : appCustomLists.addMovieToCustomList(userState.customLists, listId, movieId);
-  if (nextLists === userState.customLists) {
-    return;
-  }
-  userState = {
-    ...userState,
-    customLists: nextLists,
-    ratings: appRatings.normalizeRatings(userState.ratings, userState.lists, nextLists),
-  };
-  persistUserState();
-  renderDiscover();
-  renderDetail();
 }
 
 /* ===== Event wiring and startup ===== */
@@ -10401,6 +10446,10 @@ detailListsDialog?.addEventListener("click", (event) => {
     toggleDetailListPickerChip(listToggleChip.dataset.detailListToggleId);
     return;
   }
+  const presetToggleChip = event.target.closest("[data-detail-preset-toggle-id]");
+  if (presetToggleChip) {
+    toggleDetailPresetPickerChip(presetToggleChip.dataset.detailPresetToggleId);
+  }
 });
 
 detailCloseBtn.addEventListener("click", () => closeDetail());
@@ -10445,14 +10494,9 @@ detailDialog.addEventListener("click", (event) => {
     toggleDetailListPickerChip(listToggleChip.dataset.detailListToggleId);
     return;
   }
-  const discoverPreset = event.target.closest("[data-discover-preset]");
-  if (discoverPreset) {
-    addDiscoverMovieToPreset(discoverPreset.dataset.discoverPreset);
-    return;
-  }
-  const discoverCustom = event.target.closest("[data-discover-custom-list-id]");
-  if (discoverCustom) {
-    toggleDiscoverCustomListMembership(discoverCustom.dataset.discoverCustomListId);
+  const presetToggleChip = event.target.closest("[data-detail-preset-toggle-id]");
+  if (presetToggleChip) {
+    toggleDetailPresetPickerChip(presetToggleChip.dataset.detailPresetToggleId);
   }
 });
 delegateRangeSliderLiveInput(detailDialog, "detail-rating-slider", onDetailRatingSliderInput);

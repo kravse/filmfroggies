@@ -105,7 +105,19 @@ async function loadDiscoverTab(tab, options = {}) {
   }
 
   try {
-    const entries = await fetchDiscoverMovies(discoverTab);
+    let firstPaint = false;
+    const entries = await fetchDiscoverMovies(discoverTab, {
+      onPartialEntries(partialEntries) {
+        if (token !== discoverLoadToken || firstPaint) {
+          return;
+        }
+        firstPaint = true;
+        discoverMovieIds = partialEntries.map((entry) => entry.id);
+        seedDiscoverMovieStubs(partialEntries);
+        discoverLoading = false;
+        renderDiscoverAfterLoad();
+      },
+    });
     if (token !== discoverLoadToken) {
       return;
     }
@@ -155,49 +167,4 @@ function onDiscoverTabClick(event) {
 
 function openDiscover() {
   navigateToDiscover(appDiscover.DEFAULT_DISCOVER_TAB);
-}
-
-function addDiscoverMovieToPreset(presetListId) {
-  if (detailMovieId == null || !isDiscoverActive()) {
-    return;
-  }
-  if (presetListId === appLists.WATCHED_ID && discoverTab !== "now-playing") {
-    return;
-  }
-  const movieId = detailMovieId;
-  const nextLists = appLists.assignMovieToList(userState.lists, presetListId, movieId);
-  if (!updateLists(nextLists)) {
-    return;
-  }
-  recordAddedAt(movieId);
-  recordMovieStatus(movieId, presetListId);
-  persistUserState();
-  renderDiscover();
-  renderDetail();
-}
-
-function toggleDiscoverCustomListMembership(listId) {
-  if (detailMovieId == null || !isDiscoverActive()) {
-    return;
-  }
-  const movieId = detailMovieId;
-  const list = appCustomLists.findCustomList(userState.customLists, listId);
-  if (!list) {
-    return;
-  }
-  const isMember = list.movieIds.includes(movieId);
-  const nextLists = isMember
-    ? appCustomLists.removeMovieFromCustomList(userState.customLists, listId, movieId)
-    : appCustomLists.addMovieToCustomList(userState.customLists, listId, movieId);
-  if (nextLists === userState.customLists) {
-    return;
-  }
-  userState = {
-    ...userState,
-    customLists: nextLists,
-    ratings: appRatings.normalizeRatings(userState.ratings, userState.lists, nextLists),
-  };
-  persistUserState();
-  renderDiscover();
-  renderDetail();
 }

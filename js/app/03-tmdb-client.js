@@ -704,22 +704,40 @@ async function fetchDiscoverMovies(tab, options = {}) {
     const signal = options.signal;
     const buildUrl =
       normalizedTab === "now-playing" ? appTmdb.buildNowPlayingUrl : appTmdb.buildUpcomingUrl;
-    const pages = [];
     const todayIso = appDiscover.todayIsoDate();
-    for (let page = 1; page <= appDiscover.DISCOVER_PAGES; page++) {
+    const mergeOpts = {
+      filterUpcoming: normalizedTab === "upcoming",
+      todayIso,
+    };
+    const pages = new Array(appDiscover.DISCOVER_PAGES);
+    let partialEmitted = false;
+
+    const fetchPage = async (pageIndex) => {
       const payload = await fetchTmdb(
         buildUrl({
-          page,
+          page: pageIndex + 1,
           today: todayIso,
         }),
         { signal },
       ).then((response) => response.json());
-      pages.push(appTmdb.normalizeSearchResults(payload));
-    }
-    return appDiscover.mergeDiscoverListEntries(pages, {
-      filterUpcoming: normalizedTab === "upcoming",
-      todayIso,
-    });
+      pages[pageIndex] = appTmdb.normalizeSearchResults(payload);
+      if (
+        pageIndex === 0 &&
+        !partialEmitted &&
+        typeof options.onPartialEntries === "function"
+      ) {
+        partialEmitted = true;
+        options.onPartialEntries(appDiscover.mergeDiscoverListEntries([pages[0]], mergeOpts));
+      }
+    };
+
+    await Promise.all(
+      Array.from({ length: appDiscover.DISCOVER_PAGES }, (_, pageIndex) => fetchPage(pageIndex)),
+    );
+    return appDiscover.mergeDiscoverListEntries(
+      pages.filter((page) => Array.isArray(page)),
+      mergeOpts,
+    );
   })();
 
   discoverInflight.set(memoKey, promise);

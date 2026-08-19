@@ -264,6 +264,25 @@
   color: var(--muted);
 }
 
+.detail-lists-editor-section-label {
+  margin: 0 0 0.45rem;
+  font-family: var(--ui-font);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.detail-lists-editor-section-label:not(:first-child) {
+  margin-top: 0.75rem;
+}
+
+.detail-list-chips .add-custom-list-chip.is-static {
+  cursor: default;
+  pointer-events: none;
+}
+
 .detail-lists-editor-body .add-custom-list-picker {
   gap: 0.28rem;
 }
