@@ -410,12 +410,29 @@ const appCardHtml = (function () {
     return `${hours}h ${rest}m`;
   }
 
+  /** One decimal for ratings; 10 alone drops the fraction (0 → "0.0"). */
+  function formatRatingLabel(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) {
+      return null;
+    }
+    const rounded = Math.round(num * 10) / 10;
+    if (rounded === 10) {
+      return "10";
+    }
+    return rounded.toFixed(1);
+  }
+
   function formatRating(voteAverage) {
-    const value = Number(voteAverage);
-    if (!Number.isFinite(value) || value <= 0) {
+    if (voteAverage == null || voteAverage === "") {
       return "";
     }
-    return value.toFixed(1);
+    const value = Number(voteAverage);
+    if (!Number.isFinite(value) || value < 0) {
+      return "";
+    }
+    const label = formatRatingLabel(value);
+    return label == null ? "" : label;
   }
 
   function joinNames(names, limit) {
@@ -434,6 +451,7 @@ const appCardHtml = (function () {
     escapeHtml,
     formatYear,
     formatRuntime,
+    formatRatingLabel,
     formatRating,
     joinNames,
   };
@@ -1789,6 +1807,16 @@ const appRatings = (function () {
   const SLIDER_MAX = 90;
   const DEFAULT_SLIDER_VALUE = 60; // 7.0
 
+  function getCardHtml() {
+    if (typeof appCardHtml !== "undefined") {
+      return appCardHtml;
+    }
+    if (typeof require === "function") {
+      return require("./card-html");
+    }
+    throw new Error("appCardHtml is not available");
+  }
+
   function normalizeRating(value) {
     if (value == null || value === "") {
       return null;
@@ -1806,7 +1834,7 @@ const appRatings = (function () {
     if (normalized == null) {
       return "";
     }
-    return normalized.toFixed(1);
+    return getCardHtml().formatRatingLabel(normalized) || "";
   }
 
   function ratingFromSliderValue(sliderValue) {
@@ -2239,6 +2267,16 @@ const appSort = (function () {
     title: "Title",
   };
 
+  function getCardHtml() {
+    if (typeof appCardHtml !== "undefined") {
+      return appCardHtml;
+    }
+    if (typeof require === "function") {
+      return require("./card-html");
+    }
+    throw new Error("appCardHtml is not available");
+  }
+
   function getSortFieldLabel(field, short = false) {
     const labels = short ? SORT_FIELD_LABELS_SHORT : SORT_FIELD_LABELS;
     return labels[field] || SORT_FIELD_LABELS.title;
@@ -2326,21 +2364,17 @@ const appSort = (function () {
 
   function formatFanRating(voteAverage) {
     const value = Number(voteAverage);
-    if (!Number.isFinite(value) || value <= 0) {
+    if (!Number.isFinite(value) || value < 0) {
       return null;
     }
-    return value.toFixed(1);
+    return getCardHtml().formatRatingLabel(value);
   }
 
   function formatUserRatingHint(userRating) {
     if (userRating == null || userRating === "") {
       return null;
     }
-    const value = Number(userRating);
-    if (!Number.isFinite(value)) {
-      return null;
-    }
-    return value.toFixed(1);
+    return getCardHtml().formatRatingLabel(userRating);
   }
 
   function normalizeSort(raw, fallback = DEFAULT_SORT) {

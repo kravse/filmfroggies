@@ -37,12 +37,29 @@ function formatRuntime(minutes) {
   return `${hours}h ${rest}m`;
 }
 
+/** One decimal for ratings; 10 alone drops the fraction (0 → "0.0"). */
+function formatRatingLabel(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    return null;
+  }
+  const rounded = Math.round(num * 10) / 10;
+  if (rounded === 10) {
+    return "10";
+  }
+  return rounded.toFixed(1);
+}
+
 function formatRating(voteAverage) {
-  const value = Number(voteAverage);
-  if (!Number.isFinite(value) || value <= 0) {
+  if (voteAverage == null || voteAverage === "") {
     return "";
   }
-  return value.toFixed(1);
+  const value = Number(voteAverage);
+  if (!Number.isFinite(value) || value < 0) {
+    return "";
+  }
+  const label = formatRatingLabel(value);
+  return label == null ? "" : label;
 }
 
 function joinNames(names, limit) {
@@ -61,6 +78,7 @@ module.exports = {
   escapeHtml,
   formatYear,
   formatRuntime,
+  formatRatingLabel,
   formatRating,
   joinNames,
 };

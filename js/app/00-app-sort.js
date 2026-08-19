@@ -50,6 +50,16 @@ const appSort = (function () {
     title: "Title",
   };
 
+  function getCardHtml() {
+    if (typeof appCardHtml !== "undefined") {
+      return appCardHtml;
+    }
+    if (typeof require === "function") {
+      return require("./card-html");
+    }
+    throw new Error("appCardHtml is not available");
+  }
+
   function getSortFieldLabel(field, short = false) {
     const labels = short ? SORT_FIELD_LABELS_SHORT : SORT_FIELD_LABELS;
     return labels[field] || SORT_FIELD_LABELS.title;
@@ -137,21 +147,17 @@ const appSort = (function () {
 
   function formatFanRating(voteAverage) {
     const value = Number(voteAverage);
-    if (!Number.isFinite(value) || value <= 0) {
+    if (!Number.isFinite(value) || value < 0) {
       return null;
     }
-    return value.toFixed(1);
+    return getCardHtml().formatRatingLabel(value);
   }
 
   function formatUserRatingHint(userRating) {
     if (userRating == null || userRating === "") {
       return null;
     }
-    const value = Number(userRating);
-    if (!Number.isFinite(value)) {
-      return null;
-    }
-    return value.toFixed(1);
+    return getCardHtml().formatRatingLabel(userRating);
   }
 
   function normalizeSort(raw, fallback = DEFAULT_SORT) {

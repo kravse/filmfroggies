@@ -5,6 +5,7 @@ const {
   escapeHtml,
   formatYear,
   formatRuntime,
+  formatRatingLabel,
   formatRating,
   joinNames,
 } = require("../scripts/lib/card-html");
@@ -50,14 +51,23 @@ test("formatRuntime returns empty for missing or zero runtimes", () => {
   assert.equal(formatRuntime("abc"), "");
 });
 
-test("formatRating renders one decimal place", () => {
-  assert.equal(formatRating(8), "8.0");
-  assert.equal(formatRating(7.256), "7.3");
+test("formatRatingLabel shows one decimal except 10", () => {
+  assert.equal(formatRatingLabel(8), "8.0");
+  assert.equal(formatRatingLabel(7.256), "7.3");
+  assert.equal(formatRatingLabel(10), "10");
+  assert.equal(formatRatingLabel(0), "0.0");
 });
 
-test("formatRating returns empty for unrated movies", () => {
-  assert.equal(formatRating(0), "");
+test("formatRating renders fan ratings with the shared label rules", () => {
+  assert.equal(formatRating(8), "8.0");
+  assert.equal(formatRating(7.256), "7.3");
+  assert.equal(formatRating(10), "10");
+  assert.equal(formatRating(0), "0.0");
+});
+
+test("formatRating returns empty for missing or negative values", () => {
   assert.equal(formatRating(null), "");
+  assert.equal(formatRating(-1), "");
 });
 
 test("joinNames joins and can cap the list", () => {

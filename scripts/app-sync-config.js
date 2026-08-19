@@ -19,6 +19,7 @@ const APP_SYNC_ENTRIES = [
       "escapeHtml",
       "formatYear",
       "formatRuntime",
+      "formatRatingLabel",
       "formatRating",
       "joinNames",
     ],

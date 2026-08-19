@@ -30,10 +30,10 @@ test("normalizeRating clamps to one decimal between 1 and 10", () => {
   assert.equal(normalizeRating("bad"), null);
 });
 
-test("formatUserRating always shows one decimal place", () => {
+test("formatUserRating shows one decimal except 10", () => {
   assert.equal(formatUserRating(7), "7.0");
   assert.equal(formatUserRating(7.3), "7.3");
-  assert.equal(formatUserRating(10), "10.0");
+  assert.equal(formatUserRating(10), "10");
 });
 
 test("slider helpers round-trip ratings", () => {
@@ -53,10 +53,10 @@ test("ratingSelectInnerHtml lists 0.1 steps from 10 to 1 without an unrated opti
   const unrated = ratingSelectInnerHtml(null);
   assert.doesNotMatch(unrated, />—</);
   assert.match(unrated, /value="7\.0" selected/);
-  assert.match(unrated, />10\.0</);
+  assert.match(unrated, />10</);
   assert.match(unrated, />7\.3</);
   assert.match(unrated, />1\.0</);
-  assert.ok(unrated.indexOf('value="10.0"') < unrated.indexOf('value="1.0"'));
+  assert.ok(unrated.indexOf('value="10"') < unrated.indexOf('value="1.0"'));
 
   const rated = ratingSelectInnerHtml(7.3);
   assert.match(rated, /value="7\.3" selected/);
