@@ -606,12 +606,13 @@ function commitListChange(nextLists, statusChange) {
   return true;
 }
 
-function watchMovie(movieId) {
+function watchMovie(movieId, watchedOn) {
   const nextLists = appLists.assignMovieToList(
     userState.lists,
     appLists.WATCHED_ID,
     movieId,
   );
+  addMovieViewing(movieId, watchedOn || appViewingHistory.today());
   if (!commitListChange(nextLists, { movieId, status: appLists.WATCHED_ID })) {
     return;
   }
@@ -629,6 +630,10 @@ function requestWatchMovie(movieId) {
   const record = movieById.get(pendingWatchMovieId);
   const title = record?.title || `Movie ${pendingWatchMovieId}`;
   watchConfirmMessage.textContent = `Mark “${title}” as watched? It will move to your Watched list.`;
+  if (watchConfirmDate) {
+    watchConfirmDate.value = appViewingHistory.today();
+    watchConfirmDate.max = appViewingHistory.today();
+  }
   watchConfirmDialog.hidden = false;
   watchConfirmCancel.focus({ preventScroll: true });
 }
@@ -644,7 +649,7 @@ function confirmWatchMovie() {
   if (movieId == null) {
     return;
   }
-  watchMovie(movieId);
+  watchMovie(movieId, watchConfirmDate?.value);
 }
 
 function removeMovieFromCollection(movieId) {

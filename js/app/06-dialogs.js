@@ -306,6 +306,55 @@ function detailUserRatingBlockHtml(movieId) {
 </div>`;
 }
 
+function formatViewingDate(value) {
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isFinite(date.getTime())
+    ? date.toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" })
+    : value;
+}
+
+function detailViewingHistoryHtml(movieId) {
+  const entries = appViewingHistory.viewingEntries(userState.viewingHistory, movieId);
+  const allowed = appRatings.isRatingAllowed(userState.lists, movieId, userState.customLists);
+  if (!allowed && !entries.length) return "";
+  const rows = entries.map((entry) => `<li class="detail-viewing-row">
+    <input type="date" value="${entry.watchedOn}" max="${appViewingHistory.today()}" data-viewing-date-id="${appCardHtml.escapeHtml(entry.id)}" aria-label="Viewing date ${appCardHtml.escapeHtml(formatViewingDate(entry.watchedOn))}">
+    <button type="button" data-viewing-remove-id="${appCardHtml.escapeHtml(entry.id)}" aria-label="Remove viewing on ${appCardHtml.escapeHtml(formatViewingDate(entry.watchedOn))}">Remove</button>
+  </li>`).join("");
+  return `<section class="detail-viewing-history" aria-labelledby="detail-viewing-title">
+    <div class="detail-viewing-head"><h3 id="detail-viewing-title">Viewing history</h3><span>${entries.length} viewing${entries.length === 1 ? "" : "s"}</span></div>
+    ${rows ? `<ul>${rows}</ul>` : `<p class="detail-viewing-empty">No viewing dates recorded.</p>`}
+    <div class="detail-viewing-add">
+      <input type="date" id="detail-viewing-new-date" value="${appViewingHistory.today()}" max="${appViewingHistory.today()}" aria-label="New viewing date">
+      <button type="button" id="detail-viewing-add">Add viewing</button>
+    </div>
+  </section>`;
+}
+
+function addDetailViewing() {
+  const input = document.getElementById("detail-viewing-new-date");
+  if (detailMovieId == null || !input?.value) return;
+  if (!addMovieViewing(detailMovieId, input.value)) return;
+  persistUserState();
+  renderDetail();
+}
+
+function updateDetailViewing(entryId, watchedOn) {
+  if (detailMovieId == null) return;
+  const next = appViewingHistory.updateViewing(userState.viewingHistory, detailMovieId, entryId, watchedOn);
+  if (!updateViewingHistory(next)) return;
+  persistUserState();
+  renderDetail();
+}
+
+function removeDetailViewing(entryId) {
+  if (detailMovieId == null) return;
+  const next = appViewingHistory.removeViewing(userState.viewingHistory, detailMovieId, entryId);
+  if (!updateViewingHistory(next)) return;
+  persistUserState();
+  renderDetail();
+}
+
 function syncDetailRatingDisplay(rating) {
   const chipValue = document.getElementById("detail-rating-summary-value");
   if (chipValue) {
@@ -495,6 +544,7 @@ function renderDetail() {
 ${record.tagline ? `<p class="movie-detail-tagline">${appCardHtml.escapeHtml(record.tagline)}</p>` : ""}
 <div class="movie-detail-meta">${detailMetaChips(record)}</div>
 ${detailUserRatingBlockHtml(detailMovieId)}
+${detailViewingHistoryHtml(detailMovieId)}
 <p class="movie-detail-overview">${appCardHtml.escapeHtml(record.overview || "No overview available.")}</p>
 <div class="movie-detail-credits">${detailCreditsHtml(record)}</div>
 ${detailListsBlockHtml(detailMovieId)}`;

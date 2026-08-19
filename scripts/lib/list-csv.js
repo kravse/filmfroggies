@@ -11,7 +11,7 @@
  * ignores them.
  */
 
-const CSV_HEADER = ["tmdb_id", "title", "list_id", "list_name", "my_rating", "release_year"];
+const CSV_HEADER = ["tmdb_id", "title", "list_id", "list_name", "my_rating", "release_year", "watch_dates"];
 const CSV_FILENAME = "my_list.csv";
 
 function getLists() {
@@ -44,6 +44,12 @@ function getRatings() {
   throw new Error("appRatings is not available");
 }
 
+function getViewingHistory() {
+  if (typeof appViewingHistory !== "undefined") return appViewingHistory;
+  if (typeof require === "function") return require("./viewing-history");
+  throw new Error("appViewingHistory is not available");
+}
+
 function releaseYearFrom(releaseDate) {
   const match = /^(\d{4})/.exec(String(releaseDate || "").trim());
   return match ? match[1] : "";
@@ -56,7 +62,9 @@ function rowMeta(state, id, recordFor) {
   const myRating = getRatings().formatUserRating(
     getRatings().getRating(state?.ratings, id),
   );
-  return { title, releaseYear, myRating };
+  const watchDates = getViewingHistory().viewingEntries(state?.viewingHistory, id)
+    .map((entry) => entry.watchedOn).sort().join(";");
+  return { title, releaseYear, myRating, ...(watchDates ? { watchDates } : {}) };
 }
 
 function listNameFor(state, listId) {
@@ -139,6 +147,7 @@ function buildListCsv(rows) {
         row.listName,
         row.myRating,
         row.releaseYear,
+        row.watchDates,
       ]),
     );
   }

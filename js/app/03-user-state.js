@@ -97,6 +97,18 @@ function updateRatings(nextRatings) {
   return true;
 }
 
+function updateViewingHistory(nextHistory) {
+  if (nextHistory === userState.viewingHistory) return false;
+  userState = { ...userState, viewingHistory: nextHistory };
+  return true;
+}
+
+function addMovieViewing(movieId, watchedOn) {
+  return updateViewingHistory(
+    appViewingHistory.addViewing(userState.viewingHistory, movieId, watchedOn),
+  );
+}
+
 function setMovieRating(movieId, rating) {
   if (
     rating != null &&

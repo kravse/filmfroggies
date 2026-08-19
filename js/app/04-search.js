@@ -35,6 +35,13 @@ function resetAddMovieRatingControls() {
   addMovieRatingField?.classList.remove("is-active");
 }
 
+function resetAddMovieWatchDate() {
+  if (addMovieWatchDate) {
+    addMovieWatchDate.value = appViewingHistory.today();
+    addMovieWatchDate.max = appViewingHistory.today();
+  }
+}
+
 function syncAddMovieRatingDisplay() {
   if (!addMovieRatingTouched) {
     addMovieRatingValue.textContent = "—";
@@ -101,12 +108,14 @@ function syncAddMoviePickStep() {
       addMovieRatingField.hidden = true;
     }
     resetAddMovieRatingControls();
+    if (addMovieWatchDateField) addMovieWatchDateField.hidden = true;
     return;
   }
   const watched = selectedAddListId === appLists.WATCHED_ID;
   if (addMovieRatingField) {
     addMovieRatingField.hidden = !watched;
   }
+  if (addMovieWatchDateField) addMovieWatchDateField.hidden = !watched;
   if (!watched) {
     resetAddMovieRatingControls();
   }
@@ -335,6 +344,7 @@ function showAddSearchStep() {
   selectedAddListId = null;
   resetAddMovieCustomListSelection();
   resetAddMovieRatingControls();
+  resetAddMovieWatchDate();
   setAddMoviePickTab("add");
   if (addMoviePickTabs) {
     addMoviePickTabs.hidden = true;
@@ -539,6 +549,9 @@ function confirmAddMovie() {
       ) {
         changed = true;
       }
+    }
+    if (selectedAddListId === appLists.WATCHED_ID && addMovieWatchDate?.value) {
+      if (addMovieViewing(movieId, addMovieWatchDate.value)) changed = true;
     }
     if (changed) {
       recordAddedAt(movieId);

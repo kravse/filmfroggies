@@ -264,6 +264,14 @@ test("merging addedAt keeps the later stamp on conflict", () => {
   assert.deepEqual(mergeUserStates(newer, older).addedAt, { 1: T2 });
 });
 
+test("mergeUserStates unions viewing history entries", () => {
+  const local = state({ watched: [1], updatedAt: T1 });
+  local.viewingHistory = { 1: [{ id: "a", watchedOn: "2026-01-01", updatedAt: T1 }] };
+  const remote = state({ watched: [1], updatedAt: T2 });
+  remote.viewingHistory = { 1: [{ id: "b", watchedOn: "2026-02-02", updatedAt: T2 }] };
+  assert.deepEqual(mergeUserStates(local, remote).viewingHistory[1].map((entry) => entry.id), ["a", "b"]);
+});
+
 test("mergeUserStates falls back to whichever side exists", () => {
   const local = state({ watched: [1], updatedAt: T1 });
   assert.equal(mergeUserStates(local, null), local);

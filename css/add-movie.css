@@ -398,6 +398,15 @@
   color: var(--muted-dim);
 }
 
+.add-movie-watch-date { display: block; margin-top: 1rem; }
+.add-movie-watch-date input,
+.watch-confirm-date input {
+  width: 100%; box-sizing: border-box; padding: 0.65rem 0.75rem;
+  color: var(--text); background: var(--panel-raised); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); font: inherit; color-scheme: dark;
+}
+.watch-confirm-date { display: grid; gap: 0.45rem; font-family: var(--ui-font); font-size: 0.78rem; color: var(--muted); }
+
 .add-list-picker {
   display: flex;
   flex-direction: column;

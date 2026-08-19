@@ -15,7 +15,7 @@ const appUserState = (function () {
   const GIST_SYNC_KEY = "moviecollector-gist-sync";
   const TMDB_AUTH_KEY = "moviecollector-tmdb-auth";
   const HOSTED_SESSION_KEY = "moviecollector-hosted-session";
-  const USER_STATE_VERSION = 3;
+  const USER_STATE_VERSION = 4;
 
   const VIEW_MODES = new Set(["cards", "detail"]);
   const STORAGE_MODES = new Set(["local", "gist"]);
@@ -48,6 +48,12 @@ const appUserState = (function () {
       return require("./added-at");
     }
     throw new Error("appAddedAt is not available");
+  }
+
+  function getViewingHistory() {
+    if (typeof appViewingHistory !== "undefined") return appViewingHistory;
+    if (typeof require === "function") return require("./viewing-history");
+    throw new Error("appViewingHistory is not available");
   }
 
   function getSort() {
@@ -95,6 +101,7 @@ const appUserState = (function () {
       preferences: defaultPreferences(),
       ratings: {},
       addedAt: {},
+      viewingHistory: {},
       statuses: {},
       customLists: getCustomLists().defaultCustomLists(),
       customListTombstones: getCustomLists().defaultCustomListTombstones(),
@@ -156,6 +163,7 @@ const appUserState = (function () {
       preferences: normalizePreferences(raw.preferences),
       ratings: getRatings().normalizeRatings(raw.ratings, normalizedLists, customLists),
       addedAt: getAddedAt().normalizeAddedAt(raw.addedAt, normalizedLists),
+      viewingHistory: getViewingHistory().normalizeViewingHistory(raw.viewingHistory),
       statuses,
       customLists,
       customListTombstones,
@@ -216,6 +224,7 @@ const appUserState = (function () {
       lists: normalized.lists.map((list) => [list.id, list.movieIds]),
       ratings: sortedIdMap(normalized.ratings),
       addedAt: sortedIdMap(normalized.addedAt),
+      viewingHistory: sortedIdMap(normalized.viewingHistory),
       statuses: sortedIdMap(normalized.statuses),
       customLists: normalized.customLists.map((list) => [
         list.id,

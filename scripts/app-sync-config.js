@@ -180,6 +180,16 @@ const APP_SYNC_ENTRIES = [
     ],
   },
   {
+    sources: [path.join(LIB, "viewing-history.js")],
+    target: "00-app-viewing-history.js",
+    globalName: "appViewingHistory",
+    header: "Generated from scripts/lib/viewing-history.js — run npm run bundle",
+    exports: [
+      "normalizeDate", "today", "createViewingId", "normalizeViewingHistory",
+      "viewingEntries", "addViewing", "updateViewing", "removeViewing", "mergeViewingHistory",
+    ],
+  },
+  {
     sources: [path.join(LIB, "custom-lists.js")],
     target: "00-app-custom-lists.js",
     globalName: "appCustomLists",

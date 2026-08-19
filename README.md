@@ -4,7 +4,7 @@ Search [TMDB](https://www.themoviedb.org/), add movies to ordered lists, and bro
 
 ## How it works
 
-The only thing this site stores is **which TMDB ids are in which list, and in what order**, plus your ratings and a few preferences. Nothing about a movie is duplicated into your lists. Every page load rehydrates movie records by id:
+The only thing this site stores is **which TMDB ids are in which list, and in what order**, plus your ratings, viewing history, and a few preferences. Nothing about a movie is duplicated into your lists. Every page load rehydrates movie records by id:
 
 1. **`data/movies.json`** when the committed snapshot covers that id (no API call; snapshot rows are not revalidated in the browser)
 2. **Browser Cache API** for TMDB responses fetched earlier in the session
@@ -42,7 +42,7 @@ There is no header search box. Tap **+ Add a movie** (floating button, or the em
 1. Search TMDB with autocomplete (arrow keys, Enter, or click to pick a result)
 2. Toggle **Director:** to search people and pick a filmography hit instead of title search
 3. Choose **Watched** or **Watchlist** (or custom-list checkboxes when viewing a custom list)
-4. Optionally set **My rating** (1–10 in 0.1 steps) when adding to Watched
+4. Set the viewing date (defaults to today) and optionally set **My rating** (1–10 in 0.1 steps) when adding to Watched
 5. Submit
 
 When you are viewing a custom list (`#lists/{id}`), the add dialog can also **Add from watched** — a multi-select picker of Watched movies not already on that list.
@@ -123,6 +123,7 @@ Stored under `moviecollector-user-state` (and optionally synced to Gist). Movie 
 | `statuses` | `{ movieId → { status, at } }` where status is `watched`, `watchlist`, or `removed` (sync only) |
 | `ratings` | `{ movieId → number }` — 1–10, one decimal; only for movies in Watched or a custom list |
 | `addedAt` | `{ movieId → ISO }` — when the movie first entered the collection |
+| `viewingHistory` | `{ movieId → viewing[] }` — dated viewings with entry-level edit/delete timestamps for safe sync |
 | `preferences` | `{ viewMode: "cards"\|"detail", sort: "<mode>" }` |
 | `activeListId` | Which preset tab was last active |
 | `storageMode` | `"local"` or `"gist"` |
@@ -161,7 +162,7 @@ The snapshot is a cache, not an edit layer. Every field in it came from TMDB and
 
 Refreshing it is three steps:
 
-1. On the running site, open **Settings → Repo data** and click **Export list CSV**. It downloads `my_list.csv`: one row per movie with `tmdb_id`, `title`, `list_id`, `list_name`, `my_rating`, and `release_year`, including movies that live only on custom lists. Export hydrates missing records when a TMDB token is available. Only `tmdb_id` is used by the scraper — the other columns are a readable backup.
+1. On the running site, open **Settings → Repo data** and click **Export list CSV**. It downloads `my_list.csv`: one row per movie with `tmdb_id`, `title`, `list_id`, `list_name`, `my_rating`, `release_year`, and semicolon-separated `watch_dates`, including movies that live only on custom lists. Export hydrates missing records when a TMDB token is available. Only `tmdb_id` is used by the scraper — the other columns are a readable backup.
 2. Commit it to the repo as `data/my_list.csv`.
 3. Run the scraper, then commit what it writes:
 

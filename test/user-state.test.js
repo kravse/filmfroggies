@@ -262,6 +262,14 @@ test("defaultUserState includes empty custom lists", () => {
   assert.deepEqual(state.customListTombstones, {});
 });
 
+test("viewing history survives serialization and affects the state signature", () => {
+  const base = defaultUserState();
+  const entry = { id: "view-a", watchedOn: "2026-08-19", updatedAt: "2026-08-19T12:00:00.000Z" };
+  const changed = { ...base, viewingHistory: { 42: [entry] } };
+  assert.deepEqual(parseUserState(serializeUserState(changed)).viewingHistory[42], [entry]);
+  assert.notEqual(userStateSignature(base), userStateSignature(changed));
+});
+
 test("normalizeUserState round-trips custom lists", () => {
   const state = normalizeUserState({
     customLists: [
