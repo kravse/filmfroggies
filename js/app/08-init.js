@@ -149,6 +149,9 @@ viewModeCycleBtn.addEventListener("click", () => {
 listSortSelect?.addEventListener("change", () => {
   setSortField(listSortSelect.value);
 });
+window
+  .matchMedia("(max-width: 640px)")
+  .addEventListener("change", () => syncSortSelectLabels());
 sortReverseBtn?.addEventListener("click", toggleSortOrder);
 reorderModeBtn?.addEventListener("click", toggleReorderMode);
 

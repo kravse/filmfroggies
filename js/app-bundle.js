@@ -1532,6 +1532,29 @@ const appSort = (function () {
     title: "title-desc",
   };
 
+  const SORT_FIELD_LABELS = {
+    "user-rating": "My rating",
+    added: "Date added",
+    year: "Release year",
+    rating: "Fan rating",
+    title: "Title",
+    custom: "Custom",
+  };
+
+  const SORT_FIELD_LABELS_SHORT = {
+    "user-rating": "Rating",
+    added: "Added",
+    year: "Year",
+    rating: "Fans",
+    title: "Title",
+    custom: "Custom",
+  };
+
+  function getSortFieldLabel(field, short = false) {
+    const labels = short ? SORT_FIELD_LABELS_SHORT : SORT_FIELD_LABELS;
+    return labels[field] || SORT_FIELD_LABELS.custom;
+  }
+
   function getSortField(mode) {
     const normalized = normalizeSort(mode);
     if (normalized === "custom") {
@@ -1822,6 +1845,7 @@ const appSort = (function () {
     toggleSortDirection,
     sortModeForField,
     sortDirectionLabel,
+    getSortFieldLabel,
     parseYear,
     buildOrderIndex,
     compareOrderTiebreak,
@@ -4299,6 +4323,18 @@ function listShowsReorderGrip() {
   );
 }
 
+function syncSortSelectLabels() {
+  const options = listSortSelect?.options;
+  if (!options?.length) {
+    return;
+  }
+  const short = window.matchMedia("(max-width: 640px)").matches;
+  for (let i = 0; i < options.length; i++) {
+    const option = options[i];
+    option.textContent = appSort.getSortFieldLabel(option.value, short);
+  }
+}
+
 function syncSortControlUi() {
   const show =
     isWatchedListActive() && activeMovieIds().length > 0 && hasMovieData();
@@ -4327,6 +4363,11 @@ function syncSortControlUi() {
       `Sort order: ${directionLabel}. Reverse.`,
     );
   }
+  document.body.classList.toggle(
+    "sort-added",
+    isWatchedListActive() && appSort.getSortField(sort) === "added",
+  );
+  syncSortSelectLabels();
 }
 
 function syncReorderModeUi() {
@@ -5651,6 +5692,9 @@ viewModeCycleBtn.addEventListener("click", () => {
 listSortSelect?.addEventListener("change", () => {
   setSortField(listSortSelect.value);
 });
+window
+  .matchMedia("(max-width: 640px)")
+  .addEventListener("change", () => syncSortSelectLabels());
 sortReverseBtn?.addEventListener("click", toggleSortOrder);
 reorderModeBtn?.addEventListener("click", toggleReorderMode);
 

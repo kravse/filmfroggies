@@ -32,6 +32,29 @@ const SORT_FIELD_DEFAULTS = {
   title: "title-desc",
 };
 
+const SORT_FIELD_LABELS = {
+  "user-rating": "My rating",
+  added: "Date added",
+  year: "Release year",
+  rating: "Fan rating",
+  title: "Title",
+  custom: "Custom",
+};
+
+const SORT_FIELD_LABELS_SHORT = {
+  "user-rating": "Rating",
+  added: "Added",
+  year: "Year",
+  rating: "Fans",
+  title: "Title",
+  custom: "Custom",
+};
+
+function getSortFieldLabel(field, short = false) {
+  const labels = short ? SORT_FIELD_LABELS_SHORT : SORT_FIELD_LABELS;
+  return labels[field] || SORT_FIELD_LABELS.custom;
+}
+
 function getSortField(mode) {
   const normalized = normalizeSort(mode);
   if (normalized === "custom") {
@@ -322,6 +345,7 @@ module.exports = {
   toggleSortDirection,
   sortModeForField,
   sortDirectionLabel,
+  getSortFieldLabel,
   parseYear,
   parseAddedTime,
   formatAddedHint,

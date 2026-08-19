@@ -162,6 +162,7 @@ const APP_SYNC_ENTRIES = [
       "toggleSortDirection",
       "sortModeForField",
       "sortDirectionLabel",
+      "getSortFieldLabel",
       "parseYear",
       "buildOrderIndex",
       "compareOrderTiebreak",

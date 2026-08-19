@@ -166,6 +166,18 @@ function listShowsReorderGrip() {
   );
 }
 
+function syncSortSelectLabels() {
+  const options = listSortSelect?.options;
+  if (!options?.length) {
+    return;
+  }
+  const short = window.matchMedia("(max-width: 640px)").matches;
+  for (let i = 0; i < options.length; i++) {
+    const option = options[i];
+    option.textContent = appSort.getSortFieldLabel(option.value, short);
+  }
+}
+
 function syncSortControlUi() {
   const show =
     isWatchedListActive() && activeMovieIds().length > 0 && hasMovieData();
@@ -194,6 +206,11 @@ function syncSortControlUi() {
       `Sort order: ${directionLabel}. Reverse.`,
     );
   }
+  document.body.classList.toggle(
+    "sort-added",
+    isWatchedListActive() && appSort.getSortField(sort) === "added",
+  );
+  syncSortSelectLabels();
 }
 
 function syncReorderModeUi() {
