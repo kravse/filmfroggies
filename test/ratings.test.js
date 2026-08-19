@@ -74,23 +74,23 @@ test("ratingSelectInnerHtml can include an unrated option for add-movie", () => 
   assert.doesNotMatch(rated, /value="" selected/);
 });
 
-test("normalizeRatings keeps only valid ratings for watched and custom-list movies", () => {
+test("normalizeRatings keeps only valid ratings for watched movies", () => {
   const normalized = normalizeRatings(
     { 1: 8.5, 2: "7", 3: 11, 4: 6, 5: 2.25, 99: 4 },
     sampleLists,
     [{ id: "custom-abc", name: "Sci-Fi", movieIds: [4, 99], createdAt: "2020-01-01T00:00:00.000Z", updatedAt: "2020-01-01T00:00:00.000Z" }],
   );
-  assert.deepEqual(normalized, { 1: 8.5, 2: 7, 4: 6, 99: 4 });
+  assert.deepEqual(normalized, { 1: 8.5, 2: 7 });
 });
 
-test("isRatingAllowed is true for watched and custom-list movies", () => {
+test("isRatingAllowed is true only for watched movies", () => {
   const { isRatingAllowed } = require("../scripts/lib/ratings");
   const customLists = [
     { id: "custom-abc", name: "Sci-Fi", movieIds: [4], createdAt: "2020-01-01T00:00:00.000Z", updatedAt: "2020-01-01T00:00:00.000Z" },
   ];
   assert.equal(isRatingAllowed(sampleLists, 1, customLists), true);
   assert.equal(isRatingAllowed(sampleLists, 3, customLists), false);
-  assert.equal(isRatingAllowed(sampleLists, 4, customLists), true);
+  assert.equal(isRatingAllowed(sampleLists, 4, customLists), false);
 });
 
 test("setRating and removeRating are immutable no-ops when unchanged", () => {

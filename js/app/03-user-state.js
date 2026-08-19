@@ -104,6 +104,9 @@ function updateViewingHistory(nextHistory) {
 }
 
 function addMovieViewing(movieId, watchedOn) {
+  if (!appLists.isWatched(userState.lists, movieId)) {
+    return false;
+  }
   return updateViewingHistory(
     appViewingHistory.addViewing(userState.viewingHistory, movieId, watchedOn),
   );

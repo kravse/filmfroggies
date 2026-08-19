@@ -596,6 +596,10 @@ function renderAddMovieCustomListPicker() {
   }
   addMovieCustomListPicker.innerHTML = lists
     .map((list) => {
+      const locked = isCustomListDetailActive() && list.id === activeCustomListId;
+      if (locked) {
+        return `<span class="add-custom-list-chip is-member is-locked">${appCardHtml.escapeHtml(list.name)}</span>`;
+      }
       const selected = selectedAddCustomListIds.has(list.id);
       return `<button type="button" class="add-custom-list-chip" data-custom-list-id="${appCardHtml.escapeHtml(list.id)}" aria-pressed="${selected}">${appCardHtml.escapeHtml(list.name)}</button>`;
     })
@@ -611,14 +615,8 @@ function resetAddMovieCustomListSelection() {
 }
 
 function syncAddMovieSubmitState() {
-  if (isCustomListDetailActive()) {
-    if (addMovieSubmit) {
-      addMovieSubmit.disabled = selectedAddCustomListIds.size === 0;
-    }
-    return;
-  }
   if (addMovieSubmit) {
-    addMovieSubmit.disabled = selectedAddListId == null;
+    addMovieSubmit.disabled = !hasAddMovieDestinations();
   }
 }
 
@@ -864,10 +862,16 @@ function onAddMovieCustomListPickerClick(event) {
     return;
   }
   const listId = chip.dataset.customListId;
+  if (isCustomListDetailActive() && listId === activeCustomListId) {
+    return;
+  }
   if (selectedAddCustomListIds.has(listId)) {
     selectedAddCustomListIds.delete(listId);
   } else {
     selectedAddCustomListIds.add(listId);
+  }
+  if (isCustomListDetailActive() && activeCustomListId) {
+    selectedAddCustomListIds.add(activeCustomListId);
   }
   const selected = selectedAddCustomListIds.has(listId);
   chip.setAttribute("aria-pressed", String(selected));

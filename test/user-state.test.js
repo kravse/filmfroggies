@@ -182,7 +182,7 @@ test("normalizeUserState normalizes ratings to watched movies only", () => {
   assert.deepEqual(state.ratings, {});
 });
 
-test("normalizeUserState keeps ratings for custom-list movies", () => {
+test("normalizeUserState drops ratings for custom-list-only movies", () => {
   const state = normalizeUserState({
     lists: [
       { id: "watched", name: "Watched", movieIds: [] },
@@ -199,7 +199,7 @@ test("normalizeUserState keeps ratings for custom-list movies", () => {
     ],
     ratings: { 42: 8.25, 99: 7 },
   });
-  assert.deepEqual(state.ratings, { 42: 8.3 });
+  assert.deepEqual(state.ratings, {});
 });
 
 test("parseUserState round-trips a serialized state", () => {

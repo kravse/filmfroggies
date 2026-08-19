@@ -572,7 +572,7 @@
             >
             <div class="add-movie-picked" id="add-movie-picked"></div>
             <div id="add-movie-preset-section">
-              <p class="add-movie-pick-label">Add to</p>
+              <p class="add-movie-pick-label" id="add-movie-preset-label">Add to</p>
               <div
                 id="add-movie-list-picker"
                 class="add-list-picker"
@@ -605,7 +605,41 @@
               </button>
               </div>
             </div>
-            <div class="user-rating-field" id="add-movie-rating-field">
+            <div id="add-movie-also-add-section" hidden>
+              <p class="add-movie-pick-label">Also add to</p>
+              <div
+                id="add-movie-preset-chips"
+                class="add-list-picker add-list-picker--compact"
+                role="group"
+                aria-label="Optional Watched or Watchlist"
+              >
+                <button
+                  type="button"
+                  class="add-list-option add-list-option--compact"
+                  data-list-id="watched"
+                  aria-pressed="false"
+                >
+                  <span class="add-list-icon" aria-hidden="true">✓</span>
+                  <span class="add-list-name">Watched</span>
+                </button>
+                <button
+                  type="button"
+                  class="add-list-option add-list-option--compact"
+                  data-list-id="watchlist"
+                  aria-pressed="false"
+                >
+                  <span class="add-list-icon add-list-icon-watchlist" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                      <path
+                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"
+                      />
+                    </svg>
+                  </span>
+                  <span class="add-list-name">Watchlist</span>
+                </button>
+              </div>
+            </div>
+            <div class="user-rating-field" id="add-movie-rating-field" hidden>
               <div class="user-rating-header">
                 <span class="user-rating-label">Your rating</span>
                 <output class="user-rating-value is-empty" id="add-movie-rating-value" for="add-movie-rating-slider">—</output>
@@ -639,7 +673,7 @@
               <div id="add-movie-viewing-date-picker"></div>
             </div>
             <div class="add-movie-custom-lists" id="add-movie-custom-lists-section" hidden>
-              <p class="add-movie-pick-label">Also add to</p>
+              <p class="add-movie-pick-label" id="add-movie-custom-lists-label">Also add to</p>
               <div
                 id="add-movie-custom-list-picker"
                 class="add-custom-list-picker"

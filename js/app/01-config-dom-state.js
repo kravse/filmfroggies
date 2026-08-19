@@ -24,6 +24,7 @@ const addMovieFromWatchedSection = document.getElementById("add-movie-from-watch
 const addMovieFromWatchedBtn = document.getElementById("add-movie-from-watched-btn");
 
 const addMovieCustomListsSection = document.getElementById("add-movie-custom-lists-section");
+const addMovieCustomListsLabel = document.getElementById("add-movie-custom-lists-label");
 const addMovieCustomListPicker = document.getElementById("add-movie-custom-list-picker");
 const addMovieCustomListsEmpty = document.getElementById("add-movie-custom-lists-empty");
 const addMovieCreateListsLink = document.getElementById("add-movie-create-lists-link");
@@ -68,6 +69,9 @@ const addMovieSearchStep = document.getElementById("add-movie-search-step");
 const addMoviePickStep = document.getElementById("add-movie-pick-step");
 const addMoviePicked = document.getElementById("add-movie-picked");
 const addMoviePresetSection = document.getElementById("add-movie-preset-section");
+const addMoviePresetLabel = document.getElementById("add-movie-preset-label");
+const addMovieAlsoAddSection = document.getElementById("add-movie-also-add-section");
+const addMoviePresetChips = document.getElementById("add-movie-preset-chips");
 const addMovieListPicker = document.getElementById("add-movie-list-picker");
 const addMovieSubmit = document.getElementById("add-movie-submit");
 const addMovieRatingSlider = document.getElementById("add-movie-rating-slider");

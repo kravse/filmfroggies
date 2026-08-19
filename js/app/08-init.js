@@ -57,6 +57,7 @@ addMovieBack.addEventListener("click", () => {
 addMovieTabAdd?.addEventListener("click", onAddMoviePickTabClick);
 addMovieTabDetail?.addEventListener("click", onAddMoviePickTabClick);
 addMovieListPicker.addEventListener("click", onAddListOptionClick);
+addMoviePresetChips?.addEventListener("click", onAddListOptionClick);
 addMovieSubmit.addEventListener("click", confirmAddMovie);
 bindRangeSliderLiveInput(addMovieRatingSlider, onAddMovieRatingSliderInput);
 addMovieRatingSelect?.addEventListener("change", onAddMovieRatingSelectChange);
@@ -273,16 +274,17 @@ detailActions.addEventListener("click", (event) => {
     requestDiscoverDetailPreset(discoverPresetBtn.dataset.discoverPresetId);
     return;
   }
-  if (event.target.id === "detail-remove-from-list") {
+  if (event.target.closest("#detail-remove-from-list")) {
     requestRemoveFromCustomList(detailMovieId);
     return;
   }
-  if (event.target.id === "detail-remove") {
+  if (event.target.closest("#detail-remove")) {
     requestRemoveMovie(detailMovieId);
     return;
   }
-  if (event.target.id === "detail-watch") {
+  if (event.target.closest("#detail-watch")) {
     requestWatchMovie(detailMovieId);
+    return;
   }
 });
 

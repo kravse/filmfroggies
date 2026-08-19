@@ -132,22 +132,8 @@ const appRatings = (function () {
   }
 
   function collectRateableMovieIds(lists, customLists) {
-    const ids = collectWatchedMovieIds(lists);
-    if (!Array.isArray(customLists)) {
-      return ids;
-    }
-    for (const list of customLists) {
-      if (!list || !Array.isArray(list.movieIds)) {
-        continue;
-      }
-      for (const id of list.movieIds) {
-        const movieId = Number(id);
-        if (Number.isInteger(movieId) && movieId > 0) {
-          ids.add(movieId);
-        }
-      }
-    }
-    return ids;
+    void customLists;
+    return collectWatchedMovieIds(lists);
   }
 
   function isRatingAllowed(lists, movieId, customLists) {

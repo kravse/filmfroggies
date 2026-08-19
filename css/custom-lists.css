@@ -383,6 +383,12 @@ span.add-custom-list-chip.is-member {
   cursor: default;
 }
 
+.add-custom-list-chip.is-locked {
+  flex: none;
+  cursor: default;
+  pointer-events: none;
+}
+
 button.add-custom-list-chip.is-member {
   cursor: pointer;
 }

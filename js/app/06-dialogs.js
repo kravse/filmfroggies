@@ -105,6 +105,16 @@ function detailWatchBtnHtml() {
   return `<button type="button" class="action-btn detail-watch-btn" id="detail-watch" aria-label="Mark as watched" title="Mark as watched"><span class="detail-action-icon" aria-hidden="true">✓</span><span class="detail-action-label">Watched</span></button>`;
 }
 
+function detailShouldShowWatchButton(movieId) {
+  if (isDiscoverActive() || appLists.isWatched(userState.lists, movieId)) {
+    return false;
+  }
+  if (isCustomListDetailActive()) {
+    return activeMovieIds().includes(movieId);
+  }
+  return appLists.findListIdsForMovie(userState.lists, movieId).length > 0;
+}
+
 function discoverPresetMembership(listId, movieId) {
   return listId === appLists.WATCHED_ID
     ? appLists.isWatched(userState.lists, movieId)
@@ -483,11 +493,10 @@ function detailViewingSummaryText(count) {
 }
 
 function detailViewingHistoryHtml(movieId) {
-  const entries = appViewingHistory.viewingEntries(userState.viewingHistory, movieId);
-  const allowed = appRatings.isRatingAllowed(userState.lists, movieId, userState.customLists);
-  if (!allowed && !entries.length) {
-    return `<p class="detail-viewing-empty">Viewing dates are available for movies in Watched or a custom list.</p>`;
+  if (!appLists.isWatched(userState.lists, movieId)) {
+    return `<p class="detail-viewing-empty">Viewing history is available for movies in your Watched list.</p>`;
   }
+  const entries = appViewingHistory.viewingEntries(userState.viewingHistory, movieId);
   const rows = entries.map((entry) => `<li class="detail-viewing-row">
     <span class="detail-viewing-date">${appCardHtml.viewingDateIconHtml()}${appCardHtml.escapeHtml(formatViewingDate(entry.watchedOn))}</span>
     <button type="button" data-viewing-remove-id="${appCardHtml.escapeHtml(entry.id)}" aria-label="Remove viewing on ${appCardHtml.escapeHtml(formatViewingDate(entry.watchedOn))}">Remove</button>
@@ -521,23 +530,35 @@ function detailBodyTabsHtml(movieId, record) {
   if (isDiscoverActive()) {
     return detailOverviewPanelHtml(movieId, record);
   }
-  const entries = appViewingHistory.viewingEntries(userState.viewingHistory, movieId);
+  const showHistory = appLists.isWatched(userState.lists, movieId);
+  if (!showHistory && detailBodyTab === "viewing-history") {
+    detailBodyTab = "overview";
+  }
+  const entries = showHistory
+    ? appViewingHistory.viewingEntries(userState.viewingHistory, movieId)
+    : [];
   const countBadge =
     entries.length > 0
       ? `<span class="detail-body-tab-count">${entries.length}</span>`
       : "";
   const overviewSelected = detailBodyTab === "overview";
   const historySelected = detailBodyTab === "viewing-history";
+  const historyTab = showHistory
+    ? `<button type="button" class="detail-body-tab" role="tab" id="detail-tab-viewing-history" data-detail-body-tab="viewing-history" aria-selected="${historySelected ? "true" : "false"}" tabindex="${historySelected ? "0" : "-1"}">Viewing history${countBadge}</button>`
+    : "";
+  const historyPanel = showHistory
+    ? `<div class="detail-body-tabpanel" role="tabpanel" id="detail-panel-viewing-history" aria-labelledby="detail-tab-viewing-history"${historySelected ? "" : " hidden"}>
+${detailViewingHistoryHtml(movieId)}
+</div>`
+    : "";
   return `<nav class="detail-body-tabs" role="tablist" aria-label="Movie detail sections">
   <button type="button" class="detail-body-tab" role="tab" id="detail-tab-overview" data-detail-body-tab="overview" aria-selected="${overviewSelected ? "true" : "false"}" tabindex="${overviewSelected ? "0" : "-1"}">Overview</button>
-  <button type="button" class="detail-body-tab" role="tab" id="detail-tab-viewing-history" data-detail-body-tab="viewing-history" aria-selected="${historySelected ? "true" : "false"}" tabindex="${historySelected ? "0" : "-1"}">Viewing history${countBadge}</button>
+  ${historyTab}
 </nav>
 <div class="detail-body-tabpanel" role="tabpanel" id="detail-panel-overview" aria-labelledby="detail-tab-overview"${overviewSelected ? "" : " hidden"}>
 ${detailOverviewPanelHtml(movieId, record)}
 </div>
-<div class="detail-body-tabpanel" role="tabpanel" id="detail-panel-viewing-history" aria-labelledby="detail-tab-viewing-history"${historySelected ? "" : " hidden"}>
-${detailViewingHistoryHtml(movieId)}
-</div>`;
+${historyPanel}`;
 }
 
 function setDetailBodyTab(tab) {
@@ -545,6 +566,12 @@ function setDetailBodyTab(tab) {
     return;
   }
   const next = tab === "viewing-history" ? "viewing-history" : "overview";
+  if (
+    next === "viewing-history" &&
+    (detailMovieId == null || !appLists.isWatched(userState.lists, detailMovieId))
+  ) {
+    return;
+  }
   if (detailBodyTab === next) {
     return;
   }
@@ -558,6 +585,7 @@ function setDetailBodyTab(tab) {
 function addDetailViewing() {
   const input = document.getElementById("detail-viewing-new-date");
   if (detailMovieId == null || !input?.value) return;
+  if (!appLists.isWatched(userState.lists, detailMovieId)) return;
   if (!addMovieViewing(detailMovieId, input.value)) return;
   detailBodyTab = "viewing-history";
   persistUserState();
@@ -792,14 +820,16 @@ ${detailBodyTabsHtml(detailMovieId, record)}`;
   if (isDiscoverActive()) {
     leftActions.push(discoverDetailPresetActionsHtml(detailMovieId));
   } else if (isCustomListDetailActive()) {
+    if (detailShouldShowWatchButton(detailMovieId)) {
+      leftActions.push(detailWatchBtnHtml());
+    }
     if (activeMovieIds().includes(detailMovieId)) {
       removeBtn = `<button type="button" class="action-btn detail-remove-btn" id="detail-remove-from-list">Remove from list</button>`;
     }
   } else {
     const inCollection = appLists.findListIdsForMovie(userState.lists, detailMovieId).length > 0;
-    const onWatchlist = appLists.isOnWatchlist(userState.lists, detailMovieId);
 
-    if (inCollection && onWatchlist) {
+    if (detailShouldShowWatchButton(detailMovieId)) {
       leftActions.push(detailWatchBtnHtml());
     }
 

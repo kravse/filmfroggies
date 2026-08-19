@@ -230,6 +230,17 @@ function cardUserRatingChipHtml(movieId, { showEmpty = false } = {}) {
   if (isDiscoverActive()) {
     return "";
   }
+  const allowed = appRatings.isRatingAllowed(
+    userState.lists,
+    movieId,
+    userState.customLists,
+  );
+  if (!allowed) {
+    if (!showEmpty) {
+      return "";
+    }
+    return `<span class="card-user-rating is-empty" aria-label="Your rating —">—</span>`;
+  }
   const label = appRatings.formatUserRating(
     appRatings.getRating(userState.ratings, movieId),
   );
@@ -250,6 +261,9 @@ function cardReleaseYearFooterHtml(movieId) {
 }
 
 function cardWatchDateFooterHtml(movieId) {
+  if (!appLists.isWatched(userState.lists, movieId)) {
+    return `<span class="card-footer-main is-empty" aria-label="Date watched —">—</span>`;
+  }
   const watchedOn = appViewingHistory.latestViewingDate(userState.viewingHistory, movieId);
   const text = watchedOn || "—";
   const emptyClass = watchedOn ? "" : " is-empty";
@@ -791,16 +805,16 @@ function watchMovie(movieId, watchedOn, rating) {
     appLists.WATCHED_ID,
     movieId,
   );
+  if (!commitListChange(nextLists, { movieId, status: appLists.WATCHED_ID })) {
+    return;
+  }
+  recordAddedAt(movieId);
   if (watchedOn) {
     addMovieViewing(movieId, watchedOn);
   }
   if (rating != null) {
     updateRatings(appRatings.setRating(userState.ratings, movieId, rating));
   }
-  if (!commitListChange(nextLists, { movieId, status: appLists.WATCHED_ID })) {
-    return;
-  }
-  recordAddedAt(movieId);
   if (detailMovieId === movieId && !activeMovieIds().includes(movieId)) {
     closeDetail();
   }
@@ -858,7 +872,7 @@ function requestWatchMovie(movieId, options = {}) {
   pendingWatchMovieId = Number(movieId);
   const record = movieById.get(pendingWatchMovieId);
   const title = record?.title || `Movie ${pendingWatchMovieId}`;
-  watchConfirmMessage.textContent = options.fromDiscover
+  watchConfirmMessage.textContent = options.fromDiscover || !appLists.isOnWatchlist(userState.lists, pendingWatchMovieId)
     ? `Mark “${title}” as watched? It will be added to your Watched list.`
     : `Mark “${title}” as watched? It will move to your Watched list.`;
   resetWatchConfirmWatchDate();
