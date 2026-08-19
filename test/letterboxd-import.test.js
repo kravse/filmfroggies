@@ -6,6 +6,7 @@ const {
   parseLetterboxdFiles,
   stableViewingId,
   applyLetterboxdImport,
+  pickTmdbMatch,
 } = require("../scripts/lib/letterboxd-import");
 const { defaultUserState } = require("../scripts/lib/user-state");
 
@@ -70,6 +71,24 @@ test("stableViewingId is deterministic and date-sensitive", () => {
   const first = stableViewingId("uri:https://boxd.it/2awY", "2024-05-01");
   assert.equal(first, stableViewingId("uri:https://boxd.it/2awY", "2024-05-01"));
   assert.notEqual(first, stableViewingId("uri:https://boxd.it/2awY", "2024-05-02"));
+});
+
+test("TMDB matching tolerates one unique adjacent release year", () => {
+  const candidates = [
+    { id: 123, title: "Sing Sing", releaseDate: "2024-07-12" },
+    { id: 456, title: "Sing", releaseDate: "2023-01-01" },
+  ];
+  assert.equal(pickTmdbMatch({ title: "Sing Sing", year: 2023 }, candidates), 123);
+});
+
+test("TMDB matching does not guess across larger or ambiguous year differences", () => {
+  assert.equal(pickTmdbMatch({ title: "Film", year: 2020 }, [
+    { id: 1, title: "Film", releaseDate: "2022-01-01" },
+  ]), null);
+  assert.equal(pickTmdbMatch({ title: "Film", year: 2020 }, [
+    { id: 1, title: "Film", releaseDate: "2021-01-01" },
+    { id: 2, title: "Film", releaseDate: "2019-01-01" },
+  ]), null);
 });
 
 test("unsupported exports fail with a useful error", () => {

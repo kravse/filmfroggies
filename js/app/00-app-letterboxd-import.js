@@ -190,6 +190,35 @@ const appLetterboxdImport = (function () {
     return `letterboxd-${(hash >>> 0).toString(36)}`;
   }
 
+  function normalizeMatchTitle(value) {
+    return String(value || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  }
+
+  function candidateReleaseYear(candidate) {
+    return Number(String(candidate?.releaseDate || "").slice(0, 4)) || null;
+  }
+
+  /**
+   * Letterboxd and TMDB can differ by one year when one uses a festival premiere
+   * and the other a wider release. Only accept that tolerance for one unique,
+   * exact-title candidate; ambiguity still goes to review.
+   */
+  function pickTmdbMatch(film, candidates) {
+    const title = normalizeMatchTitle(film?.title);
+    const exactTitle = (Array.isArray(candidates) ? candidates : [])
+      .filter((candidate) => normalizeMatchTitle(candidate?.title) === title);
+    if (!film?.year) return exactTitle.length === 1 ? exactTitle[0].id : null;
+    const exactYear = exactTitle.filter((candidate) => candidateReleaseYear(candidate) === film.year);
+    if (exactYear.length === 1) return exactYear[0].id;
+    if (exactYear.length > 1) return null;
+    const adjacentYear = exactTitle.filter((candidate) => {
+      const year = candidateReleaseYear(candidate);
+      return year != null && Math.abs(year - film.year) === 1;
+    });
+    return adjacentYear.length === 1 ? adjacentYear[0].id : null;
+  }
+
   function getImportLibraries() {
     if (typeof appLists !== "undefined") {
       return {
@@ -285,6 +314,9 @@ const appLetterboxdImport = (function () {
     isSupportedPath,
     parseLetterboxdFiles,
     stableViewingId,
+    normalizeMatchTitle,
+    candidateReleaseYear,
+    pickTmdbMatch,
     applyLetterboxdImport,
   };
 })();

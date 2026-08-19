@@ -94,6 +94,7 @@ const APP_SYNC_ENTRIES = [
     exports: [
       "SUPPORTED_FILES", "parseCsv", "csvRecords", "normalizeDate",
       "normalizeRating", "filmSourceKey", "isSupportedPath", "parseLetterboxdFiles", "stableViewingId",
+      "normalizeMatchTitle", "candidateReleaseYear", "pickTmdbMatch",
       "applyLetterboxdImport",
     ],
   },

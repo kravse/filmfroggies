@@ -68,24 +68,8 @@ async function extractLetterboxdCsv(file) {
   return files;
 }
 
-function normalizedImportTitle(value) {
-  return String(value || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-
 function candidateYear(candidate) {
-  return Number(String(candidate.releaseDate || "").slice(0, 4)) || null;
-}
-
-function autoPickLetterboxdCandidate(film, candidates) {
-  const title = normalizedImportTitle(film.title);
-  const exactTitle = candidates.filter((candidate) => normalizedImportTitle(candidate.title) === title);
-  if (film.year) {
-    const exact = exactTitle.filter((candidate) => candidateYear(candidate) === film.year);
-    if (exact.length === 1) return exact[0].id;
-    return null;
-  }
-  return exactTitle.length === 1 ? exactTitle[0].id : null;
+  return appLetterboxdImport.candidateReleaseYear(candidate);
 }
 
 async function mapWithConcurrency(items, worker, concurrency = LETTERBOXD_MATCH_CONCURRENCY) {
@@ -155,7 +139,7 @@ async function onReviewLetterboxdImport() {
         try {
           const candidates = await searchMovies(film.title);
           letterboxdCandidates.set(film.sourceKey, candidates.slice(0, 10));
-          const picked = autoPickLetterboxdCandidate(film, candidates);
+          const picked = appLetterboxdImport.pickTmdbMatch(film, candidates);
           if (picked) letterboxdSelections[film.sourceKey] = picked;
         } catch (_) {
           letterboxdCandidates.set(film.sourceKey, []);
