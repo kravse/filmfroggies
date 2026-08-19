@@ -64,6 +64,12 @@ grid.addEventListener("click", (event) => {
     requestWatchMovie(Number(watchBtn.closest("[data-movie-id]").dataset.movieId));
     return;
   }
+  const removeBtn = event.target.closest(".card-remove-btn");
+  if (removeBtn) {
+    event.stopPropagation();
+    requestRemoveMovie(Number(removeBtn.closest("[data-movie-id]").dataset.movieId));
+    return;
+  }
   if (event.target.closest(".card-grip")) {
     return;
   }

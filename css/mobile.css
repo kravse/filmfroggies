@@ -56,6 +56,26 @@
     line-height: 1.1;
   }
 
+  body.view-mode-cards .card--watchlist {
+    --watchlist-title-font: 0.52rem;
+    --watchlist-title-pad-block: 0.16rem;
+    --watchlist-title-pad-inline: 0.2rem;
+  }
+
+  body.view-mode-cards .watchlist-card-actions {
+    min-height: 1.2rem;
+  }
+
+  body.view-mode-cards .watchlist-action-btn {
+    padding: 0.24rem 0.15rem;
+    font-size: 0.54rem;
+  }
+
+  body.view-mode-cards .watchlist-action-btn .card-remove-icon {
+    width: 9px;
+    height: 9px;
+  }
+
   body.view-mode-cards .card-grip {
     width: 18px;
     height: 18px;

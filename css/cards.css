@@ -22,6 +22,14 @@ body.view-mode-detail .grid {
 
 .movie-row {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.movie-row > .card {
+  flex: 1 1 auto;
+  min-height: 100%;
 }
 
 /* Detail grid: poster scales with width, body height is fixed. */
@@ -208,7 +216,7 @@ body.view-mode-detail .card {
 }
 
 /* Detail grid: fixed-height text block under the poster. */
-body.view-mode-detail .card-body {
+body.view-mode-detail .card-body:not(.card-body--watchlist) {
   flex: none;
   position: relative;
   flex-direction: column;
@@ -296,18 +304,137 @@ body.view-mode-detail .card-meta {
   justify-content: center;
 }
 
-body.view-mode-cards .poster-wrap .card-watch-btn {
-  top: auto;
-  bottom: 0.2rem;
-  right: 0.2rem;
-  width: 22px;
-  height: 22px;
-  font-size: 0.7rem;
+.watchlist-card-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
 }
 
-body.view-mode-detail .poster-wrap .card-watch-btn {
-  bottom: 0.35rem;
-  right: 0.35rem;
+.card--watchlist .card-body--watchlist,
+.card--watchlist .card-footer--watchlist {
+  flex: none;
+  width: 100%;
+  min-height: 0;
+}
+
+body.view-mode-detail .card--watchlist .card-body--watchlist {
+  padding: 0;
+  min-height: 0;
+}
+
+.card--watchlist .poster-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+}
+
+.watchlist-card-actions {
+  display: flex;
+  width: 100%;
+  flex: none;
+  border-top: 1px solid var(--border);
+  min-height: 2.1rem;
+}
+
+.watchlist-action-btn {
+  min-width: 0;
+  min-height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  border: none;
+  border-radius: 0;
+  padding: 0.48rem 0.35rem;
+  cursor: pointer;
+  font-family: var(--ui-font);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.watchlist-action-btn .card-remove-icon {
+  width: 13px;
+  height: 13px;
+}
+
+body.view-mode-detail .card--watchlist {
+  --watchlist-title-font: 0.78rem;
+  --watchlist-title-pad-block: 0.35rem;
+  --watchlist-title-pad-inline: 0.45rem;
+  min-height: 100%;
+}
+
+body.view-mode-cards .card--watchlist {
+  --watchlist-title-font: 0.58rem;
+  --watchlist-title-pad-block: 0.2rem;
+  --watchlist-title-pad-inline: 0.26rem;
+  height: 100%;
+}
+
+.watchlist-card-text {
+  box-sizing: border-box;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: var(--watchlist-title-pad-block) var(--watchlist-title-pad-inline);
+  min-height: calc(
+    2 * 1.25 * var(--watchlist-title-font) + 2 * var(--watchlist-title-pad-block)
+  );
+}
+
+.watchlist-card-title {
+  width: 100%;
+  max-height: calc(2 * 1.25 * var(--watchlist-title-font));
+  font-family: var(--display-font);
+  font-size: var(--watchlist-title-font);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.015em;
+  color: var(--text);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow-wrap: break-word;
+}
+
+body.view-mode-cards .card-footer--watchlist {
+  display: block;
+  padding: 0;
+  min-height: 0;
+  gap: 0;
+}
+
+body.view-mode-cards .watchlist-card-actions {
+  min-height: 1.35rem;
+}
+
+body.view-mode-cards .watchlist-action-btn {
+  padding: 0.28rem 0.2rem;
+  font-size: 0.62rem;
+}
+
+body.view-mode-cards .watchlist-action-btn .card-remove-icon {
+  width: 10px;
+  height: 10px;
+}
+
+.watchlist-action-btn.card-watch-btn,
+.watchlist-action-btn.card-remove-btn {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  border: none;
 }
 
 .card-watch-btn {
@@ -331,6 +458,71 @@ body.view-mode-detail .poster-wrap .card-watch-btn {
   color: var(--accent);
   border-color: var(--accent-border);
   background: var(--accent-dim);
+}
+
+.card-remove-btn {
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--panel-raised);
+  color: var(--muted);
+  line-height: 0;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+}
+
+.card-remove-btn svg {
+  display: block;
+  flex: none;
+}
+
+.card-remove-icon {
+  width: 12px;
+  height: 12px;
+}
+
+body.view-mode-detail .card-remove-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.card-remove-btn:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: rgba(215, 107, 107, 0.12);
+}
+
+.watchlist-card-actions .watchlist-action-btn--remove {
+  flex: 0 0 25%;
+  background: var(--panel-raised);
+  color: var(--muted);
+  border: none;
+  border-right: 1px solid var(--border);
+}
+
+.watchlist-card-actions .watchlist-action-btn--watch {
+  flex: 1 1 75%;
+  background: rgba(96, 168, 110, 0.16);
+  color: #8ec79a;
+  border: none;
+}
+
+@media (hover: hover) {
+  .watchlist-card-actions .watchlist-action-btn--remove:hover {
+    background: var(--panel);
+    color: var(--text);
+    border-color: var(--border);
+  }
+
+  .watchlist-card-actions .watchlist-action-btn--watch:hover {
+    background: rgba(96, 168, 110, 0.26);
+    color: #a5d6af;
+  }
 }
 
 .card-grip {
@@ -372,6 +564,7 @@ body.reorder-mode .card-grip {
 
 .card.is-skeleton .card-title,
 .card.is-skeleton .card-meta,
+.card.is-skeleton .watchlist-card-text,
 .card.is-skeleton .poster-wrap {
   background: linear-gradient(
     90deg,
@@ -388,6 +581,27 @@ body.reorder-mode .card-grip {
 .card.is-skeleton .card-title {
   height: 0.9rem;
   width: 85%;
+}
+
+.card.is-skeleton .watchlist-card-text {
+  width: auto;
+  margin: 0;
+}
+
+.card.is-skeleton .watchlist-card-title {
+  visibility: hidden;
+}
+
+.card.is-skeleton .watchlist-card-actions {
+  min-height: 1.35rem;
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base) 0%,
+    var(--skeleton-sheen) 50%,
+    var(--skeleton-base) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-sheen 1.4s ease-in-out infinite;
 }
 
 body.view-mode-detail .card.is-skeleton .card-title {
@@ -452,7 +666,7 @@ body.reorder-active {
 }
 
 .movie-card-floating .card-actions,
-.movie-card-floating .card-watch-btn {
+.movie-card-floating .watchlist-card-actions {
   display: none;
 }
 

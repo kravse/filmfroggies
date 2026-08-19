@@ -289,11 +289,8 @@ async function revalidatePoster(url, cache) {
         }),
       );
     }
-    const existing = posterBlobUrls.get(url);
-    if (existing) {
-      URL.revokeObjectURL(existing);
-    }
-    posterBlobUrls.set(url, URL.createObjectURL(blob));
+    // Keep the in-memory blob URL alive — imgs already display it and revoking
+    // here breaks posters on every refresh after a cache hit.
   } catch (_) {
     /* Cached poster stays on screen. */
   }

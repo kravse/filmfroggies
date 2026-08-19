@@ -3435,11 +3435,8 @@ async function revalidatePoster(url, cache) {
         }),
       );
     }
-    const existing = posterBlobUrls.get(url);
-    if (existing) {
-      URL.revokeObjectURL(existing);
-    }
-    posterBlobUrls.set(url, URL.createObjectURL(blob));
+    // Keep the in-memory blob URL alive — imgs already display it and revoking
+    // here breaks posters on every refresh after a cache hit.
   } catch (_) {
     /* Cached poster stays on screen. */
   }
@@ -4427,15 +4424,29 @@ function cardDetailRatingsHtml(movieId) {
   return `<div class="card-body-ratings">${fan}${user}</div>`;
 }
 
+function cardRemoveIconHtml() {
+  return `<svg class="card-remove-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none">
+  <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
+</svg>`;
+}
+
 /**
- * Watchlist gets a checkmark on the poster. Nothing else moves movies between
- * lists from the card.
+ * Watchlist cards use a dedicated bottom panel: title text, then split actions.
  */
-function watchlistWatchBtnHtml() {
+function watchlistCardPanelHtml(movieId) {
   if (userState.activeListId !== appLists.WATCHLIST_ID) {
     return "";
   }
-  return `<button type="button" class="card-watch-btn" aria-label="Mark as watched" title="Mark as watched">&#10003;</button>`;
+  const record = movieById.get(movieId);
+  const title = record ? appCardHtml.escapeHtml(record.title) : "";
+  const titleLabel = record ? appCardHtml.escapeHtml(record.title) : "movie";
+  return `<div class="watchlist-card-panel">
+  <div class="watchlist-card-text"><span class="watchlist-card-title">${title}</span></div>
+  <div class="watchlist-card-actions">
+    <button type="button" class="watchlist-action-btn watchlist-action-btn--remove card-remove-btn" aria-label="Remove ${titleLabel}" title="Remove movie">${cardRemoveIconHtml()}</button>
+    <button type="button" class="watchlist-action-btn watchlist-action-btn--watch card-watch-btn" aria-label="Mark as watched" title="Mark as watched">&#10003;</button>
+  </div>
+</div>`;
 }
 
 function cardSmallFooterYearText(movieId) {
@@ -4449,6 +4460,11 @@ function cardSmallFooterYearText(movieId) {
 function cardSmallFooterHtml(movieId) {
   if (gridViewMode !== "cards") {
     return "";
+  }
+
+  if (userState.activeListId === appLists.WATCHLIST_ID) {
+    const panel = watchlistCardPanelHtml(movieId);
+    return panel ? `<div class="card-footer card-footer--watchlist">${panel}</div>` : "";
   }
 
   let mainClass = "card-footer-main";
@@ -4496,7 +4512,7 @@ function cardPosterOnlyHtml(movieId) {
   const grip = listShowsReorderGrip()
     ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>`
     : "";
-  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}${watchlistWatchBtnHtml()}</div>${cardSmallFooterHtml(movieId)}`;
+  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>${cardSmallFooterHtml(movieId)}`;
 }
 
 function listShowsReorderGrip() {
@@ -4644,10 +4660,19 @@ function cardInnerHtml(movieId) {
 </div>`;
   }
 
+  if (userState.activeListId === appLists.WATCHLIST_ID) {
+    return `<div class="poster-wrap">
+  ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
+  ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
+</div>
+<div class="card-body card-body--watchlist">
+  ${watchlistCardPanelHtml(movieId)}
+</div>`;
+  }
+
   return `<div class="poster-wrap">
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
   ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
-  ${watchlistWatchBtnHtml()}
 </div>
 <div class="card-body">
   <div class="card-text">
@@ -4669,7 +4694,10 @@ function rowInnerHtml(movieId) {
       : " is-skeleton";
   const title = record ? appCardHtml.escapeHtml(record.title) : `Movie ${movieId}`;
 
-  return `<article class="card${stateClass}${cardUnratedClass(movieId)}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
+  const watchlistCard =
+    userState.activeListId === appLists.WATCHLIST_ID ? " card--watchlist" : "";
+
+  return `<article class="card${stateClass}${cardUnratedClass(movieId)}${watchlistCard}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
 ${cardInnerHtml(movieId)}
 </article>`;
 }
@@ -4905,11 +4933,19 @@ function refreshMovieRating(movieId) {
   }
 }
 
+function removeConfirmScopeLabel(movieId) {
+  if (appLists.isOnWatchlist(userState.lists, movieId)) {
+    return "the watchlist";
+  }
+  return "your watched list";
+}
+
 function requestRemoveMovie(movieId) {
   pendingRemoveMovieId = Number(movieId);
   const record = movieById.get(pendingRemoveMovieId);
   const title = record?.title || `Movie ${pendingRemoveMovieId}`;
-  removeConfirmMessage.textContent = `Remove “${title}” from your collection? This cannot be undone.`;
+  const scope = removeConfirmScopeLabel(pendingRemoveMovieId);
+  removeConfirmMessage.textContent = `Remove “${title}” from ${scope}? This cannot be undone.`;
   removeConfirmDialog.hidden = false;
   removeConfirmCancel.focus({ preventScroll: true });
 }
@@ -5789,6 +5825,12 @@ grid.addEventListener("click", (event) => {
   if (watchBtn) {
     event.stopPropagation();
     requestWatchMovie(Number(watchBtn.closest("[data-movie-id]").dataset.movieId));
+    return;
+  }
+  const removeBtn = event.target.closest(".card-remove-btn");
+  if (removeBtn) {
+    event.stopPropagation();
+    requestRemoveMovie(Number(removeBtn.closest("[data-movie-id]").dataset.movieId));
     return;
   }
   if (event.target.closest(".card-grip")) {
