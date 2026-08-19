@@ -23,6 +23,8 @@ const APP_SYNC_ENTRIES = [
       "formatRatingLabel",
       "formatRating",
       "joinNames",
+      "addListPresetIconHtml",
+      "discoverPresetButtonInnerHtml",
     ],
   },
   {

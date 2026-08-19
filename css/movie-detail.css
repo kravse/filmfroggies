@@ -645,6 +645,57 @@ button.detail-rating-chip.is-rated[aria-expanded="true"] {
   background: rgba(215, 107, 107, 0.14);
 }
 
+.detail-discover-preset-btn {
+  font-family: var(--ui-font);
+  background: var(--panel-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.7rem;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.detail-discover-preset-btn:hover {
+  border-color: var(--list-chip-border);
+  color: var(--list-chip-text);
+  background: rgba(14, 16, 20, 0.55);
+}
+
+.detail-discover-preset-btn.is-active {
+  border-color: var(--list-chip-border);
+  background: var(--list-chip-dim);
+  color: var(--list-chip-text);
+}
+
+.detail-discover-preset-btn.is-active:hover {
+  filter: brightness(1.06);
+}
+
+.detail-discover-preset-btn.discover-preset-btn-with-icon {
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-size: 0.82rem;
+}
+
+.detail-discover-preset-btn.discover-preset-btn-with-icon .add-list-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  font-size: 0.82rem;
+  border-radius: 5px;
+}
+
+.detail-discover-preset-btn.discover-preset-btn-with-icon .add-list-icon-watchlist svg {
+  width: 14px;
+  height: 14px;
+}
+
 .detail-link {
   font-family: var(--ui-font);
   font-size: 0.78rem;

@@ -64,6 +64,15 @@ addMovieRatingClear?.addEventListener("click", clearAddMovieRating);
 /* --- Grid --- */
 
 grid.addEventListener("click", (event) => {
+  const discoverPresetBtn = event.target.closest("[data-discover-preset-id]");
+  if (discoverPresetBtn && isDiscoverActive()) {
+    event.stopPropagation();
+    const movieId = Number(discoverPresetBtn.closest("[data-movie-id]")?.dataset.movieId);
+    if (Number.isInteger(movieId) && movieId > 0) {
+      requestDiscoverPresetMembership(discoverPresetBtn.dataset.discoverPresetId, movieId);
+    }
+    return;
+  }
   const watchBtn = event.target.closest(".card-watch-btn");
   if (watchBtn) {
     event.stopPropagation();
@@ -185,11 +194,6 @@ detailListsDialog?.addEventListener("click", (event) => {
   const listToggleChip = event.target.closest("[data-detail-list-toggle-id]");
   if (listToggleChip) {
     toggleDetailListPickerChip(listToggleChip.dataset.detailListToggleId);
-    return;
-  }
-  const presetToggleChip = event.target.closest("[data-detail-preset-toggle-id]");
-  if (presetToggleChip) {
-    toggleDetailPresetPickerChip(presetToggleChip.dataset.detailPresetToggleId);
   }
 });
 
@@ -233,11 +237,6 @@ detailDialog.addEventListener("click", (event) => {
   const listToggleChip = event.target.closest("[data-detail-list-toggle-id]");
   if (listToggleChip) {
     toggleDetailListPickerChip(listToggleChip.dataset.detailListToggleId);
-    return;
-  }
-  const presetToggleChip = event.target.closest("[data-detail-preset-toggle-id]");
-  if (presetToggleChip) {
-    toggleDetailPresetPickerChip(presetToggleChip.dataset.detailPresetToggleId);
   }
 });
 delegateRangeSliderLiveInput(detailDialog, "detail-rating-slider", onDetailRatingSliderInput);
@@ -252,6 +251,11 @@ detailDialog.addEventListener("change", (event) => {
   }
 });
 detailActions.addEventListener("click", (event) => {
+  const discoverPresetBtn = event.target.closest("[data-discover-preset-id]");
+  if (discoverPresetBtn) {
+    requestDiscoverDetailPreset(discoverPresetBtn.dataset.discoverPresetId);
+    return;
+  }
   if (event.target.id === "detail-remove-from-list") {
     requestRemoveFromCustomList(detailMovieId);
     return;
@@ -270,6 +274,14 @@ watchConfirmOk.addEventListener("click", () => confirmWatchMovie());
 watchConfirmDialog.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-watch-confirm")) {
     closeWatchConfirm();
+  }
+});
+
+discoverAddConfirmCancel.addEventListener("click", () => closeDiscoverAddConfirm());
+discoverAddConfirmOk.addEventListener("click", () => confirmDiscoverPresetAdd());
+discoverAddConfirmDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-discover-add-confirm")) {
+    closeDiscoverAddConfirm();
   }
 });
 
@@ -465,6 +477,10 @@ document.addEventListener("keydown", (event) => {
     }
     if (!watchConfirmDialog.hidden) {
       closeWatchConfirm();
+      return;
+    }
+    if (!discoverAddConfirmDialog.hidden) {
+      closeDiscoverAddConfirm();
       return;
     }
     if (!aboutDialog.hidden) {

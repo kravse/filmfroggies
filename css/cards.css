@@ -547,9 +547,19 @@ body.view-mode-detail .card-remove-icon {
 
 .watchlist-card-actions .watchlist-action-btn--watch {
   flex: 1 1 75%;
-  background: rgba(96, 168, 110, 0.16);
-  color: #8ec79a;
+  background: var(--panel-raised);
+  color: var(--text);
   border: none;
+  gap: 0.35rem;
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
+.watchlist-card-actions .watchlist-action-btn--watch .add-list-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  font-size: 0.62rem;
+  border-radius: 4px;
 }
 
 @media (hover: hover) {
@@ -560,8 +570,8 @@ body.view-mode-detail .card-remove-icon {
   }
 
   .watchlist-card-actions .watchlist-action-btn--watch:hover {
-    background: rgba(96, 168, 110, 0.26);
-    color: #a5d6af;
+    background: var(--panel);
+    color: var(--text);
   }
 }
 

@@ -146,6 +146,12 @@ const watchConfirmMessage = document.getElementById("watch-confirm-message");
 const watchConfirmCancel = document.getElementById("watch-confirm-cancel");
 const watchConfirmOk = document.getElementById("watch-confirm-ok");
 
+const discoverAddConfirmDialog = document.getElementById("discover-add-confirm-dialog");
+const discoverAddConfirmTitle = document.getElementById("discover-add-confirm-title");
+const discoverAddConfirmMessage = document.getElementById("discover-add-confirm-message");
+const discoverAddConfirmCancel = document.getElementById("discover-add-confirm-cancel");
+const discoverAddConfirmOk = document.getElementById("discover-add-confirm-ok");
+
 const hostedUnlockDialog = document.getElementById("hosted-unlock-dialog");
 const hostedUnlockInput = document.getElementById("hosted-unlock-input");
 const hostedUnlockStatus = document.getElementById("hosted-unlock-status");
@@ -176,10 +182,10 @@ let detailRatingEditorSnapshot = null;
 let detailListPickerOpen = false;
 /** Staged custom-list membership while the detail list editor is open. */
 let detailListPickerSelectedIds = new Set();
-/** Staged preset-list membership while the detail list editor is open. */
-let detailListPickerSelectedPresets = new Set();
 let pendingRemoveMovieId = null;
 let pendingWatchMovieId = null;
+let pendingDiscoverAddMovieId = null;
+let pendingDiscoverAddListId = null;
 let pendingCustomListDeleteId = null;
 let tmdbCredential = "";
 

@@ -620,7 +620,7 @@
             </div>
             <div class="add-movie-pick-actions add-movie-pick-actions--end">
               <button type="button" class="primary-btn" id="add-movie-submit">
-                Add to list
+                Add
               </button>
             </div>
             </div>
@@ -1105,6 +1105,33 @@
           </button>
           <button type="button" id="remove-confirm-ok" class="primary-btn confirm-danger">
             Remove
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Discover add to watched / watchlist confirmation -->
+    <div id="discover-add-confirm-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
+      <div class="sheet-backdrop" data-close-discover-add-confirm></div>
+      <div
+        class="sheet-panel confirm-panel"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="discover-add-confirm-title"
+        aria-describedby="discover-add-confirm-message"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="discover-add-confirm-title">Add to watchlist</h2>
+        </div>
+        <div class="sheet-scroll">
+          <p id="discover-add-confirm-message" class="confirm-message"></p>
+        </div>
+        <div class="confirm-actions">
+          <button type="button" id="discover-add-confirm-cancel" class="ghost-btn">
+            Cancel
+          </button>
+          <button type="button" id="discover-add-confirm-ok" class="primary-btn">
+            Add
           </button>
         </div>
       </div>

@@ -98,6 +98,21 @@ function joinNames(names, limit) {
   return capped.join(", ");
 }
 
+const WATCHLIST_PRESET_ICON_SVG =
+  '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>';
+
+/** Same square icons as the add-movie list picker (`watched` | `watchlist`). */
+function addListPresetIconHtml(preset) {
+  if (preset === "watchlist") {
+    return `<span class="add-list-icon add-list-icon-watchlist" aria-hidden="true">${WATCHLIST_PRESET_ICON_SVG}</span>`;
+  }
+  return `<span class="add-list-icon" aria-hidden="true">✓</span>`;
+}
+
+function discoverPresetButtonInnerHtml(preset, label) {
+  return `${addListPresetIconHtml(preset)}<span class="discover-preset-btn-label">${escapeHtml(label)}</span>`;
+}
+
 module.exports = {
   escapeHtml,
   formatYear,
@@ -106,4 +121,6 @@ module.exports = {
   formatRatingLabel,
   formatRating,
   joinNames,
+  addListPresetIconHtml,
+  discoverPresetButtonInnerHtml,
 };

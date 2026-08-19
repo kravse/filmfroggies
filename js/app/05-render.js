@@ -106,11 +106,21 @@ function cardFanRatingHtml(movieId) {
   return `<span class="card-fan-rating${emptyClass}" aria-label="Fan rating ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
 }
 
+function discoverUpcomingCardWatchlistHtml(movieId) {
+  const isMember = appLists.isOnWatchlist(userState.lists, movieId);
+  return `<div class="card-body-ratings card-body-ratings--interactive">
+    <button type="button" class="discover-card-watchlist-btn discover-preset-btn-with-icon${isMember ? " is-active" : ""}" data-discover-preset-id="${appCardHtml.escapeHtml(appLists.WATCHLIST_ID)}" aria-pressed="${isMember ? "true" : "false"}">${appCardHtml.discoverPresetButtonInnerHtml("watchlist", "Watchlist")}</button>
+  </div>`;
+}
+
 function cardDetailRatingsHtml(movieId) {
   if (gridViewMode !== "detail") {
     return "";
   }
   if (isDiscoverActive()) {
+    if (discoverTab === "upcoming") {
+      return discoverUpcomingCardWatchlistHtml(movieId);
+    }
     const fan = cardFanRatingHtml(movieId);
     return fan ? `<div class="card-body-ratings">${fan}</div>` : "";
   }
@@ -252,7 +262,7 @@ function watchlistCardPanelHtml(movieId) {
   <div class="watchlist-card-text"><span class="watchlist-card-title">${title}</span></div>
   <div class="watchlist-card-actions">
     <button type="button" class="watchlist-action-btn watchlist-action-btn--remove card-remove-btn" aria-label="Remove ${titleLabel}" title="Remove movie">${cardRemoveIconHtml()}</button>
-    <button type="button" class="watchlist-action-btn watchlist-action-btn--watch card-watch-btn" aria-label="Mark as watched" title="Mark as watched">&#10003;</button>
+    <button type="button" class="watchlist-action-btn watchlist-action-btn--watch card-watch-btn discover-preset-btn-with-icon" aria-label="Mark as watched" title="Mark as watched">${appCardHtml.discoverPresetButtonInnerHtml("watched", "Watched")}</button>
   </div>
 </div>`;
 }

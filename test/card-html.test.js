@@ -9,6 +9,8 @@ const {
   formatRatingLabel,
   formatRating,
   joinNames,
+  addListPresetIconHtml,
+  discoverPresetButtonInnerHtml,
 } = require("../scripts/lib/card-html");
 
 test("escapeHtml neutralizes markup in untrusted API text", () => {
@@ -90,4 +92,17 @@ test("joinNames joins and can cap the list", () => {
 test("joinNames drops blank entries and tolerates non-arrays", () => {
   assert.equal(joinNames(["A", "", null, "B"]), "A, B");
   assert.equal(joinNames(null), "");
+});
+
+test("addListPresetIconHtml matches add-movie list picker icons", () => {
+  assert.match(addListPresetIconHtml("watched"), /class="add-list-icon"[^>]*>✓<\/span>/);
+  assert.match(addListPresetIconHtml("watchlist"), /add-list-icon-watchlist/);
+  assert.match(addListPresetIconHtml("watchlist"), /M12 2C6\.48 2/);
+});
+
+test("discoverPresetButtonInnerHtml wraps icon and escaped label", () => {
+  assert.match(
+    discoverPresetButtonInnerHtml("watchlist", 'Sci-Fi &amp; Fantasy'),
+    /discover-preset-btn-label">Sci-Fi &amp;amp; Fantasy<\/span>/,
+  );
 });
