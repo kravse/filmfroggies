@@ -7927,17 +7927,15 @@ function cardRemoveIconHtml() {
 }
 
 /**
- * Watchlist cards use a dedicated bottom panel: title text, then split actions.
+ * Watchlist cards use a dedicated bottom panel: split remove / watched actions.
  */
 function watchlistCardPanelHtml(movieId) {
   if (!isWatchlistActive()) {
     return "";
   }
   const record = movieById.get(movieId);
-  const title = record ? appCardHtml.escapeHtml(record.title) : "";
   const titleLabel = record ? appCardHtml.escapeHtml(record.title) : "movie";
   return `<div class="watchlist-card-panel">
-  <div class="watchlist-card-text"><span class="watchlist-card-title">${title}</span></div>
   <div class="watchlist-card-actions">
     <button type="button" class="watchlist-action-btn watchlist-action-btn--remove card-remove-btn" aria-label="Remove ${titleLabel}" title="Remove movie">${cardRemoveIconHtml()}</button>
     <button type="button" class="watchlist-action-btn watchlist-action-btn--watch card-watch-btn discover-preset-btn-with-icon" aria-label="Mark as watched" title="Mark as watched">${appCardHtml.discoverPresetButtonInnerHtml("watched", "Watched")}</button>

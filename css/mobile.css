@@ -86,10 +86,6 @@
     padding: 0;
   }
 
-  body.view-mode-detail .card--watchlist .watchlist-card-text {
-    display: none;
-  }
-
   body.view-mode-detail .card--watchlist .watchlist-action-btn--watch .discover-preset-btn-label {
     display: none;
   }
