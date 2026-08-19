@@ -169,14 +169,6 @@
               Create list
             </button>
           </div>
-          <button
-            type="button"
-            id="add-from-watchlist-btn"
-            class="ghost-btn toolbar-action-btn"
-            hidden
-          >
-            Add from watched
-          </button>
           <div class="sort-control" id="sort-control" hidden>
             <label class="sort-label" for="list-sort">Sort</label>
             <select id="list-sort" aria-label="Sort watched movies">
@@ -429,6 +421,12 @@
                 aria-label="Movie search results"
                 hidden
               ></ul>
+            </div>
+            <div class="add-movie-alt-actions" id="add-movie-from-watched-section" hidden>
+              <p class="add-movie-alt-label">or</p>
+              <button type="button" id="add-movie-from-watched-btn" class="ghost-btn add-movie-from-watched-btn">
+                Add from watched
+              </button>
             </div>
           </div>
           <div id="add-movie-pick-step" hidden tabindex="-1">

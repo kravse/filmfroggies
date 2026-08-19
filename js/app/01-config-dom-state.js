@@ -19,8 +19,9 @@ const customListsSortSelect = document.getElementById("custom-lists-sort");
 const customListsSortControl = document.getElementById("custom-lists-sort-control");
 const customListsEmpty = document.getElementById("custom-lists-empty");
 const customListCreateBtn = document.getElementById("custom-list-create-btn");
-const addFromWatchlistBtn = document.getElementById("add-from-watchlist-btn");
 const customListBackBtn = document.getElementById("custom-list-back-btn");
+const addMovieFromWatchedSection = document.getElementById("add-movie-from-watched-section");
+const addMovieFromWatchedBtn = document.getElementById("add-movie-from-watched-btn");
 
 const addMovieCustomListsSection = document.getElementById("add-movie-custom-lists-section");
 const addMovieCustomListPicker = document.getElementById("add-movie-custom-list-picker");

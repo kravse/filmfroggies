@@ -262,7 +262,10 @@ customListDeleteDialog?.addEventListener("click", (event) => {
   }
 });
 customListBackBtn?.addEventListener("click", () => navigateToCustomListsIndex());
-addFromWatchlistBtn?.addEventListener("click", openWatchedPicker);
+addMovieFromWatchedBtn?.addEventListener("click", () => {
+  closeAddMovieDialog();
+  openWatchedPicker();
+});
 watchlistPickerClose?.addEventListener("click", closeWatchedPicker);
 watchlistPickerSubmit?.addEventListener("click", confirmWatchedPicker);
 watchlistPickerList?.addEventListener("click", onWatchedPickerClick);

@@ -37,9 +37,6 @@ function syncAppViewChrome() {
   if (listsNavBtn) {
     listsNavBtn.textContent = isCustomListView() ? "Collection" : "Lists";
   }
-  if (addFromWatchlistBtn) {
-    addFromWatchlistBtn.hidden = !isCustomListDetailActive();
-  }
   if (customListBackBtn) {
     customListBackBtn.hidden = !isCustomListDetailActive();
   }

@@ -21,8 +21,9 @@ const customListsSortSelect = document.getElementById("custom-lists-sort");
 const customListsSortControl = document.getElementById("custom-lists-sort-control");
 const customListsEmpty = document.getElementById("custom-lists-empty");
 const customListCreateBtn = document.getElementById("custom-list-create-btn");
-const addFromWatchlistBtn = document.getElementById("add-from-watchlist-btn");
 const customListBackBtn = document.getElementById("custom-list-back-btn");
+const addMovieFromWatchedSection = document.getElementById("add-movie-from-watched-section");
+const addMovieFromWatchedBtn = document.getElementById("add-movie-from-watched-btn");
 
 const addMovieCustomListsSection = document.getElementById("add-movie-custom-lists-section");
 const addMovieCustomListPicker = document.getElementById("add-movie-custom-list-picker");
@@ -6056,10 +6057,17 @@ function confirmAddMovie() {
   });
 }
 
+function syncAddMovieFromWatchedSection() {
+  if (addMovieFromWatchedSection) {
+    addMovieFromWatchedSection.hidden = !isCustomListDetailActive();
+  }
+}
+
 function openAddMovieDialog() {
   setSearchDirectorMode(false);
   showAddSearchStep();
   clearSearch();
+  syncAddMovieFromWatchedSection();
   addMovieDialog.hidden = false;
   searchInput.focus();
 }
@@ -8290,9 +8298,6 @@ function syncAppViewChrome() {
   if (listsNavBtn) {
     listsNavBtn.textContent = isCustomListView() ? "Collection" : "Lists";
   }
-  if (addFromWatchlistBtn) {
-    addFromWatchlistBtn.hidden = !isCustomListDetailActive();
-  }
   if (customListBackBtn) {
     customListBackBtn.hidden = !isCustomListDetailActive();
   }
@@ -9118,7 +9123,10 @@ customListDeleteDialog?.addEventListener("click", (event) => {
   }
 });
 customListBackBtn?.addEventListener("click", () => navigateToCustomListsIndex());
-addFromWatchlistBtn?.addEventListener("click", openWatchedPicker);
+addMovieFromWatchedBtn?.addEventListener("click", () => {
+  closeAddMovieDialog();
+  openWatchedPicker();
+});
 watchlistPickerClose?.addEventListener("click", closeWatchedPicker);
 watchlistPickerSubmit?.addEventListener("click", confirmWatchedPicker);
 watchlistPickerList?.addEventListener("click", onWatchedPickerClick);

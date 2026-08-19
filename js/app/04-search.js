@@ -534,10 +534,17 @@ function confirmAddMovie() {
   });
 }
 
+function syncAddMovieFromWatchedSection() {
+  if (addMovieFromWatchedSection) {
+    addMovieFromWatchedSection.hidden = !isCustomListDetailActive();
+  }
+}
+
 function openAddMovieDialog() {
   setSearchDirectorMode(false);
   showAddSearchStep();
   clearSearch();
+  syncAddMovieFromWatchedSection();
   addMovieDialog.hidden = false;
   searchInput.focus();
 }
