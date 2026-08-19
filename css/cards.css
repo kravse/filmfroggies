@@ -371,6 +371,26 @@ body.view-mode-detail .card--watchlist .card-body--watchlist {
   min-height: 0;
 }
 
+body.view-mode-detail .card--watchlist .watchlist-card-actions {
+  min-height: 2.35rem;
+  height: 2.35rem;
+}
+
+body.view-mode-detail .card--watchlist .watchlist-action-btn {
+  padding: 0;
+}
+
+body.view-mode-detail .card--watchlist .watchlist-action-btn .card-remove-icon {
+  width: 14px;
+  height: 14px;
+}
+
+body.view-mode-detail .card--watchlist .watchlist-action-btn--watch .add-list-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  font-size: 0.7rem;
+}
+
 .card--watchlist .poster-wrap {
   flex: 1 1 auto;
   min-height: 0;
@@ -379,6 +399,7 @@ body.view-mode-detail .card--watchlist .card-body--watchlist {
 
 .watchlist-card-actions {
   display: flex;
+  align-items: stretch;
   width: 100%;
   flex: none;
   border-top: 1px solid var(--border);
@@ -387,8 +408,7 @@ body.view-mode-detail .card--watchlist .card-body--watchlist {
 
 .watchlist-action-btn {
   min-width: 0;
-  min-height: 100%;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.2rem;
@@ -400,6 +420,7 @@ body.view-mode-detail .card--watchlist .card-body--watchlist {
   font-size: 0.78rem;
   font-weight: 600;
   line-height: 1;
+  box-sizing: border-box;
   transition:
     background 0.15s ease,
     color 0.15s ease;

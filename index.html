@@ -879,86 +879,83 @@
             </div>
           </section>
 
-          <section class="sheet-section letterboxd-import-section">
-            <h3>Import from Letterboxd</h3>
-            <p class="sheet-note">
-              Choose the ZIP from Letterboxd’s account export. It is read in this
-              browser only. Watched films, watchlist films, ratings, and diary dates
-              are supported; reviews, tags, likes, and custom lists are ignored.
-            </p>
-            <div class="field-row letterboxd-file-row">
-              <div class="letterboxd-file-picker">
-                <input
-                  type="file"
-                  id="letterboxd-file"
-                  class="letterboxd-file-input"
-                  accept=".zip,application/zip"
-                  aria-label="Letterboxd export ZIP"
-                />
-                <span class="ghost-btn letterboxd-file-choose" aria-hidden="true">Choose ZIP</span>
-              </div>
-              <span
-                id="letterboxd-file-name"
-                class="letterboxd-file-name is-empty"
-                aria-live="polite"
-              >No file chosen</span>
-              <button type="button" id="letterboxd-read" class="ghost-btn">Import</button>
-            </div>
-            <span class="status-text" id="letterboxd-status"></span>
-          </section>
-
           <section class="sheet-section">
-            <h3>Repo data</h3>
+            <h3>Import &amp; export</h3>
             <p class="sheet-note">
-              Movies bundled with the site load instantly and never touch the API.
-              Export this list, commit it to the repo as
-              <code>data/my_list.csv</code>, then run <code>npm run scrape</code> to
-              refresh the bundled copy.
+              Back up or restore your collection as <code>my_list.csv</code>
+              (Watched, Watchlist, custom lists, ratings, viewing dates).
             </p>
-            <div class="field-row">
-              <button type="button" id="export-csv" class="ghost-btn">
-                Export list CSV
-              </button>
-              <span class="status-text" id="export-csv-status"></span>
+            <div class="data-transfer-grid">
+              <div class="data-transfer-card data-transfer-card--export">
+                <div class="data-transfer-card-head">
+                  <span class="data-transfer-label">Export</span>
+                  <span class="data-transfer-filename">my_list.csv</span>
+                </div>
+                <div class="data-transfer-card-foot">
+                  <button type="button" id="export-csv" class="ghost-btn data-transfer-btn">
+                    Export
+                  </button>
+                  <span class="status-text data-transfer-status" id="export-csv-status"></span>
+                </div>
+              </div>
+              <div class="data-transfer-card data-transfer-card--import">
+                <div class="data-transfer-card-head">
+                  <span class="data-transfer-label">Import</span>
+                </div>
+                <label class="data-transfer-drop" for="collection-import-file">
+                  <input
+                    type="file"
+                    id="collection-import-file"
+                    class="data-transfer-file-input"
+                    accept=".csv,text/csv"
+                    aria-label="Collection backup CSV"
+                  />
+                  <span
+                    id="collection-import-file-name"
+                    class="data-transfer-file-name is-empty"
+                    aria-live="polite"
+                  >Choose CSV…</span>
+                </label>
+                <div class="data-transfer-card-foot">
+                  <button
+                    type="button"
+                    id="collection-import-read"
+                    class="primary-btn data-transfer-btn"
+                    disabled
+                  >
+                    Import
+                  </button>
+                  <span class="status-text data-transfer-status" id="collection-import-status"></span>
+                </div>
+              </div>
             </div>
+            <p class="sheet-note data-transfer-scrape-note">
+              For repo metadata, commit to <code>data/my_list.csv</code> and run
+              <code>npm run scrape</code> (<code>tmdb_id</code> only).
+            </p>
           </section>
         </div>
       </div>
     </div>
 
-    <div id="letterboxd-review-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
-      <div class="sheet-backdrop" data-close-letterboxd-review></div>
+    <div id="collection-import-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
+      <div class="sheet-backdrop" data-close-collection-import></div>
       <div
-        class="sheet-panel letterboxd-review-panel"
+        class="sheet-panel"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="letterboxd-review-title"
+        aria-labelledby="collection-import-title"
+        aria-describedby="collection-import-message"
       >
         <div class="sheet-toolbar">
-          <h2 id="letterboxd-review-title">Review Letterboxd import</h2>
-          <button type="button" id="letterboxd-review-close" class="icon-btn" aria-label="Close import review">
-            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none">
-              <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
-            </svg>
-          </button>
+          <h2 id="collection-import-title">Import CSV</h2>
         </div>
         <div class="sheet-scroll">
-          <p id="letterboxd-summary" class="letterboxd-summary">Preparing import…</p>
-          <div class="letterboxd-match-legend" aria-label="Match status legend">
-            <span class="lookup-failed">Lookup failed</span>
-            <span class="is-unmatched">No match</span>
-            <span class="needs-review">Needs review</span>
-            <span class="is-matched">Matched</span>
-          </div>
-          <label class="letterboxd-rating-option">
-            <input type="checkbox" id="letterboxd-overwrite-ratings" />
-            Replace existing CineQueue ratings
-          </label>
-          <div id="letterboxd-matches" class="letterboxd-matches" aria-live="polite"></div>
+          <p id="collection-import-message" class="confirm-message"></p>
         </div>
         <div class="confirm-actions">
-          <button type="button" id="letterboxd-review-cancel" class="ghost-btn">Cancel</button>
-          <button type="button" id="letterboxd-import" class="primary-btn">Import matched films</button>
+          <button type="button" id="collection-import-cancel" class="ghost-btn">Cancel</button>
+          <button type="button" id="collection-import-ok" class="primary-btn">Replace collection</button>
         </div>
       </div>
     </div>
@@ -1381,7 +1378,6 @@
       </div>
     </div>
 
-    <script src="js/vendor/fflate.js"></script>
     <script src="js/app-bundle.js"></script>
   </body>
 </html>

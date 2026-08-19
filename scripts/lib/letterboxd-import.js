@@ -1,8 +1,18 @@
 /**
  * Parse the useful parts of a Letterboxd account export into a small,
- * source-oriented model. ZIP extraction and TMDB matching live in the browser
- * layer; keeping CSV handling here makes the risky data conversion testable.
+ * source-oriented model. ZIP extraction and TMDB matching run in the local
+ * browser tool; CSV handling here keeps the risky data conversion testable.
  */
+
+function getParseCsv() {
+  if (typeof appListCsv !== "undefined" && typeof appListCsv.parseCsv === "function") {
+    return appListCsv.parseCsv;
+  }
+  if (typeof require === "function") {
+    return require("./list-csv").parseCsv;
+  }
+  throw new Error("parseCsv is not available");
+}
 
 const SUPPORTED_FILES = new Set([
   "watched.csv",
@@ -11,53 +21,16 @@ const SUPPORTED_FILES = new Set([
   "diary.csv",
 ]);
 
-function parseCsv(text) {
-  const source = String(text == null ? "" : text).replace(/^\uFEFF/, "");
-  const rows = [];
-  let row = [];
-  let field = "";
-  let quoted = false;
-
-  for (let index = 0; index < source.length; index += 1) {
-    const char = source[index];
-    if (quoted) {
-      if (char === '"' && source[index + 1] === '"') {
-        field += '"';
-        index += 1;
-      } else if (char === '"') {
-        quoted = false;
-      } else {
-        field += char;
-      }
-      continue;
-    }
-    if (char === '"' && field === "") {
-      quoted = true;
-    } else if (char === ",") {
-      row.push(field);
-      field = "";
-    } else if (char === "\n" || char === "\r") {
-      if (char === "\r" && source[index + 1] === "\n") index += 1;
-      row.push(field);
-      if (row.some((value) => value !== "")) rows.push(row);
-      row = [];
-      field = "";
-    } else {
-      field += char;
-    }
-  }
-  if (quoted) throw new Error("CSV contains an unterminated quoted field.");
-  row.push(field);
-  if (row.some((value) => value !== "")) rows.push(row);
-  return rows;
-}
-
 function canonicalHeader(value) {
   return String(value || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
 }
 
+function parseCsv(text) {
+  return getParseCsv()(text);
+}
+
 function csvRecords(text) {
-  const rows = parseCsv(text);
+  const rows = getParseCsv()(text);
   if (!rows.length) return [];
   const headers = rows[0].map(canonicalHeader);
   return rows.slice(1).map((values) => {
@@ -222,6 +195,100 @@ function pickTmdbMatch(film, candidates) {
   return adjacentYear.length ? adjacentYear[0].id : null;
 }
 
+/** Rank TMDB search hits for manual review (year proximity, then TMDB order). */
+function sortedTmdbCandidates(film, candidates, limit = 10) {
+  const seenIds = new Set();
+  const unique = (Array.isArray(candidates) ? candidates : []).filter((candidate) => {
+    const id = Number(candidate?.id);
+    if (!Number.isInteger(id) || id <= 0 || seenIds.has(id)) {
+      return false;
+    }
+    seenIds.add(id);
+    return true;
+  });
+  return unique
+    .map((candidate, index) => ({ candidate, index }))
+    .sort((left, right) => {
+      const yearRank = (candidate) => {
+        const year = candidateReleaseYear(candidate);
+        if (!film?.year || year == null) {
+          return 2;
+        }
+        if (year === film.year) {
+          return 0;
+        }
+        if (Math.abs(year - film.year) === 1) {
+          return 1;
+        }
+        return 2;
+      };
+      return yearRank(left.candidate) - yearRank(right.candidate) || left.index - right.index;
+    })
+    .map((entry) => entry.candidate)
+    .slice(0, limit);
+}
+
+function matchReviewRank(film, matches, lookupFailed) {
+  if (lookupFailed.has(film.sourceKey)) {
+    return 0;
+  }
+  if (!matches[film.sourceKey]) {
+    return 1;
+  }
+  return 2;
+}
+
+/** Films to step through in an interactive review (lookup failures and ambiguous first). */
+function filmsForMatchReview(films, matches, lookupFailed, options = {}) {
+  const reviewAll = options.reviewAll === true;
+  return (films || [])
+    .filter((film) => {
+      if (reviewAll) {
+        return true;
+      }
+      return lookupFailed.has(film.sourceKey) || !matches[film.sourceKey];
+    })
+    .sort((left, right) => {
+      return (
+        matchReviewRank(left, matches, lookupFailed)
+        - matchReviewRank(right, matches, lookupFailed)
+        || String(left.title).localeCompare(String(right.title))
+      );
+    });
+}
+
+/**
+ * Parse a review prompt answer.
+ * Menu picks are 1…n; 0 skips; a positive integer outside the menu is a manual TMDB id.
+ */
+function parseMatchChoice(answer, candidates, currentId = null) {
+  const text = String(answer ?? "").trim().toLowerCase();
+  if (!text) {
+    return currentId ? { action: "keep", id: currentId } : { action: "skip" };
+  }
+  if (text === "q" || text === "quit") {
+    return { action: "quit" };
+  }
+  if (text === "s" || text === "skip") {
+    return { action: "skip" };
+  }
+  const num = Number(text);
+  if (!Number.isInteger(num)) {
+    return { action: "invalid" };
+  }
+  if (num === 0) {
+    return { action: "skip" };
+  }
+  const menuSize = Array.isArray(candidates) ? candidates.length : 0;
+  if (num >= 1 && num <= menuSize) {
+    return { action: "pick", id: Number(candidates[num - 1].id) };
+  }
+  if (num > 0) {
+    return { action: "pick", id: num };
+  }
+  return { action: "invalid" };
+}
+
 function getImportLibraries() {
   if (typeof appLists !== "undefined") {
     return {
@@ -243,6 +310,56 @@ function getImportLibraries() {
     };
   }
   throw new Error("Import libraries are not available.");
+}
+
+function getListCsvLibraries() {
+  if (typeof appLists !== "undefined" && typeof appRatings !== "undefined") {
+    return { lists: appLists, ratings: appRatings };
+  }
+  if (typeof require === "function") {
+    return {
+      lists: require("./lists"),
+      ratings: require("./ratings"),
+    };
+  }
+  throw new Error("List CSV libraries are not available.");
+}
+
+/** Turn matched Letterboxd films into collection backup CSV row objects. */
+function letterboxdFilmsToImportRows(films, matches) {
+  const { lists, ratings } = getListCsvLibraries();
+  const watchedPreset = lists.PRESET_LISTS.find((entry) => entry.id === lists.WATCHED_ID);
+  const watchlistPreset = lists.PRESET_LISTS.find((entry) => entry.id === lists.WATCHLIST_ID);
+  const rows = [];
+
+  for (const film of films || []) {
+    const movieId = Number(matches?.[film.sourceKey]);
+    if (!Number.isInteger(movieId) || movieId <= 0) {
+      continue;
+    }
+    const base = {
+      id: movieId,
+      title: film.title,
+      myRating: film.rating != null ? ratings.formatUserRating(film.rating) : "",
+      releaseYear: film.year != null ? String(film.year) : "",
+      watchDates: (film.viewings || []).join(";"),
+    };
+    if (film.watched) {
+      rows.push({
+        ...base,
+        listId: lists.WATCHED_ID,
+        listName: watchedPreset?.name || "Watched",
+      });
+    } else if (film.watchlist) {
+      rows.push({
+        ...base,
+        listId: lists.WATCHLIST_ID,
+        listName: watchlistPreset?.name || "Watchlist",
+      });
+    }
+  }
+
+  return rows;
 }
 
 /** Build one new state object. Callers decide when to persist and sync it. */
@@ -320,5 +437,9 @@ module.exports = {
   normalizeMatchTitle,
   candidateReleaseYear,
   pickTmdbMatch,
+  sortedTmdbCandidates,
+  filmsForMatchReview,
+  parseMatchChoice,
+  letterboxdFilmsToImportRows,
   applyLetterboxdImport,
 };

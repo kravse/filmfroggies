@@ -403,14 +403,12 @@ tmdbKeyInput.addEventListener("keydown", (event) => {
 tmdbKeyClear.addEventListener("click", onClearCredential);
 cacheClearBtn.addEventListener("click", onClearCache);
 exportCsvBtn.addEventListener("click", onExportCsv);
-letterboxdRead?.addEventListener("click", onReviewLetterboxdImport);
-letterboxdFile?.addEventListener("change", syncLetterboxdFileLabel);
-letterboxdMatches?.addEventListener("change", onLetterboxdMatchChange);
-letterboxdImport?.addEventListener("click", onCommitLetterboxdImport);
-letterboxdReviewClose?.addEventListener("click", closeLetterboxdReview);
-letterboxdReviewCancel?.addEventListener("click", closeLetterboxdReview);
-letterboxdReviewDialog?.addEventListener("click", (event) => {
-  if (event.target.hasAttribute("data-close-letterboxd-review")) closeLetterboxdReview();
+collectionImportRead?.addEventListener("click", onReviewCollectionImport);
+collectionImportFile?.addEventListener("change", syncCollectionImportFileLabel);
+collectionImportOk?.addEventListener("click", onConfirmCollectionImport);
+collectionImportCancel?.addEventListener("click", closeCollectionImportConfirm);
+collectionImportDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-collection-import")) closeCollectionImportConfirm();
 });
 storageModeLocal.addEventListener("change", () => onStorageModeChange("local"));
 storageModeGist.addEventListener("change", () => onStorageModeChange("gist"));
@@ -484,8 +482,8 @@ hostedLockDialog.addEventListener("click", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
-    if (!letterboxdReviewDialog.hidden) {
-      closeLetterboxdReview();
+    if (!collectionImportDialog.hidden) {
+      closeCollectionImportConfirm();
       return;
     }
     if (!hostedUnlockDialog.hidden) {

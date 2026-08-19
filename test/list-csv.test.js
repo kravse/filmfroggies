@@ -32,6 +32,7 @@ test("rows are watched first, then watchlist, each in stored order", () => {
       listName: "Watched",
       myRating: "",
       releaseYear: "",
+      watchDates: "",
     },
     {
       id: 604,
@@ -40,6 +41,7 @@ test("rows are watched first, then watchlist, each in stored order", () => {
       listName: "Watched",
       myRating: "",
       releaseYear: "",
+      watchDates: "",
     },
     {
       id: 1891,
@@ -48,6 +50,7 @@ test("rows are watched first, then watchlist, each in stored order", () => {
       listName: "Watchlist",
       myRating: "",
       releaseYear: "",
+      watchDates: "",
     },
   ]);
 });
@@ -73,6 +76,7 @@ test("listCsvRows includes my_rating and release_year when available", () => {
         listName: "Watched",
         myRating: "8.5",
         releaseYear: "1999",
+        watchDates: "",
       },
     ],
   );
@@ -147,6 +151,16 @@ test("listCsvRows includes custom-list movies not on watched or watchlist", () =
         listName: "Watched",
         myRating: "",
         releaseYear: "1999",
+        watchDates: "",
+      },
+      {
+        id: 603,
+        title: "The Matrix",
+        listId: "custom-scifi",
+        listName: "Sci-Fi",
+        myRating: "",
+        releaseYear: "1999",
+        watchDates: "",
       },
       {
         id: 999,
@@ -155,6 +169,7 @@ test("listCsvRows includes custom-list movies not on watched or watchlist", () =
         listName: "Sci-Fi",
         myRating: "",
         releaseYear: "1979",
+        watchDates: "",
       },
       {
         id: 1000,
@@ -163,12 +178,13 @@ test("listCsvRows includes custom-list movies not on watched or watchlist", () =
         listName: "Horror",
         myRating: "",
         releaseYear: "",
+        watchDates: "",
       },
     ],
   );
 });
 
-test("listCsvRows exports custom-only movies once when they appear on multiple lists", () => {
+test("listCsvRows emits one row per custom list membership", () => {
   const state = {
     lists: [],
     customLists: [
@@ -196,6 +212,16 @@ test("listCsvRows exports custom-only movies once when they appear on multiple l
       listName: "A",
       myRating: "",
       releaseYear: "",
+      watchDates: "",
+    },
+    {
+      id: 42,
+      title: "",
+      listId: "custom-b",
+      listName: "B",
+      myRating: "",
+      releaseYear: "",
+      watchDates: "",
     },
   ]);
 });
@@ -296,13 +322,19 @@ test("parseListCsv still reads legacy three-column exports", () => {
   );
 });
 
-test("a csv built from a state round-trips back to the same ids", () => {
-  const state = stateWith([
-    [603, "watched"],
-    [1891, "watchlist"],
-  ]);
-  const csv = buildListCsv(
-    listCsvRows(state, records({ 603: { title: "Lock, Stock", releaseDate: "1998-08-28" } })),
-  );
-  assert.deepEqual(parseListCsv(csv), [603, 1891]);
+test("parseListCsv dedupes ids from a multi-row backup export", () => {
+  const state = {
+    ...stateWith([[603, "watched"]]),
+    customLists: [
+      {
+        id: "custom-scifi",
+        name: "Sci-Fi",
+        movieIds: [603],
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ],
+  };
+  const csv = buildListCsv(listCsvRows(state, records({ 603: { title: "The Matrix" } })));
+  assert.deepEqual(parseListCsv(csv), [603]);
 });

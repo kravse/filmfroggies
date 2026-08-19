@@ -13,7 +13,6 @@
 
 const WATCHED_ID = "watched";
 const WATCHLIST_ID = "watchlist";
-const LEGACY_FAVOURITES_ID = "favourites";
 
 const PRESET_LISTS = [
   { id: WATCHED_ID, name: "Watched" },
@@ -56,9 +55,6 @@ function defaultLists() {
 /**
  * Rebuilds the two lists from stored data: preset order and names always win,
  * unknown list ids are dropped, and the watchlist/watched invariant is repaired.
- *
- * Legacy payloads with separate favourites and watched lists are merged into
- * watched: former favourites keep their order, then any watched-only ids append.
  */
 function normalizeLists(raw) {
   const stored = Array.isArray(raw) ? raw : [];
@@ -67,15 +63,7 @@ function normalizeLists(raw) {
     return normalizeMovieIds(match?.movieIds);
   };
 
-  const legacyFavourites = storedIds(LEGACY_FAVOURITES_ID);
-  const legacyWatched = storedIds(WATCHED_ID);
-  const watched = [...legacyFavourites];
-  for (const id of legacyWatched) {
-    if (!watched.includes(id)) {
-      watched.push(id);
-    }
-  }
-
+  const watched = storedIds(WATCHED_ID);
   const seen = new Set(watched);
   const watchlist = storedIds(WATCHLIST_ID).filter((id) => !seen.has(id));
 

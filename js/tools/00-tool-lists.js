@@ -1,4 +1,4 @@
-/* Generated from scripts/lib/lists.js — run npm run bundle */
+/* Generated from scripts/lib/lists.js — run npm run bundle:letterboxd */
 
 const appLists = (function () {
   /**
@@ -185,24 +185,8 @@ const appLists = (function () {
   }
 
   return {
-    WATCHLIST_ID,
     WATCHED_ID,
+    WATCHLIST_ID,
     PRESET_LISTS,
-    LIST_IDS,
-    DEFAULT_LIST_ID,
-    isListId,
-    isListReorderable,
-    normalizeMovieIds,
-    defaultLists,
-    normalizeLists,
-    findList,
-    findListIdsForMovie,
-    primaryListIdForMovie,
-    isWatched,
-    isOnWatchlist,
-    assignMovieToList,
-    removeMovieFromList,
-    removeMovie,
-    replaceMovieIds,
   };
 })();

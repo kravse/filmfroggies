@@ -53,11 +53,7 @@ const PARTS = [
   },
   {
     file: "00-app-list-csv.js",
-    title: "Scrape list CSV (generated from scripts/lib/list-csv.js)",
-  },
-  {
-    file: "00-app-letterboxd-import.js",
-    title: "Letterboxd export import (generated from scripts/lib/letterboxd-import.js)",
+    title: "Collection backup CSV (generated from scripts/lib/list-csv.js)",
   },
   {
     file: "00-app-ratings.js",
@@ -144,8 +140,8 @@ const PARTS = [
     title: "TMDB discover browse (upcoming and now playing)",
   },
   {
-    file: "11-letterboxd-import.js",
-    title: "Letterboxd ZIP import, TMDB matching, preview, and commit",
+    file: "12-data-import.js",
+    title: "Collection backup CSV import",
   },
   {
     file: "08-init.js",

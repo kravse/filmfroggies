@@ -7,7 +7,12 @@ const {
   stableViewingId,
   applyLetterboxdImport,
   pickTmdbMatch,
+  sortedTmdbCandidates,
+  filmsForMatchReview,
+  parseMatchChoice,
+  letterboxdFilmsToImportRows,
 } = require("../scripts/lib/letterboxd-import");
+const { buildListCsv } = require("../scripts/lib/list-csv");
 const { defaultUserState } = require("../scripts/lib/user-state");
 
 test("parseCsv supports commas, escaped quotes, newlines, CRLF, and a BOM", () => {
@@ -122,6 +127,85 @@ test("unsupported exports fail with a useful error", () => {
     () => parseLetterboxdFiles({ "profile.csv": "Username\nalex\n" }),
     /No supported Letterboxd files/,
   );
+});
+
+test("letterboxdFilmsToImportRows emits collection backup rows", () => {
+  const films = [
+    {
+      sourceKey: "uri:x",
+      title: "Alien",
+      year: 1979,
+      watched: true,
+      watchlist: false,
+      rating: 9,
+      viewings: ["2024-05-01"],
+    },
+    {
+      sourceKey: "uri:y",
+      title: "Arrival",
+      year: 2016,
+      watched: false,
+      watchlist: true,
+      rating: null,
+      viewings: [],
+    },
+  ];
+  const rows = letterboxdFilmsToImportRows(films, { "uri:x": 348, "uri:y": 329865 });
+  assert.equal(rows.length, 2);
+  assert.deepEqual(rows[0], {
+    id: 348,
+    title: "Alien",
+    myRating: "9.0",
+    releaseYear: "1979",
+    watchDates: "2024-05-01",
+    listId: "watched",
+    listName: "Watched",
+  });
+  assert.deepEqual(rows[1], {
+    id: 329865,
+    title: "Arrival",
+    myRating: "",
+    releaseYear: "2016",
+    watchDates: "",
+    listId: "watchlist",
+    listName: "Watchlist",
+  });
+  const csv = buildListCsv(rows);
+  assert.match(csv, /^tmdb_id,title,list_id/);
+  assert.match(csv, /348,Alien,watched,Watched,9\.0,1979,2024-05-01/);
+});
+
+test("filmsForMatchReview prioritizes lookup failures and unmatched films", () => {
+  const films = [
+    { sourceKey: "a", title: "Matched" },
+    { sourceKey: "b", title: "Ambiguous" },
+    { sourceKey: "c", title: "Lookup failed" },
+  ];
+  const matches = { a: 1 };
+  const lookupFailed = new Set(["c"]);
+  assert.deepEqual(
+    filmsForMatchReview(films, matches, lookupFailed).map((film) => film.sourceKey),
+    ["c", "b"],
+  );
+  assert.equal(filmsForMatchReview(films, matches, lookupFailed, { reviewAll: true }).length, 3);
+});
+
+test("parseMatchChoice supports menu picks, manual ids, skip, and keep", () => {
+  const candidates = [{ id: 10, title: "Alien", releaseDate: "1979-05-25" }];
+  assert.deepEqual(parseMatchChoice("1", candidates), { action: "pick", id: 10 });
+  assert.deepEqual(parseMatchChoice("348", candidates), { action: "pick", id: 348 });
+  assert.deepEqual(parseMatchChoice("0", candidates), { action: "skip" });
+  assert.deepEqual(parseMatchChoice("", candidates, 10), { action: "keep", id: 10 });
+  assert.deepEqual(parseMatchChoice("q", candidates), { action: "quit" });
+});
+
+test("sortedTmdbCandidates prefers exact release year matches", () => {
+  const film = { title: "The Thing", year: 1982 };
+  const candidates = [
+    { id: 2, title: "The Thing", releaseDate: "2011-10-14" },
+    { id: 1, title: "The Thing", releaseDate: "1982-06-25" },
+  ];
+  assert.deepEqual(sortedTmdbCandidates(film, candidates).map((entry) => entry.id), [1, 2]);
 });
 
 test("applyLetterboxdImport adds matched data atomically and is idempotent", () => {

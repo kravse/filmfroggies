@@ -128,17 +128,14 @@ const cacheClearBtn = document.getElementById("cache-clear");
 const cacheStatus = document.getElementById("cache-status");
 const exportCsvBtn = document.getElementById("export-csv");
 const exportCsvStatus = document.getElementById("export-csv-status");
-const letterboxdFile = document.getElementById("letterboxd-file");
-const letterboxdFileName = document.getElementById("letterboxd-file-name");
-const letterboxdRead = document.getElementById("letterboxd-read");
-const letterboxdStatus = document.getElementById("letterboxd-status");
-const letterboxdReviewDialog = document.getElementById("letterboxd-review-dialog");
-const letterboxdReviewClose = document.getElementById("letterboxd-review-close");
-const letterboxdReviewCancel = document.getElementById("letterboxd-review-cancel");
-const letterboxdSummary = document.getElementById("letterboxd-summary");
-const letterboxdMatches = document.getElementById("letterboxd-matches");
-const letterboxdOverwriteRatings = document.getElementById("letterboxd-overwrite-ratings");
-const letterboxdImport = document.getElementById("letterboxd-import");
+const collectionImportFile = document.getElementById("collection-import-file");
+const collectionImportFileName = document.getElementById("collection-import-file-name");
+const collectionImportRead = document.getElementById("collection-import-read");
+const collectionImportStatus = document.getElementById("collection-import-status");
+const collectionImportDialog = document.getElementById("collection-import-dialog");
+const collectionImportMessage = document.getElementById("collection-import-message");
+const collectionImportCancel = document.getElementById("collection-import-cancel");
+const collectionImportOk = document.getElementById("collection-import-ok");
 
 const aboutDialog = document.getElementById("about-dialog");
 const aboutClose = document.getElementById("about-close");
@@ -1401,7 +1398,6 @@ const appLists = (function () {
 
   const WATCHED_ID = "watched";
   const WATCHLIST_ID = "watchlist";
-  const LEGACY_FAVOURITES_ID = "favourites";
 
   const PRESET_LISTS = [
     { id: WATCHED_ID, name: "Watched" },
@@ -1444,9 +1440,6 @@ const appLists = (function () {
   /**
    * Rebuilds the two lists from stored data: preset order and names always win,
    * unknown list ids are dropped, and the watchlist/watched invariant is repaired.
-   *
-   * Legacy payloads with separate favourites and watched lists are merged into
-   * watched: former favourites keep their order, then any watched-only ids append.
    */
   function normalizeLists(raw) {
     const stored = Array.isArray(raw) ? raw : [];
@@ -1455,15 +1448,7 @@ const appLists = (function () {
       return normalizeMovieIds(match?.movieIds);
     };
 
-    const legacyFavourites = storedIds(LEGACY_FAVOURITES_ID);
-    const legacyWatched = storedIds(WATCHED_ID);
-    const watched = [...legacyFavourites];
-    for (const id of legacyWatched) {
-      if (!watched.includes(id)) {
-        watched.push(id);
-      }
-    }
-
+    const watched = storedIds(WATCHED_ID);
     const seen = new Set(watched);
     const watchlist = storedIds(WATCHLIST_ID).filter((id) => !seen.has(id));
 
@@ -1834,6 +1819,50 @@ const appCustomLists = (function () {
     ];
   }
 
+  /**
+   * Create custom list shells referenced in a backup CSV before memberships apply.
+   * Used when importing onto a fresh browser that has no list definitions yet.
+   */
+  function ensureCustomListsFromImport(customLists, tombstones, rows, now = new Date()) {
+    const lists = Array.isArray(customLists) ? [...customLists] : [];
+    const nextTombstones =
+      tombstones && typeof tombstones === "object" ? { ...tombstones } : {};
+    const stamp = now instanceof Date ? now.toISOString() : new Date().toISOString();
+    const seen = new Set();
+
+    for (const row of rows || []) {
+      const listId = row?.listId;
+      if (!isCustomListId(listId) || seen.has(listId)) {
+        continue;
+      }
+      seen.add(listId);
+      if (findCustomList(lists, listId)) {
+        delete nextTombstones[listId];
+        continue;
+      }
+      if (lists.length >= MAX_CUSTOM_LISTS) {
+        continue;
+      }
+      let name = normalizeName(row?.listName);
+      if (name.length < MIN_NAME_LENGTH || name.length > MAX_NAME_LENGTH) {
+        name = normalizeName(listId.slice(CUSTOM_ID_PREFIX.length)) || "Imported list";
+      }
+      if (isDuplicateName(lists, name)) {
+        name = `${name} (${listId.slice(-4)})`.slice(0, MAX_NAME_LENGTH);
+      }
+      lists.push({
+        id: listId,
+        name,
+        movieIds: [],
+        createdAt: stamp,
+        updatedAt: stamp,
+      });
+      delete nextTombstones[listId];
+    }
+
+    return { customLists: lists, customListTombstones: nextTombstones };
+  }
+
   function renameCustomList(customLists, listId, name, now = new Date()) {
     const trimmed = normalizeName(name);
     if (
@@ -1940,220 +1969,22 @@ const appCustomLists = (function () {
   };
 })();
 
-/* ===== Scrape list CSV (generated from scripts/lib/list-csv.js) ===== */
+/* ===== Collection backup CSV (generated from scripts/lib/list-csv.js) ===== */
 
 /* Generated from scripts/lib/list-csv.js — run npm run bundle */
 
 const appListCsv = (function () {
   /**
-   * The CSV that carries a list of ids from the browser to the scraper.
+   * Collection backup CSV: export from the browser, import to restore, scrape ids only.
    *
    * The browser is the only place that knows the collection, and the scraper runs
    * on a machine that cannot read localStorage or the Gist. Settings exports this
    * file, you commit it, and `npm run scrape` reads it back. Both ends share these
    * functions so the format has exactly one definition.
    *
-   * Only `tmdb_id` is load-bearing. The other columns are for reading the
-   * committed file in a diff and as a portable backup of list metadata; the scraper
-   * ignores them.
+   * Only `tmdb_id` is load-bearing for scrape. The other columns carry list
+   * membership, ratings, and viewing dates for backup/restore.
    */
-
-  const CSV_HEADER = ["tmdb_id", "title", "list_id", "list_name", "my_rating", "release_year", "watch_dates"];
-  const CSV_FILENAME = "my_list.csv";
-
-  function getLists() {
-    if (typeof appLists !== "undefined") {
-      return appLists;
-    }
-    if (typeof require === "function") {
-      return require("./lists");
-    }
-    throw new Error("appLists is not available");
-  }
-
-  function getCustomLists() {
-    if (typeof appCustomLists !== "undefined") {
-      return appCustomLists;
-    }
-    if (typeof require === "function") {
-      return require("./custom-lists");
-    }
-    throw new Error("appCustomLists is not available");
-  }
-
-  function getRatings() {
-    if (typeof appRatings !== "undefined") {
-      return appRatings;
-    }
-    if (typeof require === "function") {
-      return require("./ratings");
-    }
-    throw new Error("appRatings is not available");
-  }
-
-  function getViewingHistory() {
-    if (typeof appViewingHistory !== "undefined") return appViewingHistory;
-    if (typeof require === "function") return require("./viewing-history");
-    throw new Error("appViewingHistory is not available");
-  }
-
-  function releaseYearFrom(releaseDate) {
-    const match = /^(\d{4})/.exec(String(releaseDate || "").trim());
-    return match ? match[1] : "";
-  }
-
-  function rowMeta(state, id, recordFor) {
-    const record = typeof recordFor === "function" ? recordFor(id) : null;
-    const title = String(record?.title || "");
-    const releaseYear = releaseYearFrom(record?.releaseDate);
-    const myRating = getRatings().formatUserRating(
-      getRatings().getRating(state?.ratings, id),
-    );
-    const watchDates = getViewingHistory().viewingEntries(state?.viewingHistory, id)
-      .map((entry) => entry.watchedOn).sort().join(";");
-    return { title, releaseYear, myRating, ...(watchDates ? { watchDates } : {}) };
-  }
-
-  function listNameFor(state, listId) {
-    const preset = getLists().PRESET_LISTS.find((entry) => entry.id === listId);
-    if (preset) {
-      return preset.name;
-    }
-    const custom = getCustomLists().findCustomList(state?.customLists, listId);
-    return custom?.name || "";
-  }
-
-  /** Quote whenever a field could otherwise change the shape of the row. */
-  function csvField(value) {
-    const text = String(value == null ? "" : value);
-    if (!/[",\r\n]/.test(text)) {
-      return text;
-    }
-    return `"${text.replace(/"/g, '""')}"`;
-  }
-
-  function csvRow(values) {
-    return values.map(csvField).join(",");
-  }
-
-  /**
-   * Watched first, then watchlist, each in stored order. Then movies that appear
-   * only on custom lists, in list order. Removal records live only in `statuses`
-   * and never in `movieIds`, so they are excluded for free.
-   */
-  function listCsvRows(state, recordFor) {
-    const lists = Array.isArray(state?.lists) ? state.lists : [];
-    const customLists = Array.isArray(state?.customLists) ? state.customLists : [];
-    const rows = [];
-    const seen = new Set();
-    for (const listId of getLists().LIST_IDS) {
-      const list = lists.find((entry) => entry && entry.id === listId);
-      for (const movieId of list?.movieIds || []) {
-        const id = Number(movieId);
-        if (!Number.isInteger(id) || id <= 0 || seen.has(id)) {
-          continue;
-        }
-        seen.add(id);
-        rows.push({
-          id,
-          listId,
-          listName: listNameFor(state, listId),
-          ...rowMeta(state, id, recordFor),
-        });
-      }
-    }
-    for (const list of customLists) {
-      if (!list || !getCustomLists().isCustomListId(list.id)) {
-        continue;
-      }
-      for (const movieId of list.movieIds || []) {
-        const id = Number(movieId);
-        if (!Number.isInteger(id) || id <= 0 || seen.has(id)) {
-          continue;
-        }
-        seen.add(id);
-        rows.push({
-          id,
-          listId: list.id,
-          listName: list.name,
-          ...rowMeta(state, id, recordFor),
-        });
-      }
-    }
-    return rows;
-  }
-
-  function buildListCsv(rows) {
-    const lines = [csvRow(CSV_HEADER)];
-    for (const row of rows || []) {
-      lines.push(
-        csvRow([
-          row.id,
-          row.title,
-          row.listId,
-          row.listName,
-          row.myRating,
-          row.releaseYear,
-          row.watchDates,
-        ]),
-      );
-    }
-    return `${lines.join("\n")}\n`;
-  }
-
-  /**
-   * Reads the first column of every line as an id. The header, blank lines, and
-   * anything hand-edited into an unparseable state are skipped rather than
-   * refused: a typo in a comment column should not stop a scrape.
-   */
-  function parseListCsv(text) {
-    const seen = new Set();
-    const ids = [];
-    for (const line of String(text || "").split(/\r?\n/)) {
-      const trimmed = line.trim();
-      if (!trimmed) {
-        continue;
-      }
-      const field = trimmed.split(",")[0].replace(/^"|"$/g, "").trim();
-      if (!/^\d+$/.test(field)) {
-        continue;
-      }
-      const id = Number(field);
-      if (!Number.isInteger(id) || id <= 0 || seen.has(id)) {
-        continue;
-      }
-      seen.add(id);
-      ids.push(id);
-    }
-    return ids;
-  }
-
-  return {
-    CSV_HEADER,
-    CSV_FILENAME,
-    listCsvRows,
-    buildListCsv,
-    parseListCsv,
-  };
-})();
-
-/* ===== Letterboxd export import (generated from scripts/lib/letterboxd-import.js) ===== */
-
-/* Generated from scripts/lib/letterboxd-import.js — run npm run bundle */
-
-const appLetterboxdImport = (function () {
-  /**
-   * Parse the useful parts of a Letterboxd account export into a small,
-   * source-oriented model. ZIP extraction and TMDB matching live in the browser
-   * layer; keeping CSV handling here makes the risky data conversion testable.
-   */
-
-  const SUPPORTED_FILES = new Set([
-    "watched.csv",
-    "watchlist.csv",
-    "ratings.csv",
-    "diary.csv",
-  ]);
 
   function parseCsv(text) {
     const source = String(text == null ? "" : text).replace(/^\uFEFF/, "");
@@ -2196,275 +2027,458 @@ const appLetterboxdImport = (function () {
     return rows;
   }
 
-  function canonicalHeader(value) {
-    return String(value || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+  const CSV_HEADER = ["tmdb_id", "title", "list_id", "list_name", "my_rating", "release_year", "watch_dates"];
+  const CSV_FILENAME = "my_list.csv";
+
+  function getLists() {
+    if (typeof appLists !== "undefined") {
+      return appLists;
+    }
+    if (typeof require === "function") {
+      return require("./lists");
+    }
+    throw new Error("appLists is not available");
   }
 
-  function csvRecords(text) {
-    const rows = parseCsv(text);
-    if (!rows.length) return [];
-    const headers = rows[0].map(canonicalHeader);
-    return rows.slice(1).map((values) => {
-      const record = {};
-      headers.forEach((header, index) => {
-        if (header) record[header] = String(values[index] || "").trim();
-      });
-      return record;
-    });
+  function getCustomLists() {
+    if (typeof appCustomLists !== "undefined") {
+      return appCustomLists;
+    }
+    if (typeof require === "function") {
+      return require("./custom-lists");
+    }
+    throw new Error("appCustomLists is not available");
   }
 
-  function baseName(pathname) {
-    return String(pathname || "").replace(/\\/g, "/").split("/").pop().toLowerCase();
+  function getRatings() {
+    if (typeof appRatings !== "undefined") {
+      return appRatings;
+    }
+    if (typeof require === "function") {
+      return require("./ratings");
+    }
+    throw new Error("appRatings is not available");
   }
 
-  function isSupportedPath(pathname) {
-    const parts = String(pathname || "").replace(/\\/g, "/").toLowerCase().split("/").filter(Boolean);
-    if (["deleted", "orphaned", "likes"].some((part) => parts.includes(part))) return false;
-    return SUPPORTED_FILES.has(parts.at(-1));
+  function getViewingHistory() {
+    if (typeof appViewingHistory !== "undefined") return appViewingHistory;
+    if (typeof require === "function") return require("./viewing-history");
+    throw new Error("appViewingHistory is not available");
   }
 
-  function normalizeYear(value) {
-    const year = Number(value);
-    return Number.isInteger(year) && year >= 1870 && year <= 2200 ? year : null;
+  function getAddedAt() {
+    if (typeof appAddedAt !== "undefined") return appAddedAt;
+    if (typeof require === "function") return require("./added-at");
+    throw new Error("appAddedAt is not available");
   }
 
-  function normalizeDate(value) {
-    const text = String(value || "").trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
-    const date = new Date(`${text}T00:00:00Z`);
-    return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === text
-      ? text
-      : null;
+  function getSyncMerge() {
+    if (typeof appSyncMerge !== "undefined") return appSyncMerge;
+    if (typeof require === "function") return require("./sync-merge");
+    throw new Error("appSyncMerge is not available");
   }
 
-  function normalizeRating(value) {
-    const rating = Number(value);
-    return Number.isFinite(rating) && rating >= 0.5 && rating <= 5
-      ? Math.round(rating * 20) / 10
-      : null;
+  function releaseYearFrom(releaseDate) {
+    const match = /^(\d{4})/.exec(String(releaseDate || "").trim());
+    return match ? match[1] : "";
   }
 
-  function filmSourceKey(record) {
-    const uri = record.letterboxduri || record.url;
-    if (uri) return `uri:${uri.toLowerCase()}`;
-    const title = record.name || record.title;
-    const year = normalizeYear(record.year);
-    return title ? `title:${title.toLowerCase()}|${year || ""}` : null;
+  function rowMeta(state, id, recordFor) {
+    const record = typeof recordFor === "function" ? recordFor(id) : null;
+    const title = String(record?.title || "");
+    const releaseYear = releaseYearFrom(record?.releaseDate);
+    const myRating = getRatings().formatUserRating(
+      getRatings().getRating(state?.ratings, id),
+    );
+    const watchDates = getViewingHistory()
+      .viewingEntries(state?.viewingHistory, id)
+      .map((entry) => entry.watchedOn)
+      .sort()
+      .join(";");
+    return { title, releaseYear, myRating, watchDates: watchDates || "" };
   }
 
-  function emptyFilm(record, sourceKey) {
+  function listNameFor(state, listId) {
+    const preset = getLists().PRESET_LISTS.find((entry) => entry.id === listId);
+    if (preset) {
+      return preset.name;
+    }
+    const custom = getCustomLists().findCustomList(state?.customLists, listId);
+    return custom?.name || "";
+  }
+
+  /** Quote whenever a field could otherwise change the shape of the row. */
+  function csvField(value) {
+    const text = String(value == null ? "" : value);
+    if (!/[",\r\n]/.test(text)) {
+      return text;
+    }
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+
+  function csvRow(values) {
+    return values.map(csvField).join(",");
+  }
+
+  function rowFromMembership(state, id, listId, listName, recordFor) {
     return {
-      sourceKey,
-      letterboxdUri: record.letterboxduri || record.url || null,
-      title: record.name || record.title || "Untitled",
-      year: normalizeYear(record.year),
-      watched: false,
-      watchlist: false,
-      rating: null,
-      viewings: [],
+      id,
+      listId,
+      listName,
+      ...rowMeta(state, id, recordFor),
     };
   }
 
-  function parseLetterboxdFiles(files) {
-    const films = new Map();
-    const seenFiles = [];
-    const ignoredFiles = [];
-    const warnings = [];
+  /**
+   * One row per list membership. Watched and watchlist rows first (stored order),
+   * then each custom list in stored order.
+   */
+  function listCsvRows(state, recordFor) {
+    const lists = Array.isArray(state?.lists) ? state.lists : [];
+    const customLists = Array.isArray(state?.customLists) ? state.customLists : [];
+    const rows = [];
 
-    const priority = { "diary.csv": 0, "watched.csv": 1, "watchlist.csv": 2, "ratings.csv": 3 };
-    const entries = Object.entries(files || {}).sort((left, right) => {
-      return (priority[baseName(left[0])] ?? 99) - (priority[baseName(right[0])] ?? 99);
-    });
-    for (const [pathname, text] of entries) {
-      const filename = baseName(pathname);
-      if (!isSupportedPath(pathname)) {
-        if (filename.endsWith(".csv")) ignoredFiles.push(pathname);
-        continue;
-      }
-      seenFiles.push(filename);
-      let records;
-      try {
-        records = csvRecords(text);
-      } catch (error) {
-        throw new Error(`${filename}: ${error.message}`);
-      }
-      for (const record of records) {
-        const sourceKey = filmSourceKey(record);
-        if (!sourceKey) {
-          warnings.push(`${filename}: skipped a row without a film URI or title.`);
+    for (const listId of getLists().LIST_IDS) {
+      const list = lists.find((entry) => entry && entry.id === listId);
+      for (const movieId of list?.movieIds || []) {
+        const id = Number(movieId);
+        if (!Number.isInteger(id) || id <= 0) {
           continue;
         }
-        const film = films.get(sourceKey) || emptyFilm(record, sourceKey);
-        if (filename === "watched.csv" || filename === "diary.csv" || filename === "ratings.csv") {
-          film.watched = true;
-        }
-        if (filename === "watchlist.csv") film.watchlist = true;
-        if (filename === "ratings.csv" || filename === "diary.csv") {
-          const rating = normalizeRating(record.rating);
-          if (rating != null) film.rating = rating;
-        }
-        if (filename === "diary.csv") {
-          const watchedOn = normalizeDate(record.watcheddate);
-          if (watchedOn && !film.viewings.includes(watchedOn)) film.viewings.push(watchedOn);
-        }
-        films.set(sourceKey, film);
+        rows.push(rowFromMembership(state, id, listId, listNameFor(state, listId), recordFor));
       }
     }
 
-    if (!seenFiles.length) {
-      throw new Error("No supported Letterboxd files were found. Expected watched.csv, watchlist.csv, ratings.csv, or diary.csv.");
-    }
-    for (const film of films.values()) {
-      film.viewings.sort();
-      if (film.watched) film.watchlist = false;
-    }
-    return { films: [...films.values()], seenFiles: [...new Set(seenFiles)].sort(), ignoredFiles, warnings };
-  }
-
-  function stableViewingId(sourceKey, watchedOn) {
-    const input = `letterboxd:${sourceKey}:${watchedOn}`;
-    let hash = 2166136261;
-    for (let index = 0; index < input.length; index += 1) {
-      hash ^= input.charCodeAt(index);
-      hash = Math.imul(hash, 16777619);
-    }
-    return `letterboxd-${(hash >>> 0).toString(36)}`;
-  }
-
-  function normalizeMatchTitle(value) {
-    return String(value || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-  }
-
-  function candidateReleaseYear(candidate) {
-    return Number(String(candidate?.releaseDate || "").slice(0, 4)) || null;
-  }
-
-  /**
-   * Letterboxd and TMDB can differ by one year when one uses a festival premiere
-   * and the other a wider release. Exact titles are required; where several
-   * candidates remain, TMDB's relevance ordering supplies the tie-break.
-   */
-  function pickTmdbMatch(film, candidates) {
-    const title = normalizeMatchTitle(film?.title);
-    const seenIds = new Set();
-    const exactTitle = (Array.isArray(candidates) ? candidates : []).filter((candidate) => {
-      const id = Number(candidate?.id);
-      if (!Number.isInteger(id) || id <= 0 || seenIds.has(id)) return false;
-      seenIds.add(id);
-      return normalizeMatchTitle(candidate?.title) === title;
-    });
-    if (!film?.year) return exactTitle.length === 1 ? exactTitle[0].id : null;
-    const exactYear = exactTitle.filter((candidate) => candidateReleaseYear(candidate) === film.year);
-    // TMDB orders search results by relevance. If several films have the exact
-    // same title and release year, its first result is the best available signal.
-    if (exactYear.length) return exactYear[0].id;
-    const adjacentYear = exactTitle.filter((candidate) => {
-      const year = candidateReleaseYear(candidate);
-      return year != null && Math.abs(year - film.year) === 1;
-    });
-    return adjacentYear.length ? adjacentYear[0].id : null;
-  }
-
-  function getImportLibraries() {
-    if (typeof appLists !== "undefined") {
-      return {
-        lists: appLists,
-        ratings: appRatings,
-        addedAt: appAddedAt,
-        viewingHistory: appViewingHistory,
-        syncMerge: appSyncMerge,
-      };
-    }
-    if (typeof require === "function") {
-      const load = require;
-      return {
-        lists: load("./lists"),
-        ratings: load("./ratings"),
-        addedAt: load("./added-at"),
-        viewingHistory: load("./viewing-history"),
-        syncMerge: load("./sync-merge"),
-      };
-    }
-    throw new Error("Import libraries are not available.");
-  }
-
-  /** Build one new state object. Callers decide when to persist and sync it. */
-  function applyLetterboxdImport(state, films, matches, options = {}) {
-    const lib = getImportLibraries();
-    const now = options.now instanceof Date ? options.now : new Date();
-    const overwriteRatings = options.overwriteRatings === true;
-    let lists = state.lists;
-    let ratings = state.ratings;
-    let addedAt = state.addedAt;
-    let viewingHistory = state.viewingHistory;
-    let statuses = state.statuses;
-    const summary = { matched: 0, skipped: 0, watched: 0, watchlist: 0, ratings: 0, viewings: 0 };
-
-    for (const film of films || []) {
-      const movieId = Number(matches?.[film.sourceKey]);
-      if (!Number.isInteger(movieId) || movieId <= 0) {
-        summary.skipped += 1;
+    for (const list of customLists) {
+      if (!list || !getCustomLists().isCustomListId(list.id)) {
         continue;
       }
-      summary.matched += 1;
-      const wasWatched = lib.lists.isWatched(lists, movieId);
-      const wasWatchlisted = lib.lists.isOnWatchlist(lists, movieId);
-      let targetStatus = null;
-      if (film.watched && !wasWatched) targetStatus = lib.lists.WATCHED_ID;
-      else if (film.watchlist && !wasWatched && !wasWatchlisted) targetStatus = lib.lists.WATCHLIST_ID;
-
-      if (targetStatus) {
-        lists = lib.lists.assignMovieToList(lists, targetStatus, movieId);
-        statuses = lib.syncMerge.setMovieStatus(statuses, movieId, targetStatus, now);
-        addedAt = lib.addedAt.recordAddedAt(addedAt, movieId, now, {
-          readded: lib.syncMerge.isRemoved(state.statuses, movieId),
-        });
-        summary[targetStatus] += 1;
-      }
-
-      if (film.rating != null && (overwriteRatings || lib.ratings.getRating(ratings, movieId) == null)) {
-        const nextRatings = lib.ratings.setRating(ratings, movieId, film.rating);
-        if (nextRatings !== ratings) {
-          ratings = nextRatings;
-          summary.ratings += 1;
+      for (const movieId of list.movieIds || []) {
+        const id = Number(movieId);
+        if (!Number.isInteger(id) || id <= 0) {
+          continue;
         }
+        rows.push(rowFromMembership(state, id, list.id, list.name, recordFor));
       }
+    }
 
-      for (const watchedOn of film.viewings || []) {
-        const id = stableViewingId(film.sourceKey, watchedOn);
-        const known = lib.viewingHistory
-          .viewingEntries(viewingHistory, movieId, { includeDeleted: true })
-          .some((entry) => entry.id === id);
-        if (known) continue;
-        const nextHistory = lib.viewingHistory.addViewing(viewingHistory, movieId, watchedOn, now, id);
-        if (nextHistory !== viewingHistory) {
-          viewingHistory = nextHistory;
-          summary.viewings += 1;
-        }
+    return rows;
+  }
+
+  function buildListCsv(rows) {
+    const lines = [csvRow(CSV_HEADER)];
+    for (const row of rows || []) {
+      lines.push(
+        csvRow([
+          row.id,
+          row.title,
+          row.listId,
+          row.listName,
+          row.myRating,
+          row.releaseYear,
+          row.watchDates,
+        ]),
+      );
+    }
+    return `${lines.join("\n")}\n`;
+  }
+
+  function canonicalHeader(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]+/g, "");
+  }
+
+  function parseRatingField(value) {
+    const text = String(value || "").trim();
+    if (!text) {
+      return null;
+    }
+    return getRatings().normalizeRating(Number(text));
+  }
+
+  function parseWatchDatesField(value) {
+    const viewingLib = getViewingHistory();
+    const dates = [];
+    const seen = new Set();
+    for (const part of String(value || "").split(";")) {
+      const normalized = viewingLib.normalizeDate(part.trim());
+      if (normalized && !seen.has(normalized)) {
+        seen.add(normalized);
+        dates.push(normalized);
+      }
+    }
+    dates.sort();
+    return dates;
+  }
+
+  /** Parse a collection backup CSV into normalized row objects. */
+  function parseCollectionCsv(text) {
+    const grid = parseCsv(text);
+    if (!grid.length) {
+      return [];
+    }
+    const headers = grid[0].map(canonicalHeader);
+    const index = {};
+    headers.forEach((header, position) => {
+      if (header) {
+        index[header] = position;
+      }
+    });
+    const idCol = index.tmdbid ?? index.id ?? 0;
+    const rows = [];
+    for (const values of grid.slice(1)) {
+      const rawId = String(values[idCol] || "").trim();
+      if (!/^\d+$/.test(rawId)) {
+        continue;
+      }
+      const tmdbId = Number(rawId);
+      if (!Number.isInteger(tmdbId) || tmdbId <= 0) {
+        continue;
+      }
+      const read = (key) => String(values[index[key]] || "").trim();
+      rows.push({
+        tmdbId,
+        title: read("title"),
+        listId: read("listid"),
+        listName: read("listname"),
+        myRating: parseRatingField(read("myrating")),
+        releaseYear: read("releaseyear"),
+        watchDates: parseWatchDatesField(read("watchdates")),
+      });
+    }
+    return rows;
+  }
+
+  function summarizeCollectionImport(rows) {
+    const movieIds = new Set();
+    let watched = 0;
+    let watchlist = 0;
+    let customRows = 0;
+    let ratings = 0;
+    let viewings = 0;
+    const ratingMovies = new Set();
+    const viewingMovies = new Set();
+
+    for (const row of rows || []) {
+      movieIds.add(row.tmdbId);
+      if (row.listId === getLists().WATCHED_ID) {
+        watched += 1;
+      } else if (row.listId === getLists().WATCHLIST_ID) {
+        watchlist += 1;
+      } else if (getCustomLists().isCustomListId(row.listId)) {
+        customRows += 1;
+      }
+      if (row.myRating != null && !ratingMovies.has(row.tmdbId)) {
+        ratingMovies.add(row.tmdbId);
+        ratings += 1;
+      }
+      if (row.watchDates.length && !viewingMovies.has(row.tmdbId)) {
+        viewingMovies.add(row.tmdbId);
+        viewings += row.watchDates.length;
       }
     }
 
     return {
-      state: { ...state, lists, ratings, addedAt, viewingHistory, statuses },
+      movies: movieIds.size,
+      rows: rows?.length || 0,
+      watched,
+      watchlist,
+      customRows,
+      ratings,
+      viewings,
+    };
+  }
+
+
+  function mergeMovieFields(rowsForMovie) {
+    let myRating = null;
+    const watchDates = new Set();
+    for (const row of rowsForMovie) {
+      if (row.myRating != null) {
+        myRating = row.myRating;
+      }
+      for (const date of row.watchDates) {
+        watchDates.add(date);
+      }
+    }
+    return {
+      myRating,
+      watchDates: [...watchDates].sort(),
+    };
+  }
+
+  /**
+   * Replace lists, ratings, and viewing history from a collection backup CSV.
+   * Custom lists in the file are created when missing; empty custom lists with no
+   * rows are kept from the current state only.
+   */
+  function applyCollectionImport(state, rows, options = {}) {
+    if (options.mode && options.mode !== "replace") {
+      throw new Error(`Unsupported import mode: ${options.mode}`);
+    }
+
+    const now = options.now instanceof Date ? options.now : new Date();
+    const listsLib = getLists();
+    const customListsLib = getCustomLists();
+    const ratingsLib = getRatings();
+    const viewingLib = getViewingHistory();
+    const addedAtLib = getAddedAt();
+    const syncLib = getSyncMerge();
+
+    const parsedRows = Array.isArray(rows) ? rows : [];
+    const byMovie = new Map();
+    for (const row of parsedRows) {
+      if (!byMovie.has(row.tmdbId)) {
+        byMovie.set(row.tmdbId, []);
+      }
+      byMovie.get(row.tmdbId).push(row);
+    }
+
+    let lists = listsLib.defaultLists();
+    let customLists = (state?.customLists || []).map((list) => ({ ...list, movieIds: [] }));
+    let customListTombstones =
+      state?.customListTombstones && typeof state.customListTombstones === "object"
+        ? { ...state.customListTombstones }
+        : {};
+    const ensured = customListsLib.ensureCustomListsFromImport(
+      customLists,
+      customListTombstones,
+      parsedRows,
+      now,
+    );
+    customLists = ensured.customLists.map((list) => ({ ...list, movieIds: [] }));
+    customListTombstones = ensured.customListTombstones;
+    let ratings = {};
+    let viewingHistory = {};
+    let statuses = {};
+    let addedAt = {};
+
+    const watchedOrder = [];
+    const watchlistOrder = [];
+    const watchedSeen = new Set();
+    const watchlistSeen = new Set();
+    const customOrder = new Map();
+
+    for (const row of parsedRows) {
+      const id = row.tmdbId;
+      if (row.listId === listsLib.WATCHED_ID && !watchedSeen.has(id)) {
+        watchedSeen.add(id);
+        watchedOrder.push(id);
+      } else if (row.listId === listsLib.WATCHLIST_ID && !watchlistSeen.has(id)) {
+        watchlistSeen.add(id);
+        watchlistOrder.push(id);
+      } else if (customListsLib.isCustomListId(row.listId)) {
+        if (!customListsLib.findCustomList(customLists, row.listId)) {
+          continue;
+        }
+        if (!customOrder.has(row.listId)) {
+          customOrder.set(row.listId, []);
+        }
+        const order = customOrder.get(row.listId);
+        if (!order.includes(id)) {
+          order.push(id);
+        }
+      }
+    }
+
+    for (const id of watchedOrder) {
+      lists = listsLib.assignMovieToList(lists, listsLib.WATCHED_ID, id);
+      statuses = syncLib.setMovieStatus(statuses, id, listsLib.WATCHED_ID, now);
+      addedAt = addedAtLib.recordAddedAt(addedAt, id, now);
+    }
+
+    for (const id of watchlistOrder) {
+      if (listsLib.isWatched(lists, id)) {
+        continue;
+      }
+      lists = listsLib.assignMovieToList(lists, listsLib.WATCHLIST_ID, id);
+      statuses = syncLib.setMovieStatus(statuses, id, listsLib.WATCHLIST_ID, now);
+      addedAt = addedAtLib.recordAddedAt(addedAt, id, now);
+    }
+
+    for (const [listId, order] of customOrder) {
+      for (const id of order) {
+        customLists = customListsLib.addMovieToCustomList(customLists, listId, id, now);
+      }
+    }
+
+    for (const [movieId, movieRows] of byMovie) {
+      const { myRating, watchDates } = mergeMovieFields(movieRows);
+      if (myRating != null) {
+        ratings = ratingsLib.setRating(ratings, movieId, myRating);
+      }
+      for (const watchedOn of watchDates) {
+        viewingHistory = viewingLib.addViewing(viewingHistory, movieId, watchedOn, now);
+      }
+    }
+
+    const summary = {
+      movies: byMovie.size,
+      rows: parsedRows.length,
+      watched: watchedOrder.length,
+      watchlist: watchlistOrder.filter((id) => !listsLib.isWatched(lists, id)).length,
+      customRows: [...customOrder.values()].reduce((sum, ids) => sum + ids.length, 0),
+      ratings: Object.keys(ratings).length,
+      viewings: Object.values(viewingHistory).reduce(
+        (sum, entries) => sum + (Array.isArray(entries) ? entries.length : 0),
+        0,
+      ),
+    };
+
+    return {
+      state: {
+        ...state,
+        lists,
+        customLists,
+        customListTombstones,
+        ratings,
+        viewingHistory,
+        statuses,
+        addedAt,
+      },
       summary,
     };
   }
 
+  /**
+   * Reads the first column of every line as an id. The header, blank lines, and
+   * anything hand-edited into an unparseable state are skipped rather than
+   * refused: a typo in a comment column should not stop a scrape.
+   */
+  function parseListCsv(text) {
+    const seen = new Set();
+    const ids = [];
+    for (const line of String(text || "").split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        continue;
+      }
+      const field = trimmed.split(",")[0].replace(/^"|"$/g, "").trim();
+      if (!/^\d+$/.test(field)) {
+        continue;
+      }
+      const id = Number(field);
+      if (!Number.isInteger(id) || id <= 0 || seen.has(id)) {
+        continue;
+      }
+      seen.add(id);
+      ids.push(id);
+    }
+    return ids;
+  }
+
   return {
-    SUPPORTED_FILES,
+    CSV_HEADER,
+    CSV_FILENAME,
+    listCsvRows,
+    buildListCsv,
     parseCsv,
-    csvRecords,
-    normalizeDate,
-    normalizeRating,
-    filmSourceKey,
-    isSupportedPath,
-    parseLetterboxdFiles,
-    stableViewingId,
-    normalizeMatchTitle,
-    candidateReleaseYear,
-    pickTmdbMatch,
-    applyLetterboxdImport,
+    parseCollectionCsv,
+    summarizeCollectionImport,
+    applyCollectionImport,
+    parseListCsv,
   };
 })();
 
@@ -3993,10 +4007,7 @@ const appUserState = (function () {
 
     const normalizedLists = lists.normalizeLists(raw.lists);
 
-    let activeListId = raw.activeListId;
-    if (activeListId === "favourites") {
-      activeListId = lists.WATCHED_ID;
-    }
+    const activeListId = raw.activeListId;
 
     const statuses = getSyncMerge().normalizeStatuses(
       raw.statuses,
@@ -9425,12 +9436,7 @@ function refreshSettings() {
     appGistSync.isConnectedGistConfig(gistConfig) ? "ok" : null,
   );
   setStatus(cacheStatus, "");
-  const bundled = localMovieCount();
-  setStatus(
-    exportCsvStatus,
-    bundled ? `${bundled} movies bundled in this build.` : "No bundled data yet.",
-    bundled ? "ok" : null,
-  );
+  refreshCollectionTransferStatus();
 }
 
 function openSettings() {
@@ -9534,7 +9540,12 @@ async function onExportCsv() {
     link.download = appListCsv.CSV_FILENAME;
     link.click();
     URL.revokeObjectURL(objectUrl);
-    setStatus(exportCsvStatus, `Exported ${rows.length} movies.`, "ok");
+    const movieCount = new Set(rows.map((row) => row.id)).size;
+    setStatus(
+      exportCsvStatus,
+      `Exported backup (${movieCount} movie${movieCount === 1 ? "" : "s"}, ${rows.length} row${rows.length === 1 ? "" : "s"}).`,
+      "ok",
+    );
   } catch (_) {
     setStatus(exportCsvStatus, "Export failed.", "error");
   } finally {
@@ -11221,291 +11232,132 @@ function openDiscover() {
   navigateToDiscover(appDiscover.DEFAULT_DISCOVER_TAB);
 }
 
-/* ===== Letterboxd ZIP import, TMDB matching, preview, and commit ===== */
+/* ===== Collection backup CSV import ===== */
 
-/* --- Letterboxd import --- */
+/* --- Collection backup import --- */
 
-const LETTERBOXD_MATCH_CACHE_KEY = "moviecollector-letterboxd-matches-v1";
-const LETTERBOXD_MAX_ZIP_BYTES = 25 * 1024 * 1024;
-const LETTERBOXD_MAX_CSV_BYTES = 10 * 1024 * 1024;
-const LETTERBOXD_MAX_TOTAL_BYTES = 50 * 1024 * 1024;
-const LETTERBOXD_MAX_CSV_FILES = 20;
-const LETTERBOXD_MATCH_CONCURRENCY = 2;
-const LETTERBOXD_MATCH_DELAY_MS = 140;
-const LETTERBOXD_MATCH_RETRIES = 4;
+let collectionImportRows = null;
 
-let letterboxdParsed = null;
-let letterboxdCandidates = new Map();
-let letterboxdSelections = {};
-let letterboxdLookupErrors = new Set();
-let letterboxdRunId = 0;
-
-function syncLetterboxdFileLabel() {
-  if (!letterboxdFileName) {
+function syncCollectionImportFileLabel() {
+  if (!collectionImportFileName) {
     return;
   }
-  const file = letterboxdFile?.files?.[0];
-  letterboxdFileName.textContent = file ? file.name : "No file chosen";
-  letterboxdFileName.classList.toggle("is-empty", !file);
+  const file = collectionImportFile?.files?.[0];
+  collectionImportFileName.textContent = file ? file.name : "Choose CSV…";
+  collectionImportFileName.classList.toggle("is-empty", !file);
+  if (collectionImportRead) {
+    collectionImportRead.disabled = !file;
+  }
 }
 
-function openLetterboxdReview() {
-  closeSettings();
-  letterboxdReviewDialog.hidden = false;
-  letterboxdSummary.textContent = "Preparing import…";
-  letterboxdMatches.innerHTML = "";
-  letterboxdImport.disabled = true;
-  letterboxdReviewClose.focus({ preventScroll: true });
+function collectionExportMovieCount() {
+  const rows = appListCsv.listCsvRows(userState, () => ({ title: "", releaseDate: "" }));
+  return new Set(rows.map((row) => row.id)).size;
 }
 
-function closeLetterboxdReview() {
-  letterboxdRunId += 1;
-  letterboxdReviewDialog.hidden = true;
+function refreshCollectionTransferStatus() {
+  const movieCount = collectionExportMovieCount();
+  setStatus(
+    exportCsvStatus,
+    movieCount
+      ? `${movieCount} movie${movieCount === 1 ? "" : "s"} ready to export.`
+      : "Nothing to export yet.",
+    movieCount ? "ok" : null,
+  );
+  if (exportCsvBtn) {
+    exportCsvBtn.disabled = !movieCount;
+  }
+  setStatus(collectionImportStatus, "");
+  syncCollectionImportFileLabel();
+}
+
+function formatCollectionImportSummary(summary) {
+  const parts = [
+    `${summary.movies} movie${summary.movies === 1 ? "" : "s"}`,
+    `${summary.rows} row${summary.rows === 1 ? "" : "s"}`,
+    `${summary.watched} watched`,
+    `${summary.watchlist} watchlist`,
+  ];
+  if (summary.customRows) {
+    parts.push(`${summary.customRows} custom list row${summary.customRows === 1 ? "" : "s"}`);
+  }
+  if (summary.ratings) {
+    parts.push(`${summary.ratings} rating${summary.ratings === 1 ? "" : "s"}`);
+  }
+  if (summary.viewings) {
+    parts.push(`${summary.viewings} viewing date${summary.viewings === 1 ? "" : "s"}`);
+  }
+  return parts.join(", ");
+}
+
+function openCollectionImportConfirm(summary) {
+  collectionImportMessage.textContent =
+    `Replace your lists, ratings, and viewing history with this backup (${formatCollectionImportSummary(summary)})? Movies not in the file will be removed. Custom lists in the file are restored; others are cleared.`;
+  collectionImportDialog.hidden = false;
+  collectionImportCancel.focus({ preventScroll: true });
+}
+
+function closeCollectionImportConfirm() {
+  collectionImportDialog.hidden = true;
   settingsBtn.focus({ preventScroll: true });
 }
 
-function readLetterboxdMatchCache() {
-  try {
-    const parsed = JSON.parse(readStorage(LETTERBOXD_MATCH_CACHE_KEY) || "{}");
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-  } catch (_) {
-    return {};
-  }
-}
-
-function writeLetterboxdMatchCache(matches) {
-  const clean = {};
-  for (const [sourceKey, rawId] of Object.entries(matches || {})) {
-    const id = Number(rawId);
-    if (sourceKey.startsWith("uri:") && Number.isInteger(id) && id > 0) clean[sourceKey] = id;
-  }
-  writeStorage(LETTERBOXD_MATCH_CACHE_KEY, JSON.stringify(clean));
-}
-
-function letterboxdBaseName(pathname) {
-  return String(pathname || "").replace(/\\/g, "/").split("/").pop().toLowerCase();
-}
-
-async function extractLetterboxdCsv(file) {
-  if (!file || !/\.zip$/i.test(file.name)) throw new Error("Choose the ZIP downloaded from Letterboxd.");
-  if (file.size > LETTERBOXD_MAX_ZIP_BYTES) throw new Error("That ZIP is larger than the 25 MB import limit.");
-  if (typeof fflate === "undefined") throw new Error("The ZIP reader did not load. Refresh and try again.");
-  const supported = appLetterboxdImport.SUPPORTED_FILES;
-  let selectedBytes = 0;
-  let selectedFiles = 0;
-  const archive = fflate.unzipSync(new Uint8Array(await file.arrayBuffer()), {
-    filter(entry) {
-      if (!appLetterboxdImport.isSupportedPath(entry.name)
-        || !supported.has(letterboxdBaseName(entry.name))) return false;
-      if (entry.originalSize > LETTERBOXD_MAX_CSV_BYTES) {
-        throw new Error(`${letterboxdBaseName(entry.name)} exceeds the 10 MB file limit.`);
-      }
-      selectedBytes += entry.originalSize;
-      selectedFiles += 1;
-      if (selectedBytes > LETTERBOXD_MAX_TOTAL_BYTES || selectedFiles > LETTERBOXD_MAX_CSV_FILES) {
-        throw new Error("The Letterboxd export contains too much data to import safely.");
-      }
-      return true;
-    },
-  });
-  const files = {};
-  let total = 0;
-  for (const [pathname, bytes] of Object.entries(archive)) {
-    total += bytes.length;
-    if (total > LETTERBOXD_MAX_TOTAL_BYTES) throw new Error("The extracted Letterboxd files exceed the 50 MB import limit.");
-    files[pathname] = fflate.strFromU8(bytes);
-  }
-  return files;
-}
-
-function candidateYear(candidate) {
-  return appLetterboxdImport.candidateReleaseYear(candidate);
-}
-
-function delayLetterboxdLookup(milliseconds) {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
-async function searchLetterboxdFilm(film) {
-  let lastError = null;
-  for (let attempt = 0; attempt <= LETTERBOXD_MATCH_RETRIES; attempt += 1) {
-    try {
-      const results = await searchMovies(film.title);
-      await delayLetterboxdLookup(LETTERBOXD_MATCH_DELAY_MS);
-      return results;
-    } catch (error) {
-      lastError = error;
-      const transient = /\b429\b|\b5\d\d\b|network|failed to fetch|abort/i.test(String(error?.message || error));
-      if (!transient || attempt === LETTERBOXD_MATCH_RETRIES) break;
-      const backoff = 600 * (2 ** attempt) + Math.floor(Math.random() * 250);
-      await delayLetterboxdLookup(backoff);
-    }
-  }
-  throw lastError || new Error("TMDB lookup failed");
-}
-
-function sortedLetterboxdCandidates(film, candidates) {
-  const seen = new Set();
-  return candidates.filter((candidate) => {
-    const id = Number(candidate.id);
-    if (!Number.isInteger(id) || id <= 0 || seen.has(id)) return false;
-    seen.add(id);
-    return true;
-  }).map((candidate, index) => ({ candidate, index })).sort((left, right) => {
-    const yearRank = (candidate) => {
-      const year = candidateYear(candidate);
-      if (!film.year || year == null) return 2;
-      if (year === film.year) return 0;
-      if (Math.abs(year - film.year) === 1) return 1;
-      return 2;
-    };
-    return yearRank(left.candidate) - yearRank(right.candidate) || left.index - right.index;
-  }).map((entry) => entry.candidate);
-}
-
-async function mapWithConcurrency(items, worker, concurrency = LETTERBOXD_MATCH_CONCURRENCY) {
-  let cursor = 0;
-  async function run() {
-    while (cursor < items.length) {
-      const index = cursor;
-      cursor += 1;
-      await worker(items[index], index);
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, run));
-}
-
-function renderLetterboxdPreview() {
-  if (!letterboxdParsed) return;
-  const matched = Object.values(letterboxdSelections).filter(Boolean).length;
-  const unresolved = letterboxdParsed.films.length - matched;
-  const lookupFailures = letterboxdLookupErrors.size;
-  const viewings = letterboxdParsed.films.reduce((sum, film) => sum + film.viewings.length, 0);
-  letterboxdSummary.textContent = `${letterboxdParsed.films.length} unique films, ${viewings} diary entries. ${matched} matched; ${unresolved} unresolved.${lookupFailures ? ` ${lookupFailures} TMDB lookup${lookupFailures === 1 ? "" : "s"} failed and should be retried.` : ""}`;
-  const rows = letterboxdParsed.films.map((film, index) => {
-    const candidates = letterboxdCandidates.get(film.sourceKey) || [];
-    const selected = Number(letterboxdSelections[film.sourceKey]) || 0;
-    const status = selected
-      ? "is-matched"
-      : letterboxdLookupErrors.has(film.sourceKey)
-        ? "lookup-failed"
-        : candidates.length ? "needs-review" : "is-unmatched";
-    return { film, candidates, selected, status, index };
-  }).sort((left, right) => {
-    const rank = { "lookup-failed": 0, "is-unmatched": 1, "needs-review": 2, "is-matched": 3 };
-    return rank[left.status] - rank[right.status] || left.index - right.index;
-  });
-  letterboxdMatches.innerHTML = rows.length ? rows.map(({ film, candidates, selected, status }) => {
-    candidates = sortedLetterboxdCandidates(film, candidates);
-    const selectedIsListed = candidates.some((candidate) => candidate.id === selected);
-    const savedOption = selected && !selectedIsListed
-      ? [`<option value="${selected}" selected>Saved match (TMDB #${selected})</option>`]
-      : [];
-    const options = ['<option value="">Skip this film</option>', ...savedOption, ...candidates.map((candidate) => {
-      const year = candidateYear(candidate);
-      return `<option value="${candidate.id}"${candidate.id === selected ? " selected" : ""}>${appCardHtml.escapeHtml(candidate.title)}${year ? ` (${year})` : ""}</option>`;
-    })].join("");
-    const stateLabel = status === "is-matched"
-      ? "Matched"
-      : status === "needs-review"
-        ? "Choose a TMDB match"
-        : status === "lookup-failed" ? "TMDB lookup failed — retry the review" : "No TMDB results";
-    return `<label class="letterboxd-match-row ${status}"><span class="letterboxd-match-title"><strong>${appCardHtml.escapeHtml(film.title)}${film.year ? ` (${film.year})` : ""}</strong><span class="letterboxd-match-state">${stateLabel}</span></span><select data-letterboxd-source-key="${appCardHtml.escapeHtml(film.sourceKey)}" aria-label="TMDB match for ${appCardHtml.escapeHtml(film.title)}">${options}</select></label>`;
-  }).join("") : '<p class="sheet-note">No films were found in this export.</p>';
-  letterboxdImport.disabled = matched === 0;
-}
-
-async function onReviewLetterboxdImport() {
-  const file = letterboxdFile.files?.[0];
+async function onReviewCollectionImport() {
+  const file = collectionImportFile.files?.[0];
   if (!file) {
-    setStatus(letterboxdStatus, "Choose a Letterboxd export ZIP first.", "error");
+    setStatus(collectionImportStatus, "Choose a backup CSV first.", "error");
     return;
   }
-  if (!hasTmdbAccess()) {
-    setStatus(letterboxdStatus, "Connect TMDB or unlock hosted access before importing.", "error");
-    return;
-  }
-  const runId = ++letterboxdRunId;
-  letterboxdRead.disabled = true;
-  openLetterboxdReview();
-  setStatus(letterboxdStatus, "Reading export…", null);
+  collectionImportRead.disabled = true;
+  setStatus(collectionImportStatus, "Reading backup…", null);
   try {
-    const files = await extractLetterboxdCsv(file);
-    letterboxdParsed = appLetterboxdImport.parseLetterboxdFiles(files);
-    letterboxdCandidates = new Map();
-    letterboxdSelections = {};
-    letterboxdLookupErrors = new Set();
-    const cache = readLetterboxdMatchCache();
-    let finished = 0;
-    await mapWithConcurrency(letterboxdParsed.films, async (film) => {
-      if (runId !== letterboxdRunId) return;
-      if (cache[film.sourceKey]) {
-        letterboxdSelections[film.sourceKey] = cache[film.sourceKey];
-      } else {
-        try {
-          const candidates = await searchLetterboxdFilm(film);
-          letterboxdCandidates.set(film.sourceKey, candidates.slice(0, 10));
-          const picked = appLetterboxdImport.pickTmdbMatch(film, candidates);
-          if (picked) letterboxdSelections[film.sourceKey] = picked;
-        } catch (_) {
-          letterboxdCandidates.set(film.sourceKey, []);
-          letterboxdLookupErrors.add(film.sourceKey);
-        }
-      }
-      if (runId !== letterboxdRunId) return;
-      finished += 1;
-      letterboxdSummary.textContent = `Matching films with TMDB… ${finished}/${letterboxdParsed.films.length}`;
-    });
-    if (runId !== letterboxdRunId) return;
-    const ignored = letterboxdParsed.ignoredFiles.length
-      ? ` Ignored ${letterboxdParsed.ignoredFiles.length} unsupported CSV file(s).`
-      : "";
-    setStatus(letterboxdStatus, `Export ready for review.${ignored}`, "ok");
-    renderLetterboxdPreview();
+    const text = await file.text();
+    const rows = appListCsv.parseCollectionCsv(text);
+    if (!rows.length) {
+      throw new Error("That file does not contain any collection rows.");
+    }
+    collectionImportRows = rows;
+    openCollectionImportConfirm(appListCsv.summarizeCollectionImport(rows));
+    setStatus(collectionImportStatus, "Review the import confirmation.", null);
   } catch (error) {
-    if (runId !== letterboxdRunId) return;
-    letterboxdParsed = null;
-    setStatus(letterboxdStatus, error.message || "Could not read that export.", "error");
-    letterboxdSummary.textContent = error.message || "Could not read that export.";
-    letterboxdMatches.innerHTML = '<p class="sheet-note">Close this review and choose another export.</p>';
+    collectionImportRows = null;
+    setStatus(collectionImportStatus, error.message || "Could not read that backup.", "error");
   } finally {
-    letterboxdRead.disabled = false;
+    collectionImportRead.disabled = false;
   }
 }
 
-function onLetterboxdMatchChange(event) {
-  const select = event.target.closest("[data-letterboxd-source-key]");
-  if (!select) return;
-  const id = Number(select.value);
-  if (Number.isInteger(id) && id > 0) letterboxdSelections[select.dataset.letterboxdSourceKey] = id;
-  else delete letterboxdSelections[select.dataset.letterboxdSourceKey];
-  renderLetterboxdPreview();
-}
-
-function onCommitLetterboxdImport() {
-  if (!letterboxdParsed) return;
-  letterboxdImport.disabled = true;
+function onConfirmCollectionImport() {
+  if (!collectionImportRows?.length) {
+    closeCollectionImportConfirm();
+    return;
+  }
+  collectionImportOk.disabled = true;
   try {
     const before = userState;
-    const result = appLetterboxdImport.applyLetterboxdImport(
-      before,
-      letterboxdParsed.films,
-      letterboxdSelections,
-      { overwriteRatings: letterboxdOverwriteRatings.checked },
-    );
+    const result = appListCsv.applyCollectionImport(before, collectionImportRows, {
+      mode: "replace",
+    });
     backupUserState(before);
     userState = result.state;
     persistUserState();
-    writeLetterboxdMatchCache({ ...readLetterboxdMatchCache(), ...letterboxdSelections });
     refreshViewModeForActiveList();
     render();
     hydrateActiveList();
-    setStatus(letterboxdStatus, `Imported ${result.summary.matched} films: ${result.summary.watched} watched, ${result.summary.watchlist} watchlist, ${result.summary.ratings} ratings, and ${result.summary.viewings} viewing dates.`, "ok");
-    letterboxdParsed = null;
-    closeLetterboxdReview();
+    collectionImportRows = null;
+    collectionImportFile.value = "";
+    syncCollectionImportFileLabel();
+    closeCollectionImportConfirm();
+    refreshCollectionTransferStatus();
+    setStatus(
+      collectionImportStatus,
+      `Imported backup: ${formatCollectionImportSummary(result.summary)}.`,
+      "ok",
+    );
   } catch (error) {
-    setStatus(letterboxdStatus, error.message || "The import could not be saved.", "error");
-    letterboxdImport.disabled = false;
+    setStatus(collectionImportStatus, error.message || "The import could not be saved.", "error");
+  } finally {
+    collectionImportOk.disabled = false;
   }
 }
 
@@ -11916,14 +11768,12 @@ tmdbKeyInput.addEventListener("keydown", (event) => {
 tmdbKeyClear.addEventListener("click", onClearCredential);
 cacheClearBtn.addEventListener("click", onClearCache);
 exportCsvBtn.addEventListener("click", onExportCsv);
-letterboxdRead?.addEventListener("click", onReviewLetterboxdImport);
-letterboxdFile?.addEventListener("change", syncLetterboxdFileLabel);
-letterboxdMatches?.addEventListener("change", onLetterboxdMatchChange);
-letterboxdImport?.addEventListener("click", onCommitLetterboxdImport);
-letterboxdReviewClose?.addEventListener("click", closeLetterboxdReview);
-letterboxdReviewCancel?.addEventListener("click", closeLetterboxdReview);
-letterboxdReviewDialog?.addEventListener("click", (event) => {
-  if (event.target.hasAttribute("data-close-letterboxd-review")) closeLetterboxdReview();
+collectionImportRead?.addEventListener("click", onReviewCollectionImport);
+collectionImportFile?.addEventListener("change", syncCollectionImportFileLabel);
+collectionImportOk?.addEventListener("click", onConfirmCollectionImport);
+collectionImportCancel?.addEventListener("click", closeCollectionImportConfirm);
+collectionImportDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-collection-import")) closeCollectionImportConfirm();
 });
 storageModeLocal.addEventListener("change", () => onStorageModeChange("local"));
 storageModeGist.addEventListener("change", () => onStorageModeChange("gist"));
@@ -11997,8 +11847,8 @@ hostedLockDialog.addEventListener("click", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
-    if (!letterboxdReviewDialog.hidden) {
-      closeLetterboxdReview();
+    if (!collectionImportDialog.hidden) {
+      closeCollectionImportConfirm();
       return;
     }
     if (!hostedUnlockDialog.hidden) {
