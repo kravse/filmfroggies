@@ -39,6 +39,21 @@ function isAllowedPathname(pathname) {
   return ALLOWED_PATH_PATTERNS.some((pattern) => pattern.test(path));
 }
 
+function pickAllowedSearchParams(searchParams) {
+  const out = {};
+  const source =
+    searchParams instanceof URLSearchParams
+      ? searchParams
+      : new URLSearchParams(Object.entries(searchParams || {}));
+  for (const [key, value] of source.entries()) {
+    if (!ALLOWED_QUERY_KEYS.has(key) || value === "") {
+      continue;
+    }
+    out[key] = value;
+  }
+  return out;
+}
+
 function normalizeSearchParams(raw) {
   const params = new URLSearchParams();
   if (!raw || typeof raw !== "object") {
@@ -87,6 +102,7 @@ module.exports = {
   ALLOWED_PATH_PATTERNS,
   ALLOWED_QUERY_KEYS,
   isAllowedPathname,
+  pickAllowedSearchParams,
   normalizeSearchParams,
   buildProxiedTmdbUrl,
   parseProxyRequestQuery,

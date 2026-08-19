@@ -126,6 +126,14 @@ const cacheClearBtn = document.getElementById("cache-clear");
 const cacheStatus = document.getElementById("cache-status");
 const exportCsvBtn = document.getElementById("export-csv");
 const exportCsvStatus = document.getElementById("export-csv-status");
+const collectionImportFile = document.getElementById("collection-import-file");
+const collectionImportFileName = document.getElementById("collection-import-file-name");
+const collectionImportRead = document.getElementById("collection-import-read");
+const collectionImportStatus = document.getElementById("collection-import-status");
+const collectionImportDialog = document.getElementById("collection-import-dialog");
+const collectionImportMessage = document.getElementById("collection-import-message");
+const collectionImportCancel = document.getElementById("collection-import-cancel");
+const collectionImportOk = document.getElementById("collection-import-ok");
 
 const aboutDialog = document.getElementById("about-dialog");
 const aboutClose = document.getElementById("about-close");

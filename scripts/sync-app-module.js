@@ -33,7 +33,7 @@ function formatExports(exports) {
   return exports.map((name) => `    ${name},`).join("\n");
 }
 
-function syncAppModule(entry) {
+function syncAppModule(entry, outputDir = APP_DIR) {
   const body = readCombinedBody(entry);
   const output = `/* ${entry.header} */
 
@@ -45,8 +45,8 @@ ${formatExports(entry.exports)}
   };
 })();
 `;
-  fs.mkdirSync(APP_DIR, { recursive: true });
-  const targetPath = path.join(APP_DIR, entry.target);
+  fs.mkdirSync(outputDir, { recursive: true });
+  const targetPath = path.join(outputDir, path.basename(entry.target));
   fs.writeFileSync(targetPath, output);
   return targetPath;
 }

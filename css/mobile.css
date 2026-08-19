@@ -78,10 +78,24 @@
   body.view-mode-detail .card--watchlist .watchlist-card-actions {
     width: 100%;
     margin: 0;
+    min-height: 2.35rem;
+    height: 2.35rem;
   }
 
   body.view-mode-detail .card--watchlist .watchlist-action-btn {
-    padding: 0.32rem 0;
+    padding: 0;
+  }
+
+  body.view-mode-detail .card--watchlist .watchlist-card-text {
+    display: none;
+  }
+
+  body.view-mode-detail .card--watchlist .watchlist-action-btn--watch .discover-preset-btn-label {
+    display: none;
+  }
+
+  body.view-mode-detail .card--watchlist .watchlist-action-btn--watch {
+    gap: 0;
   }
 
   body.view-mode-cards .watchlist-action-btn .card-remove-icon {
@@ -367,6 +381,11 @@
   body.view-discover .discover-pagination-bottom .discover-page-label {
     font-size: 0.86rem;
     letter-spacing: 0.01em;
+  }
+
+  /* Discover grid columns live in discover.css; beat view-mode-detail mobile rules here. */
+  body.view-discover.view-mode-detail .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .movie-detail-actions {

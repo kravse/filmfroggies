@@ -1012,12 +1012,7 @@ function refreshSettings() {
     appGistSync.isConnectedGistConfig(gistConfig) ? "ok" : null,
   );
   setStatus(cacheStatus, "");
-  const bundled = localMovieCount();
-  setStatus(
-    exportCsvStatus,
-    bundled ? `${bundled} movies bundled in this build.` : "No bundled data yet.",
-    bundled ? "ok" : null,
-  );
+  refreshCollectionTransferStatus();
 }
 
 function openSettings() {
@@ -1099,7 +1094,7 @@ function csvRecordFor(movieId) {
 async function onExportCsv() {
   const previewRows = appListCsv.listCsvRows(userState, csvRecordFor);
   if (!previewRows.length) {
-    setStatus(exportCsvStatus, "Nothing to export yet.", null);
+    setStatus(exportCsvStatus, "Nothing to export", null);
     return;
   }
   exportCsvBtn.disabled = true;
@@ -1121,7 +1116,12 @@ async function onExportCsv() {
     link.download = appListCsv.CSV_FILENAME;
     link.click();
     URL.revokeObjectURL(objectUrl);
-    setStatus(exportCsvStatus, `Exported ${rows.length} movies.`, "ok");
+    const movieCount = new Set(rows.map((row) => row.id)).size;
+    setStatus(
+      exportCsvStatus,
+      `Exported backup (${movieCount} movie${movieCount === 1 ? "" : "s"}, ${rows.length} row${rows.length === 1 ? "" : "s"}).`,
+      "ok",
+    );
   } catch (_) {
     setStatus(exportCsvStatus, "Export failed.", "error");
   } finally {

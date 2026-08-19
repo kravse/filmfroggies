@@ -226,6 +226,50 @@ const appCustomLists = (function () {
     ];
   }
 
+  /**
+   * Create custom list shells referenced in a backup CSV before memberships apply.
+   * Used when importing onto a fresh browser that has no list definitions yet.
+   */
+  function ensureCustomListsFromImport(customLists, tombstones, rows, now = new Date()) {
+    const lists = Array.isArray(customLists) ? [...customLists] : [];
+    const nextTombstones =
+      tombstones && typeof tombstones === "object" ? { ...tombstones } : {};
+    const stamp = now instanceof Date ? now.toISOString() : new Date().toISOString();
+    const seen = new Set();
+
+    for (const row of rows || []) {
+      const listId = row?.listId;
+      if (!isCustomListId(listId) || seen.has(listId)) {
+        continue;
+      }
+      seen.add(listId);
+      if (findCustomList(lists, listId)) {
+        delete nextTombstones[listId];
+        continue;
+      }
+      if (lists.length >= MAX_CUSTOM_LISTS) {
+        continue;
+      }
+      let name = normalizeName(row?.listName);
+      if (name.length < MIN_NAME_LENGTH || name.length > MAX_NAME_LENGTH) {
+        name = normalizeName(listId.slice(CUSTOM_ID_PREFIX.length)) || "Imported list";
+      }
+      if (isDuplicateName(lists, name)) {
+        name = `${name} (${listId.slice(-4)})`.slice(0, MAX_NAME_LENGTH);
+      }
+      lists.push({
+        id: listId,
+        name,
+        movieIds: [],
+        createdAt: stamp,
+        updatedAt: stamp,
+      });
+      delete nextTombstones[listId];
+    }
+
+    return { customLists: lists, customListTombstones: nextTombstones };
+  }
+
   function renameCustomList(customLists, listId, name, now = new Date()) {
     const trimmed = normalizeName(name);
     if (

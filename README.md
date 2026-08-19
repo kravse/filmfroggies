@@ -19,7 +19,7 @@ npm install
 npm run serve    # http://localhost:8743
 ```
 
-Copy [`.env.example`](.env.example) to `.env` if you need `npm run scrape` or `netlify dev` (both read `TMDB_READ_TOKEN` from the environment).
+Copy [`.env.example`](.env.example) to `.env` if you need `npm run scrape`, `npm run letterboxd-import`, or `netlify dev` (all read `TMDB_READ_TOKEN` from the environment).
 
 Open **Settings** (footer, bottom left) and paste your TMDB **API Read Access Token**. Without one, movies covered by the committed [`data/`](#bundled-movie-data) snapshot still render; anything else stays a skeleton card and the add-movie search returns nothing.
 
@@ -47,7 +47,7 @@ There is no header search box. Tap **+ Add a movie** (floating button, or the em
 
 When you are viewing a custom list (`#lists/{id}`), the add dialog can also **Add from watched** — a multi-select picker of Watched movies not already on that list.
 
-On the collection view, the sparkle button beside **Lists** opens **New releases** (`#discover/upcoming`, `#discover/upcoming/2`, `#discover/now-playing`, etc.): the same TMDB **Upcoming** and **Now Playing** list endpoints as [the TMDB website](https://www.themoviedb.org/movie/upcoming) (~20 US titles per page). Use **Previous** / **Next** in the toolbar to paginate either tab. The list response seeds cards immediately (title, release date, poster path); full movie details load only when you open a title. Posters lazy-load in the grid with a small concurrency cap. Upcoming drops rows whose list release date is already past. Those movies are not stored until you add them from the detail overlay. In discover detail, **Watchlist** (and **Watched** on Now playing) with the same list icons as Add movie live in the bottom bar. The detail **Lists** editor is for custom lists only. Ratings are not available in discover.
+On the collection view, the sparkle button beside **Lists** opens **New releases** (`#discover/upcoming`, `#discover/upcoming/2`, `#discover/now-playing`, etc.): each tab queries TMDB **`/discover/movie`** with US theatrical release filters (~20 titles per page). **Upcoming** uses US theatrical `release_date` from today through ~90 days ahead, sorted by **popularity** (TMDB’s upcoming discover query — no vote minimum, since unreleased titles rarely have votes yet). **Now playing** uses US theatrical dates from the last **~12 weeks** through today, requires a primary release within **~2 years** (to drop classic re-releases), `vote_count.gte=10`, sorted by popularity. Page lists may differ slightly from [the TMDB website’s shortcut lists](https://www.themoviedb.org/movie/upcoming) because those use fixed internal date ranges. Discover uses a fixed **4-column** grid (**2** on mobile). Non-final pages trim to a count divisible by **4** so both layouts stay full rows. The last page keeps whatever remains. Use **Previous** / **Next** in the toolbar to paginate either tab. The list response seeds cards immediately (title, release date, poster path); full movie details load only when you open a title. Posters lazy-load in the grid with a small concurrency cap. Those movies are not stored until you add them from the detail overlay. In discover detail, **Watchlist** (and **Watched** on Now playing) with the same list icons as Add movie live in the bottom bar. The detail **Lists** editor is for custom lists only. Ratings are not available in discover.
 
 ### Browsing lists
 
@@ -99,7 +99,7 @@ A movie can be on any combination of Watched, Watchlist, and custom lists. Custo
 
 ### Footer
 
-**Settings** (bottom left): TMDB token, optional Gist sync, export CSV, clear cached movie/poster data, hosted-access lock (Netlify only).
+**Settings** (bottom left): TMDB token, optional Gist sync, import/export CSV, clear cached movie/poster data, hosted-access lock (Netlify only).
 
 **About** (bottom right): short description and TMDB attribution.
 
@@ -107,7 +107,7 @@ A movie can be on any combination of Watched, Watchlist, and custom lists. Custo
 
 **Clear cached data** wipes the browser Cache API (TMDB JSON + poster blobs). Your lists in `localStorage` / Gist are untouched.
 
-**Export list CSV** (Repo data): downloads `my_list.csv` for the scraper and as a portable backup. See [Bundled movie data](#bundled-movie-data).
+**Import & export** (Settings): see [Collection backup CSV](#collection-backup-csv). Import shows a confirmation with row counts before replacing your collection. Use this after running the local [Letterboxd import tool](#letterboxd-import-local-tool).
 
 **Gist sync:** connect with a fine-grained PAT limited to gist read/write. The sync Gist is private, titled **Movie collector sync**, file `moviecollector-state.json`. Neither the PAT nor the TMDB token is written into synced files.
 
@@ -130,8 +130,6 @@ Stored under `moviecollector-user-state` (and optionally synced to Gist). Movie 
 | `activeListId` | Which preset tab was last active |
 | `storageMode` | `"local"` or `"gist"` |
 | `updatedAt` | Payload touch time; **not** used for per-movie merge |
-
-Legacy payloads with a `favourites` list migrate those ids into Watched on read.
 
 ### Browser storage keys
 
@@ -156,6 +154,23 @@ A tab left open holds its own copy of your lists, so a naive "newest payload win
 
 Recovery: every push creates a Gist revision; `moviecollector-user-state-backup` holds pre-merge state; automatic backups hold periodic snapshots.
 
+## Collection backup CSV
+
+Export, import, Letterboxd CLI output, and optional `data/my_list.csv` all use the same file shape.
+
+| Workflow | Where | What it does |
+|----------|-------|--------------|
+| **Backup / restore** | Settings → Import & export | **Export** downloads `my_list.csv`; **Import** replaces Watched, Watchlist, custom list memberships, ratings, and viewing history (custom lists in the file are recreated if missing). |
+| **Repo snapshot** | `data/my_list.csv` + `npm run scrape` | Scraper reads **unique `tmdb_id` values only** from the first column → `data/movies.json` + posters. List membership and ratings in the CSV are ignored. |
+
+Header:
+
+`tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates`
+
+**Multi-row export:** one row per list membership (Watched, Watchlist, each custom list). The same movie can appear on several rows; import merges `my_rating` and semicolon-separated `watch_dates` per `tmdb_id`. Scrape dedupes ids from column 1, so a multi-row backup file is valid scraper input.
+
+Letterboxd conversion is local only — it produces this CSV; it never writes browser state directly. See [Letterboxd import](#letterboxd-import-local-only).
+
 ## Bundled movie data
 
 Everything above still costs one TMDB request per movie on a cold load, and it stops working entirely if the API is unreachable or its terms change. So the repo can carry its own copy. Movies present in `data/` render from the repo and are **never** requested from the API; only ids added since the last scrape fall through to it.
@@ -164,9 +179,9 @@ The snapshot is a cache, not an edit layer. Every field in it came from TMDB and
 
 Refreshing it is three steps:
 
-1. On the running site, open **Settings → Repo data** and click **Export list CSV**. It downloads `my_list.csv`: one row per movie with `tmdb_id`, `title`, `list_id`, `list_name`, `my_rating`, `release_year`, and semicolon-separated `watch_dates`, including movies that live only on custom lists. Export hydrates missing records when a TMDB token is available. Only `tmdb_id` is used by the scraper — the other columns are a readable backup.
+1. On the running site, open **Settings → Import & export** and click **Export** (or use a CSV from `npm run letterboxd-import`). It downloads `my_list.csv`. Export hydrates missing TMDB titles when a token is available.
 2. Commit it to the repo as `data/my_list.csv`.
-3. Run the scraper, then commit what it writes:
+3. Run the scraper for **metadata and posters only**, then commit what it writes:
 
 ```bash
 echo 'TMDB_READ_TOKEN=eyJ…' > .env    # gitignored; see .env.example
@@ -187,7 +202,7 @@ A no-op scrape rewrites nothing, so `git status` stays clean when there is nothi
 
 | Path | Contents |
 |------|----------|
-| `data/my_list.csv` | Scraper input, exported from Settings. Not published in the build |
+| `data/my_list.csv` | Scraper input (unique ids from column 1); same backup CSV from Settings or Letterboxd CLI. Not published in the build |
 | `data/movies.json` | One record per movie, ascending id, same shape the app renders |
 | `data/posters/w342/` | Card and grid posters |
 | `data/posters/w500/` | Detail-overlay posters |
@@ -197,6 +212,20 @@ Only two poster sizes are stored. Smaller requests use the `w342` file and scale
 Missing poster files fall back to TMDB's CDN. Missing `movies.json` records fall back to the API path.
 
 **Browsing without a token.** Once the snapshot covers your lists, the grid and detail overlay render with no credential. A token is still required to search and add movies.
+
+## Letterboxd import (local tool)
+
+Letterboxd is **not** in the deployed site. A separate local tool opens in your browser, lets you upload a Letterboxd ZIP, review TMDB matches, and download a [collection backup CSV](#collection-backup-csv).
+
+```bash
+npm run letterboxd-import
+```
+
+That starts a small server on port **8744** (override with `LETTERBOXD_TOOL_PORT`) and opens `http://127.0.0.1:8744/tools/letterboxd.html` in a new window. Paste your TMDB read access token, choose your export ZIP, click **Review matches**, fix any ambiguous titles, then **Download backup CSV**.
+
+Import the file on the main site: **Settings → Import & export → Import**.
+
+The `tools/` directory is served locally only and is **not** copied into `build/` for deploy.
 
 ## Deploy
 
@@ -220,7 +249,7 @@ For a personal deploy you can keep your TMDB read token on the server so casual 
 
 | Variable | Purpose |
 |----------|---------|
-| `TMDB_READ_TOKEN` | v4 TMDB API Read Access Token (same as `npm run scrape`) |
+| `TMDB_READ_TOKEN` | v4 TMDB API Read Access Token (same as `npm run scrape` and `npm run letterboxd-import`) |
 | `HOSTED_SITE_PASSWORD` | Password for the hidden unlock flow |
 
 Build command: `npm run build`. Publish directory: `build`. Functions: [`netlify/functions/`](netlify/functions/).
@@ -244,7 +273,7 @@ Vanilla HTML/CSS/JS. **CommonJS** in `scripts/` and `test/`. No TypeScript, no f
 
 | Change | Location |
 |--------|----------|
-| Domain logic (lists, sync, sort, CSV, …) | `scripts/lib/` + tests in `test/` |
+| Domain logic (lists, sync, sort, backup CSV, Letterboxd parse, …) | `scripts/lib/` + tests in `test/` |
 | UI wiring, DOM, TMDB client | Numbered partials in `js/app/` (**not** `00-*`) |
 | Styles | `css/` — load order in [`scripts/css-manifest.js`](scripts/css-manifest.js); keep [`index.html`](index.html) link tags in sync |
 | Generated browser namespaces | `js/app/00-*.js` — **never hand-edit**; synced from `scripts/lib/` |
@@ -273,6 +302,8 @@ Adding a new `scripts/lib/` module: implement + test, add its exports to [`scrip
 | `07-*` | Drag reorder (Watchlist) |
 | `09-*` | Watched list filter |
 | `10-*` | Custom lists routing and index CRUD |
+| `11-*` | TMDB discover browse (upcoming / now playing) |
+| `12-*` | Collection backup CSV import |
 | `08-*` | Event wiring and startup |
 
 ### Hard constraints (do not break)
@@ -298,6 +329,9 @@ These are deliberate design decisions — see also [`.cursor/rules/moviecollecto
 | `scripts/lib/` | Pure CommonJS domain logic, one concern per file |
 | `scripts/bundle-app-js.js` | Concatenates partials; runs lib sync |
 | `scripts/scrape-data.js` | Refills `data/` from TMDB (`npm run scrape`) |
+| `scripts/letterboxd-import.js` | Opens the local Letterboxd tool in your browser |
+| `scripts/bundle-letterboxd-tool.js` | Builds `js/tools/letterboxd-tool-bundle.js` |
+| `tools/letterboxd.html` | Local Letterboxd import UI (not deployed) |
 | `data/` | Committed movie snapshot + scraper input CSV |
 | `test/` | Node tests (`npm test`) |
 | `server.js` | Read-only static server (`npm run serve`) |
@@ -313,6 +347,8 @@ These are deliberate design decisions — see also [`.cursor/rules/moviecollecto
 | `bundle` | Sync `js/app/00-*.js` from `scripts/lib/`, write `js/app-bundle.js`, verify no bare `require()` in the bundle |
 | `test` | Run Node tests in `test/` |
 | `scrape` | Refresh `data/` from `data/my_list.csv` (needs `TMDB_READ_TOKEN`) |
+| `letterboxd-import` | Open local Letterboxd tool (`http://127.0.0.1:8744/tools/letterboxd.html`) |
+| `bundle:letterboxd` | Build the local Letterboxd tool bundle |
 | `build` | Bundle + write static site to `build/` |
 
 ## Attribution

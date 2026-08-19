@@ -403,6 +403,13 @@ tmdbKeyInput.addEventListener("keydown", (event) => {
 tmdbKeyClear.addEventListener("click", onClearCredential);
 cacheClearBtn.addEventListener("click", onClearCache);
 exportCsvBtn.addEventListener("click", onExportCsv);
+collectionImportRead?.addEventListener("click", onReviewCollectionImport);
+collectionImportFile?.addEventListener("change", syncCollectionImportFileLabel);
+collectionImportOk?.addEventListener("click", onConfirmCollectionImport);
+collectionImportCancel?.addEventListener("click", closeCollectionImportConfirm);
+collectionImportDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-collection-import")) closeCollectionImportConfirm();
+});
 storageModeLocal.addEventListener("change", () => onStorageModeChange("local"));
 storageModeGist.addEventListener("change", () => onStorageModeChange("gist"));
 gistConnectBtn.addEventListener("click", onConnectGist);
@@ -475,6 +482,10 @@ hostedLockDialog.addEventListener("click", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
+    if (!collectionImportDialog.hidden) {
+      closeCollectionImportConfirm();
+      return;
+    }
     if (!hostedUnlockDialog.hidden) {
       closeHostedUnlockDialog();
       return;

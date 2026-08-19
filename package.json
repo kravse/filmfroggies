@@ -6,11 +6,16 @@
   "scripts": {
     "serve": "node server.js",
     "bundle": "node scripts/bundle-app-js.js",
+    "bundle:letterboxd": "node scripts/bundle-letterboxd-tool.js",
     "scrape": "node scripts/scrape-data.js",
+    "letterboxd-import": "node scripts/letterboxd-import.js",
     "test": "node --test \"test/*.test.js\"",
     "build": "node build.js"
   },
   "devDependencies": {
     "express": "^4.21.2"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2"
   }
 }
