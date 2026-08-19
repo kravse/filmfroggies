@@ -66,6 +66,14 @@ const gistTokenInput = document.getElementById("gist-token-input");
 const gistConnectBtn = document.getElementById("gist-connect");
 const gistClearBtn = document.getElementById("gist-clear");
 const gistStatus = document.getElementById("gist-status");
+const gistBackupSection = document.getElementById("gist-backup-section");
+const gistBackupList = document.getElementById("gist-backup-list");
+const gistBackupStatus = document.getElementById("gist-backup-status");
+
+const backupRestoreDialog = document.getElementById("backup-restore-dialog");
+const backupRestoreMessage = document.getElementById("backup-restore-message");
+const backupRestoreCancel = document.getElementById("backup-restore-cancel");
+const backupRestoreOk = document.getElementById("backup-restore-ok");
 const cacheClearBtn = document.getElementById("cache-clear");
 const cacheStatus = document.getElementById("cache-status");
 const exportCsvBtn = document.getElementById("export-csv");
@@ -2516,10 +2524,12 @@ const appGistSync = (function () {
       const parsed = typeof json === "string" ? JSON.parse(json) : json;
       const token = typeof parsed.token === "string" ? parsed.token.trim() : "";
       const gistId = typeof parsed.gistId === "string" ? parsed.gistId.trim() : "";
+      const backupGistId =
+        typeof parsed.backupGistId === "string" ? parsed.backupGistId.trim() : "";
       if (!token) {
         return null;
       }
-      return { token, gistId };
+      return { token, gistId, backupGistId };
     } catch (_) {
       return null;
     }
@@ -2529,6 +2539,7 @@ const appGistSync = (function () {
     return JSON.stringify({
       token: config.token,
       gistId: config.gistId || "",
+      backupGistId: config.backupGistId || "",
     });
   }
 
@@ -2606,6 +2617,177 @@ const appGistSync = (function () {
     buildGistCreatePayload,
     buildGistUpdatePayload,
     resolveGistConnectState,
+  };
+})();
+
+/* ===== GitHub Gist snapshot backups (generated from scripts/lib/gist-backup.js) ===== */
+
+/* Generated from scripts/lib/gist-backup.js — run npm run bundle */
+
+const appGistBackup = (function () {
+  /**
+   * Immutable Gist snapshots of user state. Each snapshot is a separate gist file;
+   * files are never updated, only added or deleted when the ring buffer overflows.
+   */
+
+  const BACKUP_GIST_DESCRIPTION = "Movie collector backups";
+  const SNAPSHOT_PREFIX = "snapshot-";
+  const SNAPSHOT_SUFFIX = ".json";
+  const MAX_SNAPSHOTS = 5;
+  const SNAPSHOT_INTERVAL_MS = 20 * 60 * 1000;
+
+  function isSnapshotFilename(name) {
+    return (
+      typeof name === "string" &&
+      name.startsWith(SNAPSHOT_PREFIX) &&
+      name.endsWith(SNAPSHOT_SUFFIX)
+    );
+  }
+
+  function snapshotFilenameFromDate(date) {
+    const value = date instanceof Date ? date : new Date(date);
+    if (Number.isNaN(value.getTime())) {
+      return null;
+    }
+    const pad = (part) => String(part).padStart(2, "0");
+    const stamp = [
+      value.getUTCFullYear(),
+      pad(value.getUTCMonth() + 1),
+      pad(value.getUTCDate()),
+      "T",
+      pad(value.getUTCHours()),
+      pad(value.getUTCMinutes()),
+      pad(value.getUTCSeconds()),
+      "Z",
+    ].join("");
+    return `${SNAPSHOT_PREFIX}${stamp}${SNAPSHOT_SUFFIX}`;
+  }
+
+  function parseSnapshotFilename(name) {
+    if (!isSnapshotFilename(name)) {
+      return null;
+    }
+    const stem = name.slice(SNAPSHOT_PREFIX.length, -SNAPSHOT_SUFFIX.length);
+    const match = stem.match(
+      /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/,
+    );
+    if (!match) {
+      return null;
+    }
+    const [, year, month, day, hour, minute, second] = match;
+    const time = Date.UTC(
+      parseInt(year, 10),
+      parseInt(month, 10) - 1,
+      parseInt(day, 10),
+      parseInt(hour, 10),
+      parseInt(minute, 10),
+      parseInt(second, 10),
+    );
+    const date = new Date(time);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  function listSnapshotFilenames(files) {
+    if (!files || typeof files !== "object") {
+      return [];
+    }
+    return Object.keys(files).filter(isSnapshotFilename).sort();
+  }
+
+  function snapshotEntriesFromFiles(files) {
+    return listSnapshotFilenames(files)
+      .map((filename) => {
+        const at = parseSnapshotFilename(filename);
+        if (!at) {
+          return null;
+        }
+        return { filename, at: at.toISOString() };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.at.localeCompare(b.at));
+  }
+
+  function shouldCreateSnapshot(filenames, nowMs, intervalMs = SNAPSHOT_INTERVAL_MS) {
+    if (!filenames.length) {
+      return true;
+    }
+    const latestName = filenames[filenames.length - 1];
+    const latestAt = parseSnapshotFilename(latestName);
+    if (!latestAt) {
+      return true;
+    }
+    return nowMs - latestAt.getTime() >= intervalMs;
+  }
+
+  function filenamesToPurgeBeforeAdd(sortedFilenames, maxSnapshots = MAX_SNAPSHOTS) {
+    const nextCount = sortedFilenames.length + 1;
+    if (nextCount <= maxSnapshots) {
+      return [];
+    }
+    return sortedFilenames.slice(0, nextCount - maxSnapshots);
+  }
+
+  function findBackupGistId(gists, syncGistId) {
+    if (!Array.isArray(gists)) {
+      return null;
+    }
+    for (const gist of gists) {
+      if (!gist?.id || gist.id === syncGistId) {
+        continue;
+      }
+      if (gist.description === BACKUP_GIST_DESCRIPTION) {
+        return gist.id;
+      }
+      const files = gist.files || {};
+      if (Object.keys(files).some(isSnapshotFilename)) {
+        return gist.id;
+      }
+    }
+    return null;
+  }
+
+  function buildBackupGistCreatePayload(filename, stateJson) {
+    return {
+      description: BACKUP_GIST_DESCRIPTION,
+      public: false,
+      files: { [filename]: { content: stateJson } },
+    };
+  }
+
+  function buildBackupGistUpdatePayload({ add, deleteFilenames = [] }) {
+    const files = {
+      [add.filename]: { content: add.content },
+    };
+    for (const name of deleteFilenames) {
+      files[name] = null;
+    }
+    return { files };
+  }
+
+  function extractSnapshotContent(body, filename) {
+    if (!body?.files || typeof body.files !== "object") {
+      return null;
+    }
+    const content = body.files[filename]?.content;
+    return typeof content === "string" ? content : null;
+  }
+
+  return {
+    BACKUP_GIST_DESCRIPTION,
+    SNAPSHOT_PREFIX,
+    MAX_SNAPSHOTS,
+    SNAPSHOT_INTERVAL_MS,
+    isSnapshotFilename,
+    snapshotFilenameFromDate,
+    parseSnapshotFilename,
+    listSnapshotFilenames,
+    snapshotEntriesFromFiles,
+    shouldCreateSnapshot,
+    filenamesToPurgeBeforeAdd,
+    findBackupGistId,
+    buildBackupGistCreatePayload,
+    buildBackupGistUpdatePayload,
+    extractSnapshotContent,
   };
 })();
 
@@ -3837,7 +4019,7 @@ function formatSyncTime(value) {
 function queueGistSync(options = {}) {
   gistSyncChain = gistSyncChain
     .then(() => reconcileWithGist(options))
-    .then((result) => {
+    .then(async (result) => {
       if (!result?.ok) {
         return;
       }
@@ -3849,6 +4031,11 @@ function queueGistSync(options = {}) {
         `Synced with GitHub at ${formatSyncTime(userState.updatedAt)}.`,
         "ok",
       );
+      try {
+        await maybeCreateGistSnapshot();
+      } catch (_) {
+        /* Backup failures must not block live sync or overwrite snapshots. */
+      }
     })
     .catch(() => {
       // Never fall back to a blind write: keeping the change local and retrying
@@ -3936,7 +4123,8 @@ async function connectGist(token) {
       }
     }
 
-    saveGistConfig({ token: trimmed, gistId: nextGistId });
+    const backupGistId = appGistBackup.findBackupGistId(gists, nextGistId) || "";
+    saveGistConfig({ token: trimmed, gistId: nextGistId, backupGistId });
     backupUserState(userState);
     userState = {
       ...appUserState.normalizeUserState(resolved.nextState),
@@ -3959,6 +4147,127 @@ function disconnectGist() {
   saveGistConfig(null);
   userState = { ...userState, storageMode: "local" };
   writeUserStateToStorage();
+}
+
+/* --- Gist snapshot backups (write-only, separate gist) --- */
+
+async function resolveBackupGistId() {
+  if (!gistConfig?.token) {
+    return null;
+  }
+  if (gistConfig.backupGistId) {
+    return gistConfig.backupGistId;
+  }
+  const gists = await gistRequest("/gists", { token: gistConfig.token });
+  const backupGistId = appGistBackup.findBackupGistId(gists, gistConfig.gistId);
+  if (backupGistId) {
+    saveGistConfig({ ...gistConfig, backupGistId });
+  }
+  return backupGistId || null;
+}
+
+async function fetchBackupGistBody(backupGistId) {
+  return gistRequest(`/gists/${backupGistId}`, { token: gistConfig.token });
+}
+
+/**
+ * Adds an immutable snapshot when the latest one is at least 20 minutes old.
+ * Snapshots live in a second gist and are never edited — only appended or purged.
+ */
+async function maybeCreateGistSnapshot() {
+  if (!gistSyncEnabled()) {
+    return { ok: false, reason: "disabled" };
+  }
+
+  const snapshotJson = appUserState.serializeUserState(userState);
+  const now = Date.now();
+  const filename = appGistBackup.snapshotFilenameFromDate(new Date(now));
+  if (!filename) {
+    return { ok: false, reason: "filename" };
+  }
+
+  let backupGistId = await resolveBackupGistId();
+  let filenames = [];
+
+  if (backupGistId) {
+    const body = await fetchBackupGistBody(backupGistId);
+    filenames = appGistBackup.listSnapshotFilenames(body.files);
+    if (!appGistBackup.shouldCreateSnapshot(filenames, now)) {
+      return { ok: true, skipped: true };
+    }
+  } else if (!appGistBackup.shouldCreateSnapshot([], now)) {
+    return { ok: true, skipped: true };
+  }
+
+  const deleteFilenames = appGistBackup.filenamesToPurgeBeforeAdd(filenames);
+
+  if (!backupGistId) {
+    const created = await gistRequest("/gists", {
+      method: "POST",
+      token: gistConfig.token,
+      body: appGistBackup.buildBackupGistCreatePayload(filename, snapshotJson),
+    });
+    backupGistId = created?.id || "";
+    if (!backupGistId) {
+      throw new Error("GitHub did not return a backup Gist id.");
+    }
+    saveGistConfig({ ...gistConfig, backupGistId });
+    return { ok: true, created: true };
+  }
+
+  await gistRequest(`/gists/${backupGistId}`, {
+    method: "PATCH",
+    token: gistConfig.token,
+    body: appGistBackup.buildBackupGistUpdatePayload({
+      add: { filename, content: snapshotJson },
+      deleteFilenames,
+    }),
+  });
+  return { ok: true, created: true };
+}
+
+async function listGistSnapshots() {
+  if (!gistSyncEnabled()) {
+    return [];
+  }
+  const backupGistId = await resolveBackupGistId();
+  if (!backupGistId) {
+    return [];
+  }
+  const body = await fetchBackupGistBody(backupGistId);
+  return appGistBackup.snapshotEntriesFromFiles(body.files);
+}
+
+async function restoreGistSnapshot(filename) {
+  if (!gistSyncEnabled()) {
+    return { ok: false, error: "Gist sync is not connected." };
+  }
+  if (!appGistBackup.isSnapshotFilename(filename)) {
+    return { ok: false, error: "That backup file is not valid." };
+  }
+
+  const backupGistId = await resolveBackupGistId();
+  if (!backupGistId) {
+    return { ok: false, error: "No backup Gist found." };
+  }
+
+  const body = await fetchBackupGistBody(backupGistId);
+  const json = appGistBackup.extractSnapshotContent(body, filename);
+  const parsed = json ? appUserState.parseUserState(json) : null;
+  if (!parsed) {
+    return { ok: false, error: "Could not read that snapshot." };
+  }
+
+  backupUserState(userState);
+  userState = {
+    ...appUserState.normalizeUserState(parsed),
+    storageMode: "gist",
+  };
+  gridViewMode = userState.preferences.viewMode;
+  writeUserStateToStorage();
+  queueGistSync({ push: true });
+  onRemoteStateAdopted();
+  return { ok: true };
 }
 
 /* ===== TMDB client: credential, Cache API wrapper, hydration pool ===== */
@@ -6214,6 +6523,106 @@ function syncDetailFromLocation() {
 
 /* --- Settings --- */
 
+let pendingBackupRestoreFilename = null;
+
+function formatSnapshotLabel(iso) {
+  const time = Date.parse(iso || "");
+  if (!Number.isFinite(time)) {
+    return iso || "Unknown time";
+  }
+  return new Date(time).toLocaleString([], {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+async function refreshGistBackupList() {
+  if (!gistBackupSection || !gistBackupList) {
+    return;
+  }
+  if (!gistSyncEnabled()) {
+    gistBackupSection.hidden = true;
+    gistBackupList.innerHTML = "";
+    setStatus(gistBackupStatus, "", null);
+    return;
+  }
+  gistBackupSection.hidden = false;
+  gistBackupList.innerHTML =
+    '<li class="gist-backup-empty">Loading snapshots…</li>';
+  try {
+    const snapshots = await listGistSnapshots();
+    if (!snapshots.length) {
+      gistBackupList.innerHTML =
+        '<li class="gist-backup-empty">No snapshots yet. The first one is written on load when sync is active.</li>';
+      setStatus(gistBackupStatus, "", null);
+      return;
+    }
+    gistBackupList.innerHTML = snapshots
+      .slice()
+      .reverse()
+      .map((entry) => {
+        const label = formatSnapshotLabel(entry.at);
+        const safeLabel = appCardHtml.escapeHtml(label);
+        return `<li class="gist-backup-item"><button type="button" class="gist-backup-restore-btn" data-backup-filename="${entry.filename}" data-backup-label="${safeLabel}">Restore ${safeLabel}</button></li>`;
+      })
+      .join("");
+    setStatus(
+      gistBackupStatus,
+      `${snapshots.length} snapshot${snapshots.length === 1 ? "" : "s"} stored (max ${appGistBackup.MAX_SNAPSHOTS}).`,
+      "ok",
+    );
+  } catch (_) {
+    gistBackupList.innerHTML =
+      '<li class="gist-backup-empty">Could not load snapshots.</li>';
+    setStatus(gistBackupStatus, "Could not reach the backup Gist.", "error");
+  }
+}
+
+function openBackupRestoreConfirm(filename, label) {
+  pendingBackupRestoreFilename = filename;
+  backupRestoreMessage.textContent = `Restore your lists from the snapshot taken ${label}? Your current lists will be replaced and synced to GitHub.`;
+  backupRestoreDialog.hidden = false;
+}
+
+function closeBackupRestoreConfirm() {
+  pendingBackupRestoreFilename = null;
+  backupRestoreDialog.hidden = true;
+}
+
+async function onConfirmBackupRestore() {
+  const filename = pendingBackupRestoreFilename;
+  closeBackupRestoreConfirm();
+  if (!filename) {
+    return;
+  }
+  setStatus(gistBackupStatus, "Restoring snapshot…", null);
+  backupRestoreOk.disabled = true;
+  try {
+    const result = await restoreGistSnapshot(filename);
+    if (!result.ok) {
+      setStatus(gistBackupStatus, result.error, "error");
+      return;
+    }
+    closeSettings();
+    refreshViewModeForActiveList();
+    render();
+    hydrateActiveList();
+  } finally {
+    backupRestoreOk.disabled = false;
+  }
+}
+
+function onGistBackupListClick(event) {
+  const button = event.target.closest("[data-backup-filename]");
+  if (!button) {
+    return;
+  }
+  openBackupRestoreConfirm(
+    button.dataset.backupFilename,
+    button.dataset.backupLabel || "at that time",
+  );
+}
+
 function refreshSettings() {
   tmdbKeyInput.value = "";
   setStatus(
@@ -6245,6 +6654,7 @@ function refreshSettings() {
 
 function openSettings() {
   refreshSettings();
+  refreshGistBackupList();
   settingsDialog.hidden = false;
   settingsBtn.setAttribute("aria-expanded", "true");
   tmdbKeyInput.focus({ preventScroll: true });
@@ -6365,6 +6775,7 @@ async function onConnectGist() {
     refreshViewModeForActiveList();
     render();
     hydrateActiveList();
+    refreshGistBackupList();
   } finally {
     gistConnectBtn.disabled = false;
   }
@@ -6373,6 +6784,7 @@ async function onConnectGist() {
 function onDisconnectGist() {
   disconnectGist();
   refreshSettings();
+  refreshGistBackupList();
 }
 
 /* --- About --- */
@@ -7247,6 +7659,14 @@ removeConfirmDialog.addEventListener("click", (event) => {
   }
 });
 
+backupRestoreCancel?.addEventListener("click", () => closeBackupRestoreConfirm());
+backupRestoreOk?.addEventListener("click", () => onConfirmBackupRestore());
+backupRestoreDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-backup-restore")) {
+    closeBackupRestoreConfirm();
+  }
+});
+
 window.addEventListener("popstate", syncDetailFromLocation);
 
 /* --- Staying current across tabs --- */
@@ -7277,6 +7697,7 @@ storageModeLocal.addEventListener("change", () => onStorageModeChange("local"));
 storageModeGist.addEventListener("change", () => onStorageModeChange("gist"));
 gistConnectBtn.addEventListener("click", onConnectGist);
 gistClearBtn.addEventListener("click", onDisconnectGist);
+gistBackupList?.addEventListener("click", onGistBackupListClick);
 
 aboutBtn.addEventListener("click", openAbout);
 aboutClose.addEventListener("click", closeAbout);

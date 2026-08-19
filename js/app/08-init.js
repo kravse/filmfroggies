@@ -224,6 +224,14 @@ removeConfirmDialog.addEventListener("click", (event) => {
   }
 });
 
+backupRestoreCancel?.addEventListener("click", () => closeBackupRestoreConfirm());
+backupRestoreOk?.addEventListener("click", () => onConfirmBackupRestore());
+backupRestoreDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-backup-restore")) {
+    closeBackupRestoreConfirm();
+  }
+});
+
 window.addEventListener("popstate", syncDetailFromLocation);
 
 /* --- Staying current across tabs --- */
@@ -254,6 +262,7 @@ storageModeLocal.addEventListener("change", () => onStorageModeChange("local"));
 storageModeGist.addEventListener("change", () => onStorageModeChange("gist"));
 gistConnectBtn.addEventListener("click", onConnectGist);
 gistClearBtn.addEventListener("click", onDisconnectGist);
+gistBackupList?.addEventListener("click", onGistBackupListClick);
 
 aboutBtn.addEventListener("click", openAbout);
 aboutClose.addEventListener("click", closeAbout);

@@ -331,7 +331,7 @@ function formatSyncTime(value) {
 function queueGistSync(options = {}) {
   gistSyncChain = gistSyncChain
     .then(() => reconcileWithGist(options))
-    .then((result) => {
+    .then(async (result) => {
       if (!result?.ok) {
         return;
       }
@@ -343,6 +343,11 @@ function queueGistSync(options = {}) {
         `Synced with GitHub at ${formatSyncTime(userState.updatedAt)}.`,
         "ok",
       );
+      try {
+        await maybeCreateGistSnapshot();
+      } catch (_) {
+        /* Backup failures must not block live sync or overwrite snapshots. */
+      }
     })
     .catch(() => {
       // Never fall back to a blind write: keeping the change local and retrying
@@ -430,7 +435,8 @@ async function connectGist(token) {
       }
     }
 
-    saveGistConfig({ token: trimmed, gistId: nextGistId });
+    const backupGistId = appGistBackup.findBackupGistId(gists, nextGistId) || "";
+    saveGistConfig({ token: trimmed, gistId: nextGistId, backupGistId });
     backupUserState(userState);
     userState = {
       ...appUserState.normalizeUserState(resolved.nextState),
@@ -438,11 +444,7 @@ async function connectGist(token) {
     };
     gridViewMode = userState.preferences.viewMode;
     writeUserStateToStorage();
-    // Adopting merged local movies into an existing Gist leaves the remote copy
-    // behind, so hand the union back to GitHub.
-    if (resolved.action === "adopt") {
-      queueGistSync();
-    }
+    queueGistSync();
     return { ok: true, action: resolved.action };
   } catch (error) {
     return { ok: false, error: `Could not reach GitHub. ${error.message}` };
@@ -453,4 +455,125 @@ function disconnectGist() {
   saveGistConfig(null);
   userState = { ...userState, storageMode: "local" };
   writeUserStateToStorage();
+}
+
+/* --- Gist snapshot backups (write-only, separate gist) --- */
+
+async function resolveBackupGistId() {
+  if (!gistConfig?.token) {
+    return null;
+  }
+  if (gistConfig.backupGistId) {
+    return gistConfig.backupGistId;
+  }
+  const gists = await gistRequest("/gists", { token: gistConfig.token });
+  const backupGistId = appGistBackup.findBackupGistId(gists, gistConfig.gistId);
+  if (backupGistId) {
+    saveGistConfig({ ...gistConfig, backupGistId });
+  }
+  return backupGistId || null;
+}
+
+async function fetchBackupGistBody(backupGistId) {
+  return gistRequest(`/gists/${backupGistId}`, { token: gistConfig.token });
+}
+
+/**
+ * Adds an immutable snapshot when the latest one is at least 20 minutes old.
+ * Snapshots live in a second gist and are never edited — only appended or purged.
+ */
+async function maybeCreateGistSnapshot() {
+  if (!gistSyncEnabled()) {
+    return { ok: false, reason: "disabled" };
+  }
+
+  const snapshotJson = appUserState.serializeUserState(userState);
+  const now = Date.now();
+  const filename = appGistBackup.snapshotFilenameFromDate(new Date(now));
+  if (!filename) {
+    return { ok: false, reason: "filename" };
+  }
+
+  let backupGistId = await resolveBackupGistId();
+  let filenames = [];
+
+  if (backupGistId) {
+    const body = await fetchBackupGistBody(backupGistId);
+    filenames = appGistBackup.listSnapshotFilenames(body.files);
+    if (!appGistBackup.shouldCreateSnapshot(filenames, now)) {
+      return { ok: true, skipped: true };
+    }
+  } else if (!appGistBackup.shouldCreateSnapshot([], now)) {
+    return { ok: true, skipped: true };
+  }
+
+  const deleteFilenames = appGistBackup.filenamesToPurgeBeforeAdd(filenames);
+
+  if (!backupGistId) {
+    const created = await gistRequest("/gists", {
+      method: "POST",
+      token: gistConfig.token,
+      body: appGistBackup.buildBackupGistCreatePayload(filename, snapshotJson),
+    });
+    backupGistId = created?.id || "";
+    if (!backupGistId) {
+      throw new Error("GitHub did not return a backup Gist id.");
+    }
+    saveGistConfig({ ...gistConfig, backupGistId });
+    return { ok: true, created: true };
+  }
+
+  await gistRequest(`/gists/${backupGistId}`, {
+    method: "PATCH",
+    token: gistConfig.token,
+    body: appGistBackup.buildBackupGistUpdatePayload({
+      add: { filename, content: snapshotJson },
+      deleteFilenames,
+    }),
+  });
+  return { ok: true, created: true };
+}
+
+async function listGistSnapshots() {
+  if (!gistSyncEnabled()) {
+    return [];
+  }
+  const backupGistId = await resolveBackupGistId();
+  if (!backupGistId) {
+    return [];
+  }
+  const body = await fetchBackupGistBody(backupGistId);
+  return appGistBackup.snapshotEntriesFromFiles(body.files);
+}
+
+async function restoreGistSnapshot(filename) {
+  if (!gistSyncEnabled()) {
+    return { ok: false, error: "Gist sync is not connected." };
+  }
+  if (!appGistBackup.isSnapshotFilename(filename)) {
+    return { ok: false, error: "That backup file is not valid." };
+  }
+
+  const backupGistId = await resolveBackupGistId();
+  if (!backupGistId) {
+    return { ok: false, error: "No backup Gist found." };
+  }
+
+  const body = await fetchBackupGistBody(backupGistId);
+  const json = appGistBackup.extractSnapshotContent(body, filename);
+  const parsed = json ? appUserState.parseUserState(json) : null;
+  if (!parsed) {
+    return { ok: false, error: "Could not read that snapshot." };
+  }
+
+  backupUserState(userState);
+  userState = {
+    ...appUserState.normalizeUserState(parsed),
+    storageMode: "gist",
+  };
+  gridViewMode = userState.preferences.viewMode;
+  writeUserStateToStorage();
+  queueGistSync({ push: true });
+  onRemoteStateAdopted();
+  return { ok: true };
 }

@@ -17,6 +17,7 @@ test("parseGistSyncConfig reads a stored token and gist id", () => {
   assert.deepEqual(parseGistSyncConfig('{"token":"abc","gistId":"123"}'), {
     token: "abc",
     gistId: "123",
+    backupGistId: "",
   });
 });
 
@@ -29,7 +30,7 @@ test("parseGistSyncConfig returns null without a token", () => {
 });
 
 test("serializeGistSyncConfig round-trips through parse", () => {
-  const config = { token: "abc", gistId: "123" };
+  const config = { token: "abc", gistId: "123", backupGistId: "backup" };
   assert.deepEqual(parseGistSyncConfig(serializeGistSyncConfig(config)), config);
 });
 

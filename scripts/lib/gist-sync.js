@@ -28,10 +28,12 @@ function parseGistSyncConfig(json) {
     const parsed = typeof json === "string" ? JSON.parse(json) : json;
     const token = typeof parsed.token === "string" ? parsed.token.trim() : "";
     const gistId = typeof parsed.gistId === "string" ? parsed.gistId.trim() : "";
+    const backupGistId =
+      typeof parsed.backupGistId === "string" ? parsed.backupGistId.trim() : "";
     if (!token) {
       return null;
     }
-    return { token, gistId };
+    return { token, gistId, backupGistId };
   } catch (_) {
     return null;
   }
@@ -41,6 +43,7 @@ function serializeGistSyncConfig(config) {
   return JSON.stringify({
     token: config.token,
     gistId: config.gistId || "",
+    backupGistId: config.backupGistId || "",
   });
 }
 

@@ -407,6 +407,106 @@ function syncDetailFromLocation() {
 
 /* --- Settings --- */
 
+let pendingBackupRestoreFilename = null;
+
+function formatSnapshotLabel(iso) {
+  const time = Date.parse(iso || "");
+  if (!Number.isFinite(time)) {
+    return iso || "Unknown time";
+  }
+  return new Date(time).toLocaleString([], {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+async function refreshGistBackupList() {
+  if (!gistBackupSection || !gistBackupList) {
+    return;
+  }
+  if (!gistSyncEnabled()) {
+    gistBackupSection.hidden = true;
+    gistBackupList.innerHTML = "";
+    setStatus(gistBackupStatus, "", null);
+    return;
+  }
+  gistBackupSection.hidden = false;
+  gistBackupList.innerHTML =
+    '<li class="gist-backup-empty">Loading snapshots…</li>';
+  try {
+    const snapshots = await listGistSnapshots();
+    if (!snapshots.length) {
+      gistBackupList.innerHTML =
+        '<li class="gist-backup-empty">No snapshots yet. The first one is written on load when sync is active.</li>';
+      setStatus(gistBackupStatus, "", null);
+      return;
+    }
+    gistBackupList.innerHTML = snapshots
+      .slice()
+      .reverse()
+      .map((entry) => {
+        const label = formatSnapshotLabel(entry.at);
+        const safeLabel = appCardHtml.escapeHtml(label);
+        return `<li class="gist-backup-item"><button type="button" class="gist-backup-restore-btn" data-backup-filename="${entry.filename}" data-backup-label="${safeLabel}">Restore ${safeLabel}</button></li>`;
+      })
+      .join("");
+    setStatus(
+      gistBackupStatus,
+      `${snapshots.length} snapshot${snapshots.length === 1 ? "" : "s"} stored (max ${appGistBackup.MAX_SNAPSHOTS}).`,
+      "ok",
+    );
+  } catch (_) {
+    gistBackupList.innerHTML =
+      '<li class="gist-backup-empty">Could not load snapshots.</li>';
+    setStatus(gistBackupStatus, "Could not reach the backup Gist.", "error");
+  }
+}
+
+function openBackupRestoreConfirm(filename, label) {
+  pendingBackupRestoreFilename = filename;
+  backupRestoreMessage.textContent = `Restore your lists from the snapshot taken ${label}? Your current lists will be replaced and synced to GitHub.`;
+  backupRestoreDialog.hidden = false;
+}
+
+function closeBackupRestoreConfirm() {
+  pendingBackupRestoreFilename = null;
+  backupRestoreDialog.hidden = true;
+}
+
+async function onConfirmBackupRestore() {
+  const filename = pendingBackupRestoreFilename;
+  closeBackupRestoreConfirm();
+  if (!filename) {
+    return;
+  }
+  setStatus(gistBackupStatus, "Restoring snapshot…", null);
+  backupRestoreOk.disabled = true;
+  try {
+    const result = await restoreGistSnapshot(filename);
+    if (!result.ok) {
+      setStatus(gistBackupStatus, result.error, "error");
+      return;
+    }
+    closeSettings();
+    refreshViewModeForActiveList();
+    render();
+    hydrateActiveList();
+  } finally {
+    backupRestoreOk.disabled = false;
+  }
+}
+
+function onGistBackupListClick(event) {
+  const button = event.target.closest("[data-backup-filename]");
+  if (!button) {
+    return;
+  }
+  openBackupRestoreConfirm(
+    button.dataset.backupFilename,
+    button.dataset.backupLabel || "at that time",
+  );
+}
+
 function refreshSettings() {
   tmdbKeyInput.value = "";
   setStatus(
@@ -438,6 +538,7 @@ function refreshSettings() {
 
 function openSettings() {
   refreshSettings();
+  refreshGistBackupList();
   settingsDialog.hidden = false;
   settingsBtn.setAttribute("aria-expanded", "true");
   tmdbKeyInput.focus({ preventScroll: true });
@@ -558,6 +659,7 @@ async function onConnectGist() {
     refreshViewModeForActiveList();
     render();
     hydrateActiveList();
+    refreshGistBackupList();
   } finally {
     gistConnectBtn.disabled = false;
   }
@@ -566,6 +668,7 @@ async function onConnectGist() {
 function onDisconnectGist() {
   disconnectGist();
   refreshSettings();
+  refreshGistBackupList();
 }
 
 /* --- About --- */

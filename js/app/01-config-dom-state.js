@@ -64,6 +64,14 @@ const gistTokenInput = document.getElementById("gist-token-input");
 const gistConnectBtn = document.getElementById("gist-connect");
 const gistClearBtn = document.getElementById("gist-clear");
 const gistStatus = document.getElementById("gist-status");
+const gistBackupSection = document.getElementById("gist-backup-section");
+const gistBackupList = document.getElementById("gist-backup-list");
+const gistBackupStatus = document.getElementById("gist-backup-status");
+
+const backupRestoreDialog = document.getElementById("backup-restore-dialog");
+const backupRestoreMessage = document.getElementById("backup-restore-message");
+const backupRestoreCancel = document.getElementById("backup-restore-cancel");
+const backupRestoreOk = document.getElementById("backup-restore-ok");
 const cacheClearBtn = document.getElementById("cache-clear");
 const cacheStatus = document.getElementById("cache-status");
 const exportCsvBtn = document.getElementById("export-csv");

@@ -616,6 +616,21 @@
                 </button>
                 <span class="status-text" id="gist-status"></span>
               </div>
+              <div id="gist-backup-section" class="gist-backup-section" hidden>
+                <h4 class="gist-backup-heading">Automatic backups</h4>
+                <p class="sheet-note">
+                  A separate private Gist stores up to five immutable snapshots of your
+                  lists. A new snapshot is written on load when the latest is more than
+                  20 minutes old. Restoring replaces your current lists with the chosen
+                  snapshot and syncs that state back to GitHub.
+                </p>
+                <ul
+                  id="gist-backup-list"
+                  class="gist-backup-list"
+                  aria-label="Gist snapshots"
+                ></ul>
+                <span class="status-text" id="gist-backup-status"></span>
+              </div>
             </div>
           </section>
 
@@ -800,6 +815,33 @@
           </button>
           <button type="button" id="watch-confirm-ok" class="primary-btn">
             Mark watched
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Backup restore confirmation -->
+    <div id="backup-restore-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
+      <div class="sheet-backdrop" data-close-backup-restore></div>
+      <div
+        class="sheet-panel confirm-panel"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="backup-restore-title"
+        aria-describedby="backup-restore-message"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="backup-restore-title">Restore snapshot</h2>
+        </div>
+        <div class="sheet-scroll">
+          <p id="backup-restore-message" class="confirm-message"></p>
+        </div>
+        <div class="confirm-actions">
+          <button type="button" id="backup-restore-cancel" class="ghost-btn">
+            Cancel
+          </button>
+          <button type="button" id="backup-restore-ok" class="primary-btn">
+            Restore
           </button>
         </div>
       </div>

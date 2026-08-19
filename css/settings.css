@@ -175,3 +175,61 @@
 .confirm-danger:hover {
   filter: brightness(1.08);
 }
+
+.gist-backup-section {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+.gist-backup-heading {
+  margin: 0 0 0.35rem;
+  font-family: var(--ui-font);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.gist-backup-list {
+  margin: 0.5rem 0 0.35rem;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.gist-backup-item {
+  margin: 0;
+}
+
+.gist-backup-restore-btn {
+  width: 100%;
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--ui-font);
+  font-size: 0.86rem;
+  padding: 0.55rem 0.7rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.gist-backup-restore-btn:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-dim);
+}
+
+.gist-backup-empty {
+  margin: 0;
+  padding: 0.45rem 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+

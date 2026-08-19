@@ -68,6 +68,10 @@ const PARTS = [
     title: "GitHub Gist sync helpers (generated from scripts/lib/gist-sync.js)",
   },
   {
+    file: "00-app-gist-backup.js",
+    title: "GitHub Gist snapshot backups (generated from scripts/lib/gist-backup.js)",
+  },
+  {
     file: "00-app-reorder.js",
     title: "Reorder and overlap math (generated from scripts/lib/reorder.js)",
   },
