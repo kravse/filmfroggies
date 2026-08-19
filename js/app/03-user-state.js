@@ -243,16 +243,11 @@ async function reconcileWithGist(options = {}) {
   const remoteState = remoteStateFromGistBody(body);
 
   const localSignature = appUserState.userStateSignature(userState);
-  const previousCount = appUserState.countMovies(userState);
   const merged = mergeIntoUserState(remoteState);
   const mergedSignature = appUserState.userStateSignature(merged);
   const remoteSignature = remoteState
     ? appUserState.userStateSignature(remoteState)
     : null;
-
-  // Shrinking can only happen when another copy recorded a removal, which is
-  // worth reporting differently from picking up new movies.
-  const shrank = appUserState.countMovies(merged) < previousCount;
 
   const localChanged = mergedSignature !== localSignature;
   if (localChanged) {
@@ -274,7 +269,7 @@ async function reconcileWithGist(options = {}) {
     lastRemoteUpdatedAt = userState.updatedAt;
   }
 
-  return { ok: true, localChanged, shrank };
+  return { ok: true, localChanged };
 }
 
 function formatSyncTime(value) {
@@ -301,7 +296,7 @@ function queueGistSync(options = {}) {
         return;
       }
       if (result.localChanged) {
-        onRemoteStateAdopted(result.shrank);
+        onRemoteStateAdopted();
       }
       setStatus(
         gistStatus,
@@ -333,7 +328,6 @@ function onUserStateStorageEvent(event) {
   if (!incoming) {
     return;
   }
-  const previousCount = appUserState.countMovies(userState);
   const merged = mergeIntoUserState(incoming);
   if (
     appUserState.userStateSignature(merged) ===
@@ -341,9 +335,8 @@ function onUserStateStorageEvent(event) {
   ) {
     return;
   }
-  const shrank = appUserState.countMovies(merged) < previousCount;
   adoptMergedState(merged);
-  onRemoteStateAdopted(shrank);
+  onRemoteStateAdopted();
 }
 
 /** A tab coming back to the foreground is the most likely one to be stale. */

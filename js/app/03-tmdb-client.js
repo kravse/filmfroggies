@@ -5,6 +5,10 @@
  * credential, so the cache survives a credential change and never stores the
  * secret itself. Search is transient and only memoized for the session.
  *
+ * Ahead of all of that sits the snapshot committed under data/. Anything it
+ * covers is served from the repo and never requested, so the API is only
+ * consulted for ids added since the last `npm run scrape`.
+ *
  * On Netlify, an optional hosted session routes API calls through /api/tmdb so
  * the read token stays server-side. Personal tokens in Settings still work.
  */
@@ -21,6 +25,12 @@ let posterCachePromise;
 /** Session map from remote poster URL to blob: object URL. */
 const posterBlobUrls = new Map();
 let hostedSessionToken = "";
+
+/** Records from data/movies.json, kept apart so hydrateMovies stays the only
+ * path into movieById and its onRecord contract still holds. */
+const localMovieById = new Map();
+let localPosterSizes = [];
+let localDataGeneratedAt = null;
 
 /* --- Credential --- */
 
@@ -133,6 +143,69 @@ async function unlockHostedAccess(password) {
 
 function lockHostedAccess() {
   clearHostedSession();
+}
+
+/* --- Committed snapshot --- */
+
+/**
+ * Read once at startup. A repo with no snapshot yet 404s here, which is not an
+ * error condition: the app simply falls back to the API path it always used.
+ */
+async function loadLocalMovieData() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(appLocalData.LOCAL_DATA_URL, {
+      signal: controller.signal,
+      headers: { accept: "application/json" },
+    });
+    if (!response.ok) {
+      return false;
+    }
+    const data = appLocalData.normalizeLocalData(await response.json());
+    localMovieById.clear();
+    for (const record of data.records) {
+      localMovieById.set(record.id, record);
+    }
+    localPosterSizes = data.posterSizes;
+    localDataGeneratedAt = data.generatedAt;
+    return localMovieById.size > 0;
+  } catch (_) {
+    /* No snapshot, or an unreadable one. Either way, use the API. */
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function hasLocalMovieData() {
+  return localMovieById.size > 0;
+}
+
+function localMovieCount() {
+  return localMovieById.size;
+}
+
+function localMovieRecord(movieId) {
+  return localMovieById.get(Number(movieId)) || null;
+}
+
+function localDataStamp() {
+  return localDataGeneratedAt;
+}
+
+/** True when something can render this collection, with or without a credential. */
+function hasMovieData() {
+  return hasTmdbAccess() || hasLocalMovieData();
+}
+
+/** Null whenever the snapshot cannot serve this poster, so callers fall back. */
+function localPosterUrlFor(record, size) {
+  const local = record ? localMovieById.get(record.id) : null;
+  if (!local) {
+    return null;
+  }
+  return appLocalData.localPosterUrl(local.poster, size, localPosterSizes);
 }
 
 /* --- Cache --- */
@@ -438,21 +511,35 @@ async function searchMovies(query, options = {}) {
 }
 
 /**
- * Fetch many movies with a bounded number of in-flight requests. TMDB has no
- * batch endpoint for arbitrary ids, so a long list is many small requests.
+ * Resolve many movies, snapshot first, then a bounded number of in-flight
+ * requests for the rest. TMDB has no batch endpoint for arbitrary ids, so a
+ * long list is many small requests — which is exactly what the snapshot avoids.
  */
 async function hydrateMovies(ids, handlers = {}) {
-  // Without access every request would fail, turning the whole grid into
-  // error cards. Leaving the skeletons up reads better and stays accurate.
-  if (!hasTmdbAccess()) {
-    return;
-  }
   const queue = ids.filter((id) => !movieById.has(id));
   if (!queue.length) {
     return;
   }
 
-  const pending = [...queue];
+  // The snapshot resolves synchronously, so anything it covers is on screen
+  // before a single request is considered.
+  const pending = [];
+  for (const id of queue) {
+    const local = localMovieById.get(id);
+    if (!local) {
+      pending.push(id);
+      continue;
+    }
+    movieById.set(id, local);
+    movieErrors.delete(id);
+    handlers.onRecord?.(id, local);
+  }
+
+  // Without access every remaining request would fail, turning those cards into
+  // error cards. Leaving the skeletons up reads better and stays accurate.
+  if (!pending.length || !hasTmdbAccess()) {
+    return;
+  }
 
   async function worker() {
     while (pending.length) {

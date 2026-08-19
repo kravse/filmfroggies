@@ -519,6 +519,22 @@
               <span class="status-text" id="cache-status"></span>
             </div>
           </section>
+
+          <section class="sheet-section">
+            <h3>Repo data</h3>
+            <p class="sheet-note">
+              Movies bundled with the site load instantly and never touch the API.
+              Export this list, commit it to the repo as
+              <code>data/my_list.csv</code>, then run <code>npm run scrape</code> to
+              refresh the bundled copy.
+            </p>
+            <div class="field-row">
+              <button type="button" id="export-csv" class="ghost-btn">
+                Export list CSV
+              </button>
+              <span class="status-text" id="export-csv-status"></span>
+            </div>
+          </section>
         </div>
       </div>
     </div>
@@ -648,8 +664,6 @@
         </div>
       </div>
     </div>
-
-    <p id="sync-notice" class="sync-notice" role="status" aria-live="polite" hidden></p>
 
     <!-- Mark as watched confirmation -->
     <div id="watch-confirm-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>

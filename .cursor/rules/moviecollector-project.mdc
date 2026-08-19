@@ -11,9 +11,10 @@ Personal TMDB-backed movie list site. Keep changes small, match existing pattern
 
 These are deliberate design decisions, not gaps to fill:
 
-- **No edit layer.** You search and add. TMDB's titles, overviews, and posters are what render. Do not add an override store, edit dialog, or compaction logic.
-- **Nothing local writes data.** The browser is the only writer, into `localStorage` and optionally a GitHub Gist. `server.js` is a read-only static file server for local viewing and exposes no API.
-- **Only ids are persisted.** The user state holds lists of TMDB ids in display order, plus a `statuses` map of id → `{ status, at }` for sync. Movie records are never duplicated into storage; they are rehydrated from TMDB through the Cache API wrapper.
+- **No edit layer.** You search and add. TMDB's titles, overviews, and posters are what render. Do not add an override store, edit dialog, or compaction logic. The `data/` snapshot is not an exception: every field in it comes from TMDB and is replaced wholesale on the next scrape.
+- **Nothing local writes user data.** The browser is the only writer of lists, ratings, and preferences, into `localStorage` and optionally a GitHub Gist. `server.js` is a read-only static file server and exposes no API. The one local writer is `npm run scrape`, and it only writes the read-only movie cache under `data/`.
+- **Only ids are persisted.** The user state holds lists of TMDB ids in display order, plus a `statuses` map of id → `{ status, at }` for sync. Movie records are never duplicated into user state; they are rehydrated by id from the `data/` snapshot, then from the Cache API wrapper, then from TMDB.
+- **The snapshot is read before the API, never revalidated.** `hydrateMovies` in `js/app/03-tmdb-client.js` resolves ids from `data/movies.json` first and only requests the remainder. Refreshing a stored record is what `npm run scrape` is for; do not add background revalidation for snapshot hits. A missing record or poster must fall back to TMDB, so `data/` is always optional.
 - **Two fixed lists, no custom lists.** Watched and Watchlist are statuses defined by `PRESET_LISTS` in `scripts/lib/lists.js`. Do not add list creation, renaming, deletion, or reordering of the lists themselves.
 - **One list invariant, enforced on read.** Watchlist is disjoint from Watched. `assignMovieToList` and `removeMovieFromList` in `scripts/lib/lists.js` are the only ways to change membership, and `normalizeLists` repairs any stored payload that violates the rule. Never add or remove ids from a `movieIds` array directly, and do not introduce a third list.
 - **Every membership change records a status.** Adding, marking watched, and removing must call `recordMovieStatus` so `scripts/lib/sync-merge.js` has a per-movie stamp to merge on. Skipping it lets a stale tab out-vote the change. `removed` is a sync record only — it never appears in a `movieIds` array and is never rendered or fetched.
@@ -32,9 +33,13 @@ These are deliberate design decisions, not gaps to fill:
 | `js/app/00-*.js` | **Generated** from `scripts/lib/` — never hand-edit |
 | `css/` | All styles — no inline `<style>` in `index.html` |
 | `scripts/lib/` | Pure CommonJS domain logic, one concern per file |
+| `data/` | Committed movie snapshot; `my_list.csv` in, `movies.json` + `posters/` out |
 | `test/` | Node tests (`npm test`) |
 | `server.js` | Read-only static server (`npm run serve`) |
+| `scripts/scrape-data.js` | Refills `data/` from TMDB (`npm run scrape`) |
 | `build.js` → `build/` | Static deploy output (`npm run build`) |
+
+Anything added to `data/` must also be copied by `copyData()` in `build.js`, or the deployed site will not see it. `my_list.csv` is deliberately excluded — it is scraper input, not a site asset.
 
 ## JavaScript
 
@@ -96,8 +101,9 @@ Canonical order: `VIEWER_CSS_FILES` in [`scripts/css-manifest.js`](../../scripts
 ## Security
 
 - The TMDB credential and the Gist PAT live in `localStorage` under their own keys and are **never** written into the Gist payload.
-- Never commit an API key. There is no key in the repo and there must not be one.
+- Never commit an API key. There is no key in the repo and there must not be one. `npm run scrape` reads `TMDB_READ_TOKEN` from the environment or the gitignored `.env`, and nothing writes it into `data/`.
 - Only the query string is user-derived in TMDB URLs; hosts are hardcoded constants. Validate `poster_path` before interpolating it into an image URL.
+- `data/movies.json` ships with the site but still arrives over the network, so it is validated on read by `normalizeLocalData`. Poster filenames are re-validated before they become a path, so a hand-edited manifest cannot traverse out of `data/posters/`.
 - Every network call sets an explicit timeout.
 
 ## General editing principles

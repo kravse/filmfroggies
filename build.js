@@ -4,7 +4,8 @@
  *
  * Routing is hash-only, so there is nothing to configure on the host: no
  * rewrite rules, no SPA fallback, no 404 page. The output is index.html, one
- * concatenated stylesheet, the JS bundle, and a noindex robots.txt.
+ * concatenated stylesheet, the JS bundle, the committed movie snapshot, and a
+ * noindex robots.txt.
  */
 const fs = require("fs");
 const path = require("path");
@@ -76,6 +77,24 @@ function copyBundle() {
   );
 }
 
+/**
+ * Ships the committed movie snapshot so the deployed site resolves those movies
+ * without an API call. my_list.csv is scraper input and stays out of the build.
+ */
+function copyData() {
+  const src = path.join(ROOT, "data");
+  const dest = path.join(BUILD_DIR, "data");
+  const movies = path.join(src, "movies.json");
+  if (fs.existsSync(movies)) {
+    fs.mkdirSync(dest, { recursive: true });
+    fs.copyFileSync(movies, path.join(dest, "movies.json"));
+  }
+  const posters = path.join(src, "posters");
+  if (fs.existsSync(posters)) {
+    fs.cpSync(posters, path.join(dest, "posters"), { recursive: true });
+  }
+}
+
 /** A personal collection has no business in search results. */
 function writeRobots() {
   fs.writeFileSync(
@@ -91,13 +110,14 @@ function build() {
   rewriteHtml();
   copyImages();
   copyBundle();
+  copyData();
   writeRobots();
 }
 
 if (require.main === module) {
   build();
   console.log(
-    `Wrote build/ (index.html, css/${CSS_BUNDLE_NAME}, js/app-bundle.js, images/, robots.txt)`,
+    `Wrote build/ (index.html, css/${CSS_BUNDLE_NAME}, js/app-bundle.js, images/, data/, robots.txt)`,
   );
 }
 

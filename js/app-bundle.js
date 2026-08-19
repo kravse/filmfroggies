@@ -58,6 +58,8 @@ const gistClearBtn = document.getElementById("gist-clear");
 const gistStatus = document.getElementById("gist-status");
 const cacheClearBtn = document.getElementById("cache-clear");
 const cacheStatus = document.getElementById("cache-status");
+const exportCsvBtn = document.getElementById("export-csv");
+const exportCsvStatus = document.getElementById("export-csv-status");
 
 const aboutDialog = document.getElementById("about-dialog");
 const aboutClose = document.getElementById("about-close");
@@ -75,8 +77,6 @@ const removeConfirmDialog = document.getElementById("remove-confirm-dialog");
 const removeConfirmMessage = document.getElementById("remove-confirm-message");
 const removeConfirmCancel = document.getElementById("remove-confirm-cancel");
 const removeConfirmOk = document.getElementById("remove-confirm-ok");
-
-const syncNotice = document.getElementById("sync-notice");
 
 const watchConfirmDialog = document.getElementById("watch-confirm-dialog");
 const watchConfirmMessage = document.getElementById("watch-confirm-message");
@@ -112,7 +112,6 @@ let detailRatingEditorOpen = false;
 let detailRatingEditorSnapshot = null;
 let pendingRemoveMovieId = null;
 let pendingWatchMovieId = null;
-let syncNoticeTimer = null;
 let tmdbCredential = "";
 
 /* --- Small shared helpers --- */
@@ -561,6 +560,209 @@ const appPosterCache = (function () {
   };
 })();
 
+/* ===== Committed data/ snapshot (generated from scripts/lib/local-data.js) ===== */
+
+/* Generated from scripts/lib/local-data.js — run npm run bundle */
+
+const appLocalData = (function () {
+  /**
+   * The committed movie snapshot under data/.
+   *
+   * `npm run scrape` writes TMDB's own output for every id in data/my_list.csv,
+   * and the app reads it before it considers a network call. That makes load time
+   * one static file instead of one request per movie, and it means the collection
+   * still renders if the API changes, costs money, or is simply unreachable.
+   *
+   * The snapshot is a cache, not an edit layer: every field in it came from TMDB
+   * and is replaced wholesale on the next scrape. Nothing here is authored.
+   *
+   * Records are stored in the shape `normalizeMovie` already produces, so the
+   * validation below re-checks that shape rather than parsing raw TMDB fields.
+   * The file ships with the site, but it still arrives over the network, so it is
+   * validated on read like any other payload.
+   */
+
+  const LOCAL_DATA_VERSION = 1;
+  const LOCAL_DATA_URL = "data/movies.json";
+  const LOCAL_POSTER_DIR = "data/posters";
+  /** Ascending. Card and suggest requests scale down from the smallest stored. */
+  const LOCAL_POSTER_SIZES = ["w342", "w500"];
+
+  const POSTER_SIZE_PATTERN = /^w(\d+)$/;
+  const POSTER_FILE_PATTERN = /^[A-Za-z0-9._-]+\.(jpg|jpeg|png|webp)$/i;
+
+  function getTmdb() {
+    if (typeof appTmdb !== "undefined") {
+      return appTmdb;
+    }
+    if (typeof require === "function") {
+      return require("./tmdb");
+    }
+    throw new Error("appTmdb is not available");
+  }
+
+  function cleanText(value) {
+    const text = String(value == null ? "" : value).trim();
+    return text || null;
+  }
+
+  function cleanNames(value) {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    return value.map(cleanText).filter(Boolean);
+  }
+
+  function cleanPositiveNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? number : null;
+  }
+
+  function cleanImagePath(value) {
+    return getTmdb().isValidImagePath(value) ? String(value) : null;
+  }
+
+  /** Stored poster filenames are basenames, so validate them with a leading slash. */
+  function isPosterFile(value) {
+    const file = String(value == null ? "" : value);
+    return POSTER_FILE_PATTERN.test(file) && getTmdb().isValidImagePath(`/${file}`);
+  }
+
+  function posterFileFromPath(imagePath) {
+    if (!getTmdb().isValidImagePath(imagePath)) {
+      return null;
+    }
+    return String(imagePath).slice(1);
+  }
+
+  /** `original` has no width, so it sorts above every numbered size. */
+  function posterSizeWidth(size) {
+    if (size === "original") {
+      return Number.POSITIVE_INFINITY;
+    }
+    const match = POSTER_SIZE_PATTERN.exec(String(size || ""));
+    return match ? Number(match[1]) : null;
+  }
+
+  function normalizePosterSizes(raw) {
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    const seen = new Set();
+    const sizes = [];
+    for (const entry of raw) {
+      const size = String(entry || "");
+      if (posterSizeWidth(size) == null || seen.has(size)) {
+        continue;
+      }
+      seen.add(size);
+      sizes.push(size);
+    }
+    return sizes.sort((a, b) => posterSizeWidth(a) - posterSizeWidth(b));
+  }
+
+  /**
+   * The smallest stored size that is at least as wide as the one asked for, so a
+   * w185 card is served the stored w342 and scaled down by the browser. A request
+   * wider than anything stored falls back to the largest available.
+   */
+  function pickPosterSize(size, storedSizes) {
+    const sizes = normalizePosterSizes(storedSizes);
+    if (!sizes.length) {
+      return null;
+    }
+    const wanted = posterSizeWidth(size);
+    if (wanted == null) {
+      return null;
+    }
+    return sizes.find((stored) => posterSizeWidth(stored) >= wanted) || sizes[sizes.length - 1];
+  }
+
+  /** Null whenever the snapshot cannot serve this image, which means fall back to TMDB. */
+  function localPosterUrl(posterFile, size, storedSizes) {
+    if (!isPosterFile(posterFile)) {
+      return null;
+    }
+    const stored = pickPosterSize(size, storedSizes);
+    if (!stored) {
+      return null;
+    }
+    return `${LOCAL_POSTER_DIR}/${stored}/${posterFile}`;
+  }
+
+  function normalizeLocalRecord(raw) {
+    const id = Number(raw?.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return null;
+    }
+    return {
+      id,
+      title: cleanText(raw.title) || "Untitled",
+      releaseDate: cleanText(raw.releaseDate),
+      overview: cleanText(raw.overview),
+      tagline: cleanText(raw.tagline),
+      posterPath: cleanImagePath(raw.posterPath),
+      backdropPath: cleanImagePath(raw.backdropPath),
+      runtime: cleanPositiveNumber(raw.runtime),
+      voteAverage: cleanPositiveNumber(raw.voteAverage),
+      genres: cleanNames(raw.genres),
+      directors: cleanNames(raw.directors),
+      cast: cleanNames(raw.cast),
+      poster: isPosterFile(raw.poster) ? String(raw.poster) : null,
+    };
+  }
+
+  /**
+   * A snapshot the app cannot read is treated as absent rather than fatal: the
+   * app then behaves exactly as it did before there was a data folder.
+   */
+  function normalizeLocalData(raw) {
+    const empty = { generatedAt: null, posterSizes: [], records: [] };
+    if (!raw || typeof raw !== "object" || Number(raw.version) !== LOCAL_DATA_VERSION) {
+      return empty;
+    }
+    const movies = raw.movies;
+    if (!movies || typeof movies !== "object") {
+      return empty;
+    }
+    const records = Object.values(movies).map(normalizeLocalRecord).filter(Boolean);
+    return {
+      generatedAt: cleanText(raw.generatedAt),
+      posterSizes: normalizePosterSizes(raw.posterSizes),
+      records,
+    };
+  }
+
+  /** Ids ascend so the file diffs cleanly between scrapes. */
+  function serializeLocalData(records, options = {}) {
+    const movies = {};
+    for (const record of records.map(normalizeLocalRecord).filter(Boolean).sort((a, b) => a.id - b.id)) {
+      movies[record.id] = record;
+    }
+    return {
+      version: LOCAL_DATA_VERSION,
+      generatedAt: cleanText(options.generatedAt) || new Date().toISOString(),
+      posterSizes: normalizePosterSizes(options.posterSizes || LOCAL_POSTER_SIZES),
+      movies,
+    };
+  }
+
+  return {
+    LOCAL_DATA_VERSION,
+    LOCAL_DATA_URL,
+    LOCAL_POSTER_DIR,
+    LOCAL_POSTER_SIZES,
+    posterSizeWidth,
+    posterFileFromPath,
+    isPosterFile,
+    pickPosterSize,
+    localPosterUrl,
+    normalizeLocalRecord,
+    normalizeLocalData,
+    serializeLocalData,
+  };
+})();
+
 /* ===== List operations (generated from scripts/lib/lists.js) ===== */
 
 /* Generated from scripts/lib/lists.js — run npm run bundle */
@@ -781,6 +983,114 @@ const appLists = (function () {
     removeMovieFromList,
     removeMovie,
     replaceMovieIds,
+  };
+})();
+
+/* ===== Scrape list CSV (generated from scripts/lib/list-csv.js) ===== */
+
+/* Generated from scripts/lib/list-csv.js — run npm run bundle */
+
+const appListCsv = (function () {
+  /**
+   * The CSV that carries a list of ids from the browser to the scraper.
+   *
+   * The browser is the only place that knows the collection, and the scraper runs
+   * on a machine that cannot read localStorage or the Gist. Settings exports this
+   * file, you commit it, and `npm run scrape` reads it back. Both ends share these
+   * functions so the format has exactly one definition.
+   *
+   * Only `tmdb_id` is load-bearing. `title` and `list` exist so the committed file
+   * is readable in a diff; the scraper ignores them.
+   */
+
+  const CSV_HEADER = ["tmdb_id", "title", "list"];
+  const CSV_FILENAME = "my_list.csv";
+
+  function getLists() {
+    if (typeof appLists !== "undefined") {
+      return appLists;
+    }
+    if (typeof require === "function") {
+      return require("./lists");
+    }
+    throw new Error("appLists is not available");
+  }
+
+  /** Quote whenever a field could otherwise change the shape of the row. */
+  function csvField(value) {
+    const text = String(value == null ? "" : value);
+    if (!/[",\r\n]/.test(text)) {
+      return text;
+    }
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+
+  function csvRow(values) {
+    return values.map(csvField).join(",");
+  }
+
+  /**
+   * Watched first, then watchlist, each in stored order. Removal records live only
+   * in `statuses` and never in `movieIds`, so they are excluded for free.
+   */
+  function listCsvRows(state, titleFor) {
+    const lists = Array.isArray(state?.lists) ? state.lists : [];
+    const resolveTitle = typeof titleFor === "function" ? titleFor : () => "";
+    const rows = [];
+    for (const listId of getLists().LIST_IDS) {
+      const list = lists.find((entry) => entry && entry.id === listId);
+      for (const movieId of list?.movieIds || []) {
+        const id = Number(movieId);
+        if (!Number.isInteger(id) || id <= 0) {
+          continue;
+        }
+        rows.push({ id, title: String(resolveTitle(id) || ""), listId });
+      }
+    }
+    return rows;
+  }
+
+  function buildListCsv(rows) {
+    const lines = [csvRow(CSV_HEADER)];
+    for (const row of rows || []) {
+      lines.push(csvRow([row.id, row.title, row.listId]));
+    }
+    return `${lines.join("\n")}\n`;
+  }
+
+  /**
+   * Reads the first column of every line as an id. The header, blank lines, and
+   * anything hand-edited into an unparseable state are skipped rather than
+   * refused: a typo in a comment column should not stop a scrape.
+   */
+  function parseListCsv(text) {
+    const seen = new Set();
+    const ids = [];
+    for (const line of String(text || "").split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        continue;
+      }
+      const field = trimmed.split(",")[0].replace(/^"|"$/g, "").trim();
+      if (!/^\d+$/.test(field)) {
+        continue;
+      }
+      const id = Number(field);
+      if (!Number.isInteger(id) || id <= 0 || seen.has(id)) {
+        continue;
+      }
+      seen.add(id);
+      ids.push(id);
+    }
+    return ids;
+  }
+
+  return {
+    CSV_HEADER,
+    CSV_FILENAME,
+    listCsvRows,
+    buildListCsv,
+    parseListCsv,
   };
 })();
 
@@ -1640,18 +1950,6 @@ const appUserState = (function () {
     });
   }
 
-  /** Total movies held across the lists, used to flag a shrinking merge. */
-  function countMovies(state) {
-    const lists = Array.isArray(state?.lists) ? state.lists : [];
-    const ids = new Set();
-    for (const list of lists) {
-      for (const id of list?.movieIds || []) {
-        ids.add(Number(id));
-      }
-    }
-    return ids.size;
-  }
-
   return {
     USER_STATE_KEY,
     USER_STATE_BACKUP_KEY,
@@ -1666,7 +1964,6 @@ const appUserState = (function () {
     serializeUserState,
     touchUserState,
     userStateSignature,
-    countMovies,
   };
 })();
 
@@ -2153,16 +2450,11 @@ async function reconcileWithGist(options = {}) {
   const remoteState = remoteStateFromGistBody(body);
 
   const localSignature = appUserState.userStateSignature(userState);
-  const previousCount = appUserState.countMovies(userState);
   const merged = mergeIntoUserState(remoteState);
   const mergedSignature = appUserState.userStateSignature(merged);
   const remoteSignature = remoteState
     ? appUserState.userStateSignature(remoteState)
     : null;
-
-  // Shrinking can only happen when another copy recorded a removal, which is
-  // worth reporting differently from picking up new movies.
-  const shrank = appUserState.countMovies(merged) < previousCount;
 
   const localChanged = mergedSignature !== localSignature;
   if (localChanged) {
@@ -2184,7 +2476,7 @@ async function reconcileWithGist(options = {}) {
     lastRemoteUpdatedAt = userState.updatedAt;
   }
 
-  return { ok: true, localChanged, shrank };
+  return { ok: true, localChanged };
 }
 
 function formatSyncTime(value) {
@@ -2211,7 +2503,7 @@ function queueGistSync(options = {}) {
         return;
       }
       if (result.localChanged) {
-        onRemoteStateAdopted(result.shrank);
+        onRemoteStateAdopted();
       }
       setStatus(
         gistStatus,
@@ -2243,7 +2535,6 @@ function onUserStateStorageEvent(event) {
   if (!incoming) {
     return;
   }
-  const previousCount = appUserState.countMovies(userState);
   const merged = mergeIntoUserState(incoming);
   if (
     appUserState.userStateSignature(merged) ===
@@ -2251,9 +2542,8 @@ function onUserStateStorageEvent(event) {
   ) {
     return;
   }
-  const shrank = appUserState.countMovies(merged) < previousCount;
   adoptMergedState(merged);
-  onRemoteStateAdopted(shrank);
+  onRemoteStateAdopted();
 }
 
 /** A tab coming back to the foreground is the most likely one to be stale. */
@@ -2341,6 +2631,10 @@ function disconnectGist() {
  * credential, so the cache survives a credential change and never stores the
  * secret itself. Search is transient and only memoized for the session.
  *
+ * Ahead of all of that sits the snapshot committed under data/. Anything it
+ * covers is served from the repo and never requested, so the API is only
+ * consulted for ids added since the last `npm run scrape`.
+ *
  * On Netlify, an optional hosted session routes API calls through /api/tmdb so
  * the read token stays server-side. Personal tokens in Settings still work.
  */
@@ -2357,6 +2651,12 @@ let posterCachePromise;
 /** Session map from remote poster URL to blob: object URL. */
 const posterBlobUrls = new Map();
 let hostedSessionToken = "";
+
+/** Records from data/movies.json, kept apart so hydrateMovies stays the only
+ * path into movieById and its onRecord contract still holds. */
+const localMovieById = new Map();
+let localPosterSizes = [];
+let localDataGeneratedAt = null;
 
 /* --- Credential --- */
 
@@ -2469,6 +2769,69 @@ async function unlockHostedAccess(password) {
 
 function lockHostedAccess() {
   clearHostedSession();
+}
+
+/* --- Committed snapshot --- */
+
+/**
+ * Read once at startup. A repo with no snapshot yet 404s here, which is not an
+ * error condition: the app simply falls back to the API path it always used.
+ */
+async function loadLocalMovieData() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(appLocalData.LOCAL_DATA_URL, {
+      signal: controller.signal,
+      headers: { accept: "application/json" },
+    });
+    if (!response.ok) {
+      return false;
+    }
+    const data = appLocalData.normalizeLocalData(await response.json());
+    localMovieById.clear();
+    for (const record of data.records) {
+      localMovieById.set(record.id, record);
+    }
+    localPosterSizes = data.posterSizes;
+    localDataGeneratedAt = data.generatedAt;
+    return localMovieById.size > 0;
+  } catch (_) {
+    /* No snapshot, or an unreadable one. Either way, use the API. */
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function hasLocalMovieData() {
+  return localMovieById.size > 0;
+}
+
+function localMovieCount() {
+  return localMovieById.size;
+}
+
+function localMovieRecord(movieId) {
+  return localMovieById.get(Number(movieId)) || null;
+}
+
+function localDataStamp() {
+  return localDataGeneratedAt;
+}
+
+/** True when something can render this collection, with or without a credential. */
+function hasMovieData() {
+  return hasTmdbAccess() || hasLocalMovieData();
+}
+
+/** Null whenever the snapshot cannot serve this poster, so callers fall back. */
+function localPosterUrlFor(record, size) {
+  const local = record ? localMovieById.get(record.id) : null;
+  if (!local) {
+    return null;
+  }
+  return appLocalData.localPosterUrl(local.poster, size, localPosterSizes);
 }
 
 /* --- Cache --- */
@@ -2774,21 +3137,35 @@ async function searchMovies(query, options = {}) {
 }
 
 /**
- * Fetch many movies with a bounded number of in-flight requests. TMDB has no
- * batch endpoint for arbitrary ids, so a long list is many small requests.
+ * Resolve many movies, snapshot first, then a bounded number of in-flight
+ * requests for the rest. TMDB has no batch endpoint for arbitrary ids, so a
+ * long list is many small requests — which is exactly what the snapshot avoids.
  */
 async function hydrateMovies(ids, handlers = {}) {
-  // Without access every request would fail, turning the whole grid into
-  // error cards. Leaving the skeletons up reads better and stays accurate.
-  if (!hasTmdbAccess()) {
-    return;
-  }
   const queue = ids.filter((id) => !movieById.has(id));
   if (!queue.length) {
     return;
   }
 
-  const pending = [...queue];
+  // The snapshot resolves synchronously, so anything it covers is on screen
+  // before a single request is considered.
+  const pending = [];
+  for (const id of queue) {
+    const local = localMovieById.get(id);
+    if (!local) {
+      pending.push(id);
+      continue;
+    }
+    movieById.set(id, local);
+    movieErrors.delete(id);
+    handlers.onRecord?.(id, local);
+  }
+
+  // Without access every remaining request would fail, turning those cards into
+  // error cards. Leaving the skeletons up reads better and stays accurate.
+  if (!pending.length || !hasTmdbAccess()) {
+    return;
+  }
 
   async function worker() {
     while (pending.length) {
@@ -3240,12 +3617,18 @@ function onAddListOptionClick(event) {
  */
 
 function posterHtml(record, size) {
-  const url = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
+  const remote = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
+  const local = record ? localPosterUrlFor(record, size) : null;
+  const url = local || remote;
   if (!url) {
     const label = record ? appCardHtml.escapeHtml(record.title) : "";
     return `<div class="placeholder">${label}</div>`;
   }
-  return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async">`;
+  // A snapshot entry whose file has gone missing retries TMDB rather than
+  // leaving a hole where the poster was.
+  const fallback =
+    local && remote ? ` data-poster-fallback="${appCardHtml.escapeHtml(remote)}"` : "";
+  return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async"${fallback}>`;
 }
 
 function cardMetaText(record) {
@@ -3365,7 +3748,7 @@ function listShowsReorderGrip() {
 
 function syncSortControlUi() {
   const show =
-    isWatchedListActive() && activeMovieIds().length > 0 && hasTmdbAccess();
+    isWatchedListActive() && activeMovieIds().length > 0 && hasMovieData();
   if (sortControl) {
     sortControl.hidden = !show;
   }
@@ -3503,7 +3886,7 @@ function renderListTabs() {
 
 function updateListHeader() {
   const count = activeMovieIds().length;
-  if (count && !hasTmdbAccess()) {
+  if (count && !hasMovieData()) {
     listSubtitleEl.textContent = "Add a TMDB credential in Settings to load details";
   } else if (count) {
     if (reorderModeActive) {
@@ -3565,28 +3948,11 @@ function renderEmptyState(count) {
  * Called after sync replaces state behind the user's back, so an old tab
  * redraws instead of sitting on a list that no longer matches storage.
  */
-function onRemoteStateAdopted(shrank) {
+function onRemoteStateAdopted() {
   setViewMode(gridViewMode);
   syncDetailFromLocation();
   render();
   hydrateActiveList();
-  showSyncNotice(
-    shrank
-      ? "Updated from sync — a movie removed elsewhere was removed here too."
-      : "Updated from sync — this tab was showing an older list.",
-  );
-}
-
-function showSyncNotice(message) {
-  if (!syncNotice) {
-    return;
-  }
-  syncNotice.textContent = message;
-  syncNotice.hidden = false;
-  clearTimeout(syncNoticeTimer);
-  syncNoticeTimer = setTimeout(() => {
-    syncNotice.hidden = true;
-  }, 6000);
 }
 
 function render() {
@@ -3631,6 +3997,14 @@ function hydrateActiveList() {
 function handleImageError(event) {
   const img = event.target;
   if (!(img instanceof HTMLImageElement) || !img.closest(".poster-wrap")) {
+    return;
+  }
+  const fallback = img.getAttribute("data-poster-fallback");
+  if (fallback) {
+    img.removeAttribute("data-poster-fallback");
+    img.setAttribute("data-poster-src", fallback);
+    img.removeAttribute("src");
+    attachPosterImage(img);
     return;
   }
   const card = img.closest(".card");
@@ -4172,6 +4546,12 @@ function refreshSettings() {
     appGistSync.isConnectedGistConfig(gistConfig) ? "ok" : null,
   );
   setStatus(cacheStatus, "");
+  const bundled = localMovieCount();
+  setStatus(
+    exportCsvStatus,
+    bundled ? `${bundled} movies bundled in this build.` : "No bundled data yet.",
+    bundled ? "ok" : null,
+  );
 }
 
 function openSettings() {
@@ -4234,6 +4614,32 @@ async function onClearCache() {
   );
   render();
   hydrateActiveList();
+}
+
+/**
+ * Titles are for reading the committed file; only the ids drive the scrape. The
+ * snapshot is the second source because only the active list gets hydrated.
+ */
+function csvTitleFor(movieId) {
+  return movieById.get(movieId)?.title || localMovieRecord(movieId)?.title || "";
+}
+
+function onExportCsv() {
+  const rows = appListCsv.listCsvRows(userState, csvTitleFor);
+  if (!rows.length) {
+    setStatus(exportCsvStatus, "Nothing to export yet.", null);
+    return;
+  }
+  const blob = new Blob([appListCsv.buildListCsv(rows)], {
+    type: "text/csv;charset=utf-8",
+  });
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = appListCsv.CSV_FILENAME;
+  link.click();
+  URL.revokeObjectURL(objectUrl);
+  setStatus(exportCsvStatus, `Exported ${rows.length} movies.`, "ok");
 }
 
 function onStorageModeChange(mode) {
@@ -4744,6 +5150,7 @@ tmdbKeyInput.addEventListener("keydown", (event) => {
 });
 tmdbKeyClear.addEventListener("click", onClearCredential);
 cacheClearBtn.addEventListener("click", onClearCache);
+exportCsvBtn.addEventListener("click", onExportCsv);
 storageModeLocal.addEventListener("change", () => onStorageModeChange("local"));
 storageModeGist.addEventListener("change", () => onStorageModeChange("gist"));
 gistConnectBtn.addEventListener("click", onConnectGist);
@@ -4865,13 +5272,18 @@ document.addEventListener("keydown", (event) => {
 
 /* --- Startup --- */
 
-function startApp() {
+async function startApp() {
   loadCredential();
   loadHostedSession();
   loadGistConfig();
   loadUserState();
   setViewMode(userState.preferences.viewMode);
   updateSearchClearVisibility();
+
+  // One static file, read before the first paint. When it covers the list that
+  // paint shows real cards instead of skeletons, which is the whole point.
+  await loadLocalMovieData();
+
   render();
   syncDetailFromLocation();
   hydrateActiveList();

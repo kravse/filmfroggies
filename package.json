@@ -6,6 +6,7 @@
   "scripts": {
     "serve": "node server.js",
     "bundle": "node scripts/bundle-app-js.js",
+    "scrape": "node scripts/scrape-data.js",
     "test": "node --test \"test/*.test.js\"",
     "build": "node build.js"
   },

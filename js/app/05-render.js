@@ -5,12 +5,18 @@
  */
 
 function posterHtml(record, size) {
-  const url = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
+  const remote = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
+  const local = record ? localPosterUrlFor(record, size) : null;
+  const url = local || remote;
   if (!url) {
     const label = record ? appCardHtml.escapeHtml(record.title) : "";
     return `<div class="placeholder">${label}</div>`;
   }
-  return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async">`;
+  // A snapshot entry whose file has gone missing retries TMDB rather than
+  // leaving a hole where the poster was.
+  const fallback =
+    local && remote ? ` data-poster-fallback="${appCardHtml.escapeHtml(remote)}"` : "";
+  return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async"${fallback}>`;
 }
 
 function cardMetaText(record) {
@@ -130,7 +136,7 @@ function listShowsReorderGrip() {
 
 function syncSortControlUi() {
   const show =
-    isWatchedListActive() && activeMovieIds().length > 0 && hasTmdbAccess();
+    isWatchedListActive() && activeMovieIds().length > 0 && hasMovieData();
   if (sortControl) {
     sortControl.hidden = !show;
   }
@@ -268,7 +274,7 @@ function renderListTabs() {
 
 function updateListHeader() {
   const count = activeMovieIds().length;
-  if (count && !hasTmdbAccess()) {
+  if (count && !hasMovieData()) {
     listSubtitleEl.textContent = "Add a TMDB credential in Settings to load details";
   } else if (count) {
     if (reorderModeActive) {
@@ -330,28 +336,11 @@ function renderEmptyState(count) {
  * Called after sync replaces state behind the user's back, so an old tab
  * redraws instead of sitting on a list that no longer matches storage.
  */
-function onRemoteStateAdopted(shrank) {
+function onRemoteStateAdopted() {
   setViewMode(gridViewMode);
   syncDetailFromLocation();
   render();
   hydrateActiveList();
-  showSyncNotice(
-    shrank
-      ? "Updated from sync — a movie removed elsewhere was removed here too."
-      : "Updated from sync — this tab was showing an older list.",
-  );
-}
-
-function showSyncNotice(message) {
-  if (!syncNotice) {
-    return;
-  }
-  syncNotice.textContent = message;
-  syncNotice.hidden = false;
-  clearTimeout(syncNoticeTimer);
-  syncNoticeTimer = setTimeout(() => {
-    syncNotice.hidden = true;
-  }, 6000);
 }
 
 function render() {
@@ -396,6 +385,14 @@ function hydrateActiveList() {
 function handleImageError(event) {
   const img = event.target;
   if (!(img instanceof HTMLImageElement) || !img.closest(".poster-wrap")) {
+    return;
+  }
+  const fallback = img.getAttribute("data-poster-fallback");
+  if (fallback) {
+    img.removeAttribute("data-poster-fallback");
+    img.setAttribute("data-poster-src", fallback);
+    img.removeAttribute("src");
+    attachPosterImage(img);
     return;
   }
   const card = img.closest(".card");

@@ -31,8 +31,16 @@ const PARTS = [
     title: "Poster cache helpers (generated from scripts/lib/poster-cache.js)",
   },
   {
+    file: "00-app-local-data.js",
+    title: "Committed data/ snapshot (generated from scripts/lib/local-data.js)",
+  },
+  {
     file: "00-app-lists.js",
     title: "List operations (generated from scripts/lib/lists.js)",
+  },
+  {
+    file: "00-app-list-csv.js",
+    title: "Scrape list CSV (generated from scripts/lib/list-csv.js)",
   },
   {
     file: "00-app-ratings.js",

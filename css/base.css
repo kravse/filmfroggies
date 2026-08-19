@@ -102,31 +102,6 @@ main.page-shell {
   outline-offset: 3px;
 }
 
-/* Sync notice: state changed underneath the user, so say so without blocking. */
-.sync-notice {
-  position: fixed;
-  left: 50%;
-  bottom: var(--floating-action-bottom);
-  transform: translateX(-50%);
-  z-index: 60;
-  margin: 0;
-  max-width: min(28rem, calc(100vw - 2rem));
-  padding: 0.55rem 0.85rem;
-  border: 1px solid var(--accent-border);
-  border-radius: var(--radius-sm);
-  background: var(--panel-raised);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
-  color: var(--text);
-  font-family: var(--ui-font);
-  font-size: 0.78rem;
-  line-height: 1.35;
-  text-align: center;
-}
-
-.sync-notice[hidden] {
-  display: none;
-}
-
 .empty-state-add-icon {
   display: flex;
   align-items: center;

@@ -422,6 +422,12 @@ function refreshSettings() {
     appGistSync.isConnectedGistConfig(gistConfig) ? "ok" : null,
   );
   setStatus(cacheStatus, "");
+  const bundled = localMovieCount();
+  setStatus(
+    exportCsvStatus,
+    bundled ? `${bundled} movies bundled in this build.` : "No bundled data yet.",
+    bundled ? "ok" : null,
+  );
 }
 
 function openSettings() {
@@ -484,6 +490,32 @@ async function onClearCache() {
   );
   render();
   hydrateActiveList();
+}
+
+/**
+ * Titles are for reading the committed file; only the ids drive the scrape. The
+ * snapshot is the second source because only the active list gets hydrated.
+ */
+function csvTitleFor(movieId) {
+  return movieById.get(movieId)?.title || localMovieRecord(movieId)?.title || "";
+}
+
+function onExportCsv() {
+  const rows = appListCsv.listCsvRows(userState, csvTitleFor);
+  if (!rows.length) {
+    setStatus(exportCsvStatus, "Nothing to export yet.", null);
+    return;
+  }
+  const blob = new Blob([appListCsv.buildListCsv(rows)], {
+    type: "text/csv;charset=utf-8",
+  });
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = appListCsv.CSV_FILENAME;
+  link.click();
+  URL.revokeObjectURL(objectUrl);
+  setStatus(exportCsvStatus, `Exported ${rows.length} movies.`, "ok");
 }
 
 function onStorageModeChange(mode) {

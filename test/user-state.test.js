@@ -15,7 +15,6 @@ const {
   serializeUserState,
   touchUserState,
   userStateSignature,
-  countMovies,
 } = require("../scripts/lib/user-state");
 
 test("storage keys are distinct so credentials never ride along with state", () => {
@@ -81,17 +80,6 @@ test("userStateSignature is stable regardless of map key order", () => {
   const ascending = normalizeUserState({ lists, ratings: { 1: 8, 2: 6 } });
   const descending = normalizeUserState({ lists, ratings: { 2: 6, 1: 8 } });
   assert.equal(userStateSignature(ascending), userStateSignature(descending));
-});
-
-test("countMovies counts each movie once across both lists", () => {
-  const state = normalizeUserState({
-    lists: [
-      { id: "watched", movieIds: [1, 2] },
-      { id: "watchlist", movieIds: [3] },
-    ],
-  });
-  assert.equal(countMovies(state), 3);
-  assert.equal(countMovies(null), 0);
 });
 
 test("defaultUserState starts on local storage with the two preset lists", () => {

@@ -174,18 +174,6 @@ const appUserState = (function () {
     });
   }
 
-  /** Total movies held across the lists, used to flag a shrinking merge. */
-  function countMovies(state) {
-    const lists = Array.isArray(state?.lists) ? state.lists : [];
-    const ids = new Set();
-    for (const list of lists) {
-      for (const id of list?.movieIds || []) {
-        ids.add(Number(id));
-      }
-    }
-    return ids.size;
-  }
-
   return {
     USER_STATE_KEY,
     USER_STATE_BACKUP_KEY,
@@ -200,6 +188,5 @@ const appUserState = (function () {
     serializeUserState,
     touchUserState,
     userStateSignature,
-    countMovies,
   };
 })();

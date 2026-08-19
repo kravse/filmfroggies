@@ -237,6 +237,7 @@ tmdbKeyInput.addEventListener("keydown", (event) => {
 });
 tmdbKeyClear.addEventListener("click", onClearCredential);
 cacheClearBtn.addEventListener("click", onClearCache);
+exportCsvBtn.addEventListener("click", onExportCsv);
 storageModeLocal.addEventListener("change", () => onStorageModeChange("local"));
 storageModeGist.addEventListener("change", () => onStorageModeChange("gist"));
 gistConnectBtn.addEventListener("click", onConnectGist);
@@ -358,13 +359,18 @@ document.addEventListener("keydown", (event) => {
 
 /* --- Startup --- */
 
-function startApp() {
+async function startApp() {
   loadCredential();
   loadHostedSession();
   loadGistConfig();
   loadUserState();
   setViewMode(userState.preferences.viewMode);
   updateSearchClearVisibility();
+
+  // One static file, read before the first paint. When it covers the list that
+  // paint shows real cards instead of skeletons, which is the whole point.
+  await loadLocalMovieData();
+
   render();
   syncDetailFromLocation();
   hydrateActiveList();
