@@ -1,12 +1,16 @@
 # Movie collector
 
-Search [TMDB](https://www.themoviedb.org/), add movies to ordered lists, and browse them as a cover grid or a full detail overlay. No account and no backend — your lists live in the browser, with optional sync to a private GitHub Gist.
+Search [TMDB](https://www.themoviedb.org/), add movies to ordered lists, and browse them as a cover grid or a detail-style layout. No account and no backend — your lists live in the browser, with optional sync to a private GitHub Gist.
 
 ## How it works
 
-The only thing this site stores is **which TMDB ids are in which list, and in what order**. Nothing about a movie is duplicated into your lists. Every page load rehydrates the records by id — from the snapshot committed under [`data/`](#bundled-movie-data) when it covers them, otherwise from TMDB through a stale-while-revalidate cache so repeat loads paint instantly from the browser's Cache API and refresh in the background.
+The only thing this site stores is **which TMDB ids are in which list, and in what order**, plus your ratings and a few preferences. Nothing about a movie is duplicated into your lists. Every page load rehydrates movie records by id:
 
-That means the precious data is tiny (a few hundred bytes of ids), and everything else is disposable by construction — a cleared cache costs you one slow reload, never a lost list.
+1. **`data/movies.json`** when the committed snapshot covers that id (no API call; snapshot rows are not revalidated in the browser)
+2. **Browser Cache API** for TMDB responses fetched earlier in the session
+3. **TMDB** for anything still missing (when you have a credential)
+
+That keeps the precious data tiny (a few hundred bytes of ids), and everything else is disposable by construction — a cleared cache costs you one slow reload, never a lost list.
 
 ## Run it locally
 
@@ -15,7 +19,9 @@ npm install
 npm run serve    # http://localhost:8743
 ```
 
-Then open **Settings** (bottom right) and paste your TMDB **API Read Access Token**. Without one, movies covered by the committed [`data/`](#bundled-movie-data) snapshot still render; anything else stays a skeleton card and search returns nothing.
+Copy [`.env.example`](.env.example) to `.env` if you need `npm run scrape` or `netlify dev` (both read `TMDB_READ_TOKEN` from the environment).
+
+Open **Settings** (footer, bottom left) and paste your TMDB **API Read Access Token**. Without one, movies covered by the committed [`data/`](#bundled-movie-data) snapshot still render; anything else stays a skeleton card and the add-movie search returns nothing.
 
 ### Getting a TMDB credential
 
@@ -23,69 +29,144 @@ Then open **Settings** (bottom right) and paste your TMDB **API Read Access Toke
 2. Go to [Settings → API](https://www.themoviedb.org/settings/api) and request a **Developer** key (approval is instant for personal projects)
 3. Copy the **API Read Access Token** — the long JWT, not the shorter API Key above it — and paste it into Settings
 
-Only the v4 read access token is accepted. It is sent as `Authorization: Bearer` and never appears in a URL, so it stays out of query strings, referrers, and server logs. Settings validates the shape before saving and tells you if you pasted the v3 API Key by mistake, then verifies the token against TMDB so a bad value fails once instead of once per movie.
+Only the v4 read access token is accepted. It is sent as `Authorization: Bearer` and never appears in a URL. Settings validates the shape before saving and verifies the token against TMDB so a bad value fails once instead of once per movie.
 
-The token is stored in your browser's `localStorage` under `moviecollector-tmdb-auth` and is never committed, never sent anywhere except TMDB, and never included in Gist sync.
+The token is stored in `localStorage` under `moviecollector-tmdb-auth`. It is never committed, never sent anywhere except TMDB, and never included in Gist sync.
 
 ## Using the site
 
-1. Type in the search box to get TMDB autocomplete. Arrow keys navigate, Enter or click adds the movie to the active list.
-2. Toggle **card** and **detail** view in the toolbar; the choice persists.
-3. Click any card to open the detail overlay — poster, year, runtime, genres, rating, director, cast, and overview. Arrow keys move between movies; Escape closes. Overlays deep-link as `#movie/{id}`.
-4. On **Watched**, use the **Sort** dropdown for display order (custom order, date added, release year, fan rating, my rating, title). Sort never changes stored order; switch back to **Custom order** to drag-reorder. **Watchlist** is always manual order.
-5. On **Watched** or **Watchlist**, tap **reorder** below the list controls to unlock drag handles when **Custom order** is selected. Tap again to lock when finished.
-6. **Settings** stores your TMDB token and, optionally, connects GitHub Gist sync so lists follow you across devices.
-7. **Lists** (top right) opens up to 10 custom lists at `#lists`. Open a list at `#lists/{id}` for the same sort and card/detail layout as Watched. Add movies via search, the add dialog's optional checkboxes, or **Add from watched** on a list's toolbar.
+### Adding movies
 
-### Preset lists and custom lists
+There is no header search box. Tap **+ Add a movie** (floating button, or the empty-state button when a list is empty) to open the add dialog:
 
-Tabs under the header switch between **Watched** and **Watchlist** — statuses with a strict rule:
+1. Search TMDB with autocomplete (arrow keys, Enter, or click to pick a result)
+2. Toggle **Director:** to search people and pick a filmography hit instead of title search
+3. Choose **Watched** or **Watchlist** (or custom-list checkboxes when viewing a custom list)
+4. Optionally set **My rating** (1–10 in 0.1 steps) when adding to Watched
+5. Submit
 
-- **Watchlist is disjoint from Watched.** Putting something on the watchlist clears watched; marking it watched takes it off the watchlist.
+When you are viewing a custom list (`#lists/{id}`), the add dialog can also **Add from watched** — a multi-select picker of Watched movies not already on that list.
 
-**Custom lists** are optional groupings (max 10). A movie can be in any combination of Watched, Watchlist, and custom lists. Custom membership is synced separately with per-list last-write-wins merge and delete tombstones.
+### Browsing lists
 
-**Watchlist:** each card has a **Watch** button. **Remove movie** in the detail overlay drops the film from your entire preset collection. On a custom list, remove takes the movie off that list only.
+**Watched** and **Watchlist** are preset tabs under the header.
+
+| List | Layout | Order | Filter | Reorder |
+|------|--------|-------|--------|---------|
+| **Watched** | Card or detail (toolbar toggle; persists) | Sort dropdown + reverse button (display only; stored order unchanged) | Chip-based metadata filter (see below) | No |
+| **Watchlist** | Always detail grid | Stored order only | No | **Reorder** toggle → drag handles |
+| **Custom list** (`#lists/{id}`) | Card or detail | Same sort controls as Watched | No | No |
+
+On **Watched** (and custom lists), the **Sort** dropdown offers My Rating, Fan Rating, Release Year, Title, and Date Added, plus a reverse button for direction. Default is My Rating, highest first. Sort never rewrites stored order.
+
+Click any card to open the detail overlay — poster, year, runtime, genres, fan rating, your rating, director, cast, and overview. Edit **My rating** and list membership in the overlay (desktop inline; mobile via a lists sheet). Arrow keys move between movies; Escape closes. Overlays deep-link as `#movie/{id}`.
+
+**Watchlist** cards show **Watch** (moves to Watched) and **Remove**. **Remove movie** in the detail overlay on a preset list drops the film from your entire preset collection. On a custom list, remove takes the movie off that list only.
+
+### Watched filter
+
+When Watched has hydrated movies, a filter bar appears below the header. It is display-only and does not change stored order.
+
+- Plain words match title, director, cast, and genres
+- `genre:horror`, `actor:name`, `year:1980s` (or trailing `19…` while typing)
+- Multiple chips combine as AND filters
+
+### Custom lists
+
+**Lists** (header, top right on the main collection view) opens the custom lists index at `#lists`:
+
+- Create up to 10 lists; rename or delete from the index
+- Sort the index by Recent, Alphabetical, or Size
+- Open a list at `#lists/{id}` for the same card/detail layout and sort controls as Watched
+- **← Collection** returns to Watched/Watchlist; **← All lists** returns from a list detail to the index
+
+A movie can be on any combination of Watched, Watchlist, and custom lists. Custom membership merges separately (per-list `updatedAt`, last-write-wins, plus delete tombstones).
+
+### Preset invariant
+
+**Watchlist is disjoint from Watched.** Putting something on the watchlist clears watched; marking it watched takes it off the watchlist.
+
+### Hash routing
+
+| URL | View |
+|-----|------|
+| *(no hash)* | Preset tabs — Watched or Watchlist |
+| `#lists` | Custom lists index |
+| `#lists/{id}` | Custom list detail |
+| `#movie/{id}` | Detail overlay (history back/forward supported) |
+
+### Footer
+
+**Settings** (bottom left): TMDB token, optional Gist sync, export CSV, clear cached movie/poster data, hosted-access lock (Netlify only).
+
+**About** (bottom right): short description and TMDB attribution.
+
+### Settings details
+
+**Clear cached data** wipes the browser Cache API (TMDB JSON + poster blobs). Your lists in `localStorage` / Gist are untouched.
+
+**Export list CSV** (Repo data): downloads `my_list.csv` for the scraper and as a portable backup. See [Bundled movie data](#bundled-movie-data).
+
+**Gist sync:** connect with a fine-grained PAT limited to gist read/write. The sync Gist is private, titled **Movie collector sync**, file `moviecollector-state.json`. Neither the PAT nor the TMDB token is written into synced files.
+
+**Automatic backups** (when Gist sync is connected): a separate private gist holds up to five immutable snapshots in `moviecollector-backups.json`. A new snapshot is appended on load when the latest is older than 20 minutes. Restore replaces local state and re-syncs.
+
+## User state (what gets saved)
+
+Stored under `moviecollector-user-state` (and optionally synced to Gist). Movie records from TMDB are **not** part of this payload.
+
+| Field | Role |
+|-------|------|
+| `lists` | Preset lists: `{ id, name, movieIds[] }` for Watched and Watchlist |
+| `customLists` | User lists: `{ id, name, movieIds[], createdAt, updatedAt }` |
+| `customListTombstones` | `{ listId → ISO }` so deletes merge correctly across devices |
+| `statuses` | `{ movieId → { status, at } }` where status is `watched`, `watchlist`, or `removed` (sync only) |
+| `ratings` | `{ movieId → number }` — 1–10, one decimal; only for movies in Watched or a custom list |
+| `addedAt` | `{ movieId → ISO }` — when the movie first entered the collection |
+| `preferences` | `{ viewMode: "cards"\|"detail", sort: "<mode>" }` |
+| `activeListId` | Which preset tab was last active |
+| `storageMode` | `"local"` or `"gist"` |
+| `updatedAt` | Payload touch time; **not** used for per-movie merge |
+
+Legacy payloads with a `favourites` list migrate those ids into Watched on read.
 
 ### Browser storage keys
 
 | Key | Contents |
 |-----|----------|
-| `moviecollector-user-state` | Preset lists, custom lists, per-movie statuses, ratings, date-added stamps, active list, view preference |
-| `moviecollector-user-state-backup` | The payload from just before the last merge, kept for recovery |
-| `moviecollector-tmdb-auth` | Your TMDB read access token only |
-| `moviecollector-hosted-session` | Opaque hosted-access session token (Netlify only; not synced) |
-| `moviecollector-gist-sync` | GitHub Gist credentials (`token`, `gistId`) when connected |
-
-**Gist sync security:** the PAT is stored in `localStorage`. Use a throwaway GitHub account and a fine-grained PAT limited to gist read/write. Neither the PAT nor the TMDB credential is written into the synced Gist file. The Gist is private, titled **Movie collector sync**, and holds a single file: `moviecollector-state.json`.
+| `moviecollector-user-state` | Payload above |
+| `moviecollector-user-state-backup` | Payload from just before the last merge |
+| `moviecollector-tmdb-auth` | TMDB read access token |
+| `moviecollector-hosted-session` | Opaque hosted-access session (Netlify only) |
+| `moviecollector-gist-sync` | `{ token, gistId, backupGistId }` when Gist sync is connected |
 
 ### How sync avoids losing movies
 
 A tab left open holds its own copy of your lists, so a naive "newest payload wins" push lets a stale tab overwrite everything another tab added. Sync is built to make that impossible:
 
-- **Read before write.** Every save fetches the Gist, merges, and only then writes. A payload that cannot be read is never overwritten — the change stays local and retries later.
-- **One request at a time.** All syncs run through a single promise chain, so two overlapping read/write pairs cannot interleave.
-- **Per-movie timestamps, not per-payload.** Each movie carries a status (`watched`, `watchlist`, or `removed`) stamped with when it last changed. Merging compares those stamps, so a stale tab contributes its edit instead of replacing the payload. Acting in a stale tab bumps the payload's `updatedAt` but not any movie's stamp, which is what makes this work.
-- **Removal is recorded, not inferred.** A missing id means "never heard of it" and the movie is kept. Deleting writes a `removed` record, so removals survive a stale tab while re-adding a film outranks the older removal.
-- **Ties keep the movie.** If two stamps match exactly, the film stays.
-- **Tabs self-heal.** A background tab merges in another tab's write immediately and re-checks the Gist whenever it regains focus, redrawing silently.
+- **Read before write.** Every save fetches the Gist, merges, then writes. A payload that cannot be read is never overwritten.
+- **One request at a time.** All syncs run through a single promise chain.
+- **Per-movie timestamps, not per-payload.** Each movie carries a status stamped with when it last changed. Merging compares those stamps. Acting in a stale tab bumps `updatedAt` but not movie stamps — which is why this works.
+- **Removal is recorded, not inferred.** Deleting writes a `removed` status record. Re-adding outranks an older removal.
+- **Ties keep the movie.**
+- **Tabs self-heal.** Background tabs merge on focus.
 
-Recovery, if you ever need it: every push creates a GitHub Gist revision, so the remote keeps full history, and `moviecollector-user-state-backup` holds the payload from just before the last merge.
+Recovery: every push creates a Gist revision; `moviecollector-user-state-backup` holds pre-merge state; automatic backups hold periodic snapshots.
 
 ## Bundled movie data
 
 Everything above still costs one TMDB request per movie on a cold load, and it stops working entirely if the API is unreachable or its terms change. So the repo can carry its own copy. Movies present in `data/` render from the repo and are **never** requested from the API; only ids added since the last scrape fall through to it.
 
-The snapshot is a cache, not an edit layer. Every field in it came from TMDB and is replaced wholesale on the next scrape, so there is still no way to override a title or a poster.
+The snapshot is a cache, not an edit layer. Every field in it came from TMDB and is replaced wholesale on the next scrape.
 
 Refreshing it is three steps:
 
-1. On the running site, open **Settings → Repo data** and click **Export list CSV**. It downloads `my_list.csv`: one row per movie with `tmdb_id`, `title`, `list_id`, `list_name`, `my_rating`, and `release_year`, including movies that live only on custom lists. Only `tmdb_id` is used by the scraper — the other columns are a readable backup of your list data.
+1. On the running site, open **Settings → Repo data** and click **Export list CSV**. It downloads `my_list.csv`: one row per movie with `tmdb_id`, `title`, `list_id`, `list_name`, `my_rating`, and `release_year`, including movies that live only on custom lists. Export hydrates missing records when a TMDB token is available. Only `tmdb_id` is used by the scraper — the other columns are a readable backup.
 2. Commit it to the repo as `data/my_list.csv`.
 3. Run the scraper, then commit what it writes:
 
 ```bash
-echo 'TMDB_READ_TOKEN=eyJ…' > .env    # gitignored
+echo 'TMDB_READ_TOKEN=eyJ…' > .env    # gitignored; see .env.example
 npm run scrape
 ```
 
@@ -95,7 +176,7 @@ npm run scrape
 | `--force` | Refetch every id and re-download every poster |
 | `--prune` | Drop records and posters for ids no longer in the CSV |
 
-Without `--prune` nothing is ever deleted, so an export taken from a half-synced device cannot quietly shrink the snapshot. `--prune` is also skipped automatically if any movie failed to fetch, since that run is one you will repeat.
+Without `--prune` nothing is ever deleted, so an export from a half-synced device cannot quietly shrink the snapshot. `--prune` is also skipped automatically if any movie failed to fetch.
 
 A no-op scrape rewrites nothing, so `git status` stays clean when there is nothing new.
 
@@ -104,77 +185,132 @@ A no-op scrape rewrites nothing, so `git status` stays clean when there is nothi
 | Path | Contents |
 |------|----------|
 | `data/my_list.csv` | Scraper input, exported from Settings. Not published in the build |
-| `data/movies.json` | One record per movie, keyed by id in ascending order, in the same shape the app renders |
-| `data/posters/w342/` | Card and detail-grid posters |
+| `data/movies.json` | One record per movie, ascending id, same shape the app renders |
+| `data/posters/w342/` | Card and grid posters |
 | `data/posters/w500/` | Detail-overlay posters |
 
-Only two poster sizes are stored. Smaller requests are served the `w342` file and scaled down by the browser, which keeps the repo to roughly 115KB per movie instead of triple that. Poster filenames are content hashes, so re-scraping an unchanged poster writes identical bytes and adds nothing to git history.
+Only two poster sizes are stored. Smaller requests use the `w342` file and scale down. Poster filenames are content hashes, so re-scraping an unchanged poster adds nothing to git history.
 
-If a poster file is missing at render time the card falls back to TMDB's image CDN rather than showing a gap, and a movie missing from `movies.json` falls back to the API path as if `data/` were not there at all.
+Missing poster files fall back to TMDB's CDN. Missing `movies.json` records fall back to the API path.
 
-**Browsing without a token.** Once the snapshot covers your lists, the grid, list view, and detail overlay all render with no TMDB credential saved. A token is still required to search and add movies, since that hits the API by definition.
+**Browsing without a token.** Once the snapshot covers your lists, the grid and detail overlay render with no credential. A token is still required to search and add movies.
 
 ## Deploy
 
 ```bash
-npm run build    # writes build/
+npm run build    # bundles JS, writes build/
 ```
 
-`build/` is a plain static directory — `index.html`, bundled CSS, the JS bundle, `images/`, the committed `data/` snapshot, and a `noindex` robots file. Routing is hash-only, so no server rewrite rules are needed beyond what [`netlify.toml`](netlify.toml) provides for Netlify Functions.
+`build/` is a plain static directory — `index.html`, bundled `css/app.css`, fingerprinted `js/app-bundle.js`, `images/`, the committed `data/` snapshot, and a `noindex` robots file. Routing is hash-only; no SPA fallback is needed beyond [`netlify.toml`](netlify.toml) redirects for Netlify Functions.
+
+Build details:
+
+- `npm run build` runs `npm run bundle` internally, then copies assets into `build/`
+- Production HTML links one CSS file and `js/app-bundle.js?v=<hash>` (12-char SHA-256 of file contents) for cache busting
+- [`netlify.toml`](netlify.toml) sets `Cache-Control: no-cache` on `index.html` and `must-revalidate` on `/js/*`
+
+Point any static host at `build/` if you are not using Netlify Functions.
 
 ### Netlify (optional hosted TMDB access)
 
-For a personal deploy you can keep your TMDB read token on the server so casual visitors never see it. Set two environment variables in **Site configuration → Environment variables**:
+For a personal deploy you can keep your TMDB read token on the server so casual visitors never see it. Set in **Site configuration → Environment variables**:
 
 | Variable | Purpose |
 |----------|---------|
-| `TMDB_READ_TOKEN` | Your v4 TMDB API Read Access Token (the same variable `npm run scrape` reads locally) |
+| `TMDB_READ_TOKEN` | v4 TMDB API Read Access Token (same as `npm run scrape`) |
 | `HOSTED_SITE_PASSWORD` | Password for the hidden unlock flow |
 
-Build command: `npm run build`. Publish directory: `build`. Functions live in [`netlify/functions/`](netlify/functions/).
+Build command: `npm run build`. Publish directory: `build`. Functions: [`netlify/functions/`](netlify/functions/).
 
-**Hidden unlock:** triple-click the projector logo, enter the site password, and the browser stores an opaque session token (not the password). TMDB API calls then go through `/api/tmdb`; poster images still load directly from TMDB. Triple-click again when unlocked to lock hosted access on this browser.
+**Hidden unlock:** triple-click the projector logo, enter the site password. The browser stores an opaque session token (not the password). TMDB calls then go through `/api/tmdb`; posters still load from TMDB directly. Triple-click again to lock. This path is intentionally undocumented in the UI.
 
-Casual visitors see the normal site — anything in the committed `data/` snapshot renders for them without a credential, and a TMDB token in Settings covers the rest plus search. The hosted path is intentionally undocumented in the UI.
+Casual visitors see the normal site — snapshot movies render without a credential. Threat model: obscurity for casual users, not anti-brute-force.
 
-Threat model: obscurity for casual users, not anti-brute-force. Anyone who discovers the auth endpoint can attempt the password.
-
-### Local development
+### Local development with functions
 
 | Command | Use |
 |---------|-----|
-| `npm run serve` | Static site only; use your own TMDB token in Settings |
-| `netlify dev` | Static site **and** `/api/auth` + `/api/tmdb` functions (install [Netlify CLI](https://docs.netlify.com/cli/get-started/)); env vars from Netlify or a local `.env` file (gitignored) |
+| `npm run serve` | Static site only; TMDB token in Settings |
+| `netlify dev` | Static site **and** `/api/auth` + `/api/tmdb` ([Netlify CLI](https://docs.netlify.com/cli/get-started/)); env from Netlify or `.env` |
 
-Point any other static host at `build/` if you are not using Netlify Functions.
+## Development
+
+Vanilla HTML/CSS/JS. **CommonJS** in `scripts/` and `test/`. No TypeScript, no framework. `express` is a devDependency for the local static server only.
+
+### Where to edit
+
+| Change | Location |
+|--------|----------|
+| Domain logic (lists, sync, sort, CSV, …) | `scripts/lib/` + tests in `test/` |
+| UI wiring, DOM, TMDB client | Numbered partials in `js/app/` (**not** `00-*`) |
+| Styles | `css/` — load order in [`scripts/css-manifest.js`](scripts/css-manifest.js); keep [`index.html`](index.html) link tags in sync |
+| Generated browser namespaces | `js/app/00-*.js` — **never hand-edit**; synced from `scripts/lib/` |
+
+After any change under `scripts/lib/` or `js/app/`:
+
+```bash
+npm test
+npm run bundle
+```
+
+Adding a new `scripts/lib/` module: implement + test, add its exports to [`scripts/app-sync-config.js`](scripts/app-sync-config.js), then `npm run bundle`.
+
+### App partial load order
+
+[`scripts/bundle-app-js.js`](scripts/bundle-app-js.js) defines `PARTS`. Every partial shares one IIFE opened by `01-config-dom-state.js` and closed by `08-init.js`. Notable layers:
+
+| Prefix | Role |
+|--------|------|
+| `00-*` | Generated from `scripts/lib/` |
+| `01-*` | Config, DOM refs, mutable state |
+| `03-*` | User state persistence; TMDB client and hydration |
+| `04-*` | Add-movie search dialog |
+| `05-*` | Grid/cards render |
+| `06-*` | Detail overlay, settings, about |
+| `07-*` | Drag reorder (Watchlist) |
+| `09-*` | Watched list filter |
+| `10-*` | Custom lists routing and index CRUD |
+| `08-*` | Event wiring and startup |
+
+### Hard constraints (do not break)
+
+These are deliberate design decisions — see also [`.cursor/rules/moviecollector-project.mdc`](.cursor/rules/moviecollector-project.mdc):
+
+- **No edit layer** for TMDB metadata; no overriding titles/posters in user state
+- **Browser-only writes** for lists, ratings, and preferences (`localStorage` / Gist). `server.js` is read-only static files; only `npm run scrape` writes `data/`
+- **Only ids are persisted** in user state; movies are rehydrated by id
+- **Snapshot before API** for ids in `data/movies.json`; no background revalidation of snapshot hits
+- **Watchlist disjoint from Watched** — enforced on read and write
+- **Hash-only routing** — no path routes or SPA fallback
+- **Search is add-only** — the Watched filter is separate and display-only
 
 ## Project layout
 
 | Path | Role |
 |------|------|
 | `index.html` | UI shell (loads `js/app-bundle.js`) |
-| `js/app/` | App source partials; `npm run bundle` regenerates the bundle |
-| `js/app/00-*.js` | Generated from `scripts/lib/` — do not hand-edit |
-| `css/` | Styles; load order in [`scripts/css-manifest.js`](scripts/css-manifest.js) |
-| `scripts/lib/` | Pure CommonJS domain logic (tested) |
-| `data/` | Committed movie snapshot and the CSV that generates it |
-| `test/` | Node tests |
-| `server.js` | Read-only static server for local viewing |
-| `build.js` | Static deploy build |
-| `netlify.toml` | Netlify build settings and `/api/*` redirects |
-| `netlify/functions/` | Hosted auth + TMDB proxy (Netlify only) |
-
-Vanilla HTML/CSS/JS — no TypeScript, no framework, no runtime dependencies. `express` is a devDependency used only by the local server.
+| `js/app/` | App source partials |
+| `js/app-bundle.js` | Concatenated bundle (generated) |
+| `css/` | Stylesheets (12 files; bundled to `css/app.css` in deploy) |
+| `scripts/lib/` | Pure CommonJS domain logic, one concern per file |
+| `scripts/bundle-app-js.js` | Concatenates partials; runs lib sync |
+| `scripts/scrape-data.js` | Refills `data/` from TMDB (`npm run scrape`) |
+| `data/` | Committed movie snapshot + scraper input CSV |
+| `test/` | Node tests (`npm test`) |
+| `server.js` | Read-only static server (`npm run serve`) |
+| `build.js` | Static deploy output (`npm run build`) |
+| `netlify.toml` | Netlify build, redirects, cache headers |
+| `netlify/functions/` | Hosted auth + TMDB proxy |
 
 ## npm scripts
 
 | Script | Purpose |
 |--------|---------|
 | `serve` | Local static server on port 8743 (`PORT` to override) |
-| `bundle` | Sync `js/app/00-*.js` from `scripts/lib/`, concatenate `js/app-bundle.js`, and verify the bundle has no unguarded `require()` |
-| `scrape` | Refresh the `data/` snapshot from `data/my_list.csv` (needs `TMDB_READ_TOKEN`) |
-| `test` | Run Node tests (`test/`) |
-| `build` | Write the static site to `build/` |
+| `bundle` | Sync `js/app/00-*.js` from `scripts/lib/`, write `js/app-bundle.js`, verify no bare `require()` in the bundle |
+| `test` | Run Node tests in `test/` |
+| `scrape` | Refresh `data/` from `data/my_list.csv` (needs `TMDB_READ_TOKEN`) |
+| `build` | Bundle + write static site to `build/` |
 
 ## Attribution
 
