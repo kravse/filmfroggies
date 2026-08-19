@@ -136,6 +136,7 @@ function syncAppViewChrome() {
   }
   updateListHeader();
   syncListSearchVisibility();
+  syncReorderModeUi();
 }
 
 function navigateToMain(options = {}) {

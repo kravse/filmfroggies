@@ -6,7 +6,8 @@ body.view-discover #discover-entry-btn,
 body.view-discover #add-movie-fab,
 body.view-discover #sort-control,
 body.view-discover #sort-reverse,
-body.view-discover #view-mode-cycle {
+body.view-discover #view-mode-cycle,
+body.view-discover #reorder-mode-control {
   display: none !important;
 }
 

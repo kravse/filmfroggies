@@ -381,6 +381,7 @@ function syncSortControlUi() {
 
 function syncReorderModeUi() {
   const canReorder =
+    !isDiscoverActive() &&
     isWatchlistActive() &&
     appLists.isListReorderable(userState.activeListId) &&
     activeMovieIds().length > 0;
