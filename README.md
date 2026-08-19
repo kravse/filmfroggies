@@ -46,7 +46,7 @@ One rule governs how they relate:
 
 That leaves two states a movie can be in: on the watchlist, or watched. The rule is enforced when state is read, not only when it's written, so no synced or hand-edited payload can produce a contradiction.
 
-**Watchlist:** each card has a **Watch** button that marks the film as watched (it leaves this tab). **Remove** (× on a card, or **Remove movie** in the detail overlay) drops the film from your entire collection after a confirmation.
+**Watchlist:** each card has a **Watch** button that marks the film as watched (it leaves this tab). **Remove movie** in the detail overlay drops the film from your entire collection after a confirmation.
 
 ### Browser storage keys
 

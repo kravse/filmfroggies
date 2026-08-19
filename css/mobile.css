@@ -64,14 +64,6 @@
     font-size: 0.58rem;
   }
 
-  body.view-mode-cards .card-remove {
-    width: 20px;
-    height: 20px;
-    top: 0.12rem;
-    right: 0.12rem;
-    font-size: 0.82rem;
-  }
-
   /* Date added on the left leaves no room for the user rating chip. */
   body.view-mode-cards.sort-added .card-footer-ratings {
     display: none;
@@ -90,9 +82,8 @@
     font-size: 0.85rem;
   }
 
-  /* Touch has no hover, so drag and remove affordances stay visible. */
-  .card-grip,
-  .card-remove {
+  /* Touch has no hover, so drag affordances stay visible. */
+  .card-grip {
     opacity: 1;
   }
 

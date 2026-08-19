@@ -58,12 +58,6 @@ addMovieRatingClear?.addEventListener("click", clearAddMovieRating);
 /* --- Grid --- */
 
 grid.addEventListener("click", (event) => {
-  const removeBtn = event.target.closest(".card-remove");
-  if (removeBtn) {
-    event.stopPropagation();
-    requestRemoveMovie(Number(removeBtn.closest("[data-movie-id]").dataset.movieId));
-    return;
-  }
   const watchBtn = event.target.closest(".card-watch-btn");
   if (watchBtn) {
     event.stopPropagation();

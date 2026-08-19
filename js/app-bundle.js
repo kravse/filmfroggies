@@ -4648,7 +4648,6 @@ function cardInnerHtml(movieId) {
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
   ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
   ${watchlistWatchBtnHtml()}
-  <button type="button" class="card-remove" aria-label="Remove ${appCardHtml.escapeHtml(record.title)}" title="Remove movie">&times;</button>
 </div>
 <div class="card-body">
   <div class="card-text">
@@ -5786,12 +5785,6 @@ addMovieRatingClear?.addEventListener("click", clearAddMovieRating);
 /* --- Grid --- */
 
 grid.addEventListener("click", (event) => {
-  const removeBtn = event.target.closest(".card-remove");
-  if (removeBtn) {
-    event.stopPropagation();
-    requestRemoveMovie(Number(removeBtn.closest("[data-movie-id]").dataset.movieId));
-    return;
-  }
   const watchBtn = event.target.closest(".card-watch-btn");
   if (watchBtn) {
     event.stopPropagation();
