@@ -4,13 +4,37 @@
  * patches single rows through applyHydratedRecord() rather than re-rendering.
  */
 
+function posterWrapOpen(movieId) {
+  return `<div class="poster-wrap" style="--poster-bg: ${appPosterGrey.posterGreyForId(movieId)}">`;
+}
+
+function discoverPosterPlaceholderHtml(titleText, options = {}) {
+  const label = options.error ? "Could not load" : titleText;
+  const title = label ? appCardHtml.escapeHtml(label) : "";
+  const showTitleOnPoster = gridViewMode !== "detail";
+  const titleHtml =
+    showTitleOnPoster && title ? `<span class="discover-poster-title">${title}</span>` : "";
+  return `<div class="placeholder discover-poster-placeholder">${titleHtml}</div>`;
+}
+
+function posterPlaceholderHtml(record, options = {}) {
+  if (isDiscoverActive()) {
+    return discoverPosterPlaceholderHtml(record?.title || "", options);
+  }
+  const label = options.error
+    ? "Could not load"
+    : record
+      ? appCardHtml.escapeHtml(record.title)
+      : "";
+  return `<div class="placeholder">${label}</div>`;
+}
+
 function posterHtml(record, size) {
   const remote = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
   const local = record ? localPosterUrlFor(record, size) : null;
   const url = local || remote;
   if (!url) {
-    const label = record ? appCardHtml.escapeHtml(record.title) : "";
-    return `<div class="placeholder">${label}</div>`;
+    return posterPlaceholderHtml(record);
   }
   // A snapshot entry whose file has gone missing retries TMDB rather than
   // leaving a hole where the poster was.
@@ -19,7 +43,40 @@ function posterHtml(record, size) {
   return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async"${fallback}>`;
 }
 
+function detailPosterSkeletonHtml() {
+  return `<div class="movie-detail-poster-frame"><div class="movie-detail-poster-skeleton" aria-hidden="true"></div></div>`;
+}
+
+function discoverDetailPosterEmptyHtml() {
+  return `<div class="movie-detail-poster-frame is-loaded discover-detail-poster-empty">
+  <div class="discover-detail-poster-mark" aria-hidden="true"></div>
+</div>`;
+}
+
+function detailPosterFrameHtml(record, size) {
+  const remote = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
+  const local = record ? localPosterUrlFor(record, size) : null;
+  const url = local || remote;
+  const skeleton = `<div class="movie-detail-poster-skeleton" aria-hidden="true"></div>`;
+  if (!url) {
+    if (isDiscoverActive()) {
+      return discoverDetailPosterEmptyHtml();
+    }
+    return `<div class="movie-detail-poster-frame is-loaded is-empty">${skeleton}</div>`;
+  }
+  const fallback =
+    local && remote ? ` data-poster-fallback="${appCardHtml.escapeHtml(remote)}"` : "";
+  const img = `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" decoding="async"${fallback}>`;
+  return `<div class="movie-detail-poster-frame">${skeleton}${img}</div>`;
+}
+
 function cardMetaHtml(record) {
+  if (isDiscoverActive()) {
+    const releaseDate = appCardHtml.formatReleaseDate(record.releaseDate);
+    return releaseDate
+      ? `<span class="card-meta-release-date">${appCardHtml.escapeHtml(releaseDate)}</span>`
+      : "";
+  }
   const year = appCardHtml.formatYear(record.releaseDate);
   const runtime = appCardHtml.formatRuntime(record.runtime);
   const yearHtml = year
@@ -36,7 +93,7 @@ function cardUserRatingHtml(movieId) {
 }
 
 function cardFanRatingHtml(movieId) {
-  if (!usesWatchedStyleDisplay()) {
+  if (!usesWatchedStyleDisplay() && !isDiscoverActive()) {
     return "";
   }
   const record = movieById.get(movieId);
@@ -49,8 +106,25 @@ function cardFanRatingHtml(movieId) {
   return `<span class="card-fan-rating${emptyClass}" aria-label="Fan rating ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
 }
 
+function discoverUpcomingCardWatchlistHtml(movieId) {
+  const isMember = appLists.isOnWatchlist(userState.lists, movieId);
+  return `<div class="card-body-ratings card-body-ratings--interactive">
+    <button type="button" class="discover-card-watchlist-btn discover-card-watchlist-btn--icon-only${isMember ? " is-active" : ""}" data-discover-preset-id="${appCardHtml.escapeHtml(appLists.WATCHLIST_ID)}" aria-label="Watchlist" title="Watchlist" aria-pressed="${isMember ? "true" : "false"}">${appCardHtml.addListPresetIconHtml("watchlist")}</button>
+  </div>`;
+}
+
 function cardDetailRatingsHtml(movieId) {
-  if (gridViewMode !== "detail" || !usesWatchedStyleDisplay()) {
+  if (gridViewMode !== "detail") {
+    return "";
+  }
+  if (isDiscoverActive()) {
+    if (discoverTab === "upcoming") {
+      return discoverUpcomingCardWatchlistHtml(movieId);
+    }
+    const fan = cardFanRatingHtml(movieId);
+    return fan ? `<div class="card-body-ratings">${fan}</div>` : "";
+  }
+  if (!usesWatchedStyleDisplay()) {
     return "";
   }
   const fan = cardFanRatingHtml(movieId);
@@ -98,7 +172,18 @@ function isAddedSortMode() {
   return sortMode === "added-asc" || sortMode === "added-desc";
 }
 
+function isWatchedSortMode() {
+  if (!usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
+    return false;
+  }
+  const sortMode = userState?.preferences.sort;
+  return sortMode === "watched-asc" || sortMode === "watched-desc";
+}
+
 function cardUserRatingChipHtml(movieId, { showEmpty = false } = {}) {
+  if (isDiscoverActive()) {
+    return "";
+  }
   const label = appRatings.formatUserRating(
     appRatings.getRating(userState.ratings, movieId),
   );
@@ -118,6 +203,13 @@ function cardReleaseYearFooterHtml(movieId) {
   return `<span class="card-footer-main${emptyClass}" aria-label="Release year ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
 }
 
+function cardWatchDateFooterHtml(movieId) {
+  const watchedOn = appViewingHistory.latestViewingDate(userState.viewingHistory, movieId);
+  const text = watchedOn || "—";
+  const emptyClass = watchedOn ? "" : " is-empty";
+  return `<span class="card-footer-main${emptyClass}" aria-label="Date watched ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
+}
+
 function cardSmallWatchedFooterContentHtml(movieId) {
   if (isTitleSortMode() || isAddedSortMode()) {
     return "";
@@ -131,15 +223,18 @@ function cardSmallWatchedFooterContentHtml(movieId) {
   if (isYearSortMode()) {
     return cardReleaseYearFooterHtml(movieId);
   }
+  if (isWatchedSortMode()) {
+    return cardWatchDateFooterHtml(movieId);
+  }
   return "";
 }
 
 function cardSmallFooterHtml(movieId) {
-  if (gridViewMode !== "cards") {
+  if (isDiscoverActive() || gridViewMode !== "cards") {
     return "";
   }
 
-  if (userState.activeListId === appLists.WATCHLIST_ID) {
+  if (isWatchlistActive()) {
     const panel = watchlistCardPanelHtml(movieId);
     return panel ? `<div class="card-footer card-footer--watchlist">${panel}</div>` : "";
   }
@@ -155,14 +250,23 @@ function cardSmallFooterHtml(movieId) {
   return `<div class="card-footer card-footer--sort"><div class="card-footer-sort">${content}</div></div>`;
 }
 
-function cardUnratedClass(movieId) {
-  if (!isUserRatingSortMode()) {
+function cardSortDimClass(movieId) {
+  if (isDiscoverActive() || !usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
     return "";
   }
-  if (appRatings.getRating(userState.ratings, movieId) != null) {
-    return "";
+  if (isUserRatingSortMode()) {
+    if (appRatings.getRating(userState.ratings, movieId) != null) {
+      return "";
+    }
+    return " is-unrated";
   }
-  return " is-unrated";
+  if (isWatchedSortMode()) {
+    if (appViewingHistory.latestViewingDate(userState.viewingHistory, movieId)) {
+      return "";
+    }
+    return " is-no-watch-date";
+  }
+  return "";
 }
 
 function cardRemoveIconHtml() {
@@ -175,7 +279,7 @@ function cardRemoveIconHtml() {
  * Watchlist cards use a dedicated bottom panel: title text, then split actions.
  */
 function watchlistCardPanelHtml(movieId) {
-  if (userState.activeListId !== appLists.WATCHLIST_ID) {
+  if (!isWatchlistActive()) {
     return "";
   }
   const record = movieById.get(movieId);
@@ -185,7 +289,7 @@ function watchlistCardPanelHtml(movieId) {
   <div class="watchlist-card-text"><span class="watchlist-card-title">${title}</span></div>
   <div class="watchlist-card-actions">
     <button type="button" class="watchlist-action-btn watchlist-action-btn--remove card-remove-btn" aria-label="Remove ${titleLabel}" title="Remove movie">${cardRemoveIconHtml()}</button>
-    <button type="button" class="watchlist-action-btn watchlist-action-btn--watch card-watch-btn" aria-label="Mark as watched" title="Mark as watched">&#10003;</button>
+    <button type="button" class="watchlist-action-btn watchlist-action-btn--watch card-watch-btn discover-preset-btn-with-icon" aria-label="Mark as watched" title="Mark as watched">${appCardHtml.discoverPresetButtonInnerHtml("watched", "Watched")}</button>
   </div>
 </div>`;
 }
@@ -194,19 +298,18 @@ function cardPosterOnlyHtml(movieId) {
   const record = movieById.get(movieId);
   if (!record) {
     const failed = movieErrors.has(movieId);
-    const body = failed
-      ? `<div class="placeholder">Could not load</div>`
-      : `<div class="placeholder"></div>`;
-    return `<div class="poster-wrap">${body}</div>${cardSmallFooterHtml(movieId)}`;
+    const body = posterPlaceholderHtml(null, { error: failed });
+    return `${posterWrapOpen(movieId)}${body}</div>${cardSmallFooterHtml(movieId)}`;
   }
   const grip = listShowsReorderGrip()
     ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>`
     : "";
-  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>${cardSmallFooterHtml(movieId)}`;
+  return `${posterWrapOpen(movieId)}${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>${cardSmallFooterHtml(movieId)}`;
 }
 
 function listShowsReorderGrip() {
   return (
+    !isDiscoverActive() &&
     appLists.isListReorderable(userState.activeListId) &&
     reorderModeActive &&
     usesCustomDisplayOrder()
@@ -227,7 +330,10 @@ function syncSortSelectLabels() {
 
 function syncSortControlUi() {
   const show =
-    usesWatchedStyleDisplay() && activeMovieIds().length > 0 && hasMovieData();
+    !isDiscoverActive() &&
+    usesWatchedStyleDisplay() &&
+    activeMovieIds().length > 0 &&
+    hasMovieData();
   const sort = userState.preferences.sort;
   if (sortControl) {
     sortControl.hidden = !show;
@@ -325,10 +431,8 @@ function cardInnerHtml(movieId) {
 
   if (!record) {
     const failed = movieErrors.has(movieId);
-    const body = failed
-      ? `<div class="placeholder">Could not load</div>`
-      : `<div class="placeholder"></div>`;
-    return `<div class="poster-wrap">${body}</div>
+    const body = posterPlaceholderHtml(null, { error: failed });
+    return `${posterWrapOpen(movieId)}${body}</div>
 <div class="card-body">
   <div class="card-text">
     <div class="card-title">${failed ? `TMDB #${movieId}` : ""}</div>
@@ -337,8 +441,8 @@ function cardInnerHtml(movieId) {
 </div>`;
   }
 
-  if (userState.activeListId === appLists.WATCHLIST_ID) {
-    return `<div class="poster-wrap">
+  if (!isDiscoverActive() && isWatchlistActive()) {
+    return `${posterWrapOpen(movieId)}
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
   ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
 </div>
@@ -347,7 +451,7 @@ function cardInnerHtml(movieId) {
 </div>`;
   }
 
-  return `<div class="poster-wrap">
+  return `${posterWrapOpen(movieId)}
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
   ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
 </div>
@@ -372,9 +476,11 @@ function rowInnerHtml(movieId) {
   const title = record ? appCardHtml.escapeHtml(record.title) : `Movie ${movieId}`;
 
   const watchlistCard =
-    userState.activeListId === appLists.WATCHLIST_ID ? " card--watchlist" : "";
+    !isDiscoverActive() && isWatchlistActive()
+      ? " card--watchlist"
+      : "";
 
-  return `<article class="card${stateClass}${cardUnratedClass(movieId)}${watchlistCard}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
+  return `<article class="card${stateClass}${cardSortDimClass(movieId)}${watchlistCard}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
 ${cardInnerHtml(movieId)}
 </article>`;
 }
@@ -385,7 +491,7 @@ function rowHtml(movieId) {
 
 /** Tabs are the only list switcher, and carry each list's count. */
 function renderListTabs() {
-  if (!listTabs || isCustomListView()) {
+  if (!listTabs || isCustomListView() || isDiscoverActive()) {
     return;
   }
   listTabs.innerHTML = userState.lists
@@ -411,14 +517,27 @@ function syncHeaderViewTitle() {
   }
   customListViewTitleEl.hidden = true;
   headerTitleEl.hidden = false;
+  if (isDiscoverActive()) {
+    headerTitleEl.textContent = "New releases";
+    return;
+  }
   headerTitleEl.textContent = isCustomListIndexActive() ? "Your lists" : "Movie collector";
 }
 
 function updateListHeader() {
   syncHeaderViewTitle();
-  const count = activeMovieIds().length;
+  const count = isDiscoverActive() ? discoverDisplayIds().length : activeMovieIds().length;
   if (isCustomListIndexActive()) {
     listSubtitleEl.textContent = "Create and manage custom lists";
+    return;
+  }
+  if (isDiscoverActive()) {
+    const tabLabel = discoverTab === "now-playing" ? "Now playing" : "Upcoming";
+    if (discoverTotalPages > 1) {
+      listSubtitleEl.textContent = `${tabLabel} · Page ${discoverPage} of ${discoverTotalPages}`;
+    } else {
+      listSubtitleEl.textContent = tabLabel;
+    }
     return;
   }
   if (isCustomListDetailActive()) {
@@ -465,7 +584,9 @@ function setActiveList(listId) {
 function syncAddMovieFabVisibility(count) {
   if (addMovieFab) {
     addMovieFab.hidden =
-      isCustomListIndexActive() || (count === 0 && !isCustomListDetailActive());
+      isCustomListIndexActive() ||
+      isDiscoverActive() ||
+      (count === 0 && !isCustomListDetailActive());
   }
 }
 
@@ -528,6 +649,10 @@ function render() {
     renderCustomListsIndex();
     return;
   }
+  if (isDiscoverActive()) {
+    renderDiscover();
+    return;
+  }
   const ids = displayMovieIds();
   grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
   bindPosterImages(grid);
@@ -542,11 +667,10 @@ function render() {
 /** Patches one row after hydration so the rest of the grid stays untouched. */
 function applyHydratedRecord(movieId, options = {}) {
   const row = grid.querySelector(`.movie-row[data-movie-id="${movieId}"]`);
-  if (!row) {
-    return;
+  if (row) {
+    row.innerHTML = rowInnerHtml(movieId);
+    bindPosterImages(row);
   }
-  row.innerHTML = rowInnerHtml(movieId);
-  bindPosterImages(row);
   if (!options.skipDetail && detailMovieId === movieId) {
     renderDetail();
   }
@@ -588,10 +712,11 @@ function handleImageError(event) {
   const card = img.closest(".card");
   const movieId = Number(card?.dataset.movieId);
   const record = movieById.get(movieId);
-  const placeholder = document.createElement("div");
-  placeholder.className = "placeholder";
-  placeholder.textContent = record ? record.title : "";
-  img.replaceWith(placeholder);
+  const placeholder = document.createElement("template");
+  placeholder.innerHTML = isDiscoverActive()
+    ? discoverPosterPlaceholderHtml(record ? record.title : "")
+    : `<div class="placeholder">${record ? appCardHtml.escapeHtml(record.title) : ""}</div>`;
+  img.replaceWith(placeholder.content.firstChild);
 }
 
 /** Records the status alongside the list change so an unchanged list stamps nothing. */
@@ -612,7 +737,9 @@ function watchMovie(movieId, watchedOn) {
     appLists.WATCHED_ID,
     movieId,
   );
-  addMovieViewing(movieId, watchedOn || appViewingHistory.today());
+  if (watchedOn) {
+    addMovieViewing(movieId, watchedOn);
+  }
   if (!commitListChange(nextLists, { movieId, status: appLists.WATCHED_ID })) {
     return;
   }
@@ -625,31 +752,59 @@ function watchMovie(movieId, watchedOn) {
   }
 }
 
+function resetWatchConfirmWatchDate() {
+  watchConfirmWatchDateActive = false;
+  if (watchConfirmDate) {
+    watchConfirmDate.value = appViewingHistory.today();
+    watchConfirmDate.max = appViewingHistory.today();
+  }
+  syncWatchConfirmWatchDateUi();
+}
+
+function syncWatchConfirmWatchDateUi() {
+  if (watchConfirmDateToggle) {
+    watchConfirmDateToggle.hidden = watchConfirmWatchDateActive;
+  }
+  if (watchConfirmDateField) {
+    watchConfirmDateField.hidden = !watchConfirmWatchDateActive;
+  }
+}
+
+function onWatchConfirmDateToggleClick() {
+  watchConfirmWatchDateActive = true;
+  syncWatchConfirmWatchDateUi();
+  watchConfirmDate?.focus({ preventScroll: true });
+}
+
+function clearWatchConfirmWatchDate() {
+  resetWatchConfirmWatchDate();
+}
+
 function requestWatchMovie(movieId) {
   pendingWatchMovieId = Number(movieId);
   const record = movieById.get(pendingWatchMovieId);
   const title = record?.title || `Movie ${pendingWatchMovieId}`;
   watchConfirmMessage.textContent = `Mark “${title}” as watched? It will move to your Watched list.`;
-  if (watchConfirmDate) {
-    watchConfirmDate.value = appViewingHistory.today();
-    watchConfirmDate.max = appViewingHistory.today();
-  }
+  resetWatchConfirmWatchDate();
   watchConfirmDialog.hidden = false;
   watchConfirmCancel.focus({ preventScroll: true });
 }
 
 function closeWatchConfirm() {
   pendingWatchMovieId = null;
+  watchConfirmWatchDateActive = false;
   watchConfirmDialog.hidden = true;
 }
 
 function confirmWatchMovie() {
   const movieId = pendingWatchMovieId;
+  const watchedOn =
+    watchConfirmWatchDateActive && watchConfirmDate?.value ? watchConfirmDate.value : null;
   closeWatchConfirm();
   if (movieId == null) {
     return;
   }
-  watchMovie(movieId, watchConfirmDate?.value);
+  watchMovie(movieId, watchedOn);
 }
 
 function removeMovieFromCollection(movieId) {

@@ -17,13 +17,52 @@ const TMDB_CACHE_NAME = "moviecollector-tmdb-v1";
 const CACHE_KEY_ORIGIN = "https://moviecollector.invalid/tmdb";
 const REQUEST_TIMEOUT_MS = 12000;
 const HYDRATE_CONCURRENCY = 6;
+const POSTER_LOAD_CONCURRENCY = 6;
+const POSTER_LAZY_ROOT_MARGIN = "240px 0px";
+
+function isLocalhostHost() {
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+}
+
+/** Preview loading UI on localhost: ?slow=2500 (ms) or ?slow=1 (2.5s default). Ignored elsewhere. */
+function devArtificialDelayMs() {
+  if (!isLocalhostHost()) {
+    return 0;
+  }
+  const raw = new URLSearchParams(window.location.search).get("slow");
+  if (raw == null || raw === "") {
+    return 0;
+  }
+  if (raw === "1" || raw === "true") {
+    return 2500;
+  }
+  const ms = Number(raw);
+  return Number.isFinite(ms) && ms > 0 ? ms : 0;
+}
+
+function devArtificialDelay() {
+  const ms = devArtificialDelayMs();
+  if (ms <= 0) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 const searchMemo = new Map();
+const discoverMemo = new Map();
+const discoverInflight = new Map();
 
 let cachePromise;
 let posterCachePromise;
 /** Session map from remote poster URL to blob: object URL. */
 const posterBlobUrls = new Map();
+const posterUrlInflight = new Map();
+const posterLoadQueue = [];
+let posterLoadsInFlight = 0;
+let posterObserver;
 let hostedSessionToken = "";
 
 /** Records from data/movies.json, kept apart so hydrateMovies stays the only
@@ -103,7 +142,7 @@ function tmdbUrlToProxyRequest(url) {
   const match = /^\/3(\/.+)$/.exec(parsed.pathname);
   const path = match ? match[1] : parsed.pathname;
   const searchParams = {};
-  for (const key of ["query", "language", "page", "include_adult", "append_to_response"]) {
+  for (const key of ["query", "language", "page", "include_adult", "append_to_response", "region"]) {
     const value = parsed.searchParams.get(key);
     if (value != null && value !== "") {
       searchParams[key] = value;
@@ -227,6 +266,11 @@ function movieCacheKey(movieId) {
 
 async function clearMovieCache() {
   searchMemo.clear();
+  discoverMemo.clear();
+  discoverInflight.clear();
+  posterUrlInflight.clear();
+  posterLoadQueue.length = 0;
+  posterLoadsInFlight = 0;
   revokePosterBlobUrls();
   if (typeof caches === "undefined") {
     return false;
@@ -296,7 +340,7 @@ async function revalidatePoster(url, cache) {
   }
 }
 
-async function getPosterObjectUrl(url) {
+async function resolvePosterObjectUrl(url) {
   if (!appPosterCache.isPosterUrl(url)) {
     return url;
   }
@@ -332,20 +376,124 @@ async function getPosterObjectUrl(url) {
   return objectUrl;
 }
 
+async function getPosterObjectUrl(url) {
+  if (!appPosterCache.isPosterUrl(url)) {
+    return url;
+  }
+  const cachedObjectUrl = posterBlobUrls.get(url);
+  if (cachedObjectUrl) {
+    return cachedObjectUrl;
+  }
+  if (posterUrlInflight.has(url)) {
+    return posterUrlInflight.get(url);
+  }
+  const promise = resolvePosterObjectUrl(url);
+  posterUrlInflight.set(url, promise);
+  try {
+    return await promise;
+  } finally {
+    posterUrlInflight.delete(url);
+  }
+}
+
 async function attachPosterImage(img) {
   const url = img.getAttribute("data-poster-src");
-  if (!url) {
+  if (!url || img.getAttribute("src")) {
     return;
+  }
+  img.dataset.posterLoading = "true";
+  await devArtificialDelay();
+  const frame = img.closest(".movie-detail-poster-frame");
+  const gridWrap = img.closest(".poster-wrap");
+  const markGridPosterReady = () => {
+    img.classList.add("is-poster-ready");
+  };
+  if (frame) {
+    img.addEventListener("load", () => frame.classList.add("is-loaded"), { once: true });
+    img.addEventListener("error", () => frame.classList.add("is-loaded"), { once: true });
+  } else if (gridWrap) {
+    img.addEventListener("load", markGridPosterReady, { once: true });
+    img.addEventListener("error", markGridPosterReady, { once: true });
   }
   try {
     const displayUrl = await getPosterObjectUrl(url);
     if (img.isConnected && img.getAttribute("data-poster-src") === url) {
       img.src = displayUrl;
+      if (img.complete) {
+        if (frame) {
+          frame.classList.add("is-loaded");
+        } else if (gridWrap) {
+          markGridPosterReady();
+        }
+      }
     }
   } catch (_) {
     if (img.isConnected && img.getAttribute("data-poster-src") === url) {
       img.src = url;
+      if (img.complete) {
+        if (frame) {
+          frame.classList.add("is-loaded");
+        } else if (gridWrap) {
+          markGridPosterReady();
+        }
+      }
     }
+  } finally {
+    delete img.dataset.posterLoading;
+  }
+}
+
+function shouldEagerLoadPoster(img) {
+  return Boolean(
+    img.closest(
+      ".movie-detail-poster-frame, .add-movie-detail-scroll, .add-movie-picked, .search-suggest",
+    ),
+  );
+}
+
+function ensurePosterObserver() {
+  if (posterObserver || typeof IntersectionObserver === "undefined") {
+    return posterObserver;
+  }
+  posterObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) {
+          continue;
+        }
+        const img = entry.target;
+        posterObserver.unobserve(img);
+        img.removeAttribute("data-poster-lazy");
+        enqueuePosterLoad(img);
+      }
+    },
+    { root: null, rootMargin: POSTER_LAZY_ROOT_MARGIN, threshold: 0.01 },
+  );
+  return posterObserver;
+}
+
+function enqueuePosterLoad(img) {
+  if (!(img instanceof HTMLImageElement)) {
+    return;
+  }
+  if (img.getAttribute("src") || img.dataset.posterLoading === "true") {
+    return;
+  }
+  posterLoadQueue.push(img);
+  drainPosterLoadQueue();
+}
+
+function drainPosterLoadQueue() {
+  while (posterLoadsInFlight < POSTER_LOAD_CONCURRENCY && posterLoadQueue.length) {
+    const img = posterLoadQueue.shift();
+    if (!(img instanceof HTMLImageElement) || !img.isConnected || img.getAttribute("src")) {
+      continue;
+    }
+    posterLoadsInFlight += 1;
+    attachPosterImage(img).finally(() => {
+      posterLoadsInFlight -= 1;
+      drainPosterLoadQueue();
+    });
   }
 }
 
@@ -353,8 +501,14 @@ function bindPosterImages(root) {
   if (!root) {
     return;
   }
+  const observer = ensurePosterObserver();
   for (const img of root.querySelectorAll("img[data-poster-src]:not([src])")) {
-    attachPosterImage(img);
+    if (shouldEagerLoadPoster(img) || !observer) {
+      enqueuePosterLoad(img);
+      continue;
+    }
+    img.setAttribute("data-poster-lazy", "true");
+    observer.observe(img);
   }
 }
 
@@ -536,13 +690,58 @@ async function searchMovies(query, options = {}) {
   return results;
 }
 
+async function fetchDiscoverMovies(tab, options = {}) {
+  const normalizedTab = appDiscover.normalizeDiscoverTab(tab);
+  const page = appDiscover.normalizeDiscoverPage(options.page);
+  const memoKey = `${normalizedTab}:p${page}:v${appDiscover.DISCOVER_LIST_CACHE_VERSION}`;
+  if (discoverMemo.has(memoKey)) {
+    return discoverMemo.get(memoKey);
+  }
+  if (discoverInflight.has(memoKey)) {
+    return discoverInflight.get(memoKey);
+  }
+
+  const promise = (async () => {
+    const signal = options.signal;
+    const buildUrl =
+      normalizedTab === "now-playing" ? appTmdb.buildNowPlayingUrl : appTmdb.buildUpcomingUrl;
+    const todayIso = appDiscover.todayIsoDate();
+    const mergeOpts = {
+      filterUpcoming: normalizedTab === "upcoming",
+      todayIso,
+    };
+    const payload = await fetchTmdb(
+      buildUrl({
+        page,
+        today: todayIso,
+      }),
+      { signal },
+    ).then((response) => response.json());
+    const meta = appDiscover.normalizeDiscoverListMeta(payload);
+    const entries = appDiscover.filterDiscoverPageEntries(
+      appTmdb.normalizeSearchResults(payload),
+      mergeOpts,
+    );
+    return { ...meta, entries };
+  })();
+
+  discoverInflight.set(memoKey, promise);
+  try {
+    const entries = await promise;
+    discoverMemo.set(memoKey, entries);
+    return entries;
+  } finally {
+    discoverInflight.delete(memoKey);
+  }
+}
+
 /**
  * Resolve many movies, snapshot first, then a bounded number of in-flight
  * requests for the rest. TMDB has no batch endpoint for arbitrary ids, so a
  * long list is many small requests — which is exactly what the snapshot avoids.
  */
 async function hydrateMovies(ids, handlers = {}) {
-  const queue = ids.filter((id) => !movieById.has(id));
+  const queue = ids.filter((id) => !appTmdb.isDetailedMovieRecord(movieById.get(id)));
   if (!queue.length) {
     return { hydratedFromNetwork: false };
   }
@@ -571,6 +770,7 @@ async function hydrateMovies(ids, handlers = {}) {
     while (pending.length) {
       const id = pending.shift();
       try {
+        await devArtificialDelay();
         const record = await getMovie(id, { onUpdate: handlers.onUpdate });
         movieById.set(id, record);
         movieErrors.delete(id);

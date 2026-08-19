@@ -9,6 +9,9 @@ const ALLOWED_PATH_PATTERNS = [
   /^\/configuration$/,
   /^\/search\/movie$/,
   /^\/search\/person$/,
+  /^\/discover\/movie$/,
+  /^\/movie\/upcoming$/,
+  /^\/movie\/now_playing$/,
   /^\/movie\/([1-9]\d*)$/,
   /^\/person\/([1-9]\d+)\/movie_credits$/,
 ];
@@ -19,6 +22,16 @@ const ALLOWED_QUERY_KEYS = new Set([
   "page",
   "include_adult",
   "append_to_response",
+  "region",
+  "sort_by",
+  "include_video",
+  "primary_release_date.gte",
+  "primary_release_date.lte",
+  "release_date.gte",
+  "release_date.lte",
+  "with_release_type",
+  "with_original_language",
+  "vote_count.gte",
 ]);
 
 function isAllowedPathname(pathname) {

@@ -15,6 +15,7 @@ let pendingAddResult = null;
 let selectedAddListId = null;
 let pendingAddRating = null;
 let addMovieRatingTouched = false;
+let addMovieWatchDateActive = false;
 let addMoviePickTab = "add";
 let searchDirectorMode = false;
 
@@ -36,10 +37,38 @@ function resetAddMovieRatingControls() {
 }
 
 function resetAddMovieWatchDate() {
+  addMovieWatchDateActive = false;
   if (addMovieWatchDate) {
     addMovieWatchDate.value = appViewingHistory.today();
     addMovieWatchDate.max = appViewingHistory.today();
   }
+  syncAddMovieWatchDateUi();
+}
+
+function syncAddMovieWatchDateUi() {
+  const watched = !isCustomListDetailActive() && selectedAddListId === appLists.WATCHED_ID;
+  if (addMovieWatchDateWrap) {
+    addMovieWatchDateWrap.hidden = !watched;
+  }
+  if (!watched) {
+    addMovieWatchDateActive = false;
+  }
+  if (addMovieWatchDateToggle) {
+    addMovieWatchDateToggle.hidden = !watched || addMovieWatchDateActive;
+  }
+  if (addMovieWatchDateField) {
+    addMovieWatchDateField.hidden = !watched || !addMovieWatchDateActive;
+  }
+}
+
+function onAddMovieWatchDateToggleClick() {
+  addMovieWatchDateActive = true;
+  syncAddMovieWatchDateUi();
+  addMovieWatchDate?.focus({ preventScroll: true });
+}
+
+function clearAddMovieWatchDate() {
+  resetAddMovieWatchDate();
 }
 
 function syncAddMovieRatingDisplay() {
@@ -108,16 +137,19 @@ function syncAddMoviePickStep() {
       addMovieRatingField.hidden = true;
     }
     resetAddMovieRatingControls();
-    if (addMovieWatchDateField) addMovieWatchDateField.hidden = true;
+    if (addMovieWatchDateWrap) addMovieWatchDateWrap.hidden = true;
+    resetAddMovieWatchDate();
     return;
   }
   const watched = selectedAddListId === appLists.WATCHED_ID;
   if (addMovieRatingField) {
     addMovieRatingField.hidden = !watched;
   }
-  if (addMovieWatchDateField) addMovieWatchDateField.hidden = !watched;
   if (!watched) {
     resetAddMovieRatingControls();
+    resetAddMovieWatchDate();
+  } else {
+    syncAddMovieWatchDateUi();
   }
 }
 
@@ -550,7 +582,7 @@ function confirmAddMovie() {
         changed = true;
       }
     }
-    if (selectedAddListId === appLists.WATCHED_ID && addMovieWatchDate?.value) {
+    if (selectedAddListId === appLists.WATCHED_ID && addMovieWatchDateActive && addMovieWatchDate?.value) {
       if (addMovieViewing(movieId, addMovieWatchDate.value)) changed = true;
     }
     if (changed) {

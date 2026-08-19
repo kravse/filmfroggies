@@ -47,6 +47,8 @@ There is no header search box. Tap **+ Add a movie** (floating button, or the em
 
 When you are viewing a custom list (`#lists/{id}`), the add dialog can also **Add from watched** — a multi-select picker of Watched movies not already on that list.
 
+On the collection view, the sparkle button beside **Lists** opens **New releases** (`#discover/upcoming`, `#discover/upcoming/2`, `#discover/now-playing`, etc.): the same TMDB **Upcoming** and **Now Playing** list endpoints as [the TMDB website](https://www.themoviedb.org/movie/upcoming) (~20 US titles per page). Use **Previous** / **Next** in the toolbar to paginate either tab. The list response seeds cards immediately (title, release date, poster path); full movie details load only when you open a title. Posters lazy-load in the grid with a small concurrency cap. Upcoming drops rows whose list release date is already past. Those movies are not stored until you add them from the detail overlay. In discover detail, **Watchlist** (and **Watched** on Now playing) with the same list icons as Add movie live in the bottom bar. The detail **Lists** editor is for custom lists only. Ratings are not available in discover.
+
 ### Browsing lists
 
 **Watched** and **Watchlist** are preset tabs under the header.
@@ -123,7 +125,7 @@ Stored under `moviecollector-user-state` (and optionally synced to Gist). Movie 
 | `statuses` | `{ movieId → { status, at } }` where status is `watched`, `watchlist`, or `removed` (sync only) |
 | `ratings` | `{ movieId → number }` — 1–10, one decimal; only for movies in Watched or a custom list |
 | `addedAt` | `{ movieId → ISO }` — when the movie first entered the collection |
-| `viewingHistory` | `{ movieId → viewing[] }` — dated viewings with entry-level edit/delete timestamps for safe sync |
+| `viewingHistory` | `{ movieId → viewing[] }` — optional dated viewings; opt in when adding to Watched or marking watched from the watchlist, or add later from the detail overlay |
 | `preferences` | `{ viewMode: "cards"\|"detail", sort: "<mode>" }` |
 | `activeListId` | Which preset tab was last active |
 | `storageMode` | `"local"` or `"gist"` |
