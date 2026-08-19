@@ -24,6 +24,10 @@ const PARTS = [
     title: "Card HTML helpers (generated from scripts/lib/card-html.js)",
   },
   {
+    file: "00-app-poster-grey.js",
+    title: "Grid poster greys (generated from scripts/lib/poster-grey.js)",
+  },
+  {
     file: "00-app-tmdb.js",
     title: "TMDB request and response helpers (generated from scripts/lib/tmdb.js)",
   },

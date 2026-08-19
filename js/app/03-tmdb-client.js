@@ -18,6 +18,37 @@ const CACHE_KEY_ORIGIN = "https://moviecollector.invalid/tmdb";
 const REQUEST_TIMEOUT_MS = 12000;
 const HYDRATE_CONCURRENCY = 6;
 
+function isLocalhostHost() {
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+}
+
+/** Preview loading UI on localhost: ?slow=2500 (ms) or ?slow=1 (2.5s default). Ignored elsewhere. */
+function devArtificialDelayMs() {
+  if (!isLocalhostHost()) {
+    return 0;
+  }
+  const raw = new URLSearchParams(window.location.search).get("slow");
+  if (raw == null || raw === "") {
+    return 0;
+  }
+  if (raw === "1" || raw === "true") {
+    return 2500;
+  }
+  const ms = Number(raw);
+  return Number.isFinite(ms) && ms > 0 ? ms : 0;
+}
+
+function devArtificialDelay() {
+  const ms = devArtificialDelayMs();
+  if (ms <= 0) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 const searchMemo = new Map();
 
 let cachePromise;
@@ -337,14 +368,41 @@ async function attachPosterImage(img) {
   if (!url) {
     return;
   }
+  await devArtificialDelay();
+  const frame = img.closest(".movie-detail-poster-frame");
+  const gridWrap = img.closest(".poster-wrap");
+  const markGridPosterReady = () => {
+    img.classList.add("is-poster-ready");
+  };
+  if (frame) {
+    img.addEventListener("load", () => frame.classList.add("is-loaded"), { once: true });
+    img.addEventListener("error", () => frame.classList.add("is-loaded"), { once: true });
+  } else if (gridWrap) {
+    img.addEventListener("load", markGridPosterReady, { once: true });
+    img.addEventListener("error", markGridPosterReady, { once: true });
+  }
   try {
     const displayUrl = await getPosterObjectUrl(url);
     if (img.isConnected && img.getAttribute("data-poster-src") === url) {
       img.src = displayUrl;
+      if (img.complete) {
+        if (frame) {
+          frame.classList.add("is-loaded");
+        } else if (gridWrap) {
+          markGridPosterReady();
+        }
+      }
     }
   } catch (_) {
     if (img.isConnected && img.getAttribute("data-poster-src") === url) {
       img.src = url;
+      if (img.complete) {
+        if (frame) {
+          frame.classList.add("is-loaded");
+        } else if (gridWrap) {
+          markGridPosterReady();
+        }
+      }
     }
   }
 }
@@ -571,6 +629,7 @@ async function hydrateMovies(ids, handlers = {}) {
     while (pending.length) {
       const id = pending.shift();
       try {
+        await devArtificialDelay();
         const record = await getMovie(id, { onUpdate: handlers.onUpdate });
         movieById.set(id, record);
         movieErrors.delete(id);

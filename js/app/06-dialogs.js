@@ -485,11 +485,11 @@ function renderDetail() {
       heading = "Could not load this movie";
       note = "TMDB did not return details. Check your credential and connection.";
     }
-    detailPoster.innerHTML = `<div class="placeholder"></div>`;
+    detailPoster.innerHTML = detailPosterSkeletonHtml();
     detailBody.innerHTML = `<h2 class="movie-detail-title" id="movie-detail-title">${heading}</h2>
 <p class="movie-detail-overview">${note}</p>`;
   } else {
-    detailPoster.innerHTML = posterHtml(record, appTmdb.POSTER_SIZES.detail);
+    detailPoster.innerHTML = detailPosterFrameHtml(record, appTmdb.POSTER_SIZES.detail);
     bindPosterImages(detailPoster);
     detailBody.innerHTML = `<h2 class="movie-detail-title" id="movie-detail-title">${appCardHtml.escapeHtml(record.title)}</h2>
 ${record.tagline ? `<p class="movie-detail-tagline">${appCardHtml.escapeHtml(record.tagline)}</p>` : ""}

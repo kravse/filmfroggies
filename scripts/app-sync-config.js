@@ -24,6 +24,13 @@ const APP_SYNC_ENTRIES = [
     ],
   },
   {
+    sources: [path.join(LIB, "poster-grey.js")],
+    target: "00-app-poster-grey.js",
+    globalName: "appPosterGrey",
+    header: "Generated from scripts/lib/poster-grey.js — run npm run bundle",
+    exports: ["POSTER_GREYS", "posterGreyForId"],
+  },
+  {
     sources: [path.join(LIB, "tmdb.js")],
     target: "00-app-tmdb.js",
     globalName: "appTmdb",

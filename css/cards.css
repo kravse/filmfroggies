@@ -200,7 +200,7 @@ body.view-mode-cards .card.is-unrated:hover {
 .poster-wrap {
   position: relative;
   aspect-ratio: 2 / 3;
-  background: var(--placeholder);
+  background: var(--poster-bg, var(--placeholder));
   overflow: hidden;
   flex: none;
   width: 100%;
@@ -211,6 +211,15 @@ body.view-mode-cards .card.is-unrated:hover {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.poster-wrap img[data-poster-src] {
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+
+.poster-wrap img.is-poster-ready {
+  opacity: 1;
 }
 
 .placeholder {
@@ -595,8 +604,7 @@ body.reorder-mode .card-grip {
 
 .card.is-skeleton .card-title,
 .card.is-skeleton .card-meta,
-.card.is-skeleton .watchlist-card-text,
-.card.is-skeleton .poster-wrap {
+.card.is-skeleton .watchlist-card-text {
   background: linear-gradient(
     90deg,
     var(--skeleton-base) 0%,
@@ -607,6 +615,29 @@ body.reorder-mode .card-grip {
   animation: skeleton-sheen 1.4s ease-in-out infinite;
   color: transparent;
   border-radius: 4px;
+}
+
+.card.is-skeleton .poster-wrap {
+  color: transparent;
+}
+
+/* Shimmer over per-tile grey while the record or poster is still loading. */
+.card.is-skeleton .poster-wrap::before,
+.poster-wrap:has(img[data-poster-src]:not(.is-poster-ready))::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.03) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: poster-shimmer 2.6s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .card.is-skeleton .card-title {
@@ -665,10 +696,30 @@ body.view-mode-detail .card.is-skeleton .card-meta {
   }
 }
 
+@keyframes poster-shimmer {
+  from {
+    background-position: 180% 0;
+  }
+  to {
+    background-position: -180% 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .card.is-skeleton .card-title,
   .card.is-skeleton .card-meta,
-  .card.is-skeleton .poster-wrap {
+  .card.is-skeleton .watchlist-card-text,
+  .card.is-skeleton .watchlist-card-actions,
+  .card.is-skeleton .poster-wrap::before,
+  .poster-wrap:has(img[data-poster-src]:not(.is-poster-ready))::before {
+    animation: none;
+  }
+
+  .poster-wrap img[data-poster-src] {
+    transition: none;
+  }
+
+  .movie-detail-poster-skeleton {
     animation: none;
   }
 

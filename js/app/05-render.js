@@ -4,6 +4,10 @@
  * patches single rows through applyHydratedRecord() rather than re-rendering.
  */
 
+function posterWrapOpen(movieId) {
+  return `<div class="poster-wrap" style="--poster-bg: ${appPosterGrey.posterGreyForId(movieId)}">`;
+}
+
 function posterHtml(record, size) {
   const remote = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
   const local = record ? localPosterUrlFor(record, size) : null;
@@ -17,6 +21,24 @@ function posterHtml(record, size) {
   const fallback =
     local && remote ? ` data-poster-fallback="${appCardHtml.escapeHtml(remote)}"` : "";
   return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async"${fallback}>`;
+}
+
+function detailPosterSkeletonHtml() {
+  return `<div class="movie-detail-poster-frame"><div class="movie-detail-poster-skeleton" aria-hidden="true"></div></div>`;
+}
+
+function detailPosterFrameHtml(record, size) {
+  const remote = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
+  const local = record ? localPosterUrlFor(record, size) : null;
+  const url = local || remote;
+  const skeleton = `<div class="movie-detail-poster-skeleton" aria-hidden="true"></div>`;
+  if (!url) {
+    return `<div class="movie-detail-poster-frame is-loaded is-empty">${skeleton}</div>`;
+  }
+  const fallback =
+    local && remote ? ` data-poster-fallback="${appCardHtml.escapeHtml(remote)}"` : "";
+  const img = `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" decoding="async"${fallback}>`;
+  return `<div class="movie-detail-poster-frame">${skeleton}${img}</div>`;
 }
 
 function cardMetaHtml(record) {
@@ -197,12 +219,12 @@ function cardPosterOnlyHtml(movieId) {
     const body = failed
       ? `<div class="placeholder">Could not load</div>`
       : `<div class="placeholder"></div>`;
-    return `<div class="poster-wrap">${body}</div>${cardSmallFooterHtml(movieId)}`;
+    return `${posterWrapOpen(movieId)}${body}</div>${cardSmallFooterHtml(movieId)}`;
   }
   const grip = listShowsReorderGrip()
     ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>`
     : "";
-  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>${cardSmallFooterHtml(movieId)}`;
+  return `${posterWrapOpen(movieId)}${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>${cardSmallFooterHtml(movieId)}`;
 }
 
 function listShowsReorderGrip() {
@@ -328,7 +350,7 @@ function cardInnerHtml(movieId) {
     const body = failed
       ? `<div class="placeholder">Could not load</div>`
       : `<div class="placeholder"></div>`;
-    return `<div class="poster-wrap">${body}</div>
+    return `${posterWrapOpen(movieId)}${body}</div>
 <div class="card-body">
   <div class="card-text">
     <div class="card-title">${failed ? `TMDB #${movieId}` : ""}</div>
@@ -338,7 +360,7 @@ function cardInnerHtml(movieId) {
   }
 
   if (userState.activeListId === appLists.WATCHLIST_ID) {
-    return `<div class="poster-wrap">
+    return `${posterWrapOpen(movieId)}
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
   ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
 </div>
@@ -347,7 +369,7 @@ function cardInnerHtml(movieId) {
 </div>`;
   }
 
-  return `<div class="poster-wrap">
+  return `${posterWrapOpen(movieId)}
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
   ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
 </div>

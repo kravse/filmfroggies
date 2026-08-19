@@ -439,6 +439,45 @@ const appCardHtml = (function () {
   };
 })();
 
+/* ===== Grid poster greys (generated from scripts/lib/poster-grey.js) ===== */
+
+/* Generated from scripts/lib/poster-grey.js — run npm run bundle */
+
+const appPosterGrey = (function () {
+  /**
+   * Deterministic grey fills for grid poster slots when the image is missing or
+   * still loading. Chosen from a fixed palette so tiles vary but stay neutral.
+   */
+
+  const POSTER_GREYS = [
+    "#13161c",
+    "#1a1f28",
+    "#1e2430",
+    "#222830",
+    "#1c1a1e",
+    "#242428",
+    "#2a3038",
+    "#2e3640",
+    "#323840",
+    "#28302c",
+    "#2c2a34",
+    "#363c44",
+  ];
+
+  function posterGreyForId(movieId) {
+    const id = Number(movieId);
+    if (!Number.isInteger(id) || id <= 0) {
+      return POSTER_GREYS[0];
+    }
+    return POSTER_GREYS[((id % POSTER_GREYS.length) + POSTER_GREYS.length) % POSTER_GREYS.length];
+  }
+
+  return {
+    POSTER_GREYS,
+    posterGreyForId,
+  };
+})();
+
 /* ===== TMDB request and response helpers (generated from scripts/lib/tmdb.js) ===== */
 
 /* Generated from scripts/lib/tmdb.js — run npm run bundle */
@@ -5073,6 +5112,37 @@ const CACHE_KEY_ORIGIN = "https://moviecollector.invalid/tmdb";
 const REQUEST_TIMEOUT_MS = 12000;
 const HYDRATE_CONCURRENCY = 6;
 
+function isLocalhostHost() {
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+}
+
+/** Preview loading UI on localhost: ?slow=2500 (ms) or ?slow=1 (2.5s default). Ignored elsewhere. */
+function devArtificialDelayMs() {
+  if (!isLocalhostHost()) {
+    return 0;
+  }
+  const raw = new URLSearchParams(window.location.search).get("slow");
+  if (raw == null || raw === "") {
+    return 0;
+  }
+  if (raw === "1" || raw === "true") {
+    return 2500;
+  }
+  const ms = Number(raw);
+  return Number.isFinite(ms) && ms > 0 ? ms : 0;
+}
+
+function devArtificialDelay() {
+  const ms = devArtificialDelayMs();
+  if (ms <= 0) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 const searchMemo = new Map();
 
 let cachePromise;
@@ -5392,14 +5462,41 @@ async function attachPosterImage(img) {
   if (!url) {
     return;
   }
+  await devArtificialDelay();
+  const frame = img.closest(".movie-detail-poster-frame");
+  const gridWrap = img.closest(".poster-wrap");
+  const markGridPosterReady = () => {
+    img.classList.add("is-poster-ready");
+  };
+  if (frame) {
+    img.addEventListener("load", () => frame.classList.add("is-loaded"), { once: true });
+    img.addEventListener("error", () => frame.classList.add("is-loaded"), { once: true });
+  } else if (gridWrap) {
+    img.addEventListener("load", markGridPosterReady, { once: true });
+    img.addEventListener("error", markGridPosterReady, { once: true });
+  }
   try {
     const displayUrl = await getPosterObjectUrl(url);
     if (img.isConnected && img.getAttribute("data-poster-src") === url) {
       img.src = displayUrl;
+      if (img.complete) {
+        if (frame) {
+          frame.classList.add("is-loaded");
+        } else if (gridWrap) {
+          markGridPosterReady();
+        }
+      }
     }
   } catch (_) {
     if (img.isConnected && img.getAttribute("data-poster-src") === url) {
       img.src = url;
+      if (img.complete) {
+        if (frame) {
+          frame.classList.add("is-loaded");
+        } else if (gridWrap) {
+          markGridPosterReady();
+        }
+      }
     }
   }
 }
@@ -5626,6 +5723,7 @@ async function hydrateMovies(ids, handlers = {}) {
     while (pending.length) {
       const id = pending.shift();
       try {
+        await devArtificialDelay();
         const record = await getMovie(id, { onUpdate: handlers.onUpdate });
         movieById.set(id, record);
         movieErrors.delete(id);
@@ -6355,6 +6453,10 @@ function onAddListOptionClick(event) {
  * patches single rows through applyHydratedRecord() rather than re-rendering.
  */
 
+function posterWrapOpen(movieId) {
+  return `<div class="poster-wrap" style="--poster-bg: ${appPosterGrey.posterGreyForId(movieId)}">`;
+}
+
 function posterHtml(record, size) {
   const remote = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
   const local = record ? localPosterUrlFor(record, size) : null;
@@ -6368,6 +6470,24 @@ function posterHtml(record, size) {
   const fallback =
     local && remote ? ` data-poster-fallback="${appCardHtml.escapeHtml(remote)}"` : "";
   return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async"${fallback}>`;
+}
+
+function detailPosterSkeletonHtml() {
+  return `<div class="movie-detail-poster-frame"><div class="movie-detail-poster-skeleton" aria-hidden="true"></div></div>`;
+}
+
+function detailPosterFrameHtml(record, size) {
+  const remote = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
+  const local = record ? localPosterUrlFor(record, size) : null;
+  const url = local || remote;
+  const skeleton = `<div class="movie-detail-poster-skeleton" aria-hidden="true"></div>`;
+  if (!url) {
+    return `<div class="movie-detail-poster-frame is-loaded is-empty">${skeleton}</div>`;
+  }
+  const fallback =
+    local && remote ? ` data-poster-fallback="${appCardHtml.escapeHtml(remote)}"` : "";
+  const img = `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" decoding="async"${fallback}>`;
+  return `<div class="movie-detail-poster-frame">${skeleton}${img}</div>`;
 }
 
 function cardMetaHtml(record) {
@@ -6548,12 +6668,12 @@ function cardPosterOnlyHtml(movieId) {
     const body = failed
       ? `<div class="placeholder">Could not load</div>`
       : `<div class="placeholder"></div>`;
-    return `<div class="poster-wrap">${body}</div>${cardSmallFooterHtml(movieId)}`;
+    return `${posterWrapOpen(movieId)}${body}</div>${cardSmallFooterHtml(movieId)}`;
   }
   const grip = listShowsReorderGrip()
     ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>`
     : "";
-  return `<div class="poster-wrap">${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>${cardSmallFooterHtml(movieId)}`;
+  return `${posterWrapOpen(movieId)}${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>${cardSmallFooterHtml(movieId)}`;
 }
 
 function listShowsReorderGrip() {
@@ -6679,7 +6799,7 @@ function cardInnerHtml(movieId) {
     const body = failed
       ? `<div class="placeholder">Could not load</div>`
       : `<div class="placeholder"></div>`;
-    return `<div class="poster-wrap">${body}</div>
+    return `${posterWrapOpen(movieId)}${body}</div>
 <div class="card-body">
   <div class="card-text">
     <div class="card-title">${failed ? `TMDB #${movieId}` : ""}</div>
@@ -6689,7 +6809,7 @@ function cardInnerHtml(movieId) {
   }
 
   if (userState.activeListId === appLists.WATCHLIST_ID) {
-    return `<div class="poster-wrap">
+    return `${posterWrapOpen(movieId)}
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
   ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
 </div>
@@ -6698,7 +6818,7 @@ function cardInnerHtml(movieId) {
 </div>`;
   }
 
-  return `<div class="poster-wrap">
+  return `${posterWrapOpen(movieId)}
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
   ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
 </div>
@@ -7551,11 +7671,11 @@ function renderDetail() {
       heading = "Could not load this movie";
       note = "TMDB did not return details. Check your credential and connection.";
     }
-    detailPoster.innerHTML = `<div class="placeholder"></div>`;
+    detailPoster.innerHTML = detailPosterSkeletonHtml();
     detailBody.innerHTML = `<h2 class="movie-detail-title" id="movie-detail-title">${heading}</h2>
 <p class="movie-detail-overview">${note}</p>`;
   } else {
-    detailPoster.innerHTML = posterHtml(record, appTmdb.POSTER_SIZES.detail);
+    detailPoster.innerHTML = detailPosterFrameHtml(record, appTmdb.POSTER_SIZES.detail);
     bindPosterImages(detailPoster);
     detailBody.innerHTML = `<h2 class="movie-detail-title" id="movie-detail-title">${appCardHtml.escapeHtml(record.title)}</h2>
 ${record.tagline ? `<p class="movie-detail-tagline">${appCardHtml.escapeHtml(record.tagline)}</p>` : ""}
