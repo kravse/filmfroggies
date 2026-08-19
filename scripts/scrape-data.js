@@ -153,7 +153,7 @@ function readSnapshot() {
 function readIds() {
   if (!fs.existsSync(CSV_FILE)) {
     throw new Error(
-      `No data/${CSV_FILENAME}. Open Settings on the site, use "Export list CSV", and commit the file there.`,
+      `No data/${CSV_FILENAME}. Open Settings on the site, use "Export backup", and commit the file there.`,
     );
   }
   const ids = parseListCsv(fs.readFileSync(CSV_FILE, "utf8"));

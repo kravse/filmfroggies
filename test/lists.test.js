@@ -103,28 +103,10 @@ test("normalizeLists drops list ids that are not presets", () => {
   assert.deepEqual(idsIn(lists, WATCHED_ID), [1]);
 });
 
-test("normalizeLists merges legacy favourites into watched", () => {
+test("normalizeLists resolves a watchlist conflict in favour of watched", () => {
   const lists = normalizeLists([
-    { id: "favourites", name: "Favourites", movieIds: [7] },
-    { id: WATCHED_ID, name: "Watched", movieIds: [] },
-  ]);
-  assert.deepEqual(idsIn(lists, WATCHED_ID), [7]);
-  assertInvariants(lists);
-});
-
-test("normalizeLists keeps favourites order and appends legacy watched-only ids", () => {
-  const lists = normalizeLists([
-    { id: "favourites", name: "Favourites", movieIds: [9] },
-    { id: WATCHED_ID, name: "Watched", movieIds: [4, 5] },
-  ]);
-  assert.deepEqual(idsIn(lists, WATCHED_ID), [9, 4, 5]);
-});
-
-test("normalizeLists resolves a watchlist conflict in favour of having watched", () => {
-  const lists = normalizeLists([
-    { id: "favourites", name: "Favourites", movieIds: [8] },
     { id: WATCHLIST_ID, name: "Watchlist", movieIds: [8, 9, 10] },
-    { id: WATCHED_ID, name: "Watched", movieIds: [9] },
+    { id: WATCHED_ID, name: "Watched", movieIds: [8, 9] },
   ]);
   assert.deepEqual(idsIn(lists, WATCHLIST_ID), [10]);
   assert.deepEqual(idsIn(lists, WATCHED_ID), [8, 9]);

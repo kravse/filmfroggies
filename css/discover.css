@@ -18,6 +18,16 @@ body.view-discover #discover-pagination {
   display: flex;
 }
 
+body.view-discover .grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+  body.view-discover .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .discover-pagination {
   display: none;
   align-items: center;
@@ -173,6 +183,31 @@ body.view-discover .card-meta-release-date {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+body.view-discover .discover-card-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.35rem;
+  min-height: var(--card-title-block-height);
+}
+
+body.view-discover .discover-card-title-row .card-title {
+  flex: 1;
+  min-width: 0;
+}
+
+body.view-discover .discover-card-title-row .card-fan-rating {
+  flex: none;
+  align-self: flex-start;
+}
+
+body.view-discover .discover-card-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.22rem;
+  align-items: center;
 }
 
 body.view-discover .card-body-ratings--interactive {

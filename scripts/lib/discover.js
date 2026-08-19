@@ -6,10 +6,14 @@ const DISCOVER_TABS = new Set(["upcoming", "now-playing"]);
 const DEFAULT_DISCOVER_TAB = "upcoming";
 const DISCOVER_DEFAULT_PAGE = 1;
 const DISCOVER_MAX_MOVIES = 50;
+/** Fixed discover columns: 4 on wide viewports, 2 on mobile (see discover.css). */
+const DISCOVER_GRID_COLUMNS = 4;
+const DISCOVER_GRID_COLUMNS_MOBILE = 2;
+/** lcm(2, 4) — page sizes aligned to this fill both grids without a trailing orphan. */
+const DISCOVER_PAGE_COMPLETE_UNIT = 4;
 const DEFAULT_DISCOVER_REGION = "US";
 /** Bumped when discover list query semantics change so session memo refreshes. */
-const DISCOVER_LIST_CACHE_VERSION = 8;
-const NOW_PLAYING_WINDOW_DAYS = 84;
+const DISCOVER_LIST_CACHE_VERSION = 25;
 /** Skip obscure listings unless TMDB shows real interest. */
 const DISCOVER_MIN_VOTE_COUNT = 10;
 const DISCOVER_MIN_POPULARITY = 8;
@@ -89,25 +93,6 @@ function isUpcomingReleaseEntry(entry, todayIso) {
   return releaseTime >= todayTime;
 }
 
-/** Theatrical releases in region within the recent window, not future dated. */
-function isNowPlayingReleaseEntry(entry, todayIso, windowDays = NOW_PLAYING_WINDOW_DAYS) {
-  const releaseDate = String(entry?.releaseDate || "").trim();
-  if (!releaseDate) {
-    return false;
-  }
-  const releaseTime = Date.parse(releaseDate);
-  const todayTime = Date.parse(todayIso);
-  const windowStartTime = Date.parse(shiftIsoDate(todayIso, -windowDays));
-  if (
-    !Number.isFinite(releaseTime) ||
-    !Number.isFinite(todayTime) ||
-    !Number.isFinite(windowStartTime)
-  ) {
-    return false;
-  }
-  return releaseTime <= todayTime && releaseTime >= windowStartTime;
-}
-
 function isProminentDiscoverEntry(entry, options = {}) {
   const minVotes = options.minVoteCount ?? DISCOVER_MIN_VOTE_COUNT;
   const minPopularity = options.minPopularity ?? DISCOVER_MIN_POPULARITY;
@@ -119,7 +104,6 @@ function isProminentDiscoverEntry(entry, options = {}) {
 function mergeDiscoverListEntries(pageResults, options = {}) {
   const max = options.max ?? DISCOVER_MAX_MOVIES;
   const filterUpcoming = options.filterUpcoming === true;
-  const filterNowPlaying = options.filterNowPlaying === true;
   const filterProminent = options.filterProminent === true;
   const todayIso = options.todayIso;
   const seen = new Set();
@@ -133,9 +117,6 @@ function mergeDiscoverListEntries(pageResults, options = {}) {
         continue;
       }
       if (filterUpcoming && todayIso && !isUpcomingReleaseEntry(entry, todayIso)) {
-        continue;
-      }
-      if (filterNowPlaying && todayIso && !isNowPlayingReleaseEntry(entry, todayIso)) {
         continue;
       }
       const id = Number(entry?.id);
@@ -156,10 +137,44 @@ function filterDiscoverPageEntries(pageResults, options = {}) {
   if (!Array.isArray(pageResults)) {
     return [];
   }
-  return mergeDiscoverListEntries([pageResults], {
+  const entries = mergeDiscoverListEntries([pageResults], {
     ...options,
     max: Number.MAX_SAFE_INTEGER,
   });
+  return trimDiscoverPageToGrid(entries, options);
+}
+
+/**
+ * Largest count <= n that fills complete rows on both 2- and 4-column discover grids.
+ * Uses 4 (lcm of 2 and 4) when possible; smaller pages fall back to min(⌊n/4⌋×4, ⌊n/2⌋×2).
+ */
+function discoverCompleteCount(count) {
+  if (!Number.isInteger(count) || count <= 0) {
+    return 0;
+  }
+  const byUnit = Math.floor(count / DISCOVER_PAGE_COMPLETE_UNIT) * DISCOVER_PAGE_COMPLETE_UNIT;
+  if (byUnit > 0) {
+    return byUnit;
+  }
+  const byDesktop = Math.floor(count / DISCOVER_GRID_COLUMNS) * DISCOVER_GRID_COLUMNS;
+  const byMobile = Math.floor(count / DISCOVER_GRID_COLUMNS_MOBILE) * DISCOVER_GRID_COLUMNS_MOBILE;
+  const byBoth = Math.min(byDesktop, byMobile);
+  return byBoth > 0 ? byBoth : count;
+}
+
+/**
+ * Drop trailing incomplete rows on non-final pages so the grid never ends with
+ * a lone movie. The last TMDB page keeps whatever count remains.
+ */
+function trimDiscoverPageToGrid(entries, options = {}) {
+  if (!Array.isArray(entries) || options.isLastPage) {
+    return entries;
+  }
+  const completeCount = discoverCompleteCount(entries.length);
+  if (completeCount === 0 || completeCount >= entries.length) {
+    return entries;
+  }
+  return entries.slice(0, completeCount);
 }
 
 function mergeDiscoverMovieIds(pageResults, options = {}) {
@@ -171,9 +186,11 @@ module.exports = {
   DEFAULT_DISCOVER_TAB,
   DISCOVER_DEFAULT_PAGE,
   DISCOVER_MAX_MOVIES,
+  DISCOVER_GRID_COLUMNS,
+  DISCOVER_GRID_COLUMNS_MOBILE,
+  DISCOVER_PAGE_COMPLETE_UNIT,
   DEFAULT_DISCOVER_REGION,
   DISCOVER_LIST_CACHE_VERSION,
-  NOW_PLAYING_WINDOW_DAYS,
   DISCOVER_MIN_VOTE_COUNT,
   DISCOVER_MIN_POPULARITY,
   normalizeDiscoverTab,
@@ -184,9 +201,10 @@ module.exports = {
   todayIsoDate,
   shiftIsoDate,
   isUpcomingReleaseEntry,
-  isNowPlayingReleaseEntry,
   isProminentDiscoverEntry,
   mergeDiscoverMovieIds,
   mergeDiscoverListEntries,
   filterDiscoverPageEntries,
+  trimDiscoverPageToGrid,
+  discoverCompleteCount,
 };

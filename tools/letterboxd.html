@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Letterboxd import</title>
+    <link rel="stylesheet" href="/tools/letterboxd.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <h1>Letterboxd import</h1>
+        <p class="lede">
+          Local tool only — not part of the deployed site. Match your Letterboxd
+          export to TMDB, download a backup CSV, then use
+          <strong>Settings → Import & export</strong> on the main app.
+        </p>
+      </header>
+
+      <section class="panel">
+        <label class="field">
+          <span class="field-label">TMDB read access token</span>
+          <input
+            id="tmdb-token"
+            type="password"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Paste JWT from themoviedb.org/settings/api"
+          />
+        </label>
+        <label class="field">
+          <span class="field-label">Letterboxd export ZIP</span>
+          <input id="zip-file" type="file" accept=".zip,application/zip" />
+        </label>
+        <div class="actions">
+          <button id="start-btn" type="button" class="btn">Review matches</button>
+          <button id="download-btn" type="button" class="btn btn-primary" disabled>
+            Download backup CSV
+          </button>
+        </div>
+        <p id="status" class="status" aria-live="polite"></p>
+      </section>
+
+      <section class="panel">
+        <p id="summary" class="summary" aria-live="polite"></p>
+        <div id="matches" class="matches" aria-live="polite"></div>
+      </section>
+    </main>
+    <script src="/js/vendor/fflate.js"></script>
+    <script src="/js/tools/letterboxd-tool-bundle.js"></script>
+  </body>
+</html>

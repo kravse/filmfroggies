@@ -157,15 +157,6 @@ test("normalizeUserState falls back when the active list id is not a preset", ()
   assert.equal(state.activeListId, "watched");
 });
 
-test("normalizeUserState migrates legacy favourites tab to watched", () => {
-  const state = normalizeUserState({
-    lists: [{ id: "favourites", name: "Favourites", movieIds: [603] }],
-    activeListId: "favourites",
-  });
-  assert.equal(state.activeListId, "watched");
-  assert.deepEqual(state.lists[0].movieIds, [603]);
-});
-
 test("normalizeUserState keeps a valid preset as the active list", () => {
   assert.equal(normalizeUserState({ activeListId: "watched" }).activeListId, "watched");
 });
@@ -234,7 +225,7 @@ test("parseUserState survives a partially corrupted payload", () => {
   assert.equal(parsed.activeListId, "watched");
 });
 
-test("parseUserState migrates a payload written before the preset lists", () => {
+test("parseUserState drops unknown list ids from legacy payloads", () => {
   const legacy = JSON.stringify({
     version: 1,
     lists: [
@@ -250,7 +241,7 @@ test("parseUserState migrates a payload written before the preset lists", () => 
     parsed.lists.map((list) => list.id),
     ["watched", "watchlist"],
   );
-  assert.deepEqual(parsed.lists[0].movieIds, [603]);
+  assert.deepEqual(parsed.lists[0].movieIds, []);
   assert.deepEqual(parsed.lists[1].movieIds, []);
   assert.equal(parsed.activeListId, "watched");
   assert.equal(parsed.preferences.viewMode, "cards");

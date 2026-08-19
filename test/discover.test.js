@@ -10,8 +10,9 @@ const {
   mergeDiscoverMovieIds,
   mergeDiscoverListEntries,
   filterDiscoverPageEntries,
+  trimDiscoverPageToGrid,
+  discoverCompleteCount,
   isUpcomingReleaseEntry,
-  isNowPlayingReleaseEntry,
   isProminentDiscoverEntry,
   DISCOVER_MAX_MOVIES,
 } = require("../scripts/lib/discover");
@@ -73,12 +74,75 @@ test("mergeDiscoverMovieIds dedupes across pages and caps at fifty", () => {
   assert.equal(mergeDiscoverMovieIds([many, more]).length, DISCOVER_MAX_MOVIES);
 });
 
+test("filterDiscoverPageEntries keeps a full TMDB page for upcoming without client filters", () => {
+  const page = Array.from({ length: 20 }, (_, index) => ({
+    id: index + 1,
+    releaseDate: index < 4 ? "2026-01-01" : "2026-10-01",
+  }));
+  assert.equal(filterDiscoverPageEntries(page, { isLastPage: false }).length, 20);
+  assert.equal(
+    filterDiscoverPageEntries(page, {
+      filterUpcoming: true,
+      todayIso: "2026-08-19",
+      isLastPage: false,
+    }).length,
+    16,
+  );
+});
+
 test("filterDiscoverPageEntries filters one TMDB page without a multi-page cap", () => {
   const page = Array.from({ length: 25 }, (_, index) => ({
     id: index + 1,
     releaseDate: "2026-10-01",
   }));
-  assert.equal(filterDiscoverPageEntries(page, { filterUpcoming: true, todayIso: "2026-08-19" }).length, 25);
+  assert.equal(
+    filterDiscoverPageEntries(page, { filterUpcoming: true, todayIso: "2026-08-19", isLastPage: true })
+      .length,
+    25,
+  );
+});
+
+test("discoverCompleteCount aligns to 4 for both two- and four-column grids", () => {
+  assert.equal(discoverCompleteCount(20), 20);
+  assert.equal(discoverCompleteCount(17), 16);
+  assert.equal(discoverCompleteCount(13), 12);
+  assert.equal(discoverCompleteCount(10), 8);
+  assert.equal(discoverCompleteCount(5), 4);
+});
+
+test("trimDiscoverPageToGrid drops a trailing orphan on non-final pages only", () => {
+  const entries = Array.from({ length: 17 }, (_, index) => ({ id: index + 1 }));
+  assert.equal(trimDiscoverPageToGrid(entries, { isLastPage: false }).length, 16);
+  assert.equal(trimDiscoverPageToGrid(entries, { isLastPage: true }).length, 17);
+  assert.equal(trimDiscoverPageToGrid(entries.slice(0, 5), { isLastPage: false }).length, 4);
+  assert.equal(trimDiscoverPageToGrid(entries.slice(0, 3), { isLastPage: false }).length, 3);
+});
+
+test("filterDiscoverPageEntries trims incomplete rows before the last page", () => {
+  const page = Array.from({ length: 17 }, (_, index) => ({
+    id: index + 1,
+    releaseDate: "2026-10-01",
+    voteCount: 20,
+    popularity: 10,
+  }));
+  assert.equal(
+    filterDiscoverPageEntries(page, {
+      filterUpcoming: true,
+      todayIso: "2026-08-19",
+      filterProminent: true,
+      isLastPage: false,
+    }).length,
+    16,
+  );
+  assert.equal(
+    filterDiscoverPageEntries(page, {
+      filterUpcoming: true,
+      todayIso: "2026-08-19",
+      filterProminent: true,
+      isLastPage: true,
+    }).length,
+    17,
+  );
 });
 
 test("mergeDiscoverListEntries keeps stub records in display order", () => {
@@ -127,30 +191,4 @@ test("mergeDiscoverMovieIds can drop past upcoming rows", () => {
     mergeDiscoverMovieIds([page], { filterUpcoming: true, todayIso: today, filterProminent: true }),
     [2, 3],
   );
-});
-
-test("mergeDiscoverMovieIds can drop stale now playing rows", () => {
-  const today = "2026-08-19";
-  const page = [
-    { id: 1, releaseDate: "2004-05-14", voteCount: 20, popularity: 10 },
-    { id: 2, releaseDate: "2026-08-01", voteCount: 20, popularity: 10 },
-    { id: 3, releaseDate: "2026-09-01", voteCount: 20, popularity: 10 },
-  ];
-  assert.deepEqual(
-    mergeDiscoverMovieIds([page], {
-      filterNowPlaying: true,
-      todayIso: today,
-      filterProminent: true,
-    }),
-    [2],
-  );
-});
-
-test("isNowPlayingReleaseEntry keeps recent theatrical releases only", () => {
-  const today = "2026-08-19";
-  assert.equal(isNowPlayingReleaseEntry({ releaseDate: "2026-08-01" }, today), true);
-  assert.equal(isNowPlayingReleaseEntry({ releaseDate: "2026-08-19" }, today), true);
-  assert.equal(isNowPlayingReleaseEntry({ releaseDate: "2026-09-01" }, today), false);
-  assert.equal(isNowPlayingReleaseEntry({ releaseDate: "2004-05-14" }, today), false);
-  assert.equal(isNowPlayingReleaseEntry({ releaseDate: "" }, today), false);
 });

@@ -53,7 +53,7 @@ const PARTS = [
   },
   {
     file: "00-app-list-csv.js",
-    title: "Scrape list CSV (generated from scripts/lib/list-csv.js)",
+    title: "Collection backup CSV (generated from scripts/lib/list-csv.js)",
   },
   {
     file: "00-app-ratings.js",
@@ -138,6 +138,10 @@ const PARTS = [
   {
     file: "11-discover.js",
     title: "TMDB discover browse (upcoming and now playing)",
+  },
+  {
+    file: "12-data-import.js",
+    title: "Collection backup CSV import",
   },
   {
     file: "08-init.js",

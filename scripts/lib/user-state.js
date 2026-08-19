@@ -129,10 +129,7 @@ function normalizeUserState(raw) {
 
   const normalizedLists = lists.normalizeLists(raw.lists);
 
-  let activeListId = raw.activeListId;
-  if (activeListId === "favourites") {
-    activeListId = lists.WATCHED_ID;
-  }
+  const activeListId = raw.activeListId;
 
   const statuses = getSyncMerge().normalizeStatuses(
     raw.statuses,

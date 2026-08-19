@@ -141,10 +141,26 @@ function tmdbUrlToProxyRequest(url) {
   const parsed = new URL(String(url));
   const match = /^\/3(\/.+)$/.exec(parsed.pathname);
   const path = match ? match[1] : parsed.pathname;
+  const allowed = new Set([
+    "query",
+    "language",
+    "page",
+    "include_adult",
+    "append_to_response",
+    "region",
+    "sort_by",
+    "include_video",
+    "primary_release_date.gte",
+    "primary_release_date.lte",
+    "release_date.gte",
+    "release_date.lte",
+    "with_release_type",
+    "with_original_language",
+    "vote_count.gte",
+  ]);
   const searchParams = {};
-  for (const key of ["query", "language", "page", "include_adult", "append_to_response", "region"]) {
-    const value = parsed.searchParams.get(key);
-    if (value != null && value !== "") {
+  for (const [key, value] of parsed.searchParams.entries()) {
+    if (allowed.has(key) && value !== "") {
       searchParams[key] = value;
     }
   }
@@ -705,22 +721,16 @@ async function fetchDiscoverMovies(tab, options = {}) {
     const signal = options.signal;
     const buildUrl =
       normalizedTab === "now-playing" ? appTmdb.buildNowPlayingUrl : appTmdb.buildUpcomingUrl;
-    const todayIso = appDiscover.todayIsoDate();
-    const mergeOpts = {
-      filterUpcoming: normalizedTab === "upcoming",
-      todayIso,
-    };
     const payload = await fetchTmdb(
-      buildUrl({
-        page,
-        today: todayIso,
-      }),
+      buildUrl({ page }),
       { signal },
     ).then((response) => response.json());
     const meta = appDiscover.normalizeDiscoverListMeta(payload);
     const entries = appDiscover.filterDiscoverPageEntries(
       appTmdb.normalizeSearchResults(payload),
-      mergeOpts,
+      {
+        isLastPage: meta.page >= meta.totalPages,
+      },
     );
     return { ...meta, entries };
   })();

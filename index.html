@@ -782,7 +782,7 @@
               <input
                 type="password"
                 id="tmdb-key-input"
-                placeholder="eyJhbGciOiJIUzI1NiJ9…"
+                placeholder="Paste from themoviedb.org/settings/api"
                 aria-label="TMDB API Read Access Token"
                 autocomplete="off"
                 spellcheck="false"
@@ -880,20 +880,77 @@
           </section>
 
           <section class="sheet-section">
-            <h3>Repo data</h3>
+            <h3>Import &amp; export</h3>
             <p class="sheet-note">
-              Movies bundled with the site load instantly and never touch the API.
-              Export this list, commit it to the repo as
-              <code>data/my_list.csv</code>, then run <code>npm run scrape</code> to
-              refresh the bundled copy.
+              Back up or restore your collection as <code>my_list.csv</code>
+              (Watched, Watchlist, custom lists, ratings, viewing dates).
             </p>
-            <div class="field-row">
-              <button type="button" id="export-csv" class="ghost-btn">
-                Export list CSV
-              </button>
-              <span class="status-text" id="export-csv-status"></span>
+            <div class="data-transfer-grid">
+              <div class="data-transfer-card data-transfer-card--export">
+                <div class="data-transfer-card-head">
+                  <span class="data-transfer-label">Export</span>
+                  <span class="status-text data-transfer-head-status" id="export-csv-status"></span>
+                </div>
+                <div class="data-transfer-card-foot">
+                  <button type="button" id="export-csv" class="ghost-btn data-transfer-btn">
+                    Export
+                  </button>
+                </div>
+              </div>
+              <div class="data-transfer-card data-transfer-card--import">
+                <div class="data-transfer-card-head">
+                  <span class="data-transfer-label">Import</span>
+                  <span class="status-text data-transfer-head-status" id="collection-import-status"></span>
+                </div>
+                <label class="data-transfer-drop" for="collection-import-file">
+                  <input
+                    type="file"
+                    id="collection-import-file"
+                    class="data-transfer-file-input"
+                    accept=".csv,text/csv"
+                    aria-label="Collection backup CSV"
+                  />
+                  <span
+                    id="collection-import-file-name"
+                    class="data-transfer-file-name is-empty"
+                    aria-live="polite"
+                  >Choose CSV…</span>
+                </label>
+                <div class="data-transfer-card-foot">
+                  <button
+                    type="button"
+                    id="collection-import-read"
+                    class="primary-btn data-transfer-btn"
+                    disabled
+                  >
+                    Import
+                  </button>
+                </div>
+              </div>
             </div>
           </section>
+        </div>
+      </div>
+    </div>
+
+    <div id="collection-import-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
+      <div class="sheet-backdrop" data-close-collection-import></div>
+      <div
+        class="sheet-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="collection-import-title"
+        aria-describedby="collection-import-message"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="collection-import-title">Import CSV</h2>
+        </div>
+        <div class="sheet-scroll">
+          <p id="collection-import-message" class="confirm-message"></p>
+        </div>
+        <div class="confirm-actions">
+          <button type="button" id="collection-import-cancel" class="ghost-btn">Cancel</button>
+          <button type="button" id="collection-import-ok" class="primary-btn">Replace collection</button>
         </div>
       </div>
     </div>

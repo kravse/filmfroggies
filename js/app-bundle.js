@@ -128,6 +128,14 @@ const cacheClearBtn = document.getElementById("cache-clear");
 const cacheStatus = document.getElementById("cache-status");
 const exportCsvBtn = document.getElementById("export-csv");
 const exportCsvStatus = document.getElementById("export-csv-status");
+const collectionImportFile = document.getElementById("collection-import-file");
+const collectionImportFileName = document.getElementById("collection-import-file-name");
+const collectionImportRead = document.getElementById("collection-import-read");
+const collectionImportStatus = document.getElementById("collection-import-status");
+const collectionImportDialog = document.getElementById("collection-import-dialog");
+const collectionImportMessage = document.getElementById("collection-import-message");
+const collectionImportCancel = document.getElementById("collection-import-cancel");
+const collectionImportOk = document.getElementById("collection-import-ok");
 
 const aboutDialog = document.getElementById("about-dialog");
 const aboutClose = document.getElementById("about-close");
@@ -606,6 +614,12 @@ const appTmdb = (function () {
 
   const CAST_LIMIT = 8;
   const DEFAULT_NOW_PLAYING_WINDOW_DAYS = 84;
+  /** Drop classic re-releases: primary premiere must be within this many days. */
+  const DEFAULT_NOW_PLAYING_PRIMARY_WINDOW_DAYS = 730;
+  /** Rough match to TMDB’s upcoming browse window (primary release dates). */
+  const DEFAULT_UPCOMING_WINDOW_DAYS = 90;
+  /** Minimum TMDB vote count for discover browse queries (drops zero-interest listings). */
+  const DEFAULT_DISCOVER_MIN_VOTE_COUNT = 10;
 
   /**
    * Only the v4 API Read Access Token is accepted. It is a JWT: three
@@ -707,15 +721,6 @@ const appTmdb = (function () {
     return buildUrl("/configuration", {});
   }
 
-  function buildDiscoverListUrl(pathname, options = {}) {
-    const page = Number(options.page);
-    return buildUrl(pathname, {
-      language: options.language || "en-US",
-      page: Number.isInteger(page) && page > 0 ? String(page) : "1",
-      region: options.region || "US",
-    });
-  }
-
   function formatIsoDate(date) {
     const value = date instanceof Date ? date : new Date(date);
     if (Number.isNaN(value.getTime())) {
@@ -736,12 +741,64 @@ const appTmdb = (function () {
     return formatIsoDate(value);
   }
 
+  function buildDiscoverMovieUrl(options = {}) {
+    const page = Number(options.page);
+    const params = {
+      include_adult: "false",
+      include_video: "false",
+      language: options.language || "en-US",
+      page: Number.isInteger(page) && page > 0 ? String(page) : "1",
+      region: options.region || "US",
+      with_release_type: "2|3",
+      sort_by: options.sortBy || "popularity.desc",
+    };
+    if (options.releaseDateGte) {
+      params["release_date.gte"] = options.releaseDateGte;
+    }
+    if (options.releaseDateLte) {
+      params["release_date.lte"] = options.releaseDateLte;
+    }
+    if (options.primaryReleaseDateGte) {
+      params["primary_release_date.gte"] = options.primaryReleaseDateGte;
+    }
+    if (options.primaryReleaseDateLte) {
+      params["primary_release_date.lte"] = options.primaryReleaseDateLte;
+    }
+    if (options.voteCountGte != null) {
+      params["vote_count.gte"] = String(options.voteCountGte);
+    }
+    return buildUrl("/discover/movie", params);
+  }
+
   function buildUpcomingUrl(options = {}) {
-    return buildDiscoverListUrl("/movie/upcoming", options);
+    const today = options.today || formatIsoDate(new Date());
+    const windowDays = Number(options.windowDays) || DEFAULT_UPCOMING_WINDOW_DAYS;
+    return buildDiscoverMovieUrl({
+      language: options.language,
+      page: options.page,
+      region: options.region,
+      releaseDateGte: today,
+      releaseDateLte: offsetIsoDate(today, windowDays),
+      sortBy: "popularity.desc",
+    });
   }
 
   function buildNowPlayingUrl(options = {}) {
-    return buildDiscoverListUrl("/movie/now_playing", options);
+    const today = options.today || formatIsoDate(new Date());
+    const windowDays = Number(options.windowDays) || DEFAULT_NOW_PLAYING_WINDOW_DAYS;
+    const primaryWindowDays =
+      Number(options.primaryWindowDays) || DEFAULT_NOW_PLAYING_PRIMARY_WINDOW_DAYS;
+    const minVotes = Number(options.minVoteCount) || DEFAULT_DISCOVER_MIN_VOTE_COUNT;
+    return buildDiscoverMovieUrl({
+      language: options.language,
+      page: options.page,
+      region: options.region,
+      releaseDateGte: offsetIsoDate(today, -windowDays),
+      releaseDateLte: today,
+      primaryReleaseDateGte: offsetIsoDate(today, -primaryWindowDays),
+      voteCountGte: minVotes,
+      sortBy: "popularity.desc",
+    });
   }
 
   function isValidImagePath(imagePath) {
@@ -920,6 +977,9 @@ const appTmdb = (function () {
     formatIsoDate,
     offsetIsoDate,
     DEFAULT_NOW_PLAYING_WINDOW_DAYS,
+    DEFAULT_NOW_PLAYING_PRIMARY_WINDOW_DAYS,
+    DEFAULT_UPCOMING_WINDOW_DAYS,
+    DEFAULT_DISCOVER_MIN_VOTE_COUNT,
     buildUpcomingUrl,
     buildNowPlayingUrl,
     isValidImagePath,
@@ -948,10 +1008,14 @@ const appDiscover = (function () {
   const DEFAULT_DISCOVER_TAB = "upcoming";
   const DISCOVER_DEFAULT_PAGE = 1;
   const DISCOVER_MAX_MOVIES = 50;
+  /** Fixed discover columns: 4 on wide viewports, 2 on mobile (see discover.css). */
+  const DISCOVER_GRID_COLUMNS = 4;
+  const DISCOVER_GRID_COLUMNS_MOBILE = 2;
+  /** lcm(2, 4) — page sizes aligned to this fill both grids without a trailing orphan. */
+  const DISCOVER_PAGE_COMPLETE_UNIT = 4;
   const DEFAULT_DISCOVER_REGION = "US";
   /** Bumped when discover list query semantics change so session memo refreshes. */
-  const DISCOVER_LIST_CACHE_VERSION = 8;
-  const NOW_PLAYING_WINDOW_DAYS = 84;
+  const DISCOVER_LIST_CACHE_VERSION = 25;
   /** Skip obscure listings unless TMDB shows real interest. */
   const DISCOVER_MIN_VOTE_COUNT = 10;
   const DISCOVER_MIN_POPULARITY = 8;
@@ -1031,25 +1095,6 @@ const appDiscover = (function () {
     return releaseTime >= todayTime;
   }
 
-  /** Theatrical releases in region within the recent window, not future dated. */
-  function isNowPlayingReleaseEntry(entry, todayIso, windowDays = NOW_PLAYING_WINDOW_DAYS) {
-    const releaseDate = String(entry?.releaseDate || "").trim();
-    if (!releaseDate) {
-      return false;
-    }
-    const releaseTime = Date.parse(releaseDate);
-    const todayTime = Date.parse(todayIso);
-    const windowStartTime = Date.parse(shiftIsoDate(todayIso, -windowDays));
-    if (
-      !Number.isFinite(releaseTime) ||
-      !Number.isFinite(todayTime) ||
-      !Number.isFinite(windowStartTime)
-    ) {
-      return false;
-    }
-    return releaseTime <= todayTime && releaseTime >= windowStartTime;
-  }
-
   function isProminentDiscoverEntry(entry, options = {}) {
     const minVotes = options.minVoteCount ?? DISCOVER_MIN_VOTE_COUNT;
     const minPopularity = options.minPopularity ?? DISCOVER_MIN_POPULARITY;
@@ -1061,7 +1106,6 @@ const appDiscover = (function () {
   function mergeDiscoverListEntries(pageResults, options = {}) {
     const max = options.max ?? DISCOVER_MAX_MOVIES;
     const filterUpcoming = options.filterUpcoming === true;
-    const filterNowPlaying = options.filterNowPlaying === true;
     const filterProminent = options.filterProminent === true;
     const todayIso = options.todayIso;
     const seen = new Set();
@@ -1075,9 +1119,6 @@ const appDiscover = (function () {
           continue;
         }
         if (filterUpcoming && todayIso && !isUpcomingReleaseEntry(entry, todayIso)) {
-          continue;
-        }
-        if (filterNowPlaying && todayIso && !isNowPlayingReleaseEntry(entry, todayIso)) {
           continue;
         }
         const id = Number(entry?.id);
@@ -1098,10 +1139,44 @@ const appDiscover = (function () {
     if (!Array.isArray(pageResults)) {
       return [];
     }
-    return mergeDiscoverListEntries([pageResults], {
+    const entries = mergeDiscoverListEntries([pageResults], {
       ...options,
       max: Number.MAX_SAFE_INTEGER,
     });
+    return trimDiscoverPageToGrid(entries, options);
+  }
+
+  /**
+   * Largest count <= n that fills complete rows on both 2- and 4-column discover grids.
+   * Uses 4 (lcm of 2 and 4) when possible; smaller pages fall back to min(⌊n/4⌋×4, ⌊n/2⌋×2).
+   */
+  function discoverCompleteCount(count) {
+    if (!Number.isInteger(count) || count <= 0) {
+      return 0;
+    }
+    const byUnit = Math.floor(count / DISCOVER_PAGE_COMPLETE_UNIT) * DISCOVER_PAGE_COMPLETE_UNIT;
+    if (byUnit > 0) {
+      return byUnit;
+    }
+    const byDesktop = Math.floor(count / DISCOVER_GRID_COLUMNS) * DISCOVER_GRID_COLUMNS;
+    const byMobile = Math.floor(count / DISCOVER_GRID_COLUMNS_MOBILE) * DISCOVER_GRID_COLUMNS_MOBILE;
+    const byBoth = Math.min(byDesktop, byMobile);
+    return byBoth > 0 ? byBoth : count;
+  }
+
+  /**
+   * Drop trailing incomplete rows on non-final pages so the grid never ends with
+   * a lone movie. The last TMDB page keeps whatever count remains.
+   */
+  function trimDiscoverPageToGrid(entries, options = {}) {
+    if (!Array.isArray(entries) || options.isLastPage) {
+      return entries;
+    }
+    const completeCount = discoverCompleteCount(entries.length);
+    if (completeCount === 0 || completeCount >= entries.length) {
+      return entries;
+    }
+    return entries.slice(0, completeCount);
   }
 
   function mergeDiscoverMovieIds(pageResults, options = {}) {
@@ -1113,9 +1188,11 @@ const appDiscover = (function () {
     DEFAULT_DISCOVER_TAB,
     DISCOVER_DEFAULT_PAGE,
     DISCOVER_MAX_MOVIES,
+    DISCOVER_GRID_COLUMNS,
+    DISCOVER_GRID_COLUMNS_MOBILE,
+    DISCOVER_PAGE_COMPLETE_UNIT,
     DEFAULT_DISCOVER_REGION,
     DISCOVER_LIST_CACHE_VERSION,
-    NOW_PLAYING_WINDOW_DAYS,
     DISCOVER_MIN_VOTE_COUNT,
     DISCOVER_MIN_POPULARITY,
     normalizeDiscoverTab,
@@ -1126,11 +1203,12 @@ const appDiscover = (function () {
     todayIsoDate,
     shiftIsoDate,
     isUpcomingReleaseEntry,
-    isNowPlayingReleaseEntry,
     isProminentDiscoverEntry,
     mergeDiscoverMovieIds,
     mergeDiscoverListEntries,
     filterDiscoverPageEntries,
+    trimDiscoverPageToGrid,
+    discoverCompleteCount,
   };
 })();
 
@@ -1390,7 +1468,6 @@ const appLists = (function () {
 
   const WATCHED_ID = "watched";
   const WATCHLIST_ID = "watchlist";
-  const LEGACY_FAVOURITES_ID = "favourites";
 
   const PRESET_LISTS = [
     { id: WATCHED_ID, name: "Watched" },
@@ -1433,9 +1510,6 @@ const appLists = (function () {
   /**
    * Rebuilds the two lists from stored data: preset order and names always win,
    * unknown list ids are dropped, and the watchlist/watched invariant is repaired.
-   *
-   * Legacy payloads with separate favourites and watched lists are merged into
-   * watched: former favourites keep their order, then any watched-only ids append.
    */
   function normalizeLists(raw) {
     const stored = Array.isArray(raw) ? raw : [];
@@ -1444,15 +1518,7 @@ const appLists = (function () {
       return normalizeMovieIds(match?.movieIds);
     };
 
-    const legacyFavourites = storedIds(LEGACY_FAVOURITES_ID);
-    const legacyWatched = storedIds(WATCHED_ID);
-    const watched = [...legacyFavourites];
-    for (const id of legacyWatched) {
-      if (!watched.includes(id)) {
-        watched.push(id);
-      }
-    }
-
+    const watched = storedIds(WATCHED_ID);
     const seen = new Set(watched);
     const watchlist = storedIds(WATCHLIST_ID).filter((id) => !seen.has(id));
 
@@ -1823,6 +1889,50 @@ const appCustomLists = (function () {
     ];
   }
 
+  /**
+   * Create custom list shells referenced in a backup CSV before memberships apply.
+   * Used when importing onto a fresh browser that has no list definitions yet.
+   */
+  function ensureCustomListsFromImport(customLists, tombstones, rows, now = new Date()) {
+    const lists = Array.isArray(customLists) ? [...customLists] : [];
+    const nextTombstones =
+      tombstones && typeof tombstones === "object" ? { ...tombstones } : {};
+    const stamp = now instanceof Date ? now.toISOString() : new Date().toISOString();
+    const seen = new Set();
+
+    for (const row of rows || []) {
+      const listId = row?.listId;
+      if (!isCustomListId(listId) || seen.has(listId)) {
+        continue;
+      }
+      seen.add(listId);
+      if (findCustomList(lists, listId)) {
+        delete nextTombstones[listId];
+        continue;
+      }
+      if (lists.length >= MAX_CUSTOM_LISTS) {
+        continue;
+      }
+      let name = normalizeName(row?.listName);
+      if (name.length < MIN_NAME_LENGTH || name.length > MAX_NAME_LENGTH) {
+        name = normalizeName(listId.slice(CUSTOM_ID_PREFIX.length)) || "Imported list";
+      }
+      if (isDuplicateName(lists, name)) {
+        name = `${name} (${listId.slice(-4)})`.slice(0, MAX_NAME_LENGTH);
+      }
+      lists.push({
+        id: listId,
+        name,
+        movieIds: [],
+        createdAt: stamp,
+        updatedAt: stamp,
+      });
+      delete nextTombstones[listId];
+    }
+
+    return { customLists: lists, customListTombstones: nextTombstones };
+  }
+
   function renameCustomList(customLists, listId, name, now = new Date()) {
     const trimmed = normalizeName(name);
     if (
@@ -1929,23 +2039,63 @@ const appCustomLists = (function () {
   };
 })();
 
-/* ===== Scrape list CSV (generated from scripts/lib/list-csv.js) ===== */
+/* ===== Collection backup CSV (generated from scripts/lib/list-csv.js) ===== */
 
 /* Generated from scripts/lib/list-csv.js — run npm run bundle */
 
 const appListCsv = (function () {
   /**
-   * The CSV that carries a list of ids from the browser to the scraper.
+   * Collection backup CSV: export from the browser, import to restore, scrape ids only.
    *
    * The browser is the only place that knows the collection, and the scraper runs
    * on a machine that cannot read localStorage or the Gist. Settings exports this
    * file, you commit it, and `npm run scrape` reads it back. Both ends share these
    * functions so the format has exactly one definition.
    *
-   * Only `tmdb_id` is load-bearing. The other columns are for reading the
-   * committed file in a diff and as a portable backup of list metadata; the scraper
-   * ignores them.
+   * Only `tmdb_id` is load-bearing for scrape. The other columns carry list
+   * membership, ratings, and viewing dates for backup/restore.
    */
+
+  function parseCsv(text) {
+    const source = String(text == null ? "" : text).replace(/^\uFEFF/, "");
+    const rows = [];
+    let row = [];
+    let field = "";
+    let quoted = false;
+
+    for (let index = 0; index < source.length; index += 1) {
+      const char = source[index];
+      if (quoted) {
+        if (char === '"' && source[index + 1] === '"') {
+          field += '"';
+          index += 1;
+        } else if (char === '"') {
+          quoted = false;
+        } else {
+          field += char;
+        }
+        continue;
+      }
+      if (char === '"' && field === "") {
+        quoted = true;
+      } else if (char === ",") {
+        row.push(field);
+        field = "";
+      } else if (char === "\n" || char === "\r") {
+        if (char === "\r" && source[index + 1] === "\n") index += 1;
+        row.push(field);
+        if (row.some((value) => value !== "")) rows.push(row);
+        row = [];
+        field = "";
+      } else {
+        field += char;
+      }
+    }
+    if (quoted) throw new Error("CSV contains an unterminated quoted field.");
+    row.push(field);
+    if (row.some((value) => value !== "")) rows.push(row);
+    return rows;
+  }
 
   const CSV_HEADER = ["tmdb_id", "title", "list_id", "list_name", "my_rating", "release_year", "watch_dates"];
   const CSV_FILENAME = "my_list.csv";
@@ -1986,6 +2136,18 @@ const appListCsv = (function () {
     throw new Error("appViewingHistory is not available");
   }
 
+  function getAddedAt() {
+    if (typeof appAddedAt !== "undefined") return appAddedAt;
+    if (typeof require === "function") return require("./added-at");
+    throw new Error("appAddedAt is not available");
+  }
+
+  function getSyncMerge() {
+    if (typeof appSyncMerge !== "undefined") return appSyncMerge;
+    if (typeof require === "function") return require("./sync-merge");
+    throw new Error("appSyncMerge is not available");
+  }
+
   function releaseYearFrom(releaseDate) {
     const match = /^(\d{4})/.exec(String(releaseDate || "").trim());
     return match ? match[1] : "";
@@ -1998,9 +2160,12 @@ const appListCsv = (function () {
     const myRating = getRatings().formatUserRating(
       getRatings().getRating(state?.ratings, id),
     );
-    const watchDates = getViewingHistory().viewingEntries(state?.viewingHistory, id)
-      .map((entry) => entry.watchedOn).sort().join(";");
-    return { title, releaseYear, myRating, ...(watchDates ? { watchDates } : {}) };
+    const watchDates = getViewingHistory()
+      .viewingEntries(state?.viewingHistory, id)
+      .map((entry) => entry.watchedOn)
+      .sort()
+      .join(";");
+    return { title, releaseYear, myRating, watchDates: watchDates || "" };
   }
 
   function listNameFor(state, listId) {
@@ -2025,50 +2190,48 @@ const appListCsv = (function () {
     return values.map(csvField).join(",");
   }
 
+  function rowFromMembership(state, id, listId, listName, recordFor) {
+    return {
+      id,
+      listId,
+      listName,
+      ...rowMeta(state, id, recordFor),
+    };
+  }
+
   /**
-   * Watched first, then watchlist, each in stored order. Then movies that appear
-   * only on custom lists, in list order. Removal records live only in `statuses`
-   * and never in `movieIds`, so they are excluded for free.
+   * One row per list membership. Watched and watchlist rows first (stored order),
+   * then each custom list in stored order.
    */
   function listCsvRows(state, recordFor) {
     const lists = Array.isArray(state?.lists) ? state.lists : [];
     const customLists = Array.isArray(state?.customLists) ? state.customLists : [];
     const rows = [];
-    const seen = new Set();
+
     for (const listId of getLists().LIST_IDS) {
       const list = lists.find((entry) => entry && entry.id === listId);
       for (const movieId of list?.movieIds || []) {
         const id = Number(movieId);
-        if (!Number.isInteger(id) || id <= 0 || seen.has(id)) {
+        if (!Number.isInteger(id) || id <= 0) {
           continue;
         }
-        seen.add(id);
-        rows.push({
-          id,
-          listId,
-          listName: listNameFor(state, listId),
-          ...rowMeta(state, id, recordFor),
-        });
+        rows.push(rowFromMembership(state, id, listId, listNameFor(state, listId), recordFor));
       }
     }
+
     for (const list of customLists) {
       if (!list || !getCustomLists().isCustomListId(list.id)) {
         continue;
       }
       for (const movieId of list.movieIds || []) {
         const id = Number(movieId);
-        if (!Number.isInteger(id) || id <= 0 || seen.has(id)) {
+        if (!Number.isInteger(id) || id <= 0) {
           continue;
         }
-        seen.add(id);
-        rows.push({
-          id,
-          listId: list.id,
-          listName: list.name,
-          ...rowMeta(state, id, recordFor),
-        });
+        rows.push(rowFromMembership(state, id, list.id, list.name, recordFor));
       }
     }
+
     return rows;
   }
 
@@ -2088,6 +2251,265 @@ const appListCsv = (function () {
       );
     }
     return `${lines.join("\n")}\n`;
+  }
+
+  function canonicalHeader(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]+/g, "");
+  }
+
+  function parseRatingField(value) {
+    const text = String(value || "").trim();
+    if (!text) {
+      return null;
+    }
+    return getRatings().normalizeRating(Number(text));
+  }
+
+  function parseWatchDatesField(value) {
+    const viewingLib = getViewingHistory();
+    const dates = [];
+    const seen = new Set();
+    for (const part of String(value || "").split(";")) {
+      const normalized = viewingLib.normalizeDate(part.trim());
+      if (normalized && !seen.has(normalized)) {
+        seen.add(normalized);
+        dates.push(normalized);
+      }
+    }
+    dates.sort();
+    return dates;
+  }
+
+  /** Parse a collection backup CSV into normalized row objects. */
+  function parseCollectionCsv(text) {
+    const grid = parseCsv(text);
+    if (!grid.length) {
+      return [];
+    }
+    const headers = grid[0].map(canonicalHeader);
+    const index = {};
+    headers.forEach((header, position) => {
+      if (header) {
+        index[header] = position;
+      }
+    });
+    const idCol = index.tmdbid ?? index.id ?? 0;
+    const rows = [];
+    for (const values of grid.slice(1)) {
+      const rawId = String(values[idCol] || "").trim();
+      if (!/^\d+$/.test(rawId)) {
+        continue;
+      }
+      const tmdbId = Number(rawId);
+      if (!Number.isInteger(tmdbId) || tmdbId <= 0) {
+        continue;
+      }
+      const read = (key) => String(values[index[key]] || "").trim();
+      rows.push({
+        tmdbId,
+        title: read("title"),
+        listId: read("listid"),
+        listName: read("listname"),
+        myRating: parseRatingField(read("myrating")),
+        releaseYear: read("releaseyear"),
+        watchDates: parseWatchDatesField(read("watchdates")),
+      });
+    }
+    return rows;
+  }
+
+  function summarizeCollectionImport(rows) {
+    const movieIds = new Set();
+    let watched = 0;
+    let watchlist = 0;
+    let customRows = 0;
+    let ratings = 0;
+    let viewings = 0;
+    const ratingMovies = new Set();
+    const viewingMovies = new Set();
+
+    for (const row of rows || []) {
+      movieIds.add(row.tmdbId);
+      if (row.listId === getLists().WATCHED_ID) {
+        watched += 1;
+      } else if (row.listId === getLists().WATCHLIST_ID) {
+        watchlist += 1;
+      } else if (getCustomLists().isCustomListId(row.listId)) {
+        customRows += 1;
+      }
+      if (row.myRating != null && !ratingMovies.has(row.tmdbId)) {
+        ratingMovies.add(row.tmdbId);
+        ratings += 1;
+      }
+      if (row.watchDates.length && !viewingMovies.has(row.tmdbId)) {
+        viewingMovies.add(row.tmdbId);
+        viewings += row.watchDates.length;
+      }
+    }
+
+    return {
+      movies: movieIds.size,
+      rows: rows?.length || 0,
+      watched,
+      watchlist,
+      customRows,
+      ratings,
+      viewings,
+    };
+  }
+
+
+  function mergeMovieFields(rowsForMovie) {
+    let myRating = null;
+    const watchDates = new Set();
+    for (const row of rowsForMovie) {
+      if (row.myRating != null) {
+        myRating = row.myRating;
+      }
+      for (const date of row.watchDates) {
+        watchDates.add(date);
+      }
+    }
+    return {
+      myRating,
+      watchDates: [...watchDates].sort(),
+    };
+  }
+
+  /**
+   * Replace lists, ratings, and viewing history from a collection backup CSV.
+   * Custom lists in the file are created when missing; empty custom lists with no
+   * rows are kept from the current state only.
+   */
+  function applyCollectionImport(state, rows, options = {}) {
+    if (options.mode && options.mode !== "replace") {
+      throw new Error(`Unsupported import mode: ${options.mode}`);
+    }
+
+    const now = options.now instanceof Date ? options.now : new Date();
+    const listsLib = getLists();
+    const customListsLib = getCustomLists();
+    const ratingsLib = getRatings();
+    const viewingLib = getViewingHistory();
+    const addedAtLib = getAddedAt();
+    const syncLib = getSyncMerge();
+
+    const parsedRows = Array.isArray(rows) ? rows : [];
+    const byMovie = new Map();
+    for (const row of parsedRows) {
+      if (!byMovie.has(row.tmdbId)) {
+        byMovie.set(row.tmdbId, []);
+      }
+      byMovie.get(row.tmdbId).push(row);
+    }
+
+    let lists = listsLib.defaultLists();
+    let customLists = (state?.customLists || []).map((list) => ({ ...list, movieIds: [] }));
+    let customListTombstones =
+      state?.customListTombstones && typeof state.customListTombstones === "object"
+        ? { ...state.customListTombstones }
+        : {};
+    const ensured = customListsLib.ensureCustomListsFromImport(
+      customLists,
+      customListTombstones,
+      parsedRows,
+      now,
+    );
+    customLists = ensured.customLists.map((list) => ({ ...list, movieIds: [] }));
+    customListTombstones = ensured.customListTombstones;
+    let ratings = {};
+    let viewingHistory = {};
+    let statuses = {};
+    let addedAt = {};
+
+    const watchedOrder = [];
+    const watchlistOrder = [];
+    const watchedSeen = new Set();
+    const watchlistSeen = new Set();
+    const customOrder = new Map();
+
+    for (const row of parsedRows) {
+      const id = row.tmdbId;
+      if (row.listId === listsLib.WATCHED_ID && !watchedSeen.has(id)) {
+        watchedSeen.add(id);
+        watchedOrder.push(id);
+      } else if (row.listId === listsLib.WATCHLIST_ID && !watchlistSeen.has(id)) {
+        watchlistSeen.add(id);
+        watchlistOrder.push(id);
+      } else if (customListsLib.isCustomListId(row.listId)) {
+        if (!customListsLib.findCustomList(customLists, row.listId)) {
+          continue;
+        }
+        if (!customOrder.has(row.listId)) {
+          customOrder.set(row.listId, []);
+        }
+        const order = customOrder.get(row.listId);
+        if (!order.includes(id)) {
+          order.push(id);
+        }
+      }
+    }
+
+    for (const id of watchedOrder) {
+      lists = listsLib.assignMovieToList(lists, listsLib.WATCHED_ID, id);
+      statuses = syncLib.setMovieStatus(statuses, id, listsLib.WATCHED_ID, now);
+      addedAt = addedAtLib.recordAddedAt(addedAt, id, now);
+    }
+
+    for (const id of watchlistOrder) {
+      if (listsLib.isWatched(lists, id)) {
+        continue;
+      }
+      lists = listsLib.assignMovieToList(lists, listsLib.WATCHLIST_ID, id);
+      statuses = syncLib.setMovieStatus(statuses, id, listsLib.WATCHLIST_ID, now);
+      addedAt = addedAtLib.recordAddedAt(addedAt, id, now);
+    }
+
+    for (const [listId, order] of customOrder) {
+      for (const id of order) {
+        customLists = customListsLib.addMovieToCustomList(customLists, listId, id, now);
+      }
+    }
+
+    for (const [movieId, movieRows] of byMovie) {
+      const { myRating, watchDates } = mergeMovieFields(movieRows);
+      if (myRating != null) {
+        ratings = ratingsLib.setRating(ratings, movieId, myRating);
+      }
+      for (const watchedOn of watchDates) {
+        viewingHistory = viewingLib.addViewing(viewingHistory, movieId, watchedOn, now);
+      }
+    }
+
+    const summary = {
+      movies: byMovie.size,
+      rows: parsedRows.length,
+      watched: watchedOrder.length,
+      watchlist: watchlistOrder.filter((id) => !listsLib.isWatched(lists, id)).length,
+      customRows: [...customOrder.values()].reduce((sum, ids) => sum + ids.length, 0),
+      ratings: Object.keys(ratings).length,
+      viewings: Object.values(viewingHistory).reduce(
+        (sum, entries) => sum + (Array.isArray(entries) ? entries.length : 0),
+        0,
+      ),
+    };
+
+    return {
+      state: {
+        ...state,
+        lists,
+        customLists,
+        customListTombstones,
+        ratings,
+        viewingHistory,
+        statuses,
+        addedAt,
+      },
+      summary,
+    };
   }
 
   /**
@@ -2122,6 +2544,10 @@ const appListCsv = (function () {
     CSV_FILENAME,
     listCsvRows,
     buildListCsv,
+    parseCsv,
+    parseCollectionCsv,
+    summarizeCollectionImport,
+    applyCollectionImport,
     parseListCsv,
   };
 })();
@@ -3651,10 +4077,7 @@ const appUserState = (function () {
 
     const normalizedLists = lists.normalizeLists(raw.lists);
 
-    let activeListId = raw.activeListId;
-    if (activeListId === "favourites") {
-      activeListId = lists.WATCHED_ID;
-    }
+    const activeListId = raw.activeListId;
 
     const statuses = getSyncMerge().normalizeStatuses(
       raw.statuses,
@@ -5796,10 +6219,26 @@ function tmdbUrlToProxyRequest(url) {
   const parsed = new URL(String(url));
   const match = /^\/3(\/.+)$/.exec(parsed.pathname);
   const path = match ? match[1] : parsed.pathname;
+  const allowed = new Set([
+    "query",
+    "language",
+    "page",
+    "include_adult",
+    "append_to_response",
+    "region",
+    "sort_by",
+    "include_video",
+    "primary_release_date.gte",
+    "primary_release_date.lte",
+    "release_date.gte",
+    "release_date.lte",
+    "with_release_type",
+    "with_original_language",
+    "vote_count.gte",
+  ]);
   const searchParams = {};
-  for (const key of ["query", "language", "page", "include_adult", "append_to_response", "region"]) {
-    const value = parsed.searchParams.get(key);
-    if (value != null && value !== "") {
+  for (const [key, value] of parsed.searchParams.entries()) {
+    if (allowed.has(key) && value !== "") {
       searchParams[key] = value;
     }
   }
@@ -6360,22 +6799,16 @@ async function fetchDiscoverMovies(tab, options = {}) {
     const signal = options.signal;
     const buildUrl =
       normalizedTab === "now-playing" ? appTmdb.buildNowPlayingUrl : appTmdb.buildUpcomingUrl;
-    const todayIso = appDiscover.todayIsoDate();
-    const mergeOpts = {
-      filterUpcoming: normalizedTab === "upcoming",
-      todayIso,
-    };
     const payload = await fetchTmdb(
-      buildUrl({
-        page,
-        today: todayIso,
-      }),
+      buildUrl({ page }),
       { signal },
     ).then((response) => response.json());
     const meta = appDiscover.normalizeDiscoverListMeta(payload);
     const entries = appDiscover.filterDiscoverPageEntries(
       appTmdb.normalizeSearchResults(payload),
-      mergeOpts,
+      {
+        isLastPage: meta.page >= meta.totalPages,
+      },
     );
     return { ...meta, entries };
   })();
@@ -7302,11 +7735,37 @@ function cardFanRatingHtml(movieId) {
   return `<span class="card-fan-rating${emptyClass}" aria-label="Fan rating ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
 }
 
-function discoverUpcomingCardWatchlistHtml(movieId) {
-  const isMember = appLists.isOnWatchlist(userState.lists, movieId);
-  return `<div class="card-body-ratings card-body-ratings--interactive">
-    <button type="button" class="discover-card-watchlist-btn discover-card-watchlist-btn--icon-only${isMember ? " is-active" : ""}" data-discover-preset-id="${appCardHtml.escapeHtml(appLists.WATCHLIST_ID)}" aria-label="Watchlist" title="Watchlist" aria-pressed="${isMember ? "true" : "false"}">${appCardHtml.addListPresetIconHtml("watchlist")}</button>
-  </div>`;
+function discoverCardPresetButtonHtml(listId, movieId) {
+  const isWatchlist = listId === appLists.WATCHLIST_ID;
+  const isMember = isWatchlist
+    ? appLists.isOnWatchlist(userState.lists, movieId)
+    : appLists.isWatched(userState.lists, movieId);
+  const label = isWatchlist ? "Watchlist" : "Watched";
+  const iconPreset = isWatchlist ? "watchlist" : "watched";
+  return `<button type="button" class="discover-card-watchlist-btn discover-card-watchlist-btn--icon-only${isMember ? " is-active" : ""}" data-discover-preset-id="${appCardHtml.escapeHtml(listId)}" aria-label="${label}" title="${label}" aria-pressed="${isMember ? "true" : "false"}">${appCardHtml.addListPresetIconHtml(iconPreset)}</button>`;
+}
+
+function discoverCardActionsHtml(movieId) {
+  const buttons =
+    discoverTab === "now-playing"
+      ? `${discoverCardPresetButtonHtml(appLists.WATCHLIST_ID, movieId)}${discoverCardPresetButtonHtml(appLists.WATCHED_ID, movieId)}`
+      : discoverCardPresetButtonHtml(appLists.WATCHLIST_ID, movieId);
+  return `<div class="card-body-ratings card-body-ratings--interactive discover-card-actions">${buttons}</div>`;
+}
+
+function discoverCardTextHtml(movieId, record) {
+  const titleRating =
+    discoverTab === "now-playing" ? cardFanRatingHtml(movieId) : "";
+  return `<div class="card-text discover-card-text">
+  <div class="discover-card-title-row">
+    <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>
+    ${titleRating}
+  </div>
+  <div class="card-meta-row">
+    <div class="card-meta">${cardMetaHtml(record)}</div>
+    ${discoverCardActionsHtml(movieId)}
+  </div>
+</div>`;
 }
 
 function cardDetailRatingsHtml(movieId) {
@@ -7314,11 +7773,7 @@ function cardDetailRatingsHtml(movieId) {
     return "";
   }
   if (isDiscoverActive()) {
-    if (discoverTab === "upcoming") {
-      return discoverUpcomingCardWatchlistHtml(movieId);
-    }
-    const fan = cardFanRatingHtml(movieId);
-    return fan ? `<div class="card-body-ratings">${fan}</div>` : "";
+    return "";
   }
   if (!usesWatchedStyleDisplay()) {
     return "";
@@ -7644,6 +8099,15 @@ function cardInnerHtml(movieId) {
 </div>
 <div class="card-body card-body--watchlist">
   ${watchlistCardPanelHtml(movieId)}
+</div>`;
+  }
+
+  if (isDiscoverActive()) {
+    return `${posterWrapOpen(movieId)}
+  ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
+</div>
+<div class="card-body">
+  ${discoverCardTextHtml(movieId, record)}
 </div>`;
   }
 
@@ -9083,12 +9547,7 @@ function refreshSettings() {
     appGistSync.isConnectedGistConfig(gistConfig) ? "ok" : null,
   );
   setStatus(cacheStatus, "");
-  const bundled = localMovieCount();
-  setStatus(
-    exportCsvStatus,
-    bundled ? `${bundled} movies bundled in this build.` : "No bundled data yet.",
-    bundled ? "ok" : null,
-  );
+  refreshCollectionTransferStatus();
 }
 
 function openSettings() {
@@ -9170,7 +9629,7 @@ function csvRecordFor(movieId) {
 async function onExportCsv() {
   const previewRows = appListCsv.listCsvRows(userState, csvRecordFor);
   if (!previewRows.length) {
-    setStatus(exportCsvStatus, "Nothing to export yet.", null);
+    setStatus(exportCsvStatus, "Nothing to export", null);
     return;
   }
   exportCsvBtn.disabled = true;
@@ -9192,7 +9651,12 @@ async function onExportCsv() {
     link.download = appListCsv.CSV_FILENAME;
     link.click();
     URL.revokeObjectURL(objectUrl);
-    setStatus(exportCsvStatus, `Exported ${rows.length} movies.`, "ok");
+    const movieCount = new Set(rows.map((row) => row.id)).size;
+    setStatus(
+      exportCsvStatus,
+      `Exported backup (${movieCount} movie${movieCount === 1 ? "" : "s"}, ${rows.length} row${rows.length === 1 ? "" : "s"}).`,
+      "ok",
+    );
   } catch (_) {
     setStatus(exportCsvStatus, "Export failed.", "error");
   } finally {
@@ -10879,6 +11343,135 @@ function openDiscover() {
   navigateToDiscover(appDiscover.DEFAULT_DISCOVER_TAB);
 }
 
+/* ===== Collection backup CSV import ===== */
+
+/* --- Collection backup import --- */
+
+let collectionImportRows = null;
+
+function syncCollectionImportFileLabel() {
+  if (!collectionImportFileName) {
+    return;
+  }
+  const file = collectionImportFile?.files?.[0];
+  collectionImportFileName.textContent = file ? file.name : "Choose CSV…";
+  collectionImportFileName.classList.toggle("is-empty", !file);
+  if (collectionImportRead) {
+    collectionImportRead.disabled = !file;
+  }
+}
+
+function collectionExportMovieCount() {
+  const rows = appListCsv.listCsvRows(userState, () => ({ title: "", releaseDate: "" }));
+  return new Set(rows.map((row) => row.id)).size;
+}
+
+function refreshCollectionTransferStatus() {
+  const movieCount = collectionExportMovieCount();
+  setStatus(
+    exportCsvStatus,
+    movieCount
+      ? `${movieCount} movie${movieCount === 1 ? "" : "s"} to export`
+      : "Nothing to export",
+    movieCount ? "ok" : null,
+  );
+  if (exportCsvBtn) {
+    exportCsvBtn.disabled = !movieCount;
+  }
+  setStatus(collectionImportStatus, "");
+  syncCollectionImportFileLabel();
+}
+
+function formatCollectionImportSummary(summary) {
+  const parts = [
+    `${summary.movies} movie${summary.movies === 1 ? "" : "s"}`,
+    `${summary.rows} row${summary.rows === 1 ? "" : "s"}`,
+    `${summary.watched} watched`,
+    `${summary.watchlist} watchlist`,
+  ];
+  if (summary.customRows) {
+    parts.push(`${summary.customRows} custom list row${summary.customRows === 1 ? "" : "s"}`);
+  }
+  if (summary.ratings) {
+    parts.push(`${summary.ratings} rating${summary.ratings === 1 ? "" : "s"}`);
+  }
+  if (summary.viewings) {
+    parts.push(`${summary.viewings} viewing date${summary.viewings === 1 ? "" : "s"}`);
+  }
+  return parts.join(", ");
+}
+
+function openCollectionImportConfirm(summary) {
+  collectionImportMessage.textContent =
+    `Replace your lists, ratings, and viewing history with this backup (${formatCollectionImportSummary(summary)})? Movies not in the file will be removed. Custom lists in the file are restored; others are cleared.`;
+  collectionImportDialog.hidden = false;
+  collectionImportCancel.focus({ preventScroll: true });
+}
+
+function closeCollectionImportConfirm() {
+  collectionImportDialog.hidden = true;
+  settingsBtn.focus({ preventScroll: true });
+}
+
+async function onReviewCollectionImport() {
+  const file = collectionImportFile.files?.[0];
+  if (!file) {
+    setStatus(collectionImportStatus, "Choose a backup CSV first.", "error");
+    return;
+  }
+  collectionImportRead.disabled = true;
+  setStatus(collectionImportStatus, "Reading backup…", null);
+  try {
+    const text = await file.text();
+    const rows = appListCsv.parseCollectionCsv(text);
+    if (!rows.length) {
+      throw new Error("That file does not contain any collection rows.");
+    }
+    collectionImportRows = rows;
+    openCollectionImportConfirm(appListCsv.summarizeCollectionImport(rows));
+    setStatus(collectionImportStatus, "Review the import confirmation.", null);
+  } catch (error) {
+    collectionImportRows = null;
+    setStatus(collectionImportStatus, error.message || "Could not read that backup.", "error");
+  } finally {
+    collectionImportRead.disabled = false;
+  }
+}
+
+function onConfirmCollectionImport() {
+  if (!collectionImportRows?.length) {
+    closeCollectionImportConfirm();
+    return;
+  }
+  collectionImportOk.disabled = true;
+  try {
+    const before = userState;
+    const result = appListCsv.applyCollectionImport(before, collectionImportRows, {
+      mode: "replace",
+    });
+    backupUserState(before);
+    userState = result.state;
+    persistUserState();
+    refreshViewModeForActiveList();
+    render();
+    hydrateActiveList();
+    collectionImportRows = null;
+    collectionImportFile.value = "";
+    syncCollectionImportFileLabel();
+    closeCollectionImportConfirm();
+    refreshCollectionTransferStatus();
+    setStatus(
+      collectionImportStatus,
+      `Imported backup: ${formatCollectionImportSummary(result.summary)}.`,
+      "ok",
+    );
+  } catch (error) {
+    setStatus(collectionImportStatus, error.message || "The import could not be saved.", "error");
+  } finally {
+    collectionImportOk.disabled = false;
+  }
+}
+
 /* ===== Event wiring and startup ===== */
 
 /* Event wiring and startup. Closes the shared IIFE opened in 01-config-dom-state.js. */
@@ -11286,6 +11879,13 @@ tmdbKeyInput.addEventListener("keydown", (event) => {
 tmdbKeyClear.addEventListener("click", onClearCredential);
 cacheClearBtn.addEventListener("click", onClearCache);
 exportCsvBtn.addEventListener("click", onExportCsv);
+collectionImportRead?.addEventListener("click", onReviewCollectionImport);
+collectionImportFile?.addEventListener("change", syncCollectionImportFileLabel);
+collectionImportOk?.addEventListener("click", onConfirmCollectionImport);
+collectionImportCancel?.addEventListener("click", closeCollectionImportConfirm);
+collectionImportDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-collection-import")) closeCollectionImportConfirm();
+});
 storageModeLocal.addEventListener("change", () => onStorageModeChange("local"));
 storageModeGist.addEventListener("change", () => onStorageModeChange("gist"));
 gistConnectBtn.addEventListener("click", onConnectGist);
@@ -11358,6 +11958,10 @@ hostedLockDialog.addEventListener("click", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
+    if (!collectionImportDialog.hidden) {
+      closeCollectionImportConfirm();
+      return;
+    }
     if (!hostedUnlockDialog.hidden) {
       closeHostedUnlockDialog();
       return;

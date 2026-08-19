@@ -1,4 +1,4 @@
-/* Generated from scripts/lib/list-csv.js — run npm run bundle */
+/* Generated from scripts/lib/list-csv.js — run npm run bundle:letterboxd */
 
 const appListCsv = (function () {
   /**
@@ -497,14 +497,8 @@ const appListCsv = (function () {
   }
 
   return {
-    CSV_HEADER,
     CSV_FILENAME,
-    listCsvRows,
     buildListCsv,
     parseCsv,
-    parseCollectionCsv,
-    summarizeCollectionImport,
-    applyCollectionImport,
-    parseListCsv,
   };
 })();
