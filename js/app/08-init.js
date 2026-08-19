@@ -214,6 +214,11 @@ removeConfirmDialog.addEventListener("click", (event) => {
 
 window.addEventListener("popstate", syncDetailFromLocation);
 
+/* --- Staying current across tabs --- */
+
+window.addEventListener("storage", onUserStateStorageEvent);
+document.addEventListener("visibilitychange", onVisibilityRefresh);
+
 /* --- Settings and about --- */
 
 settingsBtn.addEventListener("click", openSettings);
@@ -364,22 +369,10 @@ function startApp() {
   syncDetailFromLocation();
   hydrateActiveList();
 
-  if (
-    userState.storageMode === "gist" &&
-    appGistSync.isConnectedGistConfig(gistConfig)
-  ) {
-    pullStateFromGist()
-      .then((changed) => {
-        if (!changed) {
-          return;
-        }
-        setViewMode(gridViewMode);
-        render();
-        hydrateActiveList();
-      })
-      .catch(() => {
-        /* Offline or a revoked token; the local copy stays authoritative. */
-      });
+  // Reconcile rather than pull: startup is also when this tab is most likely to
+  // be holding something the Gist has not seen yet.
+  if (gistSyncEnabled()) {
+    queueGistSync();
   }
 }
 

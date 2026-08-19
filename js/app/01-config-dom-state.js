@@ -74,6 +74,8 @@ const removeConfirmMessage = document.getElementById("remove-confirm-message");
 const removeConfirmCancel = document.getElementById("remove-confirm-cancel");
 const removeConfirmOk = document.getElementById("remove-confirm-ok");
 
+const syncNotice = document.getElementById("sync-notice");
+
 const watchConfirmDialog = document.getElementById("watch-confirm-dialog");
 const watchConfirmMessage = document.getElementById("watch-confirm-message");
 const watchConfirmCancel = document.getElementById("watch-confirm-cancel");
@@ -108,6 +110,7 @@ let detailRatingEditorOpen = false;
 let detailRatingEditorSnapshot = null;
 let pendingRemoveMovieId = null;
 let pendingWatchMovieId = null;
+let syncNoticeTimer = null;
 let tmdbCredential = "";
 
 /* --- Small shared helpers --- */

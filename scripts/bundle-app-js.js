@@ -43,6 +43,10 @@ const PARTS = [
     title: "Watched list display sort (generated from scripts/lib/sort.js)",
   },
   {
+    file: "00-app-sync-merge.js",
+    title: "Sync merge and tombstones (generated from scripts/lib/sync-merge.js)",
+  },
+  {
     file: "00-app-user-state.js",
     title: "User state persistence (generated from scripts/lib/user-state.js)",
   },

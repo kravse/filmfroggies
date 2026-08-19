@@ -10,6 +10,16 @@ const GIST_STATE_FILENAME = "moviecollector-state.json";
 const GITHUB_API = "https://api.github.com";
 const GIST_DESCRIPTION = "Movie collector sync";
 
+function getSyncMerge() {
+  if (typeof appSyncMerge !== "undefined") {
+    return appSyncMerge;
+  }
+  if (typeof require === "function") {
+    return require("./sync-merge");
+  }
+  throw new Error("appSyncMerge is not available");
+}
+
 function parseGistSyncConfig(json) {
   if (json == null || json === "") {
     return null;
@@ -36,28 +46,6 @@ function serializeGistSyncConfig(config) {
 
 function isConnectedGistConfig(config) {
   return Boolean(config?.token && config?.gistId);
-}
-
-/** Last write wins, decided by the `updatedAt` stamp each device sets. */
-function mergeStateByUpdatedAt(localState, remoteState) {
-  if (!remoteState) {
-    return localState;
-  }
-  if (!localState) {
-    return remoteState;
-  }
-  const localTime = Date.parse(localState.updatedAt || "");
-  const remoteTime = Date.parse(remoteState.updatedAt || "");
-  if (!Number.isFinite(localTime) && Number.isFinite(remoteTime)) {
-    return remoteState;
-  }
-  if (Number.isFinite(localTime) && !Number.isFinite(remoteTime)) {
-    return localState;
-  }
-  if (remoteTime > localTime) {
-    return remoteState;
-  }
-  return localState;
 }
 
 function extractStateJsonFromGistResponse(body) {
@@ -95,7 +83,9 @@ function buildGistUpdatePayload(stateJson) {
 
 /**
  * Connecting adopts an existing Gist rather than overwriting it, so pointing a
- * second device at the same account picks up the lists already there.
+ * second device at the same account picks up the lists already there. The two
+ * sides are merged rather than swapped, so movies added on this device before
+ * connecting are not dropped on the way in.
  */
 function resolveGistConnectState({ gistId, remoteState, localState }) {
   if (gistId) {
@@ -106,7 +96,12 @@ function resolveGistConnectState({ gistId, remoteState, localState }) {
           "Found an existing sync Gist but could not read moviecollector-state.json. Your Gist was not changed.",
       };
     }
-    return { ok: true, action: "adopt", gistId, nextState: remoteState };
+    return {
+      ok: true,
+      action: "adopt",
+      gistId,
+      nextState: getSyncMerge().mergeUserStates(remoteState, localState),
+    };
   }
 
   return { ok: true, action: "create", gistId: "", nextState: localState };
@@ -118,7 +113,6 @@ module.exports = {
   parseGistSyncConfig,
   serializeGistSyncConfig,
   isConnectedGistConfig,
-  mergeStateByUpdatedAt,
   extractStateJsonFromGistResponse,
   findCollectorGistId,
   buildGistCreatePayload,

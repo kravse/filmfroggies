@@ -52,12 +52,26 @@ That leaves two states a movie can be in: on the watchlist, or watched. The rule
 
 | Key | Contents |
 |-----|----------|
-| `moviecollector-user-state` | The two lists with their ordered `movieIds`, active list, view preference |
+| `moviecollector-user-state` | The two lists with their ordered `movieIds`, per-movie statuses, active list, view preference |
+| `moviecollector-user-state-backup` | The payload from just before the last merge, kept for recovery |
 | `moviecollector-tmdb-auth` | Your TMDB read access token only |
 | `moviecollector-hosted-session` | Opaque hosted-access session token (Netlify only; not synced) |
 | `moviecollector-gist-sync` | GitHub Gist credentials (`token`, `gistId`) when connected |
 
 **Gist sync security:** the PAT is stored in `localStorage`. Use a throwaway GitHub account and a fine-grained PAT limited to gist read/write. Neither the PAT nor the TMDB credential is written into the synced Gist file. The Gist is private, titled **Movie collector sync**, and holds a single file: `moviecollector-state.json`.
+
+### How sync avoids losing movies
+
+A tab left open holds its own copy of your lists, so a naive "newest payload wins" push lets a stale tab overwrite everything another tab added. Sync is built to make that impossible:
+
+- **Read before write.** Every save fetches the Gist, merges, and only then writes. A payload that cannot be read is never overwritten — the change stays local and retries later.
+- **One request at a time.** All syncs run through a single promise chain, so two overlapping read/write pairs cannot interleave.
+- **Per-movie timestamps, not per-payload.** Each movie carries a status (`watched`, `watchlist`, or `removed`) stamped with when it last changed. Merging compares those stamps, so a stale tab contributes its edit instead of replacing the payload. Acting in a stale tab bumps the payload's `updatedAt` but not any movie's stamp, which is what makes this work.
+- **Removal is recorded, not inferred.** A missing id means "never heard of it" and the movie is kept. Deleting writes a `removed` record, so removals survive a stale tab while re-adding a film outranks the older removal.
+- **Ties keep the movie.** If two stamps match exactly, the film stays.
+- **Tabs self-heal.** A background tab merges in another tab's write immediately and re-checks the Gist whenever it regains focus, then shows a notice explaining what changed.
+
+Recovery, if you ever need it: every push creates a GitHub Gist revision, so the remote keeps full history, and `moviecollector-user-state-backup` holds the payload from just before the last merge.
 
 ## Deploy
 

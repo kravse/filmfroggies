@@ -76,6 +76,8 @@ const removeConfirmMessage = document.getElementById("remove-confirm-message");
 const removeConfirmCancel = document.getElementById("remove-confirm-cancel");
 const removeConfirmOk = document.getElementById("remove-confirm-ok");
 
+const syncNotice = document.getElementById("sync-notice");
+
 const watchConfirmDialog = document.getElementById("watch-confirm-dialog");
 const watchConfirmMessage = document.getElementById("watch-confirm-message");
 const watchConfirmCancel = document.getElementById("watch-confirm-cancel");
@@ -110,6 +112,7 @@ let detailRatingEditorOpen = false;
 let detailRatingEditorSnapshot = null;
 let pendingRemoveMovieId = null;
 let pendingWatchMovieId = null;
+let syncNoticeTimer = null;
 let tmdbCredential = "";
 
 /* --- Small shared helpers --- */
@@ -1179,6 +1182,286 @@ const appSort = (function () {
   };
 })();
 
+/* ===== Sync merge and tombstones (generated from scripts/lib/sync-merge.js) ===== */
+
+/* Generated from scripts/lib/sync-merge.js — run npm run bundle */
+
+const appSyncMerge = (function () {
+  /**
+   * Merge for multi-tab and multi-device sync.
+   *
+   * Every tab holds its own in-memory copy, so a blind "newest payload wins" push
+   * lets a tab that has been open for an hour replace everything another tab
+   * added. Merging fixes that, but merging on list membership alone cannot work:
+   * an id missing from one side is either a movie that side deleted or one it
+   * never heard of, and those look identical.
+   *
+   * So removal is recorded rather than inferred. Every movie carries a status —
+   * `watched`, `watchlist`, or `removed` — stamped with the time it last changed,
+   * and merging compares those per-movie stamps. Deletion becomes a positive
+   * fact, which is what makes it survive a stale tab without needing to track
+   * what each copy has already seen.
+   *
+   * `movieIds` still holds membership and order for everything the UI touches.
+   * Removed ids live only in this map, so nothing renders them and TMDB is never
+   * asked about them.
+   */
+
+  const REMOVED_STATUS = "removed";
+  /** Unknown history sorts oldest, so any real stamp beats a backfilled one. */
+  const EPOCH_ISO = "1970-01-01T00:00:00.000Z";
+  /** Bounds the payload: removal records are the only entries that accumulate. */
+  const REMOVED_LIMIT = 500;
+
+  function getLists() {
+    if (typeof appLists !== "undefined") {
+      return appLists;
+    }
+    if (typeof require === "function") {
+      return require("./lists");
+    }
+    throw new Error("appLists is not available");
+  }
+
+  function parseStamp(value) {
+    const time = Date.parse(value || "");
+    return Number.isFinite(time) ? time : null;
+  }
+
+  function normalizeStamp(value) {
+    const time = parseStamp(value);
+    return time == null ? null : new Date(time).toISOString();
+  }
+
+  /** Returns whichever ISO stamp is later, preferring the one that parses. */
+  function newerStamp(a, b) {
+    const aTime = parseStamp(a);
+    const bTime = parseStamp(b);
+    if (aTime == null) {
+      return bTime == null ? null : b;
+    }
+    if (bTime == null) {
+      return a;
+    }
+    return bTime > aTime ? b : a;
+  }
+
+  function isStatus(value) {
+    return value === REMOVED_STATUS || getLists().isListId(value);
+  }
+
+  function statusEntry(status, at) {
+    return { status, at };
+  }
+
+  function statusOf(statuses, movieId) {
+    return statuses?.[String(movieId)]?.status || null;
+  }
+
+  function isRemoved(statuses, movieId) {
+    return statusOf(statuses, movieId) === REMOVED_STATUS;
+  }
+
+  /**
+   * Rebuilds the map against the lists, which stay authoritative for membership
+   * while the app is running: an id in a list gets that list's status, an id in no
+   * list keeps a removal record, and anything else is dropped. Dropping is safe
+   * because a missing entry means "no opinion", and merge keeps the movie.
+   */
+  function normalizeStatuses(raw, lists, fallbackStamp) {
+    const listsLib = getLists();
+    const fallback = normalizeStamp(fallbackStamp) || EPOCH_ISO;
+
+    const stored = new Map();
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      for (const [key, value] of Object.entries(raw)) {
+        const id = Number(key);
+        if (!Number.isInteger(id) || id <= 0 || !isStatus(value?.status)) {
+          continue;
+        }
+        stored.set(
+          id,
+          statusEntry(value.status, normalizeStamp(value?.at) || fallback),
+        );
+      }
+    }
+
+    const next = {};
+    const inList = new Set();
+    for (const listId of listsLib.LIST_IDS) {
+      const list = listsLib.findList(lists, listId);
+      for (const entry of list?.movieIds || []) {
+        const id = Number(entry);
+        if (!Number.isInteger(id) || id <= 0) {
+          continue;
+        }
+        inList.add(id);
+        const existing = stored.get(id);
+        // A stored status that disagrees with membership is out of date, so the
+        // stamp is refreshed too: keeping the old one would let another copy's
+        // removal outrank a movie that is demonstrably back in a list.
+        const at = existing && existing.status === listId ? existing.at : fallback;
+        next[String(id)] = statusEntry(listId, at);
+      }
+    }
+
+    const removals = [];
+    for (const [id, entry] of stored) {
+      if (!inList.has(id) && entry.status === REMOVED_STATUS) {
+        removals.push([id, entry]);
+      }
+    }
+    removals.sort((a, b) => Date.parse(b[1].at) - Date.parse(a[1].at));
+    for (const [id, entry] of removals.slice(0, REMOVED_LIMIT)) {
+      next[String(id)] = entry;
+    }
+
+    return next;
+  }
+
+  function setMovieStatus(statuses, movieId, status, now = new Date()) {
+    const id = Number(movieId);
+    const base = statuses && typeof statuses === "object" ? statuses : {};
+    if (!Number.isInteger(id) || id <= 0 || !isStatus(status)) {
+      return base;
+    }
+    return {
+      ...base,
+      [String(id)]: statusEntry(status, now.toISOString()),
+    };
+  }
+
+  /**
+   * Per-movie last write wins. A tie keeps the movie rather than the removal,
+   * because losing a film is the only outcome here that cannot be undone by hand.
+   */
+  function mergeStatuses(a, b) {
+    const left = a && typeof a === "object" ? a : {};
+    const right = b && typeof b === "object" ? b : {};
+    const merged = {};
+
+    for (const key of new Set([...Object.keys(left), ...Object.keys(right)])) {
+      const leftEntry = left[key];
+      const rightEntry = right[key];
+      if (!leftEntry || !rightEntry) {
+        merged[key] = leftEntry || rightEntry;
+        continue;
+      }
+      const leftTime = parseStamp(leftEntry.at);
+      const rightTime = parseStamp(rightEntry.at);
+      if (rightTime != null && (leftTime == null || rightTime > leftTime)) {
+        merged[key] = rightEntry;
+      } else if (leftTime != null && (rightTime == null || leftTime > rightTime)) {
+        merged[key] = leftEntry;
+      } else {
+        merged[key] = leftEntry.status === REMOVED_STATUS ? rightEntry : leftEntry;
+      }
+    }
+
+    return merged;
+  }
+
+  function idsFor(state, listId) {
+    const list = getLists().findList(state?.lists, listId);
+    return Array.isArray(list?.movieIds) ? list.movieIds.map(Number) : [];
+  }
+
+  /**
+   * Membership comes from the merged statuses; the old arrays only supply order,
+   * newer side first. A movie that changed lists is positioned by wherever it
+   * already appeared, which is why every array is offered as a hint.
+   */
+  function orderedIdsForStatus(statuses, listId, orderHints) {
+    const wanted = new Set();
+    for (const [key, entry] of Object.entries(statuses)) {
+      if (entry.status === listId) {
+        wanted.add(Number(key));
+      }
+    }
+
+    const ordered = [];
+    const placed = new Set();
+    for (const hint of orderHints) {
+      for (const id of hint) {
+        if (wanted.has(id) && !placed.has(id)) {
+          placed.add(id);
+          ordered.push(id);
+        }
+      }
+    }
+    for (const id of wanted) {
+      if (!placed.has(id)) {
+        placed.add(id);
+        ordered.push(id);
+      }
+    }
+    return ordered;
+  }
+
+  /**
+   * Combines two payloads. The result is raw: callers run it through
+   * normalizeUserState to re-apply the list invariants.
+   */
+  function mergeUserStates(a, b) {
+    if (!a) {
+      return b || null;
+    }
+    if (!b) {
+      return a;
+    }
+
+    const lists = getLists();
+    const aTime = parseStamp(a.updatedAt);
+    const bTime = parseStamp(b.updatedAt);
+    // Ties and missing stamps keep `a` primary, so the local copy is never
+    // demoted by a payload that cannot prove it is newer. This decides display
+    // order and preferences only; membership is settled per movie.
+    const bWins = bTime != null && (aTime == null || bTime > aTime);
+    const primary = bWins ? b : a;
+    const secondary = bWins ? a : b;
+
+    // Derived per side rather than trusted: a payload written before statuses
+    // existed has none, and reading membership straight from an empty map would
+    // merge both lists down to nothing. Backfill stamps come from each side's own
+    // `updatedAt`, never from now, or a stale tab would look freshly edited.
+    const statuses = mergeStatuses(
+      normalizeStatuses(a.statuses, a.lists, a.updatedAt),
+      normalizeStatuses(b.statuses, b.lists, b.updatedAt),
+    );
+    const orderHints = [
+      ...lists.LIST_IDS.map((listId) => idsFor(primary, listId)),
+      ...lists.LIST_IDS.map((listId) => idsFor(secondary, listId)),
+    ];
+
+    return {
+      ...primary,
+      updatedAt: newerStamp(a.updatedAt, b.updatedAt),
+      lists: lists.LIST_IDS.map((listId) => ({
+        id: listId,
+        movieIds: orderedIdsForStatus(statuses, listId, orderHints),
+      })),
+      ratings: {
+        ...(secondary.ratings && typeof secondary.ratings === "object" ? secondary.ratings : {}),
+        ...(primary.ratings && typeof primary.ratings === "object" ? primary.ratings : {}),
+      },
+      statuses,
+    };
+  }
+
+  return {
+    REMOVED_STATUS,
+    REMOVED_LIMIT,
+    EPOCH_ISO,
+    newerStamp,
+    statusOf,
+    isRemoved,
+    normalizeStatuses,
+    setMovieStatus,
+    mergeStatuses,
+    mergeUserStates,
+  };
+})();
+
 /* ===== User state persistence (generated from scripts/lib/user-state.js) ===== */
 
 /* Generated from scripts/lib/user-state.js — run npm run bundle */
@@ -1193,10 +1476,12 @@ const appUserState = (function () {
    */
 
   const USER_STATE_KEY = "moviecollector-user-state";
+  /** Payload from just before the last merge, so a bad merge stays recoverable. */
+  const USER_STATE_BACKUP_KEY = "moviecollector-user-state-backup";
   const GIST_SYNC_KEY = "moviecollector-gist-sync";
   const TMDB_AUTH_KEY = "moviecollector-tmdb-auth";
   const HOSTED_SESSION_KEY = "moviecollector-hosted-session";
-  const USER_STATE_VERSION = 1;
+  const USER_STATE_VERSION = 2;
 
   const VIEW_MODES = new Set(["cards", "detail"]);
   const STORAGE_MODES = new Set(["local", "gist"]);
@@ -1231,6 +1516,16 @@ const appUserState = (function () {
     throw new Error("appSort is not available");
   }
 
+  function getSyncMerge() {
+    if (typeof appSyncMerge !== "undefined") {
+      return appSyncMerge;
+    }
+    if (typeof require === "function") {
+      return require("./sync-merge");
+    }
+    throw new Error("appSyncMerge is not available");
+  }
+
   function defaultPreferences() {
     return { viewMode: "cards", sort: getSort().DEFAULT_SORT };
   }
@@ -1245,6 +1540,7 @@ const appUserState = (function () {
       activeListId: lists.DEFAULT_LIST_ID,
       preferences: defaultPreferences(),
       ratings: {},
+      statuses: {},
     };
   }
 
@@ -1287,6 +1583,11 @@ const appUserState = (function () {
         : lists.DEFAULT_LIST_ID,
       preferences: normalizePreferences(raw.preferences),
       ratings: getRatings().normalizeRatings(raw.ratings, normalizedLists),
+      statuses: getSyncMerge().normalizeStatuses(
+        raw.statuses,
+        normalizedLists,
+        raw.updatedAt,
+      ),
     };
   }
 
@@ -1313,8 +1614,47 @@ const appUserState = (function () {
     return { ...state, updatedAt: now.toISOString() };
   }
 
+  /** Map key order follows insertion, so sort it or the fingerprint is unstable. */
+  function sortedIdMap(map) {
+    const out = {};
+    for (const key of Object.keys(map || {}).sort((a, b) => Number(a) - Number(b))) {
+      out[key] = map[key];
+    }
+    return out;
+  }
+
+  /**
+   * Fingerprint of everything except `updatedAt`. Sync compares these to tell a
+   * real edit from a re-stamp, which is what stops two tabs from pushing
+   * identical payloads back and forth forever.
+   */
+  function userStateSignature(state) {
+    const normalized = normalizeUserState(state);
+    return JSON.stringify({
+      storageMode: normalized.storageMode,
+      activeListId: normalized.activeListId,
+      preferences: normalized.preferences,
+      lists: normalized.lists.map((list) => [list.id, list.movieIds]),
+      ratings: sortedIdMap(normalized.ratings),
+      statuses: sortedIdMap(normalized.statuses),
+    });
+  }
+
+  /** Total movies held across the lists, used to flag a shrinking merge. */
+  function countMovies(state) {
+    const lists = Array.isArray(state?.lists) ? state.lists : [];
+    const ids = new Set();
+    for (const list of lists) {
+      for (const id of list?.movieIds || []) {
+        ids.add(Number(id));
+      }
+    }
+    return ids.size;
+  }
+
   return {
     USER_STATE_KEY,
+    USER_STATE_BACKUP_KEY,
     GIST_SYNC_KEY,
     TMDB_AUTH_KEY,
     HOSTED_SESSION_KEY,
@@ -1325,6 +1665,8 @@ const appUserState = (function () {
     parseUserState,
     serializeUserState,
     touchUserState,
+    userStateSignature,
+    countMovies,
   };
 })();
 
@@ -1344,6 +1686,16 @@ const appGistSync = (function () {
   const GIST_STATE_FILENAME = "moviecollector-state.json";
   const GITHUB_API = "https://api.github.com";
   const GIST_DESCRIPTION = "Movie collector sync";
+
+  function getSyncMerge() {
+    if (typeof appSyncMerge !== "undefined") {
+      return appSyncMerge;
+    }
+    if (typeof require === "function") {
+      return require("./sync-merge");
+    }
+    throw new Error("appSyncMerge is not available");
+  }
 
   function parseGistSyncConfig(json) {
     if (json == null || json === "") {
@@ -1371,28 +1723,6 @@ const appGistSync = (function () {
 
   function isConnectedGistConfig(config) {
     return Boolean(config?.token && config?.gistId);
-  }
-
-  /** Last write wins, decided by the `updatedAt` stamp each device sets. */
-  function mergeStateByUpdatedAt(localState, remoteState) {
-    if (!remoteState) {
-      return localState;
-    }
-    if (!localState) {
-      return remoteState;
-    }
-    const localTime = Date.parse(localState.updatedAt || "");
-    const remoteTime = Date.parse(remoteState.updatedAt || "");
-    if (!Number.isFinite(localTime) && Number.isFinite(remoteTime)) {
-      return remoteState;
-    }
-    if (Number.isFinite(localTime) && !Number.isFinite(remoteTime)) {
-      return localState;
-    }
-    if (remoteTime > localTime) {
-      return remoteState;
-    }
-    return localState;
   }
 
   function extractStateJsonFromGistResponse(body) {
@@ -1430,7 +1760,9 @@ const appGistSync = (function () {
 
   /**
    * Connecting adopts an existing Gist rather than overwriting it, so pointing a
-   * second device at the same account picks up the lists already there.
+   * second device at the same account picks up the lists already there. The two
+   * sides are merged rather than swapped, so movies added on this device before
+   * connecting are not dropped on the way in.
    */
   function resolveGistConnectState({ gistId, remoteState, localState }) {
     if (gistId) {
@@ -1441,7 +1773,12 @@ const appGistSync = (function () {
             "Found an existing sync Gist but could not read moviecollector-state.json. Your Gist was not changed.",
         };
       }
-      return { ok: true, action: "adopt", gistId, nextState: remoteState };
+      return {
+        ok: true,
+        action: "adopt",
+        gistId,
+        nextState: getSyncMerge().mergeUserStates(remoteState, localState),
+      };
     }
 
     return { ok: true, action: "create", gistId: "", nextState: localState };
@@ -1453,7 +1790,6 @@ const appGistSync = (function () {
     parseGistSyncConfig,
     serializeGistSyncConfig,
     isConnectedGistConfig,
-    mergeStateByUpdatedAt,
     extractStateJsonFromGistResponse,
     findCollectorGistId,
     buildGistCreatePayload,
@@ -1583,6 +1919,12 @@ const GIST_TIMEOUT_MS = 15000;
 
 let gistConfig = null;
 
+/** `updatedAt` of the Gist payload this tab last saw, for staleness reporting. */
+let lastRemoteUpdatedAt = null;
+
+/** Serializes every Gist read/write pair; see queueGistSync(). */
+let gistSyncChain = Promise.resolve();
+
 function readStorage(key) {
   try {
     return localStorage.getItem(key);
@@ -1631,17 +1973,29 @@ function writeUserStateToStorage() {
   );
 }
 
+/** Snapshot taken before any merge replaces state, so a bad merge is undoable. */
+function backupUserState(state) {
+  if (!state) {
+    return;
+  }
+  writeStorage(
+    appUserState.USER_STATE_BACKUP_KEY,
+    appUserState.serializeUserState(state),
+  );
+}
+
+function gistSyncEnabled() {
+  return (
+    userState.storageMode === "gist" &&
+    appGistSync.isConnectedGistConfig(gistConfig)
+  );
+}
+
 function persistUserState(options = {}) {
   userState = appUserState.touchUserState(userState);
   writeUserStateToStorage();
-  if (
-    options.sync !== false &&
-    userState.storageMode === "gist" &&
-    appGistSync.isConnectedGistConfig(gistConfig)
-  ) {
-    pushStateToGist().catch(() => {
-      setStatus(gistStatus, "Could not save to GitHub. Changes are on this device.", "error");
-    });
+  if (options.sync !== false && gistSyncEnabled()) {
+    queueGistSync({ push: true });
   }
 }
 
@@ -1668,6 +2022,18 @@ function updateLists(nextLists) {
   }
   userState = { ...userState, lists: nextLists };
   return true;
+}
+
+/**
+ * Stamps what just happened to one movie. Sync merges on these per-movie
+ * records, so every membership change has to pass through here or a stale copy
+ * will out-vote it.
+ */
+function recordMovieStatus(movieId, status) {
+  userState = {
+    ...userState,
+    statuses: appSyncMerge.setMovieStatus(userState.statuses, movieId, status),
+  };
 }
 
 const VIEW_MODE_CYCLE = ["cards", "detail"];
@@ -1755,36 +2121,146 @@ function remoteStateFromGistBody(body) {
   return json ? appUserState.parseUserState(json) : null;
 }
 
-async function pushStateToGist() {
-  if (!appGistSync.isConnectedGistConfig(gistConfig)) {
-    return;
-  }
-  await gistRequest(`/gists/${gistConfig.gistId}`, {
-    method: "PATCH",
-    token: gistConfig.token,
-    body: appGistSync.buildGistUpdatePayload(
-      appUserState.serializeUserState(userState),
-    ),
-  });
+/** Adopts a merged payload locally, keeping the previous one as a backup. */
+function adoptMergedState(merged) {
+  backupUserState(userState);
+  userState = { ...merged, storageMode: "gist" };
+  gridViewMode = userState.preferences.viewMode;
+  writeUserStateToStorage();
 }
 
-/** Adopts the remote payload when it is newer than what this device holds. */
-async function pullStateFromGist() {
+function mergeIntoUserState(incoming) {
+  return appUserState.normalizeUserState(
+    appSyncMerge.mergeUserStates(userState, incoming),
+  );
+}
+
+/**
+ * Reads the Gist, merges, and only then writes. The read is the whole point: a
+ * blind PATCH from a tab that has been open a while replaces whatever another
+ * tab has since added, and because the stale copy carries a fresh `updatedAt`,
+ * every later pull believes it. Merging first means a stale tab contributes its
+ * change instead of overwriting the payload.
+ */
+async function reconcileWithGist(options = {}) {
   if (!appGistSync.isConnectedGistConfig(gistConfig)) {
-    return false;
+    return { ok: false, reason: "disconnected" };
   }
+
   const body = await gistRequest(`/gists/${gistConfig.gistId}`, {
     token: gistConfig.token,
   });
   const remoteState = remoteStateFromGistBody(body);
-  const merged = appGistSync.mergeStateByUpdatedAt(userState, remoteState);
-  if (merged === userState) {
-    return false;
+
+  const localSignature = appUserState.userStateSignature(userState);
+  const previousCount = appUserState.countMovies(userState);
+  const merged = mergeIntoUserState(remoteState);
+  const mergedSignature = appUserState.userStateSignature(merged);
+  const remoteSignature = remoteState
+    ? appUserState.userStateSignature(remoteState)
+    : null;
+
+  // Shrinking can only happen when another copy recorded a removal, which is
+  // worth reporting differently from picking up new movies.
+  const shrank = appUserState.countMovies(merged) < previousCount;
+
+  const localChanged = mergedSignature !== localSignature;
+  if (localChanged) {
+    adoptMergedState(merged);
   }
-  userState = { ...merged, storageMode: "gist" };
-  gridViewMode = userState.preferences.viewMode;
-  writeUserStateToStorage();
-  return true;
+
+  lastRemoteUpdatedAt = remoteState?.updatedAt || null;
+
+  if (options.push || mergedSignature !== remoteSignature) {
+    userState = appUserState.touchUserState(userState);
+    writeUserStateToStorage();
+    await gistRequest(`/gists/${gistConfig.gistId}`, {
+      method: "PATCH",
+      token: gistConfig.token,
+      body: appGistSync.buildGistUpdatePayload(
+        appUserState.serializeUserState(userState),
+      ),
+    });
+    lastRemoteUpdatedAt = userState.updatedAt;
+  }
+
+  return { ok: true, localChanged, shrank };
+}
+
+function formatSyncTime(value) {
+  const time = Date.parse(value || "");
+  if (!Number.isFinite(time)) {
+    return "just now";
+  }
+  return new Date(time).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/**
+ * Every sync runs through one chain. Two overlapping GET/PATCH pairs would let
+ * the second PATCH carry a payload built before the first one landed, which is
+ * the same lost update the read-before-write is there to prevent.
+ */
+function queueGistSync(options = {}) {
+  gistSyncChain = gistSyncChain
+    .then(() => reconcileWithGist(options))
+    .then((result) => {
+      if (!result?.ok) {
+        return;
+      }
+      if (result.localChanged) {
+        onRemoteStateAdopted(result.shrank);
+      }
+      setStatus(
+        gistStatus,
+        `Synced with GitHub at ${formatSyncTime(userState.updatedAt)}.`,
+        "ok",
+      );
+    })
+    .catch(() => {
+      // Never fall back to a blind write: keeping the change local and retrying
+      // later is always safer than overwriting a payload we could not read.
+      setStatus(
+        gistStatus,
+        "Could not reach GitHub. Changes are saved on this device and will sync later.",
+        "error",
+      );
+    });
+  return gistSyncChain;
+}
+
+/**
+ * Another tab wrote to localStorage. Merging it in stops this tab from sitting
+ * on a stale list, which is what made a background tab dangerous before.
+ */
+function onUserStateStorageEvent(event) {
+  if (event.key !== appUserState.USER_STATE_KEY || !event.newValue) {
+    return;
+  }
+  const incoming = appUserState.parseUserState(event.newValue);
+  if (!incoming) {
+    return;
+  }
+  const previousCount = appUserState.countMovies(userState);
+  const merged = mergeIntoUserState(incoming);
+  if (
+    appUserState.userStateSignature(merged) ===
+    appUserState.userStateSignature(userState)
+  ) {
+    return;
+  }
+  const shrank = appUserState.countMovies(merged) < previousCount;
+  adoptMergedState(merged);
+  onRemoteStateAdopted(shrank);
+}
+
+/** A tab coming back to the foreground is the most likely one to be stale. */
+function onVisibilityRefresh() {
+  if (document.visibilityState === "visible" && gistSyncEnabled()) {
+    queueGistSync();
+  }
 }
 
 /**
@@ -1832,9 +2308,18 @@ async function connectGist(token) {
     }
 
     saveGistConfig({ token: trimmed, gistId: nextGistId });
-    userState = { ...resolved.nextState, storageMode: "gist" };
+    backupUserState(userState);
+    userState = {
+      ...appUserState.normalizeUserState(resolved.nextState),
+      storageMode: "gist",
+    };
     gridViewMode = userState.preferences.viewMode;
     writeUserStateToStorage();
+    // Adopting merged local movies into an existing Gist leaves the remote copy
+    // behind, so hand the union back to GitHub.
+    if (resolved.action === "adopt") {
+      queueGistSync();
+    }
     return { ok: true, action: resolved.action };
   } catch (error) {
     return { ok: false, error: `Could not reach GitHub. ${error.message}` };
@@ -2656,6 +3141,7 @@ function addMovieToList(result, listId, rating) {
   if (!listsChanged && !ratingsChanged) {
     return;
   }
+  recordMovieStatus(result.id, listId);
   persistUserState();
   closeAddMovieDialog();
   render();
@@ -3075,6 +3561,34 @@ function renderEmptyState(count) {
 </button>`;
 }
 
+/**
+ * Called after sync replaces state behind the user's back, so an old tab
+ * redraws instead of sitting on a list that no longer matches storage.
+ */
+function onRemoteStateAdopted(shrank) {
+  setViewMode(gridViewMode);
+  syncDetailFromLocation();
+  render();
+  hydrateActiveList();
+  showSyncNotice(
+    shrank
+      ? "Updated from sync — a movie removed elsewhere was removed here too."
+      : "Updated from sync — this tab was showing an older list.",
+  );
+}
+
+function showSyncNotice(message) {
+  if (!syncNotice) {
+    return;
+  }
+  syncNotice.textContent = message;
+  syncNotice.hidden = false;
+  clearTimeout(syncNoticeTimer);
+  syncNoticeTimer = setTimeout(() => {
+    syncNotice.hidden = true;
+  }, 6000);
+}
+
 function render() {
   const ids = displayMovieIds();
   grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
@@ -3128,16 +3642,25 @@ function handleImageError(event) {
   img.replaceWith(placeholder);
 }
 
-function commitListChange(nextLists) {
+/** Records the status alongside the list change so an unchanged list stamps nothing. */
+function commitListChange(nextLists, statusChange) {
   if (!updateLists(nextLists)) {
     return false;
+  }
+  if (statusChange) {
+    recordMovieStatus(statusChange.movieId, statusChange.status);
   }
   persistUserState();
   return true;
 }
 
 function watchMovie(movieId) {
-  if (!commitListChange(appLists.assignMovieToList(userState.lists, appLists.WATCHED_ID, movieId))) {
+  const nextLists = appLists.assignMovieToList(
+    userState.lists,
+    appLists.WATCHED_ID,
+    movieId,
+  );
+  if (!commitListChange(nextLists, { movieId, status: appLists.WATCHED_ID })) {
     return;
   }
   if (detailMovieId === movieId && !activeMovieIds().includes(movieId)) {
@@ -3178,6 +3701,7 @@ function removeMovieFromCollection(movieId) {
     return;
   }
   updateRatings(appRatings.removeRating(userState.ratings, movieId));
+  recordMovieStatus(movieId, appSyncMerge.REMOVED_STATUS);
   persistUserState();
   if (detailMovieId === movieId) {
     closeDetail();
@@ -4197,6 +4721,11 @@ removeConfirmDialog.addEventListener("click", (event) => {
 
 window.addEventListener("popstate", syncDetailFromLocation);
 
+/* --- Staying current across tabs --- */
+
+window.addEventListener("storage", onUserStateStorageEvent);
+document.addEventListener("visibilitychange", onVisibilityRefresh);
+
 /* --- Settings and about --- */
 
 settingsBtn.addEventListener("click", openSettings);
@@ -4347,22 +4876,10 @@ function startApp() {
   syncDetailFromLocation();
   hydrateActiveList();
 
-  if (
-    userState.storageMode === "gist" &&
-    appGistSync.isConnectedGistConfig(gistConfig)
-  ) {
-    pullStateFromGist()
-      .then((changed) => {
-        if (!changed) {
-          return;
-        }
-        setViewMode(gridViewMode);
-        render();
-        hydrateActiveList();
-      })
-      .catch(() => {
-        /* Offline or a revoked token; the local copy stays authoritative. */
-      });
+  // Reconcile rather than pull: startup is also when this tab is most likely to
+  // be holding something the Gist has not seen yet.
+  if (gistSyncEnabled()) {
+    queueGistSync();
   }
 }
 

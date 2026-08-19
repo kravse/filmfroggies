@@ -326,6 +326,34 @@ function renderEmptyState(count) {
 </button>`;
 }
 
+/**
+ * Called after sync replaces state behind the user's back, so an old tab
+ * redraws instead of sitting on a list that no longer matches storage.
+ */
+function onRemoteStateAdopted(shrank) {
+  setViewMode(gridViewMode);
+  syncDetailFromLocation();
+  render();
+  hydrateActiveList();
+  showSyncNotice(
+    shrank
+      ? "Updated from sync — a movie removed elsewhere was removed here too."
+      : "Updated from sync — this tab was showing an older list.",
+  );
+}
+
+function showSyncNotice(message) {
+  if (!syncNotice) {
+    return;
+  }
+  syncNotice.textContent = message;
+  syncNotice.hidden = false;
+  clearTimeout(syncNoticeTimer);
+  syncNoticeTimer = setTimeout(() => {
+    syncNotice.hidden = true;
+  }, 6000);
+}
+
 function render() {
   const ids = displayMovieIds();
   grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
@@ -379,16 +407,25 @@ function handleImageError(event) {
   img.replaceWith(placeholder);
 }
 
-function commitListChange(nextLists) {
+/** Records the status alongside the list change so an unchanged list stamps nothing. */
+function commitListChange(nextLists, statusChange) {
   if (!updateLists(nextLists)) {
     return false;
+  }
+  if (statusChange) {
+    recordMovieStatus(statusChange.movieId, statusChange.status);
   }
   persistUserState();
   return true;
 }
 
 function watchMovie(movieId) {
-  if (!commitListChange(appLists.assignMovieToList(userState.lists, appLists.WATCHED_ID, movieId))) {
+  const nextLists = appLists.assignMovieToList(
+    userState.lists,
+    appLists.WATCHED_ID,
+    movieId,
+  );
+  if (!commitListChange(nextLists, { movieId, status: appLists.WATCHED_ID })) {
     return;
   }
   if (detailMovieId === movieId && !activeMovieIds().includes(movieId)) {
@@ -429,6 +466,7 @@ function removeMovieFromCollection(movieId) {
     return;
   }
   updateRatings(appRatings.removeRating(userState.ratings, movieId));
+  recordMovieStatus(movieId, appSyncMerge.REMOVED_STATUS);
   persistUserState();
   if (detailMovieId === movieId) {
     closeDetail();

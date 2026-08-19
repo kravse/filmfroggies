@@ -7,10 +7,12 @@
  */
 
 const USER_STATE_KEY = "moviecollector-user-state";
+/** Payload from just before the last merge, so a bad merge stays recoverable. */
+const USER_STATE_BACKUP_KEY = "moviecollector-user-state-backup";
 const GIST_SYNC_KEY = "moviecollector-gist-sync";
 const TMDB_AUTH_KEY = "moviecollector-tmdb-auth";
 const HOSTED_SESSION_KEY = "moviecollector-hosted-session";
-const USER_STATE_VERSION = 1;
+const USER_STATE_VERSION = 2;
 
 const VIEW_MODES = new Set(["cards", "detail"]);
 const STORAGE_MODES = new Set(["local", "gist"]);
@@ -45,6 +47,16 @@ function getSort() {
   throw new Error("appSort is not available");
 }
 
+function getSyncMerge() {
+  if (typeof appSyncMerge !== "undefined") {
+    return appSyncMerge;
+  }
+  if (typeof require === "function") {
+    return require("./sync-merge");
+  }
+  throw new Error("appSyncMerge is not available");
+}
+
 function defaultPreferences() {
   return { viewMode: "cards", sort: getSort().DEFAULT_SORT };
 }
@@ -59,6 +71,7 @@ function defaultUserState() {
     activeListId: lists.DEFAULT_LIST_ID,
     preferences: defaultPreferences(),
     ratings: {},
+    statuses: {},
   };
 }
 
@@ -101,6 +114,11 @@ function normalizeUserState(raw) {
       : lists.DEFAULT_LIST_ID,
     preferences: normalizePreferences(raw.preferences),
     ratings: getRatings().normalizeRatings(raw.ratings, normalizedLists),
+    statuses: getSyncMerge().normalizeStatuses(
+      raw.statuses,
+      normalizedLists,
+      raw.updatedAt,
+    ),
   };
 }
 
@@ -127,8 +145,47 @@ function touchUserState(state, now = new Date()) {
   return { ...state, updatedAt: now.toISOString() };
 }
 
+/** Map key order follows insertion, so sort it or the fingerprint is unstable. */
+function sortedIdMap(map) {
+  const out = {};
+  for (const key of Object.keys(map || {}).sort((a, b) => Number(a) - Number(b))) {
+    out[key] = map[key];
+  }
+  return out;
+}
+
+/**
+ * Fingerprint of everything except `updatedAt`. Sync compares these to tell a
+ * real edit from a re-stamp, which is what stops two tabs from pushing
+ * identical payloads back and forth forever.
+ */
+function userStateSignature(state) {
+  const normalized = normalizeUserState(state);
+  return JSON.stringify({
+    storageMode: normalized.storageMode,
+    activeListId: normalized.activeListId,
+    preferences: normalized.preferences,
+    lists: normalized.lists.map((list) => [list.id, list.movieIds]),
+    ratings: sortedIdMap(normalized.ratings),
+    statuses: sortedIdMap(normalized.statuses),
+  });
+}
+
+/** Total movies held across the lists, used to flag a shrinking merge. */
+function countMovies(state) {
+  const lists = Array.isArray(state?.lists) ? state.lists : [];
+  const ids = new Set();
+  for (const list of lists) {
+    for (const id of list?.movieIds || []) {
+      ids.add(Number(id));
+    }
+  }
+  return ids.size;
+}
+
 module.exports = {
   USER_STATE_KEY,
+  USER_STATE_BACKUP_KEY,
   GIST_SYNC_KEY,
   TMDB_AUTH_KEY,
   HOSTED_SESSION_KEY,
@@ -139,4 +196,6 @@ module.exports = {
   parseUserState,
   serializeUserState,
   touchUserState,
+  userStateSignature,
+  countMovies,
 };

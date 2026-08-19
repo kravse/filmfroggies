@@ -9,6 +9,12 @@ const GIST_TIMEOUT_MS = 15000;
 
 let gistConfig = null;
 
+/** `updatedAt` of the Gist payload this tab last saw, for staleness reporting. */
+let lastRemoteUpdatedAt = null;
+
+/** Serializes every Gist read/write pair; see queueGistSync(). */
+let gistSyncChain = Promise.resolve();
+
 function readStorage(key) {
   try {
     return localStorage.getItem(key);
@@ -57,17 +63,29 @@ function writeUserStateToStorage() {
   );
 }
 
+/** Snapshot taken before any merge replaces state, so a bad merge is undoable. */
+function backupUserState(state) {
+  if (!state) {
+    return;
+  }
+  writeStorage(
+    appUserState.USER_STATE_BACKUP_KEY,
+    appUserState.serializeUserState(state),
+  );
+}
+
+function gistSyncEnabled() {
+  return (
+    userState.storageMode === "gist" &&
+    appGistSync.isConnectedGistConfig(gistConfig)
+  );
+}
+
 function persistUserState(options = {}) {
   userState = appUserState.touchUserState(userState);
   writeUserStateToStorage();
-  if (
-    options.sync !== false &&
-    userState.storageMode === "gist" &&
-    appGistSync.isConnectedGistConfig(gistConfig)
-  ) {
-    pushStateToGist().catch(() => {
-      setStatus(gistStatus, "Could not save to GitHub. Changes are on this device.", "error");
-    });
+  if (options.sync !== false && gistSyncEnabled()) {
+    queueGistSync({ push: true });
   }
 }
 
@@ -94,6 +112,18 @@ function updateLists(nextLists) {
   }
   userState = { ...userState, lists: nextLists };
   return true;
+}
+
+/**
+ * Stamps what just happened to one movie. Sync merges on these per-movie
+ * records, so every membership change has to pass through here or a stale copy
+ * will out-vote it.
+ */
+function recordMovieStatus(movieId, status) {
+  userState = {
+    ...userState,
+    statuses: appSyncMerge.setMovieStatus(userState.statuses, movieId, status),
+  };
 }
 
 const VIEW_MODE_CYCLE = ["cards", "detail"];
@@ -181,36 +211,146 @@ function remoteStateFromGistBody(body) {
   return json ? appUserState.parseUserState(json) : null;
 }
 
-async function pushStateToGist() {
-  if (!appGistSync.isConnectedGistConfig(gistConfig)) {
-    return;
-  }
-  await gistRequest(`/gists/${gistConfig.gistId}`, {
-    method: "PATCH",
-    token: gistConfig.token,
-    body: appGistSync.buildGistUpdatePayload(
-      appUserState.serializeUserState(userState),
-    ),
-  });
+/** Adopts a merged payload locally, keeping the previous one as a backup. */
+function adoptMergedState(merged) {
+  backupUserState(userState);
+  userState = { ...merged, storageMode: "gist" };
+  gridViewMode = userState.preferences.viewMode;
+  writeUserStateToStorage();
 }
 
-/** Adopts the remote payload when it is newer than what this device holds. */
-async function pullStateFromGist() {
+function mergeIntoUserState(incoming) {
+  return appUserState.normalizeUserState(
+    appSyncMerge.mergeUserStates(userState, incoming),
+  );
+}
+
+/**
+ * Reads the Gist, merges, and only then writes. The read is the whole point: a
+ * blind PATCH from a tab that has been open a while replaces whatever another
+ * tab has since added, and because the stale copy carries a fresh `updatedAt`,
+ * every later pull believes it. Merging first means a stale tab contributes its
+ * change instead of overwriting the payload.
+ */
+async function reconcileWithGist(options = {}) {
   if (!appGistSync.isConnectedGistConfig(gistConfig)) {
-    return false;
+    return { ok: false, reason: "disconnected" };
   }
+
   const body = await gistRequest(`/gists/${gistConfig.gistId}`, {
     token: gistConfig.token,
   });
   const remoteState = remoteStateFromGistBody(body);
-  const merged = appGistSync.mergeStateByUpdatedAt(userState, remoteState);
-  if (merged === userState) {
-    return false;
+
+  const localSignature = appUserState.userStateSignature(userState);
+  const previousCount = appUserState.countMovies(userState);
+  const merged = mergeIntoUserState(remoteState);
+  const mergedSignature = appUserState.userStateSignature(merged);
+  const remoteSignature = remoteState
+    ? appUserState.userStateSignature(remoteState)
+    : null;
+
+  // Shrinking can only happen when another copy recorded a removal, which is
+  // worth reporting differently from picking up new movies.
+  const shrank = appUserState.countMovies(merged) < previousCount;
+
+  const localChanged = mergedSignature !== localSignature;
+  if (localChanged) {
+    adoptMergedState(merged);
   }
-  userState = { ...merged, storageMode: "gist" };
-  gridViewMode = userState.preferences.viewMode;
-  writeUserStateToStorage();
-  return true;
+
+  lastRemoteUpdatedAt = remoteState?.updatedAt || null;
+
+  if (options.push || mergedSignature !== remoteSignature) {
+    userState = appUserState.touchUserState(userState);
+    writeUserStateToStorage();
+    await gistRequest(`/gists/${gistConfig.gistId}`, {
+      method: "PATCH",
+      token: gistConfig.token,
+      body: appGistSync.buildGistUpdatePayload(
+        appUserState.serializeUserState(userState),
+      ),
+    });
+    lastRemoteUpdatedAt = userState.updatedAt;
+  }
+
+  return { ok: true, localChanged, shrank };
+}
+
+function formatSyncTime(value) {
+  const time = Date.parse(value || "");
+  if (!Number.isFinite(time)) {
+    return "just now";
+  }
+  return new Date(time).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/**
+ * Every sync runs through one chain. Two overlapping GET/PATCH pairs would let
+ * the second PATCH carry a payload built before the first one landed, which is
+ * the same lost update the read-before-write is there to prevent.
+ */
+function queueGistSync(options = {}) {
+  gistSyncChain = gistSyncChain
+    .then(() => reconcileWithGist(options))
+    .then((result) => {
+      if (!result?.ok) {
+        return;
+      }
+      if (result.localChanged) {
+        onRemoteStateAdopted(result.shrank);
+      }
+      setStatus(
+        gistStatus,
+        `Synced with GitHub at ${formatSyncTime(userState.updatedAt)}.`,
+        "ok",
+      );
+    })
+    .catch(() => {
+      // Never fall back to a blind write: keeping the change local and retrying
+      // later is always safer than overwriting a payload we could not read.
+      setStatus(
+        gistStatus,
+        "Could not reach GitHub. Changes are saved on this device and will sync later.",
+        "error",
+      );
+    });
+  return gistSyncChain;
+}
+
+/**
+ * Another tab wrote to localStorage. Merging it in stops this tab from sitting
+ * on a stale list, which is what made a background tab dangerous before.
+ */
+function onUserStateStorageEvent(event) {
+  if (event.key !== appUserState.USER_STATE_KEY || !event.newValue) {
+    return;
+  }
+  const incoming = appUserState.parseUserState(event.newValue);
+  if (!incoming) {
+    return;
+  }
+  const previousCount = appUserState.countMovies(userState);
+  const merged = mergeIntoUserState(incoming);
+  if (
+    appUserState.userStateSignature(merged) ===
+    appUserState.userStateSignature(userState)
+  ) {
+    return;
+  }
+  const shrank = appUserState.countMovies(merged) < previousCount;
+  adoptMergedState(merged);
+  onRemoteStateAdopted(shrank);
+}
+
+/** A tab coming back to the foreground is the most likely one to be stale. */
+function onVisibilityRefresh() {
+  if (document.visibilityState === "visible" && gistSyncEnabled()) {
+    queueGistSync();
+  }
 }
 
 /**
@@ -258,9 +398,18 @@ async function connectGist(token) {
     }
 
     saveGistConfig({ token: trimmed, gistId: nextGistId });
-    userState = { ...resolved.nextState, storageMode: "gist" };
+    backupUserState(userState);
+    userState = {
+      ...appUserState.normalizeUserState(resolved.nextState),
+      storageMode: "gist",
+    };
     gridViewMode = userState.preferences.viewMode;
     writeUserStateToStorage();
+    // Adopting merged local movies into an existing Gist leaves the remote copy
+    // behind, so hand the union back to GitHub.
+    if (resolved.action === "adopt") {
+      queueGistSync();
+    }
     return { ok: true, action: resolved.action };
   } catch (error) {
     return { ok: false, error: `Could not reach GitHub. ${error.message}` };

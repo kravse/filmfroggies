@@ -328,6 +328,7 @@ function addMovieToList(result, listId, rating) {
   if (!listsChanged && !ratingsChanged) {
     return;
   }
+  recordMovieStatus(result.id, listId);
   persistUserState();
   closeAddMovieDialog();
   render();

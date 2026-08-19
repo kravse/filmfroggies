@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
   USER_STATE_KEY,
+  USER_STATE_BACKUP_KEY,
   TMDB_AUTH_KEY,
   HOSTED_SESSION_KEY,
   GIST_SYNC_KEY,
@@ -13,6 +14,8 @@ const {
   parseUserState,
   serializeUserState,
   touchUserState,
+  userStateSignature,
+  countMovies,
 } = require("../scripts/lib/user-state");
 
 test("storage keys are distinct so credentials never ride along with state", () => {
@@ -20,10 +23,75 @@ test("storage keys are distinct so credentials never ride along with state", () 
   assert.equal(TMDB_AUTH_KEY, "moviecollector-tmdb-auth");
   assert.equal(HOSTED_SESSION_KEY, "moviecollector-hosted-session");
   assert.equal(GIST_SYNC_KEY, "moviecollector-gist-sync");
+  assert.equal(USER_STATE_BACKUP_KEY, "moviecollector-user-state-backup");
   assert.equal(
-    new Set([USER_STATE_KEY, TMDB_AUTH_KEY, HOSTED_SESSION_KEY, GIST_SYNC_KEY]).size,
-    4,
+    new Set([
+      USER_STATE_KEY,
+      USER_STATE_BACKUP_KEY,
+      TMDB_AUTH_KEY,
+      HOSTED_SESSION_KEY,
+      GIST_SYNC_KEY,
+    ]).size,
+    5,
   );
+});
+
+test("normalizeUserState backfills statuses from list membership", () => {
+  const state = normalizeUserState({
+    updatedAt: "2026-08-01T00:00:00.000Z",
+    lists: [
+      { id: "watched", movieIds: [1] },
+      { id: "watchlist", movieIds: [2] },
+    ],
+  });
+  assert.deepEqual(state.statuses, {
+    1: { status: "watched", at: "2026-08-01T00:00:00.000Z" },
+    2: { status: "watchlist", at: "2026-08-01T00:00:00.000Z" },
+  });
+});
+
+test("a removal record survives a serialize and parse round trip", () => {
+  const json = serializeUserState({
+    updatedAt: "2026-08-02T00:00:00.000Z",
+    lists: [{ id: "watched", movieIds: [1] }],
+    statuses: { 9: { status: "removed", at: "2026-08-02T00:00:00.000Z" } },
+  });
+  const parsed = parseUserState(json);
+  assert.equal(parsed.statuses["9"].status, "removed");
+  assert.equal(
+    parsed.lists.every((list) => !list.movieIds.includes(9)),
+    true,
+  );
+});
+
+test("userStateSignature ignores updatedAt but tracks real edits", () => {
+  const base = normalizeUserState({
+    updatedAt: "2026-08-01T00:00:00.000Z",
+    lists: [{ id: "watched", movieIds: [1, 2] }],
+  });
+  const restamped = touchUserState(base);
+  assert.equal(userStateSignature(base), userStateSignature(restamped));
+
+  const edited = { ...base, lists: [{ id: "watched", movieIds: [1] }] };
+  assert.notEqual(userStateSignature(base), userStateSignature(edited));
+});
+
+test("userStateSignature is stable regardless of map key order", () => {
+  const lists = [{ id: "watched", movieIds: [1, 2] }];
+  const ascending = normalizeUserState({ lists, ratings: { 1: 8, 2: 6 } });
+  const descending = normalizeUserState({ lists, ratings: { 2: 6, 1: 8 } });
+  assert.equal(userStateSignature(ascending), userStateSignature(descending));
+});
+
+test("countMovies counts each movie once across both lists", () => {
+  const state = normalizeUserState({
+    lists: [
+      { id: "watched", movieIds: [1, 2] },
+      { id: "watchlist", movieIds: [3] },
+    ],
+  });
+  assert.equal(countMovies(state), 3);
+  assert.equal(countMovies(null), 0);
 });
 
 test("defaultUserState starts on local storage with the two preset lists", () => {

@@ -6,7 +6,6 @@ const {
   parseGistSyncConfig,
   serializeGistSyncConfig,
   isConnectedGistConfig,
-  mergeStateByUpdatedAt,
   extractStateJsonFromGistResponse,
   findCollectorGistId,
   buildGistCreatePayload,
@@ -40,33 +39,6 @@ test("isConnectedGistConfig requires both a token and a gist id", () => {
   assert.equal(isConnectedGistConfig(null), false);
 });
 
-test("mergeStateByUpdatedAt takes the newer side", () => {
-  const local = { updatedAt: "2026-01-01T00:00:00.000Z", tag: "local" };
-  const remote = { updatedAt: "2026-02-01T00:00:00.000Z", tag: "remote" };
-  assert.equal(mergeStateByUpdatedAt(local, remote).tag, "remote");
-  assert.equal(mergeStateByUpdatedAt(remote, local).tag, "remote");
-});
-
-test("mergeStateByUpdatedAt keeps local on an exact tie", () => {
-  const stamp = "2026-01-01T00:00:00.000Z";
-  const local = { updatedAt: stamp, tag: "local" };
-  const remote = { updatedAt: stamp, tag: "remote" };
-  assert.equal(mergeStateByUpdatedAt(local, remote).tag, "local");
-});
-
-test("mergeStateByUpdatedAt prefers the side that has a timestamp", () => {
-  const local = { updatedAt: null, tag: "local" };
-  const remote = { updatedAt: "2026-01-01T00:00:00.000Z", tag: "remote" };
-  assert.equal(mergeStateByUpdatedAt(local, remote).tag, "remote");
-  assert.equal(mergeStateByUpdatedAt(remote, local).tag, "remote");
-});
-
-test("mergeStateByUpdatedAt falls back to whichever side exists", () => {
-  const local = { updatedAt: null, tag: "local" };
-  assert.equal(mergeStateByUpdatedAt(local, null).tag, "local");
-  assert.equal(mergeStateByUpdatedAt(null, local).tag, "local");
-});
-
 test("extractStateJsonFromGistResponse reads the state file", () => {
   const body = { files: { [GIST_STATE_FILENAME]: { content: '{"version":1}' } } };
   assert.equal(extractStateJsonFromGistResponse(body), '{"version":1}');
@@ -98,19 +70,34 @@ test("gist payloads are private and carry only the state file", () => {
   assert.equal(update.public, undefined);
 });
 
+function listsOf(watched, watchlist) {
+  return [
+    { id: "watched", name: "Watched", movieIds: watched },
+    { id: "watchlist", name: "Watchlist", movieIds: watchlist },
+  ];
+}
+
 test("resolveGistConnectState adopts an existing gist rather than overwriting", () => {
-  const remoteState = { updatedAt: "2026-01-01T00:00:00.000Z", tag: "remote" };
   const resolved = resolveGistConnectState({
     gistId: "abc",
-    remoteState,
-    localState: { tag: "local" },
+    remoteState: { updatedAt: "2026-02-01T00:00:00.000Z", lists: listsOf([1], []) },
+    localState: { updatedAt: "2026-01-01T00:00:00.000Z", lists: listsOf([], [2]) },
   });
-  assert.deepEqual(resolved, {
-    ok: true,
-    action: "adopt",
+  assert.equal(resolved.ok, true);
+  assert.equal(resolved.action, "adopt");
+  assert.equal(resolved.gistId, "abc");
+});
+
+test("connecting merges local movies into the adopted gist instead of dropping them", () => {
+  const resolved = resolveGistConnectState({
     gistId: "abc",
-    nextState: remoteState,
+    remoteState: { updatedAt: "2026-02-01T00:00:00.000Z", lists: listsOf([1], []) },
+    localState: { updatedAt: "2026-01-01T00:00:00.000Z", lists: listsOf([], [2]) },
   });
+  const idsIn = (listId) =>
+    resolved.nextState.lists.find((list) => list.id === listId).movieIds;
+  assert.deepEqual(idsIn("watched"), [1]);
+  assert.deepEqual(idsIn("watchlist"), [2]);
 });
 
 test("resolveGistConnectState refuses to clobber an unreadable gist", () => {
