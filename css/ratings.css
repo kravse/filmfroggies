@@ -246,17 +246,26 @@ body.view-mode-cards .card-footer .card-fan-rating.is-empty {
   color: var(--muted-dim);
 }
 
+body.view-mode-detail .card-fan-rating,
 body.view-mode-detail .card-user-rating {
-  padding: 0.06rem 0.28rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 1.15rem;
+  padding: 0 0.28rem;
   border-radius: 3px;
-  background: rgba(212, 162, 76, 0.18);
-  border: 1px solid rgba(212, 162, 76, 0.35);
   font-size: 0.58rem;
   font-weight: 500;
+  line-height: 1;
+}
+
+body.view-mode-detail .card-user-rating {
+  background: rgba(212, 162, 76, 0.18);
+  border: 1px solid rgba(212, 162, 76, 0.35);
 }
 
 body.view-mode-detail .card-fan-rating {
-  padding: 0.06rem 0.28rem;
-  font-size: 0.58rem;
-  border-radius: 3px;
+  background: rgba(14, 16, 20, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
