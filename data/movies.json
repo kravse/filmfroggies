@@ -1,0 +1,1095 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-19T00:53:18.440Z",
+  "posterSizes": [
+    "w342",
+    "w500"
+  ],
+  "movies": {
+    "141": {
+      "id": 141,
+      "title": "Donnie Darko",
+      "releaseDate": "2001-01-19",
+      "overview": "After narrowly escaping a bizarre accident, a troubled teenager is plagued by visions of a large bunny rabbit that manipulates him to commit a series of crimes.",
+      "tagline": "28 days, 6 hours, 42 minutes, 12 seconds... that is when the world will end.",
+      "posterPath": "/j2AtZFsflxiluaNtajMTI0Avm8C.jpg",
+      "backdropPath": "/msCHK5Kh1YbdZ0zPJ2nzPUhhSN9.jpg",
+      "runtime": 114,
+      "voteAverage": 7.76,
+      "genres": [
+        "Fantasy",
+        "Drama",
+        "Mystery"
+      ],
+      "directors": [
+        "Richard Kelly"
+      ],
+      "cast": [
+        "Jake Gyllenhaal",
+        "Jena Malone",
+        "James Duval",
+        "Drew Barrymore",
+        "Beth Grant",
+        "Maggie Gyllenhaal",
+        "Mary McDonnell",
+        "Holmes Osborne"
+      ],
+      "poster": "j2AtZFsflxiluaNtajMTI0Avm8C.jpg"
+    },
+    "278": {
+      "id": 278,
+      "title": "The Shawshank Redemption",
+      "releaseDate": "1994-09-23",
+      "overview": "Imprisoned in the 1940s for the double murder of his wife and her lover, upstanding banker Andy Dufresne begins a new life at the Shawshank prison, where he puts his accounting skills to work for an amoral warden. During his long stretch in prison, Dufresne comes to be admired by the other inmates -- including an older prisoner named Red -- for his integrity and unquenchable sense of hope.",
+      "tagline": "Fear can hold you prisoner. Hope can set you free.",
+      "posterPath": "/9cqNxx0GxF0bflZmeSMuL5tnGzr.jpg",
+      "backdropPath": "/zfbjgQE1uSd9wiPTX4VzsLi0rGG.jpg",
+      "runtime": 142,
+      "voteAverage": 8.728,
+      "genres": [
+        "Drama",
+        "Crime"
+      ],
+      "directors": [
+        "Frank Darabont"
+      ],
+      "cast": [
+        "Tim Robbins",
+        "Morgan Freeman",
+        "Bob Gunton",
+        "William Sadler",
+        "Clancy Brown",
+        "Gil Bellows",
+        "James Whitmore",
+        "Mark Rolston"
+      ],
+      "poster": "9cqNxx0GxF0bflZmeSMuL5tnGzr.jpg"
+    },
+    "389": {
+      "id": 389,
+      "title": "12 Angry Men",
+      "releaseDate": "1957-04-10",
+      "overview": "The defense and the prosecution have rested and the jury is filing into the jury room to decide if a young Spanish-American is guilty or innocent of murdering his father. What begins as an open and shut case soon becomes a mini-drama of each of the jurors' prejudices and preconceptions about the trial, the accused, and each other.",
+      "tagline": "It explodes like 12 sticks of dynamite!",
+      "posterPath": "/ppd84D2i9W8jXmsyInGyihiSyqz.jpg",
+      "backdropPath": "/qqHQsStV6exghCM7zbObuYBiYxw.jpg",
+      "runtime": 97,
+      "voteAverage": 8.6,
+      "genres": [
+        "Drama"
+      ],
+      "directors": [
+        "Sidney Lumet"
+      ],
+      "cast": [
+        "Martin Balsam",
+        "John Fiedler",
+        "Lee J. Cobb",
+        "E.G. Marshall",
+        "Jack Klugman",
+        "Edward Binns",
+        "Jack Warden",
+        "Henry Fonda"
+      ],
+      "poster": "ppd84D2i9W8jXmsyInGyihiSyqz.jpg"
+    },
+    "592": {
+      "id": 592,
+      "title": "The Conversation",
+      "releaseDate": "1974-04-12",
+      "overview": "A paranoid, secretive surveillance expert has a crisis of conscience when he suspects that the couple he is spying on will be murdered.",
+      "tagline": "Harry Caul is an invader of privacy. The best in the business.",
+      "posterPath": "/dHqVBwcv1SGymOpUueRoKzcmdes.jpg",
+      "backdropPath": "/s7yfiwIshKQIT6M8ZcTnFKXHs8B.jpg",
+      "runtime": 115,
+      "voteAverage": 7.499,
+      "genres": [
+        "Crime",
+        "Drama",
+        "Mystery"
+      ],
+      "directors": [
+        "Francis Ford Coppola"
+      ],
+      "cast": [
+        "Gene Hackman",
+        "John Cazale",
+        "Allen Garfield",
+        "Frederic Forrest",
+        "Cindy Williams",
+        "Michael Higgins",
+        "Elizabeth MacRae",
+        "Teri Garr"
+      ],
+      "poster": "dHqVBwcv1SGymOpUueRoKzcmdes.jpg"
+    },
+    "670": {
+      "id": 670,
+      "title": "Oldboy",
+      "releaseDate": "2003-11-21",
+      "overview": "With no clue how he came to be imprisoned, drugged and tortured for 15 years, a desperate man seeks revenge on his captors.",
+      "tagline": "15 years of imprisonment, five days of vengeance.",
+      "posterPath": "/pWDtjs568ZfOTMbURQBYuT4Qxka.jpg",
+      "backdropPath": "/sdwjQEM869JFwMytTmvr6ggvaUl.jpg",
+      "runtime": 120,
+      "voteAverage": 8.235,
+      "genres": [
+        "Thriller",
+        "Mystery"
+      ],
+      "directors": [
+        "Park Chan-wook"
+      ],
+      "cast": [
+        "Choi Min-sik",
+        "Yoo Ji-tae",
+        "Kang Hye-jung",
+        "Kim Byeong-ok",
+        "Ji Dae-han",
+        "Oh Dal-su",
+        "Lee Seung-shin",
+        "Yoon Jin-seo"
+      ],
+      "poster": "pWDtjs568ZfOTMbURQBYuT4Qxka.jpg"
+    },
+    "837": {
+      "id": 837,
+      "title": "Videodrome",
+      "releaseDate": "1983-02-04",
+      "overview": "As the president of a trashy TV channel, Max Renn is desperate for new programming to attract viewers. When he happens upon \"Videodrome,\" a TV show dedicated to gratuitous torture and punishment, Max sees a potential hit and broadcasts the show on his channel. However, after his girlfriend auditions for the show and never returns, Max investigates the truth behind Videodrome and discovers that the graphic violence may not be as fake as he thought.",
+      "tagline": "First it controls your mind. Then it destroys your body.",
+      "posterPath": "/qqqkiZSU9EBGZ1KiDmfn07S7qvv.jpg",
+      "backdropPath": "/eBS1nvaQ7BMdsSlkoLyKapf0FEY.jpg",
+      "runtime": 88,
+      "voteAverage": 7.247,
+      "genres": [
+        "Horror",
+        "Science Fiction",
+        "Mystery"
+      ],
+      "directors": [
+        "David Cronenberg"
+      ],
+      "cast": [
+        "James Woods",
+        "Debbie Harry",
+        "Sonja Smits",
+        "Peter Dvorsky",
+        "Leslie Carlson",
+        "Jack Creley",
+        "Lynne Gorman",
+        "Julie Khaner"
+      ],
+      "poster": "qqqkiZSU9EBGZ1KiDmfn07S7qvv.jpg"
+    },
+    "1398": {
+      "id": 1398,
+      "title": "Stalker",
+      "releaseDate": "1979-05-25",
+      "overview": "Near a gray and unnamed city is the Zone, a place guarded by barbed wire and soldiers, and where the normal laws of physics are victim to frequent anomalies. A stalker guides two men into the Zone, specifically to an area in which deep-seated desires are granted.",
+      "tagline": "There's no need to speak. You must only...concentrate and recall all your past life. When a man thinks of the past, he becomes kinder.",
+      "posterPath": "/1qhOyf5C4s9ZdvY8d5JDx9DFMeT.jpg",
+      "backdropPath": "/6yrbWzzrPp7pwz6zHdifspJk8t3.jpg",
+      "runtime": 162,
+      "voteAverage": 8.1,
+      "genres": [
+        "Science Fiction",
+        "Drama"
+      ],
+      "directors": [
+        "Andrei Tarkovsky"
+      ],
+      "cast": [
+        "Alisa Freyndlikh",
+        "Aleksandr Kaydanovskiy",
+        "Anatoliy Solonitsyn",
+        "Mykola Hrynko",
+        "Natalya Abramova",
+        "Faime Jurno",
+        "Evgeniy Kostin",
+        "Raimo Rendi"
+      ],
+      "poster": "1qhOyf5C4s9ZdvY8d5JDx9DFMeT.jpg"
+    },
+    "1554": {
+      "id": 1554,
+      "title": "Down by Law",
+      "releaseDate": "1986-09-20",
+      "overview": "A disc jockey, a pimp and an Italian tourist escape from jail in New Orleans.",
+      "tagline": "It's not where you start - It's where you start again.",
+      "posterPath": "/4IyxoUQ7BB5kcSd7gASe2dTyWu7.jpg",
+      "backdropPath": "/8kVPLOzuZ1G9EBYxcOrzaHbxCeC.jpg",
+      "runtime": 106,
+      "voteAverage": 7.349,
+      "genres": [
+        "Crime",
+        "Drama",
+        "Comedy"
+      ],
+      "directors": [
+        "Jim Jarmusch"
+      ],
+      "cast": [
+        "Tom Waits",
+        "John Lurie",
+        "Roberto Benigni",
+        "Nicoletta Braschi",
+        "Ellen Barkin",
+        "Billie Neal",
+        "Rockets Redglare",
+        "Vernel Bagneris"
+      ],
+      "poster": "4IyxoUQ7BB5kcSd7gASe2dTyWu7.jpg"
+    },
+    "1946": {
+      "id": 1946,
+      "title": "eXistenZ",
+      "releaseDate": "1999-04-14",
+      "overview": "A game designer on the run from assassins must play her latest virtual reality creation with a marketing trainee to determine if the game has been damaged.",
+      "tagline": "Everybody's Playing It.",
+      "posterPath": "/kETKF0JhdTPn1knci8CAdYL0d79.jpg",
+      "backdropPath": "/vgPBS3To8IuQ1sY1l9G97dqcsq2.jpg",
+      "runtime": 97,
+      "voteAverage": 6.788,
+      "genres": [
+        "Action",
+        "Thriller",
+        "Science Fiction"
+      ],
+      "directors": [
+        "David Cronenberg"
+      ],
+      "cast": [
+        "Jennifer Jason Leigh",
+        "Jude Law",
+        "Ian Holm",
+        "Willem Dafoe",
+        "Don McKellar",
+        "Callum Keith Rennie",
+        "Christopher Eccleston",
+        "Sarah Polley"
+      ],
+      "poster": "kETKF0JhdTPn1knci8CAdYL0d79.jpg"
+    },
+    "2493": {
+      "id": 2493,
+      "title": "The Princess Bride",
+      "releaseDate": "1987-09-25",
+      "overview": "In this enchantingly cracked fairy tale, the beautiful Princess Buttercup and the dashing Westley must overcome staggering odds to find happiness amid six-fingered swordsmen, murderous princes, Sicilians and rodents of unusual size. But even death can't stop these true lovebirds from triumphing.",
+      "tagline": "It's as real as the feelings you feel.",
+      "posterPath": "/2FC9L9MrjBoGHYjYZjdWQdopVYb.jpg",
+      "backdropPath": "/2CisgvF2HcIVnbMZbSjASCtSgEb.jpg",
+      "runtime": 99,
+      "voteAverage": 7.706,
+      "genres": [
+        "Adventure",
+        "Fantasy",
+        "Romance",
+        "Family"
+      ],
+      "directors": [
+        "Rob Reiner"
+      ],
+      "cast": [
+        "Cary Elwes",
+        "Robin Wright",
+        "Mandy Patinkin",
+        "Chris Sarandon",
+        "Christopher Guest",
+        "Wallace Shawn",
+        "André Roussimoff",
+        "Fred Savage"
+      ],
+      "poster": "2FC9L9MrjBoGHYjYZjdWQdopVYb.jpg"
+    },
+    "2667": {
+      "id": 2667,
+      "title": "The Blair Witch Project",
+      "releaseDate": "1999-07-14",
+      "overview": "In October of 1994 three student filmmakers disappeared in the woods near Burkittsville, Maryland, while shooting a documentary. A year later their footage was found.",
+      "tagline": "Everything you've heard is true.",
+      "posterPath": "/9050VGrYjYrEjpOvDZVAngLbg1f.jpg",
+      "backdropPath": "/ghPJw3XfhELokIf6V5QL0VpsXtK.jpg",
+      "runtime": 81,
+      "voteAverage": 6.368,
+      "genres": [
+        "Horror",
+        "Mystery"
+      ],
+      "directors": [
+        "Daniel Myrick",
+        "Eduardo Sánchez"
+      ],
+      "cast": [
+        "Heather Donahue",
+        "Joshua Leonard",
+        "Michael C. Williams",
+        "Bob Griffin",
+        "Jim King",
+        "Sandra Sánchez",
+        "Ed Swanson",
+        "Patricia DeCou"
+      ],
+      "poster": "9050VGrYjYrEjpOvDZVAngLbg1f.jpg"
+    },
+    "4538": {
+      "id": 4538,
+      "title": "The Darjeeling Limited",
+      "releaseDate": "2007-09-07",
+      "overview": "Three American brothers who have not spoken to each other in a year set off on a train voyage across India with a plan to find themselves and bond with each other -- to become brothers again like they used to be. Their \"spiritual quest\", however, veers rapidly off-course (due to events involving over-the-counter pain killers, Indian cough syrup, and pepper spray).",
+      "tagline": "I want us to be brothers again, like we used to be.",
+      "posterPath": "/oSW5OVXTulaIXcoNwJAp5YEKpbP.jpg",
+      "backdropPath": "/hKJ513GbmTSmTXJU1uCXclh5Wkh.jpg",
+      "runtime": 91,
+      "voteAverage": 7.14,
+      "genres": [
+        "Adventure",
+        "Drama",
+        "Comedy"
+      ],
+      "directors": [
+        "Wes Anderson"
+      ],
+      "cast": [
+        "Owen Wilson",
+        "Adrien Brody",
+        "Jason Schwartzman",
+        "Amara Karan",
+        "Wallace Wolodarsky",
+        "Waris Ahluwalia",
+        "Irrfan Khan",
+        "Barbet Schroeder"
+      ],
+      "poster": "oSW5OVXTulaIXcoNwJAp5YEKpbP.jpg"
+    },
+    "5925": {
+      "id": 5925,
+      "title": "The Great Escape",
+      "releaseDate": "1963-07-03",
+      "overview": "The Nazis, exasperated at the number of escapes from their prison camps by a relatively small number of Allied prisoners, relocate them to a high-security 'escape-proof' camp to sit out the remainder of the war. Undaunted, the prisoners plan one of the most ambitious escape attempts of World War II. Based on a true story.",
+      "tagline": "Put a fence in front of these men... and they'll climb it!",
+      "posterPath": "/gBH4H8UMFxl139HaLz6lRuvsel8.jpg",
+      "backdropPath": "/lb87H6BFXXKMJlUnDHvPOMGfh8z.jpg",
+      "runtime": 173,
+      "voteAverage": 7.929,
+      "genres": [
+        "Adventure",
+        "Drama",
+        "War"
+      ],
+      "directors": [
+        "John Sturges"
+      ],
+      "cast": [
+        "Steve McQueen",
+        "James Garner",
+        "Richard Attenborough",
+        "James Donald",
+        "Charles Bronson",
+        "Donald Pleasence",
+        "James Coburn",
+        "Hannes Messemer"
+      ],
+      "poster": "gBH4H8UMFxl139HaLz6lRuvsel8.jpg"
+    },
+    "6396": {
+      "id": 6396,
+      "title": "SLC Punk",
+      "releaseDate": "1998-09-24",
+      "overview": "Two former geeks become 1980s punks, then party and go to concerts while deciding what to do with their lives.",
+      "tagline": "God bless America... they're going to need it.",
+      "posterPath": "/gdbj2uvElEfEvTDGUY40vvuJU3R.jpg",
+      "backdropPath": "/nmrxw4INylwepfDRbIa4kYGAs6b.jpg",
+      "runtime": 97,
+      "voteAverage": 7.12,
+      "genres": [
+        "Comedy",
+        "Drama",
+        "Music"
+      ],
+      "directors": [
+        "James Merendino"
+      ],
+      "cast": [
+        "Matthew Lillard",
+        "Michael A. Goorjian",
+        "Annabeth Gish",
+        "Jennifer Lien",
+        "Christopher McDonald",
+        "Devon Sawa",
+        "Jason Segel",
+        "Adam Pascal"
+      ],
+      "poster": "gdbj2uvElEfEvTDGUY40vvuJU3R.jpg"
+    },
+    "7512": {
+      "id": 7512,
+      "title": "Idiocracy",
+      "releaseDate": "2006-09-01",
+      "overview": "To test its top-secret Human Hibernation Project, the Pentagon picks the most average European-Americans it can find - an Army private and a prostitute - and sends them to the year 2505 after a series of freak events. But when they arrive, they find a civilization so dumbed-down that they're the smartest people around.",
+      "tagline": "In the future, intelligence is extinct.",
+      "posterPath": "/6cTHBq49ApwsJaRr3ojlY1cmiXk.jpg",
+      "backdropPath": "/9Z4msMhKvNp63sOB1ZvxPMPvqz3.jpg",
+      "runtime": 85,
+      "voteAverage": 6.382,
+      "genres": [
+        "Comedy",
+        "Science Fiction",
+        "Adventure",
+        "Thriller"
+      ],
+      "directors": [
+        "Mike Judge"
+      ],
+      "cast": [
+        "Luke Wilson",
+        "Maya Rudolph",
+        "Dax Shepard",
+        "Terry Crews",
+        "Anthony 'Citric' Campos",
+        "David Herman",
+        "Sonny Castillo",
+        "Kevin McAfee"
+      ],
+      "poster": "6cTHBq49ApwsJaRr3ojlY1cmiXk.jpg"
+    },
+    "8337": {
+      "id": 8337,
+      "title": "They Live",
+      "releaseDate": "1988-11-04",
+      "overview": "A lone drifter stumbles upon a unique pair of sunglasses that reveal aliens are systematically gaining control of the Earth by masquerading as humans and lulling the public into submission.",
+      "tagline": "You see them on the street. You watch them on TV. You might even vote for one this fall. You think they're people just like you. You're wrong. Dead wrong.",
+      "posterPath": "/ngnybFTuopfbfmmEeX9jjBQQmF6.jpg",
+      "backdropPath": "/3k2DQBryXzaL7DoAtu6veWWluwt.jpg",
+      "runtime": 93,
+      "voteAverage": 7.305,
+      "genres": [
+        "Science Fiction",
+        "Action",
+        "Thriller"
+      ],
+      "directors": [
+        "John Carpenter"
+      ],
+      "cast": [
+        "Roddy Piper",
+        "Keith David",
+        "Meg Foster",
+        "George Buck Flower",
+        "Peter Jason",
+        "Raymond St. Jacques",
+        "Jason Robards III",
+        "John Lawrence"
+      ],
+      "poster": "ngnybFTuopfbfmmEeX9jjBQQmF6.jpg"
+    },
+    "8769": {
+      "id": 8769,
+      "title": "Christine",
+      "releaseDate": "1983-12-09",
+      "overview": "Nerdy high schooler Arnie Cunningham falls for Christine, a rusty 1958 Plymouth Fury, and becomes obsessed with restoring the classic automobile to her former glory. As the car changes, so does Arnie, whose newfound confidence turns to arrogance behind the wheel of his exotic beauty. Arnie's girlfriend Leigh and best friend Dennis reach out to him, only to be met by a Fury like no other.",
+      "tagline": "How do you kill something that can't possibly be alive?",
+      "posterPath": "/mMtUJke2TtIoT6JB9hkvERmsSu8.jpg",
+      "backdropPath": "/6goydaLavDu3d2g3kFJHECZiddt.jpg",
+      "runtime": 110,
+      "voteAverage": 6.9,
+      "genres": [
+        "Horror"
+      ],
+      "directors": [
+        "John Carpenter"
+      ],
+      "cast": [
+        "Keith Gordon",
+        "John Stockwell",
+        "Alexandra Paul",
+        "Robert Prosky",
+        "Harry Dean Stanton",
+        "Christine Belford",
+        "Roberts Blossom",
+        "William Ostrander"
+      ],
+      "poster": "mMtUJke2TtIoT6JB9hkvERmsSu8.jpg"
+    },
+    "8852": {
+      "id": 8852,
+      "title": "Prince of Darkness",
+      "releaseDate": "1987-10-23",
+      "overview": "A priest discovers an ancient canister containing a strange liquid in an abandoned church. When a group of graduate students and scientists are tasked with studying it, they unknowingly unleash an evil force waiting to destroy all of humanity.",
+      "tagline": "Before man walked the earth...It slept for centuries. It is evil. It is real. It is awakening.",
+      "posterPath": "/jjcAOhtGuX4p8XvlVn1WXUT1jWi.jpg",
+      "backdropPath": "/9FYa8R1VQdgfuX4QcgZgvbaQ2ca.jpg",
+      "runtime": 102,
+      "voteAverage": 6.764,
+      "genres": [
+        "Horror"
+      ],
+      "directors": [
+        "John Carpenter"
+      ],
+      "cast": [
+        "Donald Pleasence",
+        "Lisa Blount",
+        "Victor Wong",
+        "Jameson Parker",
+        "Dennis Dun",
+        "Susan Blanchard",
+        "Anne Marie Howard",
+        "Ann Yen"
+      ],
+      "poster": "jjcAOhtGuX4p8XvlVn1WXUT1jWi.jpg"
+    },
+    "9538": {
+      "id": 9538,
+      "title": "Scanners",
+      "releaseDate": "1981-01-14",
+      "overview": "A scientist trains a man with an advanced telepathic ability called 'scanning' to stop a dangerous Scanner with extraordinary psychic powers from waging war against non-Scanners.",
+      "tagline": "10 Seconds: The Pain Begins. 15 Seconds: You Can’t Breathe. 20 Seconds: You Explode.",
+      "posterPath": "/VTqLdveNXxGsIAZL5I4RliTTt7.jpg",
+      "backdropPath": "/1qxQvGJXlkFRqfGallca9DXmynS.jpg",
+      "runtime": 103,
+      "voteAverage": 6.701,
+      "genres": [
+        "Science Fiction",
+        "Horror"
+      ],
+      "directors": [
+        "David Cronenberg"
+      ],
+      "cast": [
+        "Stephen Lack",
+        "Jennifer O'Neill",
+        "Michael Ironside",
+        "Patrick McGoohan",
+        "Lawrence Dane",
+        "Robert A. Silverman",
+        "Lee Broker",
+        "Mavor Moore"
+      ],
+      "poster": "VTqLdveNXxGsIAZL5I4RliTTt7.jpg"
+    },
+    "9693": {
+      "id": 9693,
+      "title": "Children of Men",
+      "releaseDate": "2006-09-22",
+      "overview": "In 2027, in a chaotic world in which humans can no longer procreate, a former activist agrees to help transport a miraculously pregnant woman to a sanctuary at sea, where her child's birth may help scientists save the future of humankind.",
+      "tagline": "The year 2027: the last days of the human race. No child has been born for 18 years. He must protect our only hope.",
+      "posterPath": "/k9IAS4TehZFcKi4HVByxZNPfqex.jpg",
+      "backdropPath": "/www52jvhbB0ppe9s0zxbf9EYox.jpg",
+      "runtime": 109,
+      "voteAverage": 7.615,
+      "genres": [
+        "Science Fiction",
+        "Thriller",
+        "Action"
+      ],
+      "directors": [
+        "Alfonso Cuarón"
+      ],
+      "cast": [
+        "Clive Owen",
+        "Clare-Hope Ashitey",
+        "Chiwetel Ejiofor",
+        "Julianne Moore",
+        "Michael Caine",
+        "Pam Ferris",
+        "Charlie Hunnam",
+        "Danny Huston"
+      ],
+      "poster": "k9IAS4TehZFcKi4HVByxZNPfqex.jpg"
+    },
+    "10331": {
+      "id": 10331,
+      "title": "Night of the Living Dead",
+      "releaseDate": "1968-10-04",
+      "overview": "A ragtag group barricade themselves in an old Pennsylvania farmhouse to remain safe from a horde of flesh-eating ghouls ravaging the Northeast.",
+      "tagline": "If it doesn't scare you, you're already dead!",
+      "posterPath": "/rb2NWyb008u1EcKCOyXs2Nmj0ra.jpg",
+      "backdropPath": "/5KtmBSqFtHY3I9t8lgH27Mc0bqY.jpg",
+      "runtime": 96,
+      "voteAverage": 7.607,
+      "genres": [
+        "Horror",
+        "Thriller",
+        "Science Fiction"
+      ],
+      "directors": [
+        "George A. Romero"
+      ],
+      "cast": [
+        "Judith O'Dea",
+        "Duane Jones",
+        "Marilyn Eastman",
+        "Karl Hardman",
+        "Judith Ridley",
+        "Keith Wayne",
+        "Kyra Schon",
+        "Charles Craig"
+      ],
+      "poster": "rb2NWyb008u1EcKCOyXs2Nmj0ra.jpg"
+    },
+    "10774": {
+      "id": 10774,
+      "title": "Network",
+      "releaseDate": "1976-11-27",
+      "overview": "When veteran anchorman Howard Beale is forced to retire his 25-year post because of his age, he announces to viewers that he will kill himself during his farewell broadcast. Network executives rethink their decision when his fanatical tirade results in a spike in ratings.",
+      "tagline": "Television will never be the same.",
+      "posterPath": "/qZomlHsaALUtkFeMDwdYmwS2Pbo.jpg",
+      "backdropPath": "/m4Iyzh9YVOh0ra7UwdMoJcrjxkx.jpg",
+      "runtime": 122,
+      "voteAverage": 7.796,
+      "genres": [
+        "Drama"
+      ],
+      "directors": [
+        "Sidney Lumet"
+      ],
+      "cast": [
+        "Faye Dunaway",
+        "William Holden",
+        "Peter Finch",
+        "Robert Duvall",
+        "Wesley Addy",
+        "Ned Beatty",
+        "Arthur Burghardt",
+        "Bill Burrows"
+      ],
+      "poster": "qZomlHsaALUtkFeMDwdYmwS2Pbo.jpg"
+    },
+    "11305": {
+      "id": 11305,
+      "title": "Mystery Train",
+      "releaseDate": "1989-09-06",
+      "overview": "In Memphis, Tennessee, over the course of a single night, the Arcade Hotel, run by an eccentric night clerk and a clueless bellboy, is visited by a young Japanese couple traveling in search of the roots of rock; an Italian woman in mourning who stumbles upon a fleeing charlatan girl; and a comical trio of accidental thieves looking for a place to hide.",
+      "tagline": null,
+      "posterPath": "/f11xq7dBGhz9UDc3dabldAGeXVH.jpg",
+      "backdropPath": "/t0GxYLiPkTtFBuzoPLmLU3HSKEN.jpg",
+      "runtime": 106,
+      "voteAverage": 7.322,
+      "genres": [
+        "Comedy"
+      ],
+      "directors": [
+        "Jim Jarmusch"
+      ],
+      "cast": [
+        "Youki Kudoh",
+        "Masatoshi Nagase",
+        "Screamin' Jay Hawkins",
+        "Cinqué Lee",
+        "Nicoletta Braschi",
+        "Elizabeth Bracco",
+        "Joe Strummer",
+        "Rick Aviles"
+      ],
+      "poster": "f11xq7dBGhz9UDc3dabldAGeXVH.jpg"
+    },
+    "14337": {
+      "id": 14337,
+      "title": "Primer",
+      "releaseDate": "2004-10-08",
+      "overview": "A group of fledgling inventors discover a complex method to manipulate reality. At first, they successfully game the stock market with it, but the consequences of the invention start to catch up with them.",
+      "tagline": "What happens if it actually works?",
+      "posterPath": "/xEoq2WmDzpzxhkHEsmOYOg6BPg6.jpg",
+      "backdropPath": "/blSQbKAreIqcu2AWGDNjR8k3fAy.jpg",
+      "runtime": 77,
+      "voteAverage": 6.75,
+      "genres": [
+        "Science Fiction",
+        "Drama",
+        "Thriller"
+      ],
+      "directors": [
+        "Shane Carruth"
+      ],
+      "cast": [
+        "Shane Carruth",
+        "David Sullivan",
+        "Casey Gooden",
+        "Anand Upadhyaya",
+        "Carrie Crawford",
+        "Jay Butler",
+        "John Carruth",
+        "Juan Tapia"
+      ],
+      "poster": "xEoq2WmDzpzxhkHEsmOYOg6BPg6.jpg"
+    },
+    "16307": {
+      "id": 16307,
+      "title": "The Wicker Man",
+      "releaseDate": "1973-12-06",
+      "overview": "Police sergeant Neil Howie is called to an island village in search of a missing girl whom the locals claim never existed. The investigation is further complicated as Howie’s religious views clash with those of the island’s residents.",
+      "tagline": "Flesh to touch...Flesh to burn! Don't keep the Wicker Man waiting!",
+      "posterPath": "/wwtrXRL8SiOWxhwLEvw7iBgYh0g.jpg",
+      "backdropPath": "/fK5OHX7OIl57UqAbPiM4F3hc9wr.jpg",
+      "runtime": 93,
+      "voteAverage": 7.3,
+      "genres": [
+        "Horror"
+      ],
+      "directors": [
+        "Robin Hardy"
+      ],
+      "cast": [
+        "Edward Woodward",
+        "Christopher Lee",
+        "Britt Ekland",
+        "Diane Cilento",
+        "Ingrid Pitt",
+        "Roy Boyd",
+        "Lesley Mackie",
+        "Walter Carr"
+      ],
+      "poster": "wwtrXRL8SiOWxhwLEvw7iBgYh0g.jpg"
+    },
+    "49049": {
+      "id": 49049,
+      "title": "Dredd",
+      "releaseDate": "2012-09-07",
+      "overview": "In the future, America is a dystopian wasteland. The latest scourge is Ma-Ma, a prostitute-turned-drug pusher with a dangerous new drug and aims to take over the city. The only possibility of stopping her is an elite group of urban police called Judges, who combine the duties of judge, jury and executioner to deliver a brutal brand of swift justice. But even the top-ranking Judge, Dredd, discovers that taking down Ma-Ma isn’t as easy as it seems in this explosive adaptation of the hugely popular comic series.",
+      "tagline": "Judgement is coming.",
+      "posterPath": "/wLx65gtGVnUFCxceHWGszcruCZj.jpg",
+      "backdropPath": "/jUqDBi02CDjqrroC3Zl8hroBbSr.jpg",
+      "runtime": 96,
+      "voteAverage": 6.86,
+      "genres": [
+        "Action",
+        "Science Fiction"
+      ],
+      "directors": [
+        "Pete Travis"
+      ],
+      "cast": [
+        "Karl Urban",
+        "Olivia Thirlby",
+        "Lena Headey",
+        "Wood Harris",
+        "Langley Kirkwood",
+        "Tamer Burjaq",
+        "Joe Vaz",
+        "Rakie Ayola"
+      ],
+      "poster": "wLx65gtGVnUFCxceHWGszcruCZj.jpg"
+    },
+    "59678": {
+      "id": 59678,
+      "title": "Attack the Block",
+      "releaseDate": "2011-05-11",
+      "overview": "A South London teen gang must team up with the other residents of their housing estate to protect the neighbourhood from a terrifying alien invasion.",
+      "tagline": "Inner City vs. Outer Space",
+      "posterPath": "/wzCMnA6NDruLzgWeqMcLPDrGAdF.jpg",
+      "backdropPath": "/ncYrkutA6Yd1Gmh8fLyGieWlqLv.jpg",
+      "runtime": 88,
+      "voteAverage": 6.46,
+      "genres": [
+        "Action",
+        "Comedy",
+        "Science Fiction"
+      ],
+      "directors": [
+        "Joe Cornish"
+      ],
+      "cast": [
+        "John Boyega",
+        "Jodie Whittaker",
+        "Nick Frost",
+        "Alex Esmail",
+        "Luke Treadaway",
+        "Selom Awadzi",
+        "Franz Drameh",
+        "Simon Howard"
+      ],
+      "poster": "wzCMnA6NDruLzgWeqMcLPDrGAdF.jpg"
+    },
+    "74725": {
+      "id": 74725,
+      "title": "Kill List",
+      "releaseDate": "2011-09-02",
+      "overview": "Nearly a year after a botched job, a hitman takes a new assignment with the promise of a big payoff for three killings. What starts off as an easy task soon unravels, sending the killer into the heart of darkness.",
+      "tagline": "Who’s next?",
+      "posterPath": "/qwT2I3ons0oD58jIppKmd4qLtvB.jpg",
+      "backdropPath": "/ptZypdOBofmADX9JCtgi5E38cnC.jpg",
+      "runtime": 95,
+      "voteAverage": 6.195,
+      "genres": [
+        "Horror",
+        "Thriller",
+        "Crime"
+      ],
+      "directors": [
+        "Ben Wheatley"
+      ],
+      "cast": [
+        "Neil Maskell",
+        "MyAnna Buring",
+        "Harry Simpson",
+        "Michael Smiley",
+        "Struan Rodger",
+        "Emma Fryer",
+        "Esme Folley",
+        "Ben Crompton"
+      ],
+      "poster": "qwT2I3ons0oD58jIppKmd4qLtvB.jpg"
+    },
+    "120467": {
+      "id": 120467,
+      "title": "The Grand Budapest Hotel",
+      "releaseDate": "2014-02-26",
+      "overview": "The Grand Budapest Hotel tells of a legendary concierge at a famous European hotel between the wars and his friendship with a young employee who becomes his trusted protégé. The story involves the theft and recovery of a priceless Renaissance painting, the battle for an enormous family fortune and the slow and then sudden upheavals that transformed Europe during the first half of the 20th century.",
+      "tagline": "A murder case of Madam D. with enormous wealth and the most outrageous events surrounding her sudden death!",
+      "posterPath": "/eWdyYQreja6JGCzqHWXpWHDrrPo.jpg",
+      "backdropPath": "/9udCLTxTFl28RxnK8Q05E154ZGa.jpg",
+      "runtime": 100,
+      "voteAverage": 8.025,
+      "genres": [
+        "Comedy",
+        "Drama"
+      ],
+      "directors": [
+        "Wes Anderson"
+      ],
+      "cast": [
+        "Ralph Fiennes",
+        "F. Murray Abraham",
+        "Mathieu Amalric",
+        "Adrien Brody",
+        "Willem Dafoe",
+        "Jeff Goldblum",
+        "Harvey Keitel",
+        "Jude Law"
+      ],
+      "poster": "eWdyYQreja6JGCzqHWXpWHDrrPo.jpg"
+    },
+    "339405": {
+      "id": 339405,
+      "title": "Christine",
+      "releaseDate": "2016-10-14",
+      "overview": "In 1974, television reporter Christine Chubbuck struggles with depression and professional frustrations as she tries to advance her career.",
+      "tagline": "The shocking true story that changed the face of television.",
+      "posterPath": "/enZy6Yx6sjdOXxcnQVC200RjeKM.jpg",
+      "backdropPath": "/bb5BtQv2hfbgKMOcWtnu5y5RlPE.jpg",
+      "runtime": 123,
+      "voteAverage": 6.9,
+      "genres": [
+        "Drama"
+      ],
+      "directors": [
+        "Antonio Campos"
+      ],
+      "cast": [
+        "Rebecca Hall",
+        "Michael C. Hall",
+        "Tracy Letts",
+        "Maria Dizzia",
+        "J. Smith-Cameron",
+        "Timothy Simons",
+        "Kim Shaw",
+        "John Cullum"
+      ],
+      "poster": "enZy6Yx6sjdOXxcnQVC200RjeKM.jpg"
+    },
+    "410051": {
+      "id": 410051,
+      "title": "Stranger Than Paradise",
+      "releaseDate": "1983-01-31",
+      "overview": "30-minute short subject film that would become Stranger Than Paradise. This short was released as a standalone film in 1982, and shown as \"Stranger Than Paradise\" at the 1983 International Film Festival Rotterdam. When it was later expanded into a three-act feature, that name was appropriated for the feature itself, and the initial segment was renamed \"The New World\".",
+      "tagline": null,
+      "posterPath": "/a6UvfMk1vWiX2eQgWOlAqIqlCV8.jpg",
+      "backdropPath": "/peh8mnG4zPS71azl7pNxIFWFE1a.jpg",
+      "runtime": 32,
+      "voteAverage": 7.5,
+      "genres": [
+        "Comedy",
+        "Drama"
+      ],
+      "directors": [
+        "Jim Jarmusch"
+      ],
+      "cast": [
+        "John Lurie",
+        "Eszter Balint",
+        "Richard Edson"
+      ],
+      "poster": "a6UvfMk1vWiX2eQgWOlAqIqlCV8.jpg"
+    },
+    "429200": {
+      "id": 429200,
+      "title": "Good Time",
+      "releaseDate": "2017-08-11",
+      "overview": "After a botched bank robbery lands his younger brother in prison, Connie Nikas embarks on a twisted odyssey through New York City's underworld to get his brother Nick out of jail.",
+      "tagline": "Are you ready for a Good Time?",
+      "posterPath": "/yE1c9hj5Hf8a9KplAdRdhADqUro.jpg",
+      "backdropPath": "/5AhkjcqqRxBdpYZ0TeOuTCuOUYq.jpg",
+      "runtime": 102,
+      "voteAverage": 7.204,
+      "genres": [
+        "Crime",
+        "Thriller",
+        "Drama"
+      ],
+      "directors": [
+        "Benny Safdie",
+        "Josh Safdie"
+      ],
+      "cast": [
+        "Robert Pattinson",
+        "Benny Safdie",
+        "Buddy Duress",
+        "Taliah Webster",
+        "Jennifer Jason Leigh",
+        "Barkhad Abdi",
+        "Necro",
+        "Peter Verby"
+      ],
+      "poster": "yE1c9hj5Hf8a9KplAdRdhADqUro.jpg"
+    },
+    "496243": {
+      "id": 496243,
+      "title": "Parasite",
+      "releaseDate": "2019-05-30",
+      "overview": "All unemployed, Ki-taek's family takes peculiar interest in the wealthy and glamorous Parks for their livelihood until they get entangled in an unexpected incident.",
+      "tagline": "Act like you own the place.",
+      "posterPath": "/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg",
+      "backdropPath": "/vbC0rzdrb7Ohc2TkbEbxtOABECe.jpg",
+      "runtime": 133,
+      "voteAverage": 8.49,
+      "genres": [
+        "Comedy",
+        "Thriller",
+        "Drama"
+      ],
+      "directors": [
+        "Bong Joon Ho"
+      ],
+      "cast": [
+        "Song Kang-ho",
+        "Lee Sun-kyun",
+        "Cho Yeo-jeong",
+        "Choi Woo-shik",
+        "Park So-dam",
+        "Lee Jung-eun",
+        "Jang Hye-jin",
+        "Park Myung-hoon"
+      ],
+      "poster": "7IiTTgloJzvGI1TAYymCfbfl3vT.jpg"
+    },
+    "549509": {
+      "id": 549509,
+      "title": "The Brutalist",
+      "releaseDate": "2024-12-20",
+      "overview": "When an innovative modern architect flees post-war Europe, he is given the opportunity to rebuild his legacy. Set during the dawn of the modern United States (in Pennsylvania), his wife joins him, and their lives are forever changed by a demanding, wealthy patron.",
+      "tagline": "Welcome to America.",
+      "posterPath": "/vP7Yd6couiAaw9jgMd5cjMRj3hQ.jpg",
+      "backdropPath": "/hmZnqijPaaACjenDkrbWcCmcADI.jpg",
+      "runtime": 215,
+      "voteAverage": 6.938,
+      "genres": [
+        "Drama"
+      ],
+      "directors": [
+        "Brady Corbet"
+      ],
+      "cast": [
+        "Adrien Brody",
+        "Felicity Jones",
+        "Guy Pearce",
+        "Joe Alwyn",
+        "Raffey Cassidy",
+        "Stacy Martin",
+        "Isaach de Bankolé",
+        "Alessandro Nivola"
+      ],
+      "poster": "vP7Yd6couiAaw9jgMd5cjMRj3hQ.jpg"
+    },
+    "838209": {
+      "id": 838209,
+      "title": "Exhuma",
+      "releaseDate": "2024-02-22",
+      "overview": "After tracing the origin of a disturbing supernatural affliction to a wealthy family's ancestral gravesite, a team of paranormal experts relocates the remains—and soon discovers what happens to those who dare to mess with the wrong grave.",
+      "tagline": "The vicious emerges.",
+      "posterPath": "/6dasJ58GGFcC62H9KuukAryltUp.jpg",
+      "backdropPath": "/kYWk8TW5TkpCWkB0mkUm72N0lb8.jpg",
+      "runtime": 134,
+      "voteAverage": 7.661,
+      "genres": [
+        "Mystery",
+        "Horror",
+        "Thriller"
+      ],
+      "directors": [
+        "Jang Jae-hyun"
+      ],
+      "cast": [
+        "Choi Min-sik",
+        "Kim Go-eun",
+        "Yoo Hai-jin",
+        "Lee Do-hyun",
+        "Kim Jae-chul",
+        "Jeon Jin-gi",
+        "Kim Sun-young",
+        "Kim Ji-an"
+      ],
+      "poster": "6dasJ58GGFcC62H9KuukAryltUp.jpg"
+    },
+    "1154538": {
+      "id": 1154538,
+      "title": "Nirvanna the Band the Show the Movie",
+      "releaseDate": "2026-02-02",
+      "overview": "When their plan to book a show at the Rivoli goes horribly wrong, Matt and Jay accidentally travel back to the year 2008.",
+      "tagline": "One... last... plan.",
+      "posterPath": "/sm5TGX8WbnCd9Uo26cLyTxVwA1n.jpg",
+      "backdropPath": "/gYxOlYtLvGNrzYm6kQBcY5mqKja.jpg",
+      "runtime": 100,
+      "voteAverage": 7.538,
+      "genres": [
+        "Comedy",
+        "Science Fiction",
+        "Adventure"
+      ],
+      "directors": [
+        "Matt Johnson"
+      ],
+      "cast": [
+        "Matt Johnson",
+        "Jay McCarrol",
+        "Ben Petrie",
+        "Ethan Eng",
+        "Michael Scott",
+        "Jared Raab",
+        "Reid Janisse",
+        "Steve Hamelin"
+      ],
+      "poster": "sm5TGX8WbnCd9Uo26cLyTxVwA1n.jpg"
+    },
+    "1325734": {
+      "id": 1325734,
+      "title": "The Drama",
+      "releaseDate": "2026-04-01",
+      "overview": "A happily engaged couple is put to the test when an unexpected turn sends their wedding week off the rails.",
+      "tagline": "Witness the wedding of the year.",
+      "posterPath": "/rnIOUhzwJDfgQakx8EjoNyItKgs.jpg",
+      "backdropPath": "/1oKLEA9JOhvaBwLpqjROisvWMy7.jpg",
+      "runtime": 105,
+      "voteAverage": 6.9,
+      "genres": [
+        "Romance",
+        "Comedy",
+        "Drama"
+      ],
+      "directors": [
+        "Kristoffer Borgli"
+      ],
+      "cast": [
+        "Zendaya",
+        "Robert Pattinson",
+        "Alana Haim",
+        "Mamoudou Athie",
+        "Hailey Benton Gates",
+        "Sydney Lemmon",
+        "Hannah Gross",
+        "Anna Baryshnikov"
+      ],
+      "poster": "rnIOUhzwJDfgQakx8EjoNyItKgs.jpg"
+    }
+  }
+}
