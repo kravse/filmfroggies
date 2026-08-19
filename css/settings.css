@@ -185,17 +185,33 @@
   font: 0.82rem var(--ui-font);
 }
 
-.letterboxd-preview {
-  margin-top: 0.75rem;
-  padding: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--panel) 70%, var(--bg));
+.letterboxd-review-panel {
+  width: min(760px, 100%);
+  max-height: min(88vh, 860px);
 }
 
 .letterboxd-summary {
+  margin: 0 0 0.65rem;
   color: var(--text);
 }
+
+.letterboxd-match-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.75rem;
+  font: 0.75rem var(--ui-font);
+}
+
+.letterboxd-match-legend span {
+  padding: 0.2rem 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+}
+
+.letterboxd-match-legend .is-unmatched { color: var(--danger); }
+.letterboxd-match-legend .needs-review { color: #d5a84b; }
+.letterboxd-match-legend .is-matched { color: var(--accent); }
 
 .letterboxd-rating-option {
   display: flex;
@@ -209,8 +225,6 @@
 .letterboxd-matches {
   display: grid;
   gap: 0.55rem;
-  max-height: 18rem;
-  overflow-y: auto;
 }
 
 .letterboxd-match-row {
@@ -219,7 +233,31 @@
   align-items: center;
   gap: 0.6rem;
   font-size: 0.82rem;
+  padding: 0.55rem;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
 }
+
+.letterboxd-match-row.is-unmatched { border-left-color: var(--danger); }
+.letterboxd-match-row.needs-review { border-left-color: #d5a84b; }
+.letterboxd-match-row.is-matched { border-left-color: var(--accent); }
+
+.letterboxd-match-title {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.letterboxd-match-state {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.letterboxd-match-row.is-unmatched .letterboxd-match-state { color: var(--danger); }
+.letterboxd-match-row.needs-review .letterboxd-match-state { color: #d5a84b; }
+.letterboxd-match-row.is-matched .letterboxd-match-state { color: var(--accent); }
 
 .letterboxd-match-row select {
   min-width: 0;
@@ -230,9 +268,8 @@
   color: var(--text);
 }
 
-.letterboxd-import-actions {
-  justify-content: flex-end;
-  margin: 0.75rem 0 0;
+@media (max-width: 560px) {
+  .letterboxd-match-row { grid-template-columns: 1fr; }
 }
 
 /* --- Confirm dialog --- */

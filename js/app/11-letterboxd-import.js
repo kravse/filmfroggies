@@ -10,6 +10,20 @@ let letterboxdParsed = null;
 let letterboxdCandidates = new Map();
 let letterboxdSelections = {};
 
+function openLetterboxdReview() {
+  closeSettings();
+  letterboxdReviewDialog.hidden = false;
+  letterboxdSummary.textContent = "Preparing import…";
+  letterboxdMatches.innerHTML = "";
+  letterboxdImport.disabled = true;
+  letterboxdReviewClose.focus({ preventScroll: true });
+}
+
+function closeLetterboxdReview() {
+  letterboxdReviewDialog.hidden = true;
+  settingsBtn.focus({ preventScroll: true });
+}
+
 function readLetterboxdMatchCache() {
   try {
     const parsed = JSON.parse(readStorage(LETTERBOXD_MATCH_CACHE_KEY) || "{}");
@@ -92,27 +106,40 @@ function renderLetterboxdPreview() {
   const unresolved = letterboxdParsed.films.length - matched;
   const viewings = letterboxdParsed.films.reduce((sum, film) => sum + film.viewings.length, 0);
   letterboxdSummary.textContent = `${letterboxdParsed.films.length} unique films, ${viewings} diary entries. ${matched} matched; ${unresolved} will be skipped unless matched below.`;
-  const rows = letterboxdParsed.films.filter((film) => {
-    const candidates = letterboxdCandidates.get(film.sourceKey) || [];
-    return !letterboxdSelections[film.sourceKey] || candidates.length > 1;
-  });
-  letterboxdMatches.innerHTML = rows.length ? rows.map((film) => {
+  const rows = letterboxdParsed.films.map((film, index) => {
     const candidates = letterboxdCandidates.get(film.sourceKey) || [];
     const selected = Number(letterboxdSelections[film.sourceKey]) || 0;
-    const options = ['<option value="">Skip this film</option>', ...candidates.map((candidate) => {
+    const status = selected ? "is-matched" : candidates.length ? "needs-review" : "is-unmatched";
+    return { film, candidates, selected, status, index };
+  }).sort((left, right) => {
+    const rank = { "is-unmatched": 0, "needs-review": 1, "is-matched": 2 };
+    return rank[left.status] - rank[right.status] || left.index - right.index;
+  });
+  letterboxdMatches.innerHTML = rows.length ? rows.map(({ film, candidates, selected, status }) => {
+    const selectedIsListed = candidates.some((candidate) => candidate.id === selected);
+    const savedOption = selected && !selectedIsListed
+      ? [`<option value="${selected}" selected>Saved match (TMDB #${selected})</option>`]
+      : [];
+    const options = ['<option value="">Skip this film</option>', ...savedOption, ...candidates.map((candidate) => {
       const year = candidateYear(candidate);
       return `<option value="${candidate.id}"${candidate.id === selected ? " selected" : ""}>${appCardHtml.escapeHtml(candidate.title)}${year ? ` (${year})` : ""}</option>`;
     })].join("");
-    return `<label class="letterboxd-match-row"><span>${appCardHtml.escapeHtml(film.title)}${film.year ? ` (${film.year})` : ""}</span><select data-letterboxd-source-key="${appCardHtml.escapeHtml(film.sourceKey)}" aria-label="TMDB match for ${appCardHtml.escapeHtml(film.title)}">${options}</select></label>`;
-  }).join("") : '<p class="sheet-note">Every film has a confident match.</p>';
+    const stateLabel = status === "is-matched"
+      ? "Matched"
+      : status === "needs-review" ? "Choose a TMDB match" : "No TMDB results";
+    return `<label class="letterboxd-match-row ${status}"><span class="letterboxd-match-title"><strong>${appCardHtml.escapeHtml(film.title)}${film.year ? ` (${film.year})` : ""}</strong><span class="letterboxd-match-state">${stateLabel}</span></span><select data-letterboxd-source-key="${appCardHtml.escapeHtml(film.sourceKey)}" aria-label="TMDB match for ${appCardHtml.escapeHtml(film.title)}">${options}</select></label>`;
+  }).join("") : '<p class="sheet-note">No films were found in this export.</p>';
   letterboxdImport.disabled = matched === 0;
-  letterboxdPreview.hidden = false;
 }
 
 async function onReviewLetterboxdImport() {
   const file = letterboxdFile.files?.[0];
+  if (!file) {
+    setStatus(letterboxdStatus, "Choose a Letterboxd export ZIP first.", "error");
+    return;
+  }
   letterboxdRead.disabled = true;
-  letterboxdPreview.hidden = true;
+  openLetterboxdReview();
   setStatus(letterboxdStatus, "Reading export…", null);
   try {
     const files = await extractLetterboxdCsv(file);
@@ -135,7 +162,7 @@ async function onReviewLetterboxdImport() {
         }
       }
       finished += 1;
-      setStatus(letterboxdStatus, `Matching films with TMDB… ${finished}/${letterboxdParsed.films.length}`, null);
+      letterboxdSummary.textContent = `Matching films with TMDB… ${finished}/${letterboxdParsed.films.length}`;
     });
     const ignored = letterboxdParsed.ignoredFiles.length
       ? ` Ignored ${letterboxdParsed.ignoredFiles.length} unsupported CSV file(s).`
@@ -145,6 +172,8 @@ async function onReviewLetterboxdImport() {
   } catch (error) {
     letterboxdParsed = null;
     setStatus(letterboxdStatus, error.message || "Could not read that export.", "error");
+    letterboxdSummary.textContent = error.message || "Could not read that export.";
+    letterboxdMatches.innerHTML = '<p class="sheet-note">Close this review and choose another export.</p>';
   } finally {
     letterboxdRead.disabled = false;
   }
@@ -178,8 +207,8 @@ function onCommitLetterboxdImport() {
     render();
     hydrateActiveList();
     setStatus(letterboxdStatus, `Imported ${result.summary.matched} films: ${result.summary.watched} watched, ${result.summary.watchlist} watchlist, ${result.summary.ratings} ratings, and ${result.summary.viewings} viewing dates.`, "ok");
-    letterboxdPreview.hidden = true;
     letterboxdParsed = null;
+    closeLetterboxdReview();
   } catch (error) {
     setStatus(letterboxdStatus, error.message || "The import could not be saved.", "error");
     letterboxdImport.disabled = false;

@@ -767,17 +767,6 @@
               <button type="button" id="letterboxd-read" class="ghost-btn">Review import</button>
             </div>
             <span class="status-text" id="letterboxd-status"></span>
-            <div id="letterboxd-preview" class="letterboxd-preview" hidden>
-              <p id="letterboxd-summary" class="letterboxd-summary"></p>
-              <label class="letterboxd-rating-option">
-                <input type="checkbox" id="letterboxd-overwrite-ratings" />
-                Replace existing CineQueue ratings
-              </label>
-              <div id="letterboxd-matches" class="letterboxd-matches"></div>
-              <div class="field-row letterboxd-import-actions">
-                <button type="button" id="letterboxd-import" class="primary-btn">Import matched films</button>
-              </div>
-            </div>
           </section>
 
           <section class="sheet-section">
@@ -795,6 +784,42 @@
               <span class="status-text" id="export-csv-status"></span>
             </div>
           </section>
+        </div>
+      </div>
+    </div>
+
+    <div id="letterboxd-review-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
+      <div class="sheet-backdrop" data-close-letterboxd-review></div>
+      <div
+        class="sheet-panel letterboxd-review-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="letterboxd-review-title"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="letterboxd-review-title">Review Letterboxd import</h2>
+          <button type="button" id="letterboxd-review-close" class="icon-btn" aria-label="Close import review">
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none">
+              <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+        <div class="sheet-scroll">
+          <p id="letterboxd-summary" class="letterboxd-summary">Preparing import…</p>
+          <div class="letterboxd-match-legend" aria-label="Match status legend">
+            <span class="is-unmatched">No match</span>
+            <span class="needs-review">Needs review</span>
+            <span class="is-matched">Matched</span>
+          </div>
+          <label class="letterboxd-rating-option">
+            <input type="checkbox" id="letterboxd-overwrite-ratings" />
+            Replace existing CineQueue ratings
+          </label>
+          <div id="letterboxd-matches" class="letterboxd-matches" aria-live="polite"></div>
+        </div>
+        <div class="confirm-actions">
+          <button type="button" id="letterboxd-review-cancel" class="ghost-btn">Cancel</button>
+          <button type="button" id="letterboxd-import" class="primary-btn">Import matched films</button>
         </div>
       </div>
     </div>
