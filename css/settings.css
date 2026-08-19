@@ -210,6 +210,7 @@
 }
 
 .letterboxd-match-legend .is-unmatched { color: var(--danger); }
+.letterboxd-match-legend .lookup-failed { color: var(--danger); border-style: dashed; }
 .letterboxd-match-legend .needs-review { color: #d5a84b; }
 .letterboxd-match-legend .is-matched { color: var(--success); }
 
@@ -246,6 +247,18 @@
   background: color-mix(in srgb, var(--danger) 8%, var(--bg));
 }
 
+.letterboxd-match-row.lookup-failed {
+  border-color: color-mix(in srgb, var(--danger) 58%, var(--border));
+  border-left-color: var(--danger);
+  background: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--danger) 8%, var(--bg)),
+    color-mix(in srgb, var(--danger) 8%, var(--bg)) 8px,
+    var(--bg) 8px,
+    var(--bg) 16px
+  );
+}
+
 .letterboxd-match-row.needs-review {
   border-color: color-mix(in srgb, #d5a84b 48%, var(--border));
   border-left-color: #d5a84b;
@@ -270,6 +283,7 @@
 }
 
 .letterboxd-match-row.is-unmatched .letterboxd-match-state { color: var(--danger); }
+.letterboxd-match-row.lookup-failed .letterboxd-match-state { color: var(--danger); }
 .letterboxd-match-row.needs-review .letterboxd-match-state { color: #d5a84b; }
 .letterboxd-match-row.is-matched .letterboxd-match-state { color: var(--success); }
 

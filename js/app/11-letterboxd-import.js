@@ -4,11 +4,14 @@ const LETTERBOXD_MATCH_CACHE_KEY = "moviecollector-letterboxd-matches-v1";
 const LETTERBOXD_MAX_ZIP_BYTES = 25 * 1024 * 1024;
 const LETTERBOXD_MAX_CSV_BYTES = 10 * 1024 * 1024;
 const LETTERBOXD_MAX_TOTAL_BYTES = 50 * 1024 * 1024;
-const LETTERBOXD_MATCH_CONCURRENCY = 4;
+const LETTERBOXD_MATCH_CONCURRENCY = 2;
+const LETTERBOXD_MATCH_DELAY_MS = 140;
+const LETTERBOXD_MATCH_RETRIES = 4;
 
 let letterboxdParsed = null;
 let letterboxdCandidates = new Map();
 let letterboxdSelections = {};
+let letterboxdLookupErrors = new Set();
 
 function openLetterboxdReview() {
   closeSettings();
@@ -72,6 +75,27 @@ function candidateYear(candidate) {
   return appLetterboxdImport.candidateReleaseYear(candidate);
 }
 
+function delayLetterboxdLookup(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function searchLetterboxdFilm(film) {
+  let lastError = null;
+  for (let attempt = 0; attempt <= LETTERBOXD_MATCH_RETRIES; attempt += 1) {
+    try {
+      const results = await searchMovies(film.title);
+      await delayLetterboxdLookup(LETTERBOXD_MATCH_DELAY_MS);
+      return results;
+    } catch (error) {
+      lastError = error;
+      if (attempt === LETTERBOXD_MATCH_RETRIES) break;
+      const backoff = 600 * (2 ** attempt) + Math.floor(Math.random() * 250);
+      await delayLetterboxdLookup(backoff);
+    }
+  }
+  throw lastError || new Error("TMDB lookup failed");
+}
+
 function sortedLetterboxdCandidates(film, candidates) {
   const seen = new Set();
   return candidates.filter((candidate) => {
@@ -107,15 +131,20 @@ function renderLetterboxdPreview() {
   if (!letterboxdParsed) return;
   const matched = Object.values(letterboxdSelections).filter(Boolean).length;
   const unresolved = letterboxdParsed.films.length - matched;
+  const lookupFailures = letterboxdLookupErrors.size;
   const viewings = letterboxdParsed.films.reduce((sum, film) => sum + film.viewings.length, 0);
-  letterboxdSummary.textContent = `${letterboxdParsed.films.length} unique films, ${viewings} diary entries. ${matched} matched; ${unresolved} will be skipped unless matched below.`;
+  letterboxdSummary.textContent = `${letterboxdParsed.films.length} unique films, ${viewings} diary entries. ${matched} matched; ${unresolved} unresolved.${lookupFailures ? ` ${lookupFailures} TMDB lookup${lookupFailures === 1 ? "" : "s"} failed and should be retried.` : ""}`;
   const rows = letterboxdParsed.films.map((film, index) => {
     const candidates = letterboxdCandidates.get(film.sourceKey) || [];
     const selected = Number(letterboxdSelections[film.sourceKey]) || 0;
-    const status = selected ? "is-matched" : candidates.length ? "needs-review" : "is-unmatched";
+    const status = selected
+      ? "is-matched"
+      : letterboxdLookupErrors.has(film.sourceKey)
+        ? "lookup-failed"
+        : candidates.length ? "needs-review" : "is-unmatched";
     return { film, candidates, selected, status, index };
   }).sort((left, right) => {
-    const rank = { "is-unmatched": 0, "needs-review": 1, "is-matched": 2 };
+    const rank = { "lookup-failed": 0, "is-unmatched": 1, "needs-review": 2, "is-matched": 3 };
     return rank[left.status] - rank[right.status] || left.index - right.index;
   });
   letterboxdMatches.innerHTML = rows.length ? rows.map(({ film, candidates, selected, status }) => {
@@ -130,7 +159,9 @@ function renderLetterboxdPreview() {
     })].join("");
     const stateLabel = status === "is-matched"
       ? "Matched"
-      : status === "needs-review" ? "Choose a TMDB match" : "No TMDB results";
+      : status === "needs-review"
+        ? "Choose a TMDB match"
+        : status === "lookup-failed" ? "TMDB lookup failed — retry the review" : "No TMDB results";
     return `<label class="letterboxd-match-row ${status}"><span class="letterboxd-match-title"><strong>${appCardHtml.escapeHtml(film.title)}${film.year ? ` (${film.year})` : ""}</strong><span class="letterboxd-match-state">${stateLabel}</span></span><select data-letterboxd-source-key="${appCardHtml.escapeHtml(film.sourceKey)}" aria-label="TMDB match for ${appCardHtml.escapeHtml(film.title)}">${options}</select></label>`;
   }).join("") : '<p class="sheet-note">No films were found in this export.</p>';
   letterboxdImport.disabled = matched === 0;
@@ -150,6 +181,7 @@ async function onReviewLetterboxdImport() {
     letterboxdParsed = appLetterboxdImport.parseLetterboxdFiles(files);
     letterboxdCandidates = new Map();
     letterboxdSelections = {};
+    letterboxdLookupErrors = new Set();
     const cache = readLetterboxdMatchCache();
     let finished = 0;
     await mapWithConcurrency(letterboxdParsed.films, async (film) => {
@@ -157,12 +189,13 @@ async function onReviewLetterboxdImport() {
         letterboxdSelections[film.sourceKey] = cache[film.sourceKey];
       } else {
         try {
-          const candidates = await searchMovies(film.title);
+          const candidates = await searchLetterboxdFilm(film);
           letterboxdCandidates.set(film.sourceKey, candidates.slice(0, 10));
           const picked = appLetterboxdImport.pickTmdbMatch(film, candidates);
           if (picked) letterboxdSelections[film.sourceKey] = picked;
         } catch (_) {
           letterboxdCandidates.set(film.sourceKey, []);
+          letterboxdLookupErrors.add(film.sourceKey);
         }
       }
       finished += 1;
