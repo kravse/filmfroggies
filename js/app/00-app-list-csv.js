@@ -14,7 +14,7 @@ const appListCsv = (function () {
    * ignores them.
    */
 
-  const CSV_HEADER = ["tmdb_id", "title", "list", "my_rating", "release_year"];
+  const CSV_HEADER = ["tmdb_id", "title", "list_id", "list_name", "my_rating", "release_year"];
   const CSV_FILENAME = "my_list.csv";
 
   function getLists() {
@@ -62,6 +62,15 @@ const appListCsv = (function () {
     return { title, releaseYear, myRating };
   }
 
+  function listNameFor(state, listId) {
+    const preset = getLists().PRESET_LISTS.find((entry) => entry.id === listId);
+    if (preset) {
+      return preset.name;
+    }
+    const custom = getCustomLists().findCustomList(state?.customLists, listId);
+    return custom?.name || "";
+  }
+
   /** Quote whenever a field could otherwise change the shape of the row. */
   function csvField(value) {
     const text = String(value == null ? "" : value);
@@ -93,7 +102,12 @@ const appListCsv = (function () {
           continue;
         }
         seen.add(id);
-        rows.push({ id, listId, ...rowMeta(state, id, recordFor) });
+        rows.push({
+          id,
+          listId,
+          listName: listNameFor(state, listId),
+          ...rowMeta(state, id, recordFor),
+        });
       }
     }
     for (const list of customLists) {
@@ -106,7 +120,12 @@ const appListCsv = (function () {
           continue;
         }
         seen.add(id);
-        rows.push({ id, listId: list.id, ...rowMeta(state, id, recordFor) });
+        rows.push({
+          id,
+          listId: list.id,
+          listName: list.name,
+          ...rowMeta(state, id, recordFor),
+        });
       }
     }
     return rows;
@@ -116,7 +135,14 @@ const appListCsv = (function () {
     const lines = [csvRow(CSV_HEADER)];
     for (const row of rows || []) {
       lines.push(
-        csvRow([row.id, row.title, row.listId, row.myRating, row.releaseYear]),
+        csvRow([
+          row.id,
+          row.title,
+          row.listId,
+          row.listName,
+          row.myRating,
+          row.releaseYear,
+        ]),
       );
     }
     return `${lines.join("\n")}\n`;

@@ -29,11 +29,26 @@ test("rows are watched first, then watchlist, each in stored order", () => {
       id: 603,
       title: "The Matrix",
       listId: "watched",
+      listName: "Watched",
       myRating: "",
       releaseYear: "",
     },
-    { id: 604, title: "", listId: "watched", myRating: "", releaseYear: "" },
-    { id: 1891, title: "", listId: "watchlist", myRating: "", releaseYear: "" },
+    {
+      id: 604,
+      title: "",
+      listId: "watched",
+      listName: "Watched",
+      myRating: "",
+      releaseYear: "",
+    },
+    {
+      id: 1891,
+      title: "",
+      listId: "watchlist",
+      listName: "Watchlist",
+      myRating: "",
+      releaseYear: "",
+    },
   ]);
 });
 
@@ -55,6 +70,7 @@ test("listCsvRows includes my_rating and release_year when available", () => {
         id: 603,
         title: "The Matrix",
         listId: "watched",
+        listName: "Watched",
         myRating: "8.5",
         releaseYear: "1999",
       },
@@ -119,6 +135,7 @@ test("listCsvRows includes custom-list movies not on watched or watchlist", () =
         id: 603,
         title: "The Matrix",
         listId: "watched",
+        listName: "Watched",
         myRating: "",
         releaseYear: "1999",
       },
@@ -126,6 +143,7 @@ test("listCsvRows includes custom-list movies not on watched or watchlist", () =
         id: 999,
         title: "Alien",
         listId: "custom-scifi",
+        listName: "Sci-Fi",
         myRating: "",
         releaseYear: "1979",
       },
@@ -133,6 +151,7 @@ test("listCsvRows includes custom-list movies not on watched or watchlist", () =
         id: 1000,
         title: "",
         listId: "custom-horror",
+        listName: "Horror",
         myRating: "",
         releaseYear: "",
       },
@@ -161,7 +180,14 @@ test("listCsvRows exports custom-only movies once when they appear on multiple l
     ],
   };
   assert.deepEqual(listCsvRows(state, records({})), [
-    { id: 42, title: "", listId: "custom-a", myRating: "", releaseYear: "" },
+    {
+      id: 42,
+      title: "",
+      listId: "custom-a",
+      listName: "A",
+      myRating: "",
+      releaseYear: "",
+    },
   ]);
 });
 
@@ -171,11 +197,15 @@ test("buildListCsv writes a header and one row per movie", () => {
       id: 603,
       title: "The Matrix",
       listId: "watched",
+      listName: "Watched",
       myRating: "8.5",
       releaseYear: "1999",
     },
   ]);
-  assert.equal(csv, "tmdb_id,title,list,my_rating,release_year\n603,The Matrix,watched,8.5,1999\n");
+  assert.equal(
+    csv,
+    "tmdb_id,title,list_id,list_name,my_rating,release_year\n603,The Matrix,watched,Watched,8.5,1999\n",
+  );
 });
 
 test("buildListCsv quotes titles that would otherwise break the row", () => {
@@ -184,6 +214,7 @@ test("buildListCsv quotes titles that would otherwise break the row", () => {
       id: 1,
       title: "Lock, Stock and Two Smoking Barrels",
       listId: "watched",
+      listName: "Watched",
       myRating: "",
       releaseYear: "1998",
     },
@@ -191,6 +222,7 @@ test("buildListCsv quotes titles that would otherwise break the row", () => {
       id: 2,
       title: 'The "Burbs',
       listId: "watched",
+      listName: "Watched",
       myRating: "7",
       releaseYear: "",
     },
@@ -198,23 +230,24 @@ test("buildListCsv quotes titles that would otherwise break the row", () => {
       id: 3,
       title: "Line\nBreak",
       listId: "watchlist",
+      listName: "Watchlist",
       myRating: "",
       releaseYear: "2020",
     },
   ]);
   assert.equal(
     csv,
-    "tmdb_id,title,list,my_rating,release_year\n" +
-      '1,"Lock, Stock and Two Smoking Barrels",watched,,1998\n' +
-      '2,"The ""Burbs",watched,7,\n' +
-      '3,"Line\nBreak",watchlist,,2020\n',
+    "tmdb_id,title,list_id,list_name,my_rating,release_year\n" +
+      '1,"Lock, Stock and Two Smoking Barrels",watched,Watched,,1998\n' +
+      '2,"The ""Burbs",watched,Watched,7,\n' +
+      '3,"Line\nBreak",watchlist,Watchlist,,2020\n',
   );
 });
 
 test("parseListCsv reads ids and skips the header", () => {
   assert.deepEqual(
     parseListCsv(
-      "tmdb_id,title,list,my_rating,release_year\n603,The Matrix,watched,8.5,1999\n1891,Star Wars,watchlist,,1977\n",
+      "tmdb_id,title,list_id,list_name,my_rating,release_year\n603,The Matrix,watched,Watched,8.5,1999\n1891,Star Wars,watchlist,Watchlist,,1977\n",
     ),
     [603, 1891],
   );
@@ -222,24 +255,24 @@ test("parseListCsv reads ids and skips the header", () => {
 
 test("parseListCsv ignores blank lines, junk rows, and duplicates", () => {
   const csv = [
-    "tmdb_id,title,list,my_rating,release_year",
-    "603,The Matrix,watched,8.5,1999",
+    "tmdb_id,title,list_id,list_name,my_rating,release_year",
+    "603,The Matrix,watched,Watched,8.5,1999",
     "",
     "   ",
-    "not-an-id,whatever,watched,,",
-    "-5,negative,watched,,",
-    "0,zero,watched,,",
-    "603,The Matrix again,watchlist,,",
+    "not-an-id,whatever,watched,Watched,,",
+    "-5,negative,watched,Watched,,",
+    "0,zero,watched,Watched,,",
+    "603,The Matrix again,watchlist,Watchlist,,",
     "604",
   ].join("\n");
   assert.deepEqual(parseListCsv(csv), [603, 604]);
 });
 
 test("parseListCsv handles a quoted id column and crlf endings", () => {
-  assert.deepEqual(parseListCsv('"603",The Matrix,watched,8.5,1999\r\n"604",Next,watched,,\r\n'), [
-    603,
-    604,
-  ]);
+  assert.deepEqual(
+    parseListCsv('"603",The Matrix,watched,Watched,8.5,1999\r\n"604",Next,watched,Watched,,\r\n'),
+    [603, 604],
+  );
 });
 
 test("parseListCsv returns nothing for empty input", () => {

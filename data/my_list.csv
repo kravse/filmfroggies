@@ -1,64 +1,64 @@
-tmdb_id,title,list
-1554,Down by Law,watched
-670,Oldboy,watched
-6396,SLC Punk,watched
-141,Donnie Darko,watched
-5925,The Great Escape,watched
-14337,Primer,watched
-8337,They Live,watched
-8852,Prince of Darkness,watched
-1946,eXistenZ,watched
-9538,Scanners,watched
-837,Videodrome,watched
-59678,Attack the Block,watched
-49049,Dredd,watched
-8769,Christine,watched
-4538,The Darjeeling Limited,watched
-120467,The Grand Budapest Hotel,watched
-9693,Children of Men,watched
-2667,The Blair Witch Project,watched
-16307,The Wicker Man,watched
-389,12 Angry Men,watched
-1325734,The Drama,watched
-429200,Good Time,watched
-10331,Night of the Living Dead,watched
-278,The Shawshank Redemption,watched
-7512,Idiocracy,watched
-496243,Parasite,watched
-1154538,Nirvanna the Band the Show the Movie,watched
-2493,The Princess Bride,watched
-913814,Brian and Charles,watched
-339405,Christine,watched
-938614,Late Night with the Devil,watched
-680,Pulp Fiction,watched
-273248,The Hateful Eight,watched
-2649,The Game,watched
-2322,Sneakers,watched
-10428,Hackers,watched
-1091,The Thing,watched
-6978,Big Trouble in Little China,watched
-110415,Snowpiercer,watched
-11423,Memories of Murder,watched
-68718,Django Unchained,watched
-16869,Inglourious Basterds,watched
-500,Reservoir Dogs,watched
-300668,Annihilation,watched
-30018,Mother,watched
-376867,Moonlight,watched
-238,The Godfather,watched
-550,Fight Club,watched
-264660,Ex Machina,watched
-329865,Arrival,watched
-242582,Nightcrawler,watched
-74725,Kill List,watchlist
-410051,Stranger Than Paradise,watchlist
-1398,Stalker,watchlist
-10774,Network,watchlist
-11305,Mystery Train,watchlist
-592,The Conversation,watchlist
-157845,The Rover,watchlist
-549509,The Brutalist,watchlist
-838209,Exhuma,watchlist
-696506,,watchlist
-159770,,watchlist
-922,,watchlist
+tmdb_id,title,list,my_rating,release_year
+1554,Down by Law,watched,8,1986
+670,Oldboy,watched,8,2003
+6396,SLC Punk,watched,7.4,1998
+141,Donnie Darko,watched,9.1,2001
+5925,The Great Escape,watched,10,1963
+14337,Primer,watched,7.5,2004
+8337,They Live,watched,8.3,1988
+8852,Prince of Darkness,watched,6.2,1987
+1946,eXistenZ,watched,5.9,1999
+9538,Scanners,watched,5.5,1981
+837,Videodrome,watched,6,1983
+59678,Attack the Block,watched,7.2,2011
+49049,Dredd,watched,7.1,2012
+8769,Christine,watched,6.7,1983
+4538,The Darjeeling Limited,watched,7.3,2007
+120467,The Grand Budapest Hotel,watched,8.4,2014
+9693,Children of Men,watched,7.7,2006
+2667,The Blair Witch Project,watched,7.1,1999
+16307,The Wicker Man,watched,7,1973
+389,12 Angry Men,watched,9,1957
+1325734,The Drama,watched,7.3,2026
+429200,Good Time,watched,7.9,2017
+10331,Night of the Living Dead,watched,7.5,1968
+278,The Shawshank Redemption,watched,9,1994
+7512,Idiocracy,watched,7,2006
+496243,Parasite,watched,8.6,2019
+1154538,Nirvanna the Band the Show the Movie,watched,8,2026
+2493,The Princess Bride,watched,7.7,1987
+913814,Brian and Charles,watched,6.9,2022
+339405,Christine,watched,5.8,2016
+938614,Late Night with the Devil,watched,7.1,2024
+680,Pulp Fiction,watched,8,1994
+273248,The Hateful Eight,watched,8.7,2015
+2649,The Game,watched,7.9,1997
+2322,Sneakers,watched,8,1992
+10428,Hackers,watched,7.7,1995
+1091,The Thing,watched,6.8,1982
+6978,Big Trouble in Little China,watched,5.5,1986
+110415,Snowpiercer,watched,7.8,2013
+11423,Memories of Murder,watched,9,2003
+68718,Django Unchained,watched,8,2012
+16869,Inglourious Basterds,watched,8.3,2009
+500,Reservoir Dogs,watched,7.6,1992
+300668,Annihilation,watched,7.1,2018
+30018,Mother,watched,7.9,2009
+376867,Moonlight,watched,7.9,2016
+238,The Godfather,watched,8.1,1972
+550,Fight Club,watched,8.8,1999
+264660,Ex Machina,watched,8.5,2015
+329865,Arrival,watched,8.4,2016
+242582,Nightcrawler,watched,7.9,2014
+74725,Kill List,watchlist,,2011
+410051,Stranger Than Paradise,watchlist,,1983
+1398,Stalker,watchlist,,1979
+10774,Network,watchlist,,1976
+11305,Mystery Train,watchlist,,1989
+592,The Conversation,watchlist,,1974
+157845,The Rover,watchlist,,2014
+549509,The Brutalist,watchlist,,2024
+838209,Exhuma,watchlist,,2024
+696506,Mickey 17,watchlist,,2025
+159770,The Dirties,watchlist,,2013
+922,Dead Man,watchlist,,1995
