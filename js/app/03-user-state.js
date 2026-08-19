@@ -238,7 +238,9 @@ async function gistRequest(pathname, options = {}) {
       signal: controller.signal,
     });
     if (!response.ok) {
-      throw new Error(`GitHub request failed (${response.status})`);
+      const error = new Error(`GitHub request failed (${response.status})`);
+      error.status = response.status;
+      throw error;
     }
     return await response.json();
   } finally {
@@ -461,6 +463,13 @@ function disconnectGist() {
 
 let backupSnapshotChain = Promise.resolve();
 
+function clearStoredBackupGistId() {
+  if (!gistConfig?.backupGistId) {
+    return;
+  }
+  saveGistConfig({ ...gistConfig, backupGistId: "" });
+}
+
 async function resolveBackupGistId() {
   if (!gistConfig?.token) {
     return null;
@@ -477,11 +486,24 @@ async function resolveBackupGistId() {
 }
 
 async function fetchBackupGistBody(backupGistId) {
-  return gistRequest(`/gists/${backupGistId}`, { token: gistConfig.token });
+  try {
+    return await gistRequest(`/gists/${backupGistId}`, {
+      token: gistConfig.token,
+    });
+  } catch (error) {
+    if (error?.status === 404) {
+      clearStoredBackupGistId();
+      return null;
+    }
+    throw error;
+  }
 }
 
 async function readBackupPayload(backupGistId) {
   const body = await fetchBackupGistBody(backupGistId);
+  if (!body) {
+    return appGistBackup.emptyBackupPayload();
+  }
   const content = appGistBackup.extractBackupContent(body);
   return content
     ? appGistBackup.parseBackupPayload(content)
@@ -490,11 +512,20 @@ async function readBackupPayload(backupGistId) {
 
 async function writeBackupPayload(backupGistId, payload) {
   const contentJson = appGistBackup.serializeBackupPayload(payload);
-  await gistRequest(`/gists/${backupGistId}`, {
-    method: "PATCH",
-    token: gistConfig.token,
-    body: appGistBackup.buildBackupGistUpdatePayload(contentJson),
-  });
+  try {
+    await gistRequest(`/gists/${backupGistId}`, {
+      method: "PATCH",
+      token: gistConfig.token,
+      body: appGistBackup.buildBackupGistUpdatePayload(contentJson),
+    });
+  } catch (error) {
+    if (error?.status === 404) {
+      clearStoredBackupGistId();
+      await createBackupGist(payload);
+      return;
+    }
+    throw error;
+  }
 }
 
 async function createBackupGist(payload) {
@@ -526,11 +557,20 @@ async function createGistSnapshotNow() {
   let payload = appGistBackup.emptyBackupPayload();
 
   if (backupGistId) {
-    payload = await readBackupPayload(backupGistId);
-    if (!appGistBackup.shouldCreateSnapshot(payload.snapshots, now)) {
-      return { ok: true, skipped: true };
+    const body = await fetchBackupGistBody(backupGistId);
+    if (!body) {
+      backupGistId = null;
+    } else {
+      payload = appGistBackup.parseBackupPayload(
+        appGistBackup.extractBackupContent(body) || "",
+      );
+      if (!appGistBackup.shouldCreateSnapshot(payload.snapshots, now)) {
+        return { ok: true, skipped: true };
+      }
     }
-  } else if (!appGistBackup.shouldCreateSnapshot([], now)) {
+  }
+
+  if (!backupGistId && !appGistBackup.shouldCreateSnapshot([], now)) {
     return { ok: true, skipped: true };
   }
 
