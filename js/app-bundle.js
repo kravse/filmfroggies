@@ -6640,7 +6640,7 @@ async function attachPosterImage(img) {
 function shouldEagerLoadPoster(img) {
   return Boolean(
     img.closest(
-      ".movie-detail-poster-frame, .add-movie-detail-scroll, .add-movie-picked, .search-suggest",
+      ".movie-detail-poster-frame, .add-movie-detail-scroll, .add-movie-picked, .search-suggest, .custom-list-card-covers",
     ),
   );
 }
@@ -8730,7 +8730,7 @@ function detailDiscoverPresetBtnHtml(listId, movieId) {
       : appLists.isOnWatchlist(userState.lists, movieId);
   const label = preset.name;
   const iconPreset = listId === appLists.WATCHLIST_ID ? "watchlist" : "watched";
-  return `<button type="button" class="detail-discover-preset-btn discover-preset-btn-with-icon${isMember ? " is-active" : ""}" data-discover-preset-id="${appCardHtml.escapeHtml(listId)}" aria-pressed="${isMember ? "true" : "false"}">${appCardHtml.discoverPresetButtonInnerHtml(iconPreset, label)}</button>`;
+  return `<button type="button" class="action-btn detail-discover-preset-btn discover-preset-btn-with-icon${isMember ? " is-active" : ""}" data-discover-preset-id="${appCardHtml.escapeHtml(listId)}" aria-pressed="${isMember ? "true" : "false"}">${appCardHtml.discoverPresetButtonInnerHtml(iconPreset, label)}</button>`;
 }
 
 function discoverDetailPresetActionsHtml(movieId) {
@@ -8743,7 +8743,7 @@ function discoverDetailPresetActionsHtml(movieId) {
 }
 
 function detailWatchBtnHtml() {
-  return `<button type="button" class="detail-discover-preset-btn discover-preset-btn-with-icon detail-watch-btn" id="detail-watch" aria-label="Mark as watched" title="Mark as watched">${appCardHtml.discoverPresetButtonInnerHtml("watched", "Watched")}</button>`;
+  return `<button type="button" class="action-btn detail-watch-btn" id="detail-watch" aria-label="Mark as watched" title="Mark as watched"><span class="detail-action-icon" aria-hidden="true">✓</span><span class="detail-action-label">Watched</span></button>`;
 }
 
 function discoverPresetMembership(listId, movieId) {
@@ -9407,7 +9407,7 @@ ${detailBodyTabsHtml(detailMovieId, record)}`;
     leftActions.push(discoverDetailPresetActionsHtml(detailMovieId));
   } else if (isCustomListDetailActive()) {
     if (activeMovieIds().includes(detailMovieId)) {
-      removeBtn = `<button type="button" class="detail-remove-btn" id="detail-remove-from-list">Remove from list</button>`;
+      removeBtn = `<button type="button" class="action-btn detail-remove-btn" id="detail-remove-from-list">Remove from list</button>`;
     }
   } else {
     const inCollection = appLists.findListIdsForMovie(userState.lists, detailMovieId).length > 0;
@@ -9418,7 +9418,7 @@ ${detailBodyTabsHtml(detailMovieId, record)}`;
     }
 
     if (inCollection) {
-      removeBtn = `<button type="button" class="detail-remove-btn" id="detail-remove">Remove movie</button>`;
+      removeBtn = `<button type="button" class="action-btn detail-remove-btn" id="detail-remove">Remove movie</button>`;
     }
   }
 
@@ -10797,7 +10797,7 @@ function persistCustomLists(nextLists, nextTombstones) {
   persistUserState();
 }
 
-function renderCustomListsIndex() {
+function renderCustomListsIndex(options = {}) {
   if (!customListsRows) {
     return;
   }
@@ -10819,26 +10819,43 @@ function renderCustomListsIndex() {
   if (customListsEmpty) {
     customListsEmpty.hidden = lists.length > 0;
   }
+  const coverIds = customListIndexCoverIds(lists);
+  primeMovieRecords(coverIds);
   customListsRows.innerHTML = lists
     .map((list) => {
       const renaming = pendingCustomListRenameId === list.id;
       const countLabel = `${list.movieIds.length} ${list.movieIds.length === 1 ? "movie" : "movies"}`;
-      const mainInner = renaming
-        ? `<input type="text" class="custom-list-rename-input" data-rename-input="${appCardHtml.escapeHtml(list.id)}" value="${appCardHtml.escapeHtml(list.name)}" maxlength="${appCustomLists.MAX_NAME_LENGTH}" aria-label="Rename list">`
-        : `<span class="custom-list-row-name">${appCardHtml.escapeHtml(list.name)}</span><span class="custom-list-row-count">${countLabel}</span>`;
-      return `<li class="custom-list-row" data-custom-list-id="${appCardHtml.escapeHtml(list.id)}">
-  ${
-    renaming
-      ? `<div class="custom-list-row-main">${mainInner}</div>`
-      : `<button type="button" class="custom-list-row-main" data-open-custom-list="${appCardHtml.escapeHtml(list.id)}">${mainInner}</button>`
-  }
-  <div class="custom-list-row-actions">
-    <button type="button" class="custom-list-row-btn" data-rename-custom-list="${appCardHtml.escapeHtml(list.id)}">${renaming ? "Save" : "Rename"}</button>
-    <button type="button" class="custom-list-row-btn custom-list-row-btn--danger" data-delete-custom-list="${appCardHtml.escapeHtml(list.id)}">Delete</button>
+      if (renaming) {
+        return `<li class="custom-list-card is-renaming" data-custom-list-id="${appCardHtml.escapeHtml(list.id)}">
+  <div class="custom-list-card-main">
+    <input type="text" class="custom-list-rename-input" data-rename-input="${appCardHtml.escapeHtml(list.id)}" value="${appCardHtml.escapeHtml(list.name)}" maxlength="${appCustomLists.MAX_NAME_LENGTH}" aria-label="Rename list">
+  </div>
+  <div class="custom-list-card-actions">
+    <button type="button" class="custom-list-card-btn" data-rename-custom-list="${appCardHtml.escapeHtml(list.id)}">Save</button>
+    <button type="button" class="custom-list-card-btn custom-list-card-btn--danger" data-delete-custom-list="${appCardHtml.escapeHtml(list.id)}">Delete</button>
+  </div>
+</li>`;
+      }
+      return `<li class="custom-list-card" data-custom-list-id="${appCardHtml.escapeHtml(list.id)}">
+  <button type="button" class="custom-list-card-open" data-open-custom-list="${appCardHtml.escapeHtml(list.id)}">
+    <div class="custom-list-card-covers">${customListIndexCoversHtml(list)}</div>
+    <div class="custom-list-card-body">
+      <span class="custom-list-card-name">${appCardHtml.escapeHtml(list.name)}</span>
+      <span class="custom-list-card-count">${countLabel}</span>
+    </div>
+  </button>
+  <div class="custom-list-card-actions">
+    <button type="button" class="custom-list-card-btn" data-rename-custom-list="${appCardHtml.escapeHtml(list.id)}">Rename</button>
+    <button type="button" class="custom-list-card-btn custom-list-card-btn--danger" data-delete-custom-list="${appCardHtml.escapeHtml(list.id)}">Delete</button>
   </div>
 </li>`;
     })
     .join("");
+
+  bindPosterImages(customListsRows);
+  if (!options.skipHydrate) {
+    hydrateCustomListIndexCovers(lists);
+  }
 
   if (pendingCustomListRenameId) {
     const input = customListsRows.querySelector(
@@ -11035,6 +11052,82 @@ function primeMovieRecords(ids) {
       movieErrors.delete(id);
     }
   }
+}
+
+function customListIndexCoverHtml(movieId) {
+  const record = movieById.get(movieId) ?? localMovieRecord(movieId);
+  const inner = record
+    ? posterHtml(record, appTmdb.POSTER_SIZES.card)
+    : `<div class="placeholder custom-list-card-cover-placeholder" aria-hidden="true"></div>`;
+  const loadingClass = record ? "" : " is-loading";
+  return `<div class="custom-list-card-cover${loadingClass}" data-movie-id="${movieId}">${inner}</div>`;
+}
+
+function customListIndexCoversHtml(list) {
+  const ids = list.movieIds.slice(0, 4);
+  const cells = [];
+  for (let index = 0; index < 4; index += 1) {
+    const id = ids[index];
+    cells.push(id != null ? customListIndexCoverHtml(id) : `<div class="custom-list-card-cover is-empty" aria-hidden="true"></div>`);
+  }
+  return cells.join("");
+}
+
+function customListIndexCoverIds(lists) {
+  const ids = [];
+  const seen = new Set();
+  for (const list of lists) {
+    for (const id of list.movieIds.slice(0, 4)) {
+      if (!seen.has(id)) {
+        seen.add(id);
+        ids.push(id);
+      }
+    }
+  }
+  return ids;
+}
+
+function patchCustomListIndexCover(movieId) {
+  if (!customListsRows || movieId == null) {
+    return;
+  }
+  const id = Number(movieId);
+  const record = movieById.get(id) ?? localMovieRecord(id);
+  if (!record) {
+    return;
+  }
+  const cells = customListsRows.querySelectorAll(
+    `.custom-list-card-cover[data-movie-id="${CSS.escape(String(id))}"]`,
+  );
+  if (!cells.length) {
+    return;
+  }
+  const html = posterHtml(record, appTmdb.POSTER_SIZES.card);
+  for (const cell of cells) {
+    cell.innerHTML = html;
+    cell.classList.remove("is-loading");
+  }
+  bindPosterImages(customListsRows);
+}
+
+function hydrateCustomListIndexCovers(lists) {
+  const ids = customListIndexCoverIds(lists);
+  const missing = ids.filter((id) => !movieById.has(id));
+  if (!missing.length || !hasTmdbAccess()) {
+    return;
+  }
+  hydrateMovies(missing, {
+    onRecord: (id) => {
+      if (isCustomListIndexActive()) {
+        patchCustomListIndexCover(id);
+      }
+    },
+    onUpdate: (id) => {
+      if (isCustomListIndexActive()) {
+        patchCustomListIndexCover(id);
+      }
+    },
+  });
 }
 
 function watchedPickerDisplayIds() {

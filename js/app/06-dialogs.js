@@ -89,7 +89,7 @@ function detailDiscoverPresetBtnHtml(listId, movieId) {
       : appLists.isOnWatchlist(userState.lists, movieId);
   const label = preset.name;
   const iconPreset = listId === appLists.WATCHLIST_ID ? "watchlist" : "watched";
-  return `<button type="button" class="detail-discover-preset-btn discover-preset-btn-with-icon${isMember ? " is-active" : ""}" data-discover-preset-id="${appCardHtml.escapeHtml(listId)}" aria-pressed="${isMember ? "true" : "false"}">${appCardHtml.discoverPresetButtonInnerHtml(iconPreset, label)}</button>`;
+  return `<button type="button" class="action-btn detail-discover-preset-btn discover-preset-btn-with-icon${isMember ? " is-active" : ""}" data-discover-preset-id="${appCardHtml.escapeHtml(listId)}" aria-pressed="${isMember ? "true" : "false"}">${appCardHtml.discoverPresetButtonInnerHtml(iconPreset, label)}</button>`;
 }
 
 function discoverDetailPresetActionsHtml(movieId) {
@@ -102,7 +102,7 @@ function discoverDetailPresetActionsHtml(movieId) {
 }
 
 function detailWatchBtnHtml() {
-  return `<button type="button" class="detail-discover-preset-btn discover-preset-btn-with-icon detail-watch-btn" id="detail-watch" aria-label="Mark as watched" title="Mark as watched">${appCardHtml.discoverPresetButtonInnerHtml("watched", "Watched")}</button>`;
+  return `<button type="button" class="action-btn detail-watch-btn" id="detail-watch" aria-label="Mark as watched" title="Mark as watched"><span class="detail-action-icon" aria-hidden="true">✓</span><span class="detail-action-label">Watched</span></button>`;
 }
 
 function discoverPresetMembership(listId, movieId) {
@@ -766,7 +766,7 @@ ${detailBodyTabsHtml(detailMovieId, record)}`;
     leftActions.push(discoverDetailPresetActionsHtml(detailMovieId));
   } else if (isCustomListDetailActive()) {
     if (activeMovieIds().includes(detailMovieId)) {
-      removeBtn = `<button type="button" class="detail-remove-btn" id="detail-remove-from-list">Remove from list</button>`;
+      removeBtn = `<button type="button" class="action-btn detail-remove-btn" id="detail-remove-from-list">Remove from list</button>`;
     }
   } else {
     const inCollection = appLists.findListIdsForMovie(userState.lists, detailMovieId).length > 0;
@@ -777,7 +777,7 @@ ${detailBodyTabsHtml(detailMovieId, record)}`;
     }
 
     if (inCollection) {
-      removeBtn = `<button type="button" class="detail-remove-btn" id="detail-remove">Remove movie</button>`;
+      removeBtn = `<button type="button" class="action-btn detail-remove-btn" id="detail-remove">Remove movie</button>`;
     }
   }
 

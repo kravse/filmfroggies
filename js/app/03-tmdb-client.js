@@ -462,7 +462,7 @@ async function attachPosterImage(img) {
 function shouldEagerLoadPoster(img) {
   return Boolean(
     img.closest(
-      ".movie-detail-poster-frame, .add-movie-detail-scroll, .add-movie-picked, .search-suggest",
+      ".movie-detail-poster-frame, .add-movie-detail-scroll, .add-movie-picked, .search-suggest, .custom-list-card-covers",
     ),
   );
 }
