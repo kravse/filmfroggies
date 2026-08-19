@@ -98,7 +98,10 @@ function updateRatings(nextRatings) {
 }
 
 function setMovieRating(movieId, rating) {
-  if (rating != null && !appLists.isWatched(userState.lists, movieId)) {
+  if (
+    rating != null &&
+    !appRatings.isRatingAllowed(userState.lists, movieId, userState.customLists)
+  ) {
     return false;
   }
   const nextRatings = appRatings.setRating(userState.ratings, movieId, rating);
@@ -116,7 +119,11 @@ function updateLists(nextLists) {
   userState = {
     ...userState,
     lists: nextLists,
-    ratings: appRatings.normalizeRatings(userState.ratings, nextLists),
+    ratings: appRatings.normalizeRatings(
+      userState.ratings,
+      nextLists,
+      userState.customLists,
+    ),
   };
   return true;
 }

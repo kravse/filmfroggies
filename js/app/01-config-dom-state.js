@@ -123,6 +123,12 @@ const detailPoster = document.getElementById("movie-detail-poster");
 const detailBody = document.getElementById("movie-detail-body");
 const detailActions = document.getElementById("movie-detail-actions");
 
+const detailListsDialog = document.getElementById("detail-lists-dialog");
+const detailListsDialogBody = document.getElementById("detail-lists-dialog-body");
+const detailListsDialogClose = document.getElementById("detail-lists-dialog-close");
+const detailListsCancel = document.getElementById("detail-lists-cancel");
+const detailListsSaveOverlay = document.getElementById("detail-lists-save-overlay");
+
 const removeConfirmDialog = document.getElementById("remove-confirm-dialog");
 const removeConfirmMessage = document.getElementById("remove-confirm-message");
 const removeConfirmCancel = document.getElementById("remove-confirm-cancel");
@@ -160,6 +166,9 @@ let detailMovieId = null;
 let detailRatingEditorOpen = false;
 /** Rating saved when the editor opens; Cancel restores this value. */
 let detailRatingEditorSnapshot = null;
+let detailListPickerOpen = false;
+/** Staged custom-list membership while the detail list editor is open. */
+let detailListPickerSelectedIds = new Set();
 let pendingRemoveMovieId = null;
 let pendingWatchMovieId = null;
 let pendingCustomListDeleteId = null;

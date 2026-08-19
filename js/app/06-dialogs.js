@@ -48,13 +48,204 @@ function detailCreditsHtml(record) {
 
 function detailMovieAllowsRating() {
   return (
-    detailMovieId != null && appLists.isWatched(userState.lists, detailMovieId)
+    detailMovieId != null &&
+    appRatings.isRatingAllowed(
+      userState.lists,
+      detailMovieId,
+      userState.customLists,
+    )
   );
 }
 
+function detailMovieShowsListsBlock(movieId) {
+  if (appLists.isWatched(userState.lists, movieId)) {
+    return true;
+  }
+  return appCustomLists.customListsForMovie(userState.customLists, movieId).length > 0;
+}
+
+function detailListMembershipChipsHtml(movieId) {
+  return appCustomLists
+    .customListsForMovie(userState.customLists, movieId)
+    .map(
+      (list) =>
+        `<span class="add-custom-list-chip is-member">${appCardHtml.escapeHtml(list.name)}</span>`,
+    )
+    .join("");
+}
+
+function syncDetailListPickerSelection(movieId) {
+  detailListPickerSelectedIds = new Set(
+    appCustomLists.customListsForMovie(userState.customLists, movieId).map((list) => list.id),
+  );
+}
+
+function detailAddToListPickerHtml(movieId) {
+  const allLists = userState.customLists || [];
+  if (!allLists.length) {
+    return `<p class="detail-add-to-list-hint"><a href="#lists" class="detail-add-to-list-link">Create lists…</a></p>`;
+  }
+  return `<div class="add-custom-list-picker detail-custom-list-picker">${allLists
+    .map((list) => {
+      const selected = detailListPickerSelectedIds.has(list.id);
+      return `<button type="button" class="add-custom-list-chip" data-detail-list-toggle-id="${appCardHtml.escapeHtml(list.id)}" aria-pressed="${selected}">${appCardHtml.escapeHtml(list.name)}</button>`;
+    })
+    .join("")}</div>`;
+}
+
+function detailListsEditorUsesOverlay() {
+  return window.matchMedia("(max-width: 640px)").matches;
+}
+
+function renderDetailListsOverlay() {
+  if (!detailListsDialogBody || detailMovieId == null) {
+    return;
+  }
+  detailListsDialogBody.innerHTML = detailAddToListPickerHtml(detailMovieId);
+}
+
+function openDetailListsOverlay() {
+  renderDetailListsOverlay();
+  if (detailListsDialog) {
+    detailListsDialog.hidden = false;
+  }
+}
+
+function closeDetailListsOverlay() {
+  if (detailListsDialog) {
+    detailListsDialog.hidden = true;
+  }
+}
+
+function syncDetailListsPickerUi() {
+  if (detailListPickerOpen && detailListsEditorUsesOverlay()) {
+    renderDetailListsOverlay();
+    return;
+  }
+  renderDetail();
+}
+
+function detailListsBlockHtml(movieId) {
+  if (!detailMovieShowsListsBlock(movieId)) {
+    return "";
+  }
+  const membership = detailListMembershipChipsHtml(movieId);
+  const membershipHtml = membership
+    ? membership
+    : `<span class="detail-lists-empty">Not on any lists</span>`;
+  const inlineEditorOpen = detailListPickerOpen && !detailListsEditorUsesOverlay();
+
+  return `<div class="detail-lists-block${inlineEditorOpen ? " is-editing" : ""}" id="detail-lists-block">
+  <div class="detail-lists-panel"${inlineEditorOpen ? " hidden" : ""} id="detail-lists-summary">
+    <span class="detail-lists-panel-title">Lists</span>
+    <div class="detail-list-chips">${membershipHtml}</div>
+    <button
+      type="button"
+      class="detail-lists-edit-btn"
+      id="detail-lists-edit"
+      aria-expanded="${detailListPickerOpen}"
+      aria-controls="detail-lists-editor"
+    >Edit</button>
+  </div>
+  <div class="detail-lists-editor" id="detail-lists-editor"${inlineEditorOpen ? "" : " hidden"}>
+    <div class="detail-lists-editor-head">
+      <span class="detail-lists-editor-title">Lists</span>
+    </div>
+    <div class="detail-lists-editor-body">
+      ${detailAddToListPickerHtml(movieId)}
+    </div>
+    <div class="detail-lists-editor-actions">
+      <button type="button" class="detail-lists-save-btn" id="detail-lists-save">Save</button>
+    </div>
+  </div>
+</div>`;
+}
+
+function saveDetailListPicker() {
+  if (detailMovieId == null) {
+    return;
+  }
+  const movieId = detailMovieId;
+  let nextLists = userState.customLists;
+  let changed = false;
+
+  for (const list of userState.customLists || []) {
+    const isMember = list.movieIds.includes(movieId);
+    const shouldBeMember = detailListPickerSelectedIds.has(list.id);
+    if (shouldBeMember && !isMember) {
+      const updated = appCustomLists.addMovieToCustomList(nextLists, list.id, movieId);
+      if (updated !== nextLists) {
+        nextLists = updated;
+        changed = true;
+      }
+    } else if (!shouldBeMember && isMember) {
+      const updated = appCustomLists.removeMovieFromCustomList(nextLists, list.id, movieId);
+      if (updated !== nextLists) {
+        nextLists = updated;
+        changed = true;
+      }
+    }
+  }
+
+  detailListPickerOpen = false;
+  detailListPickerSelectedIds.clear();
+  closeDetailListsOverlay();
+
+  if (changed) {
+    persistCustomLists(nextLists);
+    if (isCustomListDetailActive() && !activeMovieIds().includes(movieId)) {
+      closeDetail();
+      render();
+      return;
+    }
+    render();
+  }
+  renderDetail();
+}
+
+function toggleDetailListPickerChip(listId) {
+  if (!appCustomLists.isCustomListId(listId)) {
+    return;
+  }
+  if (detailListPickerSelectedIds.has(listId)) {
+    detailListPickerSelectedIds.delete(listId);
+  } else {
+    detailListPickerSelectedIds.add(listId);
+  }
+  syncDetailListsPickerUi();
+}
+
+function closeDetailListPicker() {
+  if (!detailListPickerOpen) {
+    return;
+  }
+  detailListPickerOpen = false;
+  detailListPickerSelectedIds.clear();
+  closeDetailListsOverlay();
+  renderDetail();
+}
+
+function toggleDetailListPicker() {
+  detailRatingEditorOpen = false;
+  detailRatingEditorSnapshot = null;
+  if (detailListPickerOpen) {
+    closeDetailListPicker();
+    return;
+  }
+  if (detailMovieId != null) {
+    syncDetailListPickerSelection(detailMovieId);
+  }
+  detailListPickerOpen = true;
+  if (detailListsEditorUsesOverlay()) {
+    openDetailListsOverlay();
+    renderDetail();
+    return;
+  }
+  renderDetail();
+}
+
 function detailUserRatingBlockHtml(movieId) {
-  const inCollection = appLists.findListIdsForMovie(userState.lists, movieId).length > 0;
-  if (!inCollection || !appLists.isWatched(userState.lists, movieId)) {
+  if (!appRatings.isRatingAllowed(userState.lists, movieId, userState.customLists)) {
     return "";
   }
 
@@ -177,8 +368,11 @@ function openDetailRatingEditor() {
     return;
   }
   detailRatingEditorSnapshot = appRatings.getRating(userState.ratings, detailMovieId);
+  detailListPickerOpen = false;
+  detailListPickerSelectedIds.clear();
+  closeDetailListsOverlay();
   detailRatingEditorOpen = true;
-  syncDetailRatingEditorVisibility();
+  renderDetail();
   focusDetailRatingControl();
 }
 
@@ -302,7 +496,8 @@ ${record.tagline ? `<p class="movie-detail-tagline">${appCardHtml.escapeHtml(rec
 <div class="movie-detail-meta">${detailMetaChips(record)}</div>
 ${detailUserRatingBlockHtml(detailMovieId)}
 <p class="movie-detail-overview">${appCardHtml.escapeHtml(record.overview || "No overview available.")}</p>
-<div class="movie-detail-credits">${detailCreditsHtml(record)}</div>`;
+<div class="movie-detail-credits">${detailCreditsHtml(record)}</div>
+${detailListsBlockHtml(detailMovieId)}`;
   }
 
   const leftActions = [];
@@ -327,8 +522,12 @@ ${detailUserRatingBlockHtml(detailMovieId)}
     }
   }
 
+  if (removeBtn) {
+    leftActions.push(removeBtn);
+  }
+
   detailActions.innerHTML = `<div class="detail-actions-left">${leftActions.join("")}</div>
-<div class="detail-actions-right">${removeBtn}
+<div class="detail-actions-right">
 <a class="detail-link" href="${TMDB_MOVIE_URL}${detailMovieId}" target="_blank" rel="noopener noreferrer">View on TMDB</a></div>`;
 }
 
@@ -341,6 +540,9 @@ function openDetail(movieId, options = {}) {
   detailMovieId = id;
   detailRatingEditorOpen = false;
   detailRatingEditorSnapshot = null;
+  detailListPickerOpen = false;
+  detailListPickerSelectedIds.clear();
+  closeDetailListsOverlay();
   detailDialog.hidden = false;
   document.body.classList.add("movie-detail-open");
   renderDetail();
@@ -371,6 +573,9 @@ function closeDetail(options = {}) {
   detailMovieId = null;
   detailRatingEditorOpen = false;
   detailRatingEditorSnapshot = null;
+  detailListPickerOpen = false;
+  detailListPickerSelectedIds.clear();
+  closeDetailListsOverlay();
   detailDialog.hidden = true;
   document.body.classList.remove("movie-detail-open");
 
@@ -390,6 +595,9 @@ function stepDetail(delta) {
   detailMovieId = ids[nextIndex];
   detailRatingEditorOpen = false;
   detailRatingEditorSnapshot = null;
+  detailListPickerOpen = false;
+  detailListPickerSelectedIds.clear();
+  closeDetailListsOverlay();
   history.replaceState(
     { detailMovieId, appView, activeCustomListId },
     "",

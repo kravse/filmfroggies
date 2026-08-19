@@ -36,7 +36,7 @@ function cardUserRatingHtml(movieId) {
 }
 
 function cardFanRatingHtml(movieId) {
-  if (!isWatchedListActive()) {
+  if (!usesWatchedStyleDisplay()) {
     return "";
   }
   const record = movieById.get(movieId);
@@ -50,7 +50,7 @@ function cardFanRatingHtml(movieId) {
 }
 
 function cardDetailRatingsHtml(movieId) {
-  if (gridViewMode !== "detail" || !isWatchedListActive()) {
+  if (gridViewMode !== "detail" || !usesWatchedStyleDisplay()) {
     return "";
   }
   const fan = cardFanRatingHtml(movieId);
@@ -134,18 +134,8 @@ function cardSmallWatchedFooterContentHtml(movieId) {
   return "";
 }
 
-function customListCardRemoveBtnHtml(movieId) {
-  const record = movieById.get(movieId);
-  const titleLabel = record ? appCardHtml.escapeHtml(record.title) : "movie";
-  return `<button type="button" class="custom-list-card-remove card-remove-btn" aria-label="Remove ${titleLabel} from list" title="Remove from list">${cardRemoveIconHtml()}</button>`;
-}
-
 function cardSmallFooterHtml(movieId) {
   if (gridViewMode !== "cards") {
-    return "";
-  }
-
-  if (isCustomListDetailActive()) {
     return "";
   }
 
@@ -154,7 +144,7 @@ function cardSmallFooterHtml(movieId) {
     return panel ? `<div class="card-footer card-footer--watchlist">${panel}</div>` : "";
   }
 
-  if (!isWatchedListActive()) {
+  if (!usesWatchedStyleDisplay()) {
     return "";
   }
 
@@ -354,21 +344,6 @@ function cardInnerHtml(movieId) {
 </div>
 <div class="card-body card-body--watchlist">
   ${watchlistCardPanelHtml(movieId)}
-</div>`;
-  }
-
-  if (isCustomListDetailActive()) {
-    return `<div class="poster-wrap">
-  ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
-</div>
-<div class="card-body card-body--custom-list">
-  <div class="card-text">
-    <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>
-    <div class="card-meta-row">
-      <div class="card-meta">${cardMetaHtml(record)}</div>
-    </div>
-  </div>
-  ${customListCardRemoveBtnHtml(movieId)}
 </div>`;
   }
 
@@ -687,10 +662,10 @@ function removeMovieFromCollection(movieId) {
 }
 
 function refreshMovieRating(movieId) {
-  if (isWatchedListActive()) {
+  if (usesWatchedStyleDisplay()) {
     render();
     if (detailMovieId === movieId) {
-      syncDetailRatingDisplay(appRatings.getRating(userState.ratings, movieId));
+      renderDetail();
     }
     return;
   }

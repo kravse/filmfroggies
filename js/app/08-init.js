@@ -168,6 +168,20 @@ reorderModeToggle?.addEventListener("change", () => {
 
 /* --- Detail overlay --- */
 
+detailListsDialogClose?.addEventListener("click", closeDetailListPicker);
+detailListsCancel?.addEventListener("click", closeDetailListPicker);
+detailListsSaveOverlay?.addEventListener("click", saveDetailListPicker);
+detailListsDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-detail-lists")) {
+    closeDetailListPicker();
+    return;
+  }
+  const listToggleChip = event.target.closest("[data-detail-list-toggle-id]");
+  if (listToggleChip) {
+    toggleDetailListPickerChip(listToggleChip.dataset.detailListToggleId);
+  }
+});
+
 detailCloseBtn.addEventListener("click", () => closeDetail());
 detailPrevBtn.addEventListener("click", () => stepDetail(-1));
 detailNextBtn.addEventListener("click", () => stepDetail(1));
@@ -190,6 +204,19 @@ detailDialog.addEventListener("click", (event) => {
   }
   if (event.target.closest("#detail-rating-clear")) {
     clearDetailRating();
+    return;
+  }
+  if (event.target.closest("#detail-lists-edit")) {
+    toggleDetailListPicker();
+    return;
+  }
+  if (event.target.closest("#detail-lists-save")) {
+    saveDetailListPicker();
+    return;
+  }
+  const listToggleChip = event.target.closest("[data-detail-list-toggle-id]");
+  if (listToggleChip) {
+    toggleDetailListPickerChip(listToggleChip.dataset.detailListToggleId);
   }
 });
 delegateRangeSliderLiveInput(detailDialog, "detail-rating-slider", onDetailRatingSliderInput);

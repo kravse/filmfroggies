@@ -151,7 +151,7 @@ function normalizeUserState(raw) {
       ? activeListId
       : lists.DEFAULT_LIST_ID,
     preferences: normalizePreferences(raw.preferences),
-    ratings: getRatings().normalizeRatings(raw.ratings, normalizedLists),
+    ratings: getRatings().normalizeRatings(raw.ratings, normalizedLists, customLists),
     addedAt: getAddedAt().normalizeAddedAt(raw.addedAt, normalizedLists),
     statuses,
     customLists,

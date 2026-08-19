@@ -124,12 +124,35 @@ const appRatings = (function () {
     return ids;
   }
 
-  function isRatingAllowed(lists, movieId) {
-    return getLists().isWatched(lists, movieId);
+  function collectRateableMovieIds(lists, customLists) {
+    const ids = collectWatchedMovieIds(lists);
+    if (!Array.isArray(customLists)) {
+      return ids;
+    }
+    for (const list of customLists) {
+      if (!list || !Array.isArray(list.movieIds)) {
+        continue;
+      }
+      for (const id of list.movieIds) {
+        const movieId = Number(id);
+        if (Number.isInteger(movieId) && movieId > 0) {
+          ids.add(movieId);
+        }
+      }
+    }
+    return ids;
   }
 
-  function normalizeRatings(raw, lists) {
-    const allowed = collectWatchedMovieIds(lists);
+  function isRatingAllowed(lists, movieId, customLists) {
+    const id = Number(movieId);
+    if (!Number.isInteger(id) || id <= 0) {
+      return false;
+    }
+    return collectRateableMovieIds(lists, customLists).has(id);
+  }
+
+  function normalizeRatings(raw, lists, customLists) {
+    const allowed = collectRateableMovieIds(lists, customLists);
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
       return {};
     }
@@ -202,6 +225,7 @@ const appRatings = (function () {
     sliderValueFromRating,
     ratingSelectDisplayValue,
     ratingSelectInnerHtml,
+    isRatingAllowed,
     normalizeRatings,
     getRating,
     setRating,

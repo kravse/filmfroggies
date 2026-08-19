@@ -207,7 +207,7 @@
     min-width: 5.5rem;
   }
 
-  /* Flank the poster (fixed while the detail scrolls). */
+  /* Poster-height vertical alignment; arrows sit on screen edges. */
   .movie-detail-nav {
     --detail-poster-width: min(200px, 100vw - 2rem);
     --detail-poster-half-height: calc(var(--detail-poster-width) * 0.75);
@@ -219,11 +219,11 @@
   }
 
   .movie-detail-nav--prev {
-    left: max(0.5rem, calc(50% - var(--detail-poster-width) / 2 - 2.75rem));
+    left: max(0.75rem, env(safe-area-inset-left, 0px));
   }
 
   .movie-detail-nav--next {
-    right: max(0.5rem, calc(50% - var(--detail-poster-width) / 2 - 2.75rem));
+    right: max(0.75rem, env(safe-area-inset-right, 0px));
   }
 
   .sheet-dialog {

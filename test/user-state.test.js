@@ -191,6 +191,26 @@ test("normalizeUserState normalizes ratings to watched movies only", () => {
   assert.deepEqual(state.ratings, {});
 });
 
+test("normalizeUserState keeps ratings for custom-list movies", () => {
+  const state = normalizeUserState({
+    lists: [
+      { id: "watched", name: "Watched", movieIds: [] },
+      { id: "watchlist", name: "Watchlist", movieIds: [] },
+    ],
+    customLists: [
+      {
+        id: "custom-abc",
+        name: "Sci-Fi",
+        movieIds: [42],
+        createdAt: "2020-01-01T00:00:00.000Z",
+        updatedAt: "2020-01-01T00:00:00.000Z",
+      },
+    ],
+    ratings: { 42: 8.25, 99: 7 },
+  });
+  assert.deepEqual(state.ratings, { 42: 8.3 });
+});
+
 test("parseUserState round-trips a serialized state", () => {
   const original = normalizeUserState({
     lists: [{ id: "watched", name: "Watched", movieIds: [603, 27205] }],

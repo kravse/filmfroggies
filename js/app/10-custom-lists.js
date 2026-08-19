@@ -191,6 +191,7 @@ function persistCustomLists(nextLists, nextTombstones) {
     ...userState,
     customLists: nextLists,
     customListTombstones: nextTombstones ?? userState.customListTombstones,
+    ratings: appRatings.normalizeRatings(userState.ratings, userState.lists, nextLists),
   };
   persistUserState();
 }
@@ -339,23 +340,37 @@ function confirmDeleteCustomList() {
   renderCustomListsIndex();
 }
 
-function removeMovieFromCustomListView(movieId) {
-  if (!isCustomListDetailActive()) {
+function removeMovieFromCustomListById(movieId, listId) {
+  const id = Number(movieId);
+  if (!Number.isInteger(id) || !appCustomLists.isCustomListId(listId)) {
     return;
   }
-  const next = appCustomLists.removeMovieFromCustomList(
-    userState.customLists,
-    activeCustomListId,
-    movieId,
-  );
+  const next = appCustomLists.removeMovieFromCustomList(userState.customLists, listId, id);
   if (next === userState.customLists) {
     return;
   }
   persistCustomLists(next);
-  if (detailMovieId === movieId && !activeMovieIds().includes(movieId)) {
+  if (
+    isCustomListDetailActive() &&
+    activeCustomListId === listId &&
+    detailMovieId === id &&
+    !activeMovieIds().includes(id)
+  ) {
     closeDetail();
+    render();
+    return;
   }
   render();
+  if (detailMovieId === id) {
+    renderDetail();
+  }
+}
+
+function removeMovieFromCustomListView(movieId) {
+  if (!isCustomListDetailActive()) {
+    return;
+  }
+  removeMovieFromCustomListById(movieId, activeCustomListId);
 }
 
 function requestRemoveFromCustomList(movieId) {

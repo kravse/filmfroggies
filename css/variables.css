@@ -11,6 +11,10 @@
   --accent: #d4a24c;
   --accent-dim: rgba(212, 162, 76, 0.16);
   --accent-border: rgba(212, 162, 76, 0.45);
+  --list-chip: #7eb0d4;
+  --list-chip-dim: rgba(126, 176, 212, 0.16);
+  --list-chip-border: rgba(126, 176, 212, 0.48);
+  --list-chip-text: rgba(196, 224, 244, 0.95);
   --danger: #d76b6b;
   --placeholder: #20242d;
   --skeleton-base: #1b1f27;

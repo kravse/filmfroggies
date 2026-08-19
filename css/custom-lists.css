@@ -285,14 +285,34 @@ body.view-custom-index .toolbar-right > :not(.custom-lists-index-actions) {
 }
 
 .add-custom-list-chip:hover {
-  border-color: var(--accent-border);
+  border-color: var(--list-chip-border);
   color: var(--text);
 }
 
 .add-custom-list-chip[aria-pressed="true"] {
-  border-color: var(--accent);
-  background: var(--accent-dim);
-  color: var(--text);
+  border-color: var(--list-chip);
+  background: var(--list-chip-dim);
+  color: var(--list-chip-text);
+}
+
+.add-custom-list-chip.is-member {
+  border-color: var(--list-chip);
+  background: var(--list-chip-dim);
+  color: var(--list-chip-text);
+}
+
+span.add-custom-list-chip.is-member {
+  cursor: default;
+}
+
+button.add-custom-list-chip.is-member {
+  cursor: pointer;
+}
+
+button.add-custom-list-chip.is-member:hover {
+  border-color: rgba(215, 107, 107, 0.55);
+  background: rgba(215, 107, 107, 0.14);
+  color: #efb0b0;
 }
 
 .add-movie-custom-lists-empty {
@@ -397,42 +417,6 @@ body.view-custom-index .toolbar-right > :not(.custom-lists-index-actions) {
 
 .watchlist-picker-empty a {
   color: var(--accent);
-}
-
-body.view-mode-detail .card-body--custom-list {
-  position: relative;
-}
-
-body.view-mode-detail .card-body--custom-list .card-text {
-  padding-right: 1.75rem;
-}
-
-.custom-list-card-remove {
-  position: absolute;
-  right: 0.45rem;
-  bottom: 0.45rem;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  padding: 0;
-  border: 1px solid var(--border-strong);
-  border-radius: 50%;
-  background: rgba(14, 16, 20, 0.82);
-  color: var(--text);
-  cursor: pointer;
-}
-
-.custom-list-card-remove:hover {
-  background: rgba(14, 16, 20, 0.94);
-  border-color: var(--accent-border);
-}
-
-.custom-list-card-remove .card-remove-icon {
-  width: 14px;
-  height: 14px;
 }
 
 body.view-custom-index #grid,

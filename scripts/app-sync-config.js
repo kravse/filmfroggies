@@ -130,6 +130,7 @@ const APP_SYNC_ENTRIES = [
       "sliderValueFromRating",
       "ratingSelectDisplayValue",
       "ratingSelectInnerHtml",
+      "isRatingAllowed",
       "normalizeRatings",
       "getRating",
       "setRating",
