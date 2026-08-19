@@ -755,6 +755,31 @@
             </div>
           </section>
 
+          <section class="sheet-section letterboxd-import-section">
+            <h3>Import from Letterboxd</h3>
+            <p class="sheet-note">
+              Choose the ZIP from Letterboxd’s account export. It is read in this
+              browser only. Watched films, watchlist films, ratings, and diary dates
+              are supported; reviews, tags, likes, and custom lists are ignored.
+            </p>
+            <div class="field-row">
+              <input type="file" id="letterboxd-file" accept=".zip,application/zip" aria-label="Letterboxd export ZIP" />
+              <button type="button" id="letterboxd-read" class="ghost-btn">Review import</button>
+            </div>
+            <span class="status-text" id="letterboxd-status"></span>
+            <div id="letterboxd-preview" class="letterboxd-preview" hidden>
+              <p id="letterboxd-summary" class="letterboxd-summary"></p>
+              <label class="letterboxd-rating-option">
+                <input type="checkbox" id="letterboxd-overwrite-ratings" />
+                Replace existing CineQueue ratings
+              </label>
+              <div id="letterboxd-matches" class="letterboxd-matches"></div>
+              <div class="field-row letterboxd-import-actions">
+                <button type="button" id="letterboxd-import" class="primary-btn">Import matched films</button>
+              </div>
+            </div>
+          </section>
+
           <section class="sheet-section">
             <h3>Repo data</h3>
             <p class="sheet-note">
@@ -1153,6 +1178,7 @@
       </div>
     </div>
 
+    <script src="js/vendor/fflate.js"></script>
     <script src="js/app-bundle.js"></script>
   </body>
 </html>

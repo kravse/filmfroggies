@@ -112,6 +112,14 @@ const cacheClearBtn = document.getElementById("cache-clear");
 const cacheStatus = document.getElementById("cache-status");
 const exportCsvBtn = document.getElementById("export-csv");
 const exportCsvStatus = document.getElementById("export-csv-status");
+const letterboxdFile = document.getElementById("letterboxd-file");
+const letterboxdRead = document.getElementById("letterboxd-read");
+const letterboxdStatus = document.getElementById("letterboxd-status");
+const letterboxdPreview = document.getElementById("letterboxd-preview");
+const letterboxdSummary = document.getElementById("letterboxd-summary");
+const letterboxdMatches = document.getElementById("letterboxd-matches");
+const letterboxdOverwriteRatings = document.getElementById("letterboxd-overwrite-ratings");
+const letterboxdImport = document.getElementById("letterboxd-import");
 
 const aboutDialog = document.getElementById("about-dialog");
 const aboutClose = document.getElementById("about-close");

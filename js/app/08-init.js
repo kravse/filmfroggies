@@ -362,6 +362,9 @@ tmdbKeyInput.addEventListener("keydown", (event) => {
 tmdbKeyClear.addEventListener("click", onClearCredential);
 cacheClearBtn.addEventListener("click", onClearCache);
 exportCsvBtn.addEventListener("click", onExportCsv);
+letterboxdRead?.addEventListener("click", onReviewLetterboxdImport);
+letterboxdMatches?.addEventListener("change", onLetterboxdMatchChange);
+letterboxdImport?.addEventListener("click", onCommitLetterboxdImport);
 storageModeLocal.addEventListener("change", () => onStorageModeChange("local"));
 storageModeGist.addEventListener("change", () => onStorageModeChange("gist"));
 gistConnectBtn.addEventListener("click", onConnectGist);

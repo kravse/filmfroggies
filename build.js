@@ -91,6 +91,15 @@ function copyBundle() {
     path.join(ROOT, "js", "app-bundle.js"),
     path.join(BUILD_DIR, "js", "app-bundle.js"),
   );
+  fs.mkdirSync(path.join(BUILD_DIR, "js", "vendor"), { recursive: true });
+  fs.copyFileSync(
+    path.join(ROOT, "js", "vendor", "fflate.js"),
+    path.join(BUILD_DIR, "js", "vendor", "fflate.js"),
+  );
+  fs.copyFileSync(
+    path.join(ROOT, "js", "vendor", "fflate.LICENSE"),
+    path.join(BUILD_DIR, "js", "vendor", "fflate.LICENSE"),
+  );
 }
 
 /**

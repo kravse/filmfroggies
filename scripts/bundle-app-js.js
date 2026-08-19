@@ -48,6 +48,10 @@ const PARTS = [
     title: "Scrape list CSV (generated from scripts/lib/list-csv.js)",
   },
   {
+    file: "00-app-letterboxd-import.js",
+    title: "Letterboxd export import (generated from scripts/lib/letterboxd-import.js)",
+  },
+  {
     file: "00-app-ratings.js",
     title: "User movie ratings (generated from scripts/lib/ratings.js)",
   },
@@ -126,6 +130,10 @@ const PARTS = [
   {
     file: "10-custom-lists.js",
     title: "Custom lists routing, index CRUD, and watchlist picker",
+  },
+  {
+    file: "11-letterboxd-import.js",
+    title: "Letterboxd ZIP import, TMDB matching, preview, and commit",
   },
   {
     file: "08-init.js",

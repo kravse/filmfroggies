@@ -179,6 +179,62 @@
   color: var(--danger);
 }
 
+.letterboxd-import-section input[type="file"] {
+  max-width: 100%;
+  color: var(--muted);
+  font: 0.82rem var(--ui-font);
+}
+
+.letterboxd-preview {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--panel) 70%, var(--bg));
+}
+
+.letterboxd-summary {
+  color: var(--text);
+}
+
+.letterboxd-rating-option {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.75rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.letterboxd-matches {
+  display: grid;
+  gap: 0.55rem;
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+.letterboxd-match-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+}
+
+.letterboxd-match-row select {
+  min-width: 0;
+  padding: 0.4rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.letterboxd-import-actions {
+  justify-content: flex-end;
+  margin: 0.75rem 0 0;
+}
+
 /* --- Confirm dialog --- */
 
 .confirm-panel .sheet-scroll {
@@ -265,4 +321,3 @@
   color: var(--muted);
   font-size: 0.82rem;
 }
-

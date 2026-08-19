@@ -12,5 +12,8 @@
   },
   "devDependencies": {
     "express": "^4.21.2"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2"
   }
 }

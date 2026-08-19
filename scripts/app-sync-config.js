@@ -87,6 +87,17 @@ const APP_SYNC_ENTRIES = [
     exports: ["CSV_HEADER", "CSV_FILENAME", "listCsvRows", "buildListCsv", "parseListCsv"],
   },
   {
+    sources: [path.join(LIB, "letterboxd-import.js")],
+    target: "00-app-letterboxd-import.js",
+    globalName: "appLetterboxdImport",
+    header: "Generated from scripts/lib/letterboxd-import.js — run npm run bundle",
+    exports: [
+      "SUPPORTED_FILES", "parseCsv", "csvRecords", "normalizeDate",
+      "normalizeRating", "filmSourceKey", "isSupportedPath", "parseLetterboxdFiles", "stableViewingId",
+      "applyLetterboxdImport",
+    ],
+  },
+  {
     sources: [path.join(LIB, "lists.js")],
     target: "00-app-lists.js",
     globalName: "appLists",
