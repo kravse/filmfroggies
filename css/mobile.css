@@ -25,6 +25,14 @@
     font-size: 0.75rem;
   }
 
+  #list-search {
+    font-size: 0.85rem;
+  }
+
+  #list-search::placeholder {
+    font-size: 0.78rem;
+  }
+
   main.page-shell {
     padding-top: 1rem;
     padding-bottom: 2rem;

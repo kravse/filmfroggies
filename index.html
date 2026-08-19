@@ -61,6 +61,57 @@
           </div>
         </div>
 
+        <div class="list-search-row" id="list-search-row" hidden>
+          <div class="search-wrap list-search-wrap">
+            <div
+              class="search-combobox list-search-combobox"
+              id="list-search-combobox"
+            >
+              <div
+                class="search-chips"
+                id="list-search-chips"
+                aria-live="polite"
+              ></div>
+              <input
+                type="search"
+                id="list-search"
+                enterkeyhint="search"
+                placeholder="Filter watched — title, director, genre:horror, actor:name, 19…"
+                autocomplete="off"
+                autocapitalize="off"
+                autocorrect="off"
+                spellcheck="false"
+                aria-label="Filter watched movies"
+                aria-autocomplete="list"
+                aria-controls="list-search-suggest"
+                aria-expanded="false"
+              />
+              <button
+                type="button"
+                id="list-search-clear"
+                class="search-clear"
+                aria-label="Clear filter"
+                hidden
+              >
+                <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true">
+                  <path
+                    d="M6 6l8 8M14 6l-8 8"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
+            <ul
+              class="search-field-suggest"
+              id="list-search-suggest"
+              role="listbox"
+              hidden
+            ></ul>
+          </div>
+        </div>
+
         <div class="catalog-toolbar">
         <nav
           class="list-tabs"

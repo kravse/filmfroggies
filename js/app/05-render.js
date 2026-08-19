@@ -438,6 +438,7 @@ function syncAddMovieFabVisibility(count) {
 }
 
 function renderEmptyState(count) {
+  const totalCount = activeMovieIds().length;
   if (count) {
     emptyState.hidden = true;
     emptyState.innerHTML = "";
@@ -445,6 +446,15 @@ function renderEmptyState(count) {
   }
   emptyState.hidden = false;
   const listName = activeList()?.name || "this list";
+  if (
+    totalCount > 0 &&
+    typeof hasActiveListSearch === "function" &&
+    hasActiveListSearch()
+  ) {
+    emptyState.innerHTML = `<strong>No matches</strong>
+<p class="empty-state-hint">Try a different title, director, genre, actor, or year.</p>`;
+    return;
+  }
   if (!hasTmdbAccess()) {
     emptyState.innerHTML = `<strong>Add your TMDB token</strong>Open Settings and paste your TMDB API Read Access Token to search and load movies.`;
     return;
@@ -475,6 +485,7 @@ function render() {
   renderListTabs();
   updateListHeader();
   syncReorderModeUi();
+  syncListSearchVisibility();
   renderEmptyState(ids.length);
   syncAddMovieFabVisibility(ids.length);
 }

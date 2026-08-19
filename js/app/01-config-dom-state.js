@@ -152,7 +152,13 @@ function displayMovieIds() {
   if (!isWatchedListActive()) {
     return ids;
   }
-  return appSort.sortMovieIds(ids, userState.preferences.sort, {
+  let filtered = ids;
+  if (typeof hasActiveListSearch === "function" && hasActiveListSearch()) {
+    filtered = appListSearch.filterMovieIds(filtered, getListSearchFilter(), (id) =>
+      movieById.get(id),
+    );
+  }
+  return appSort.sortMovieIds(filtered, userState.preferences.sort, {
     getRecord: (id) => movieById.get(id),
     getUserRating: (id) => appRatings.getRating(userState.ratings, id),
     getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),

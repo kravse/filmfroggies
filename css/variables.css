@@ -32,4 +32,15 @@
   --layout-gutter: 1.25rem;
   --header-gap: 0.75rem;
   --floating-action-bottom: calc(3.35rem + env(safe-area-inset-bottom, 0px));
+
+  --search-field-genre-bg: rgba(212, 162, 76, 0.14);
+  --search-field-genre-border: rgba(212, 162, 76, 0.34);
+  --search-field-genre-text: rgba(232, 205, 160, 0.92);
+  --search-field-actor-bg: rgba(56, 168, 138, 0.14);
+  --search-field-actor-border: rgba(96, 196, 168, 0.34);
+  --search-field-actor-text: rgba(176, 228, 210, 0.88);
+  --search-field-year-bg: rgba(140, 100, 200, 0.14);
+  --search-field-year-border: rgba(180, 140, 230, 0.34);
+  --search-field-year-text: rgba(210, 190, 240, 0.88);
+  --search-field-font: var(--ui-font);
 }

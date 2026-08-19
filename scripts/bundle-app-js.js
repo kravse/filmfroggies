@@ -76,6 +76,10 @@ const PARTS = [
     title: "Pointer drag helpers (generated from scripts/lib/pointer-reorder.js)",
   },
   {
+    file: "00-app-list-search.js",
+    title: "Watched list metadata search (generated from scripts/lib/list-search.js)",
+  },
+  {
     file: "03-user-state.js",
     title: "User state runtime, localStorage, and Gist storage mode",
   },
@@ -98,6 +102,10 @@ const PARTS = [
   {
     file: "07-reorder.js",
     title: "Drag reorder for list rows and grid cards",
+  },
+  {
+    file: "09-list-search.js",
+    title: "Watched list filter search chips and suggestions",
   },
   {
     file: "08-init.js",
