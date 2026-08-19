@@ -663,6 +663,20 @@ body.reorder-active {
   box-shadow: 0 20px 44px rgba(0, 0, 0, 0.6);
   transform: scale(1.02);
   opacity: 0.96;
+  min-height: 0 !important;
+  overflow: hidden;
+}
+
+.movie-card-floating.card--watchlist .poster-wrap {
+  flex: none;
+  aspect-ratio: 2 / 3;
+  width: 100%;
+  height: auto;
+}
+
+.movie-card-floating .card-body--watchlist,
+.movie-card-floating .card-footer--watchlist {
+  flex: none;
 }
 
 .movie-card-floating .card-actions,
