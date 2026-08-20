@@ -370,9 +370,10 @@ backupRestoreDialog?.addEventListener("click", (event) => {
 
 let lastLocationNavigationKey = null;
 function onLocationNavigation() {
-  // A hash-changing history traversal emits both events in some browsers.
-  // Treat that pair as one navigation so expensive views are not rendered twice.
-  const key = `${window.location.href}\n${JSON.stringify(history.state)}`;
+  // A hash-changing history traversal emits both popstate and hashchange,
+  // and iOS can attach a stale history.state to the first event. Route from
+  // the URL only so that pair is one navigation.
+  const key = window.location.href;
   if (key === lastLocationNavigationKey) {
     return;
   }
@@ -639,7 +640,14 @@ async function startApp() {
   // paint shows real cards instead of skeletons, which is the whole point.
   await loadLocalMovieData();
 
+  try {
+    history.scrollRestoration = "manual";
+  } catch (_) {
+    /* Older browsers may not expose scrollRestoration. */
+  }
+
   syncViewFromLocation();
+  lastLocationNavigationKey = window.location.href;
 
   // Reconcile rather than pull: startup is also when this tab is most likely to
   // be holding something the Gist has not seen yet.

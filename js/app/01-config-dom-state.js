@@ -207,6 +207,8 @@ let gridViewMode = "cards";
 let reorderModeActive = false;
 let detailMovieId = null;
 let detailCloseNavigationPending = false;
+/** Scroll offset of the grid/list under the detail overlay. */
+let underlayScrollY = 0;
 let renderedMovieIds = [];
 let detailRatingEditorOpen = false;
 /** Rating saved when the editor opens; Cancel restores this value. */
