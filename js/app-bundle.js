@@ -200,6 +200,8 @@ const movieErrors = new Set();
 let gridViewMode = "cards";
 let reorderModeActive = false;
 let detailMovieId = null;
+let detailCloseNavigationPending = false;
+let renderedMovieIds = [];
 let detailRatingEditorOpen = false;
 /** Rating saved when the editor opens; Cancel restores this value. */
 let detailRatingEditorSnapshot = null;
@@ -300,6 +302,22 @@ function displayMovieIds() {
       getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
       getWatchedOn: (id) => appViewingHistory.latestViewingDate(userState.viewingHistory, id),
     };
+    if (appSort.getSortField(userState.preferences.sort) === "watched") {
+      const latestByMovie = new Map();
+      const normalized = appViewingHistory.normalizeViewingHistory(userState.viewingHistory);
+      for (const [movieId, entries] of Object.entries(normalized)) {
+        let latest = null;
+        for (const entry of entries) {
+          if (!entry.deletedAt && (!latest || entry.watchedOn > latest)) {
+            latest = entry.watchedOn;
+          }
+        }
+        if (latest) {
+          latestByMovie.set(Number(movieId), latest);
+        }
+      }
+      sortContext.getWatchedOn = (id) => latestByMovie.get(Number(id)) ?? null;
+    }
     if (ctx.listKind === "custom") {
       const joinOrder = appSort.buildOrderIndex(ctx.movieIds);
       sortContext.getListJoinIndex = (id) => joinOrder.get(Number(id)) ?? null;
@@ -8679,6 +8697,7 @@ function render() {
     return;
   }
   const ids = displayMovieIds();
+  renderedMovieIds = [...ids];
   grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
   bindPosterImages(grid);
   renderListTabs();
@@ -8710,7 +8729,8 @@ function needsResortAfterHydration() {
 }
 
 function hydrateActiveList() {
-  return hydrateMovies(displayMovieIds(), {
+  const ids = renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
+  return hydrateMovies(ids, {
     onRecord: applyHydratedRecord,
     onUpdate: applyHydratedRecord,
   }).then((result) => {
@@ -9664,11 +9684,16 @@ function toggleDetailRatingEditor() {
 }
 
 function commitDetailRating() {
-  if (detailMovieId == null) {
-    return;
+  if (detailMovieId == null || !detailRatingEditorOpen) {
+    return false;
+  }
+  const current = appRatings.getRating(userState.ratings, detailMovieId);
+  if (current === detailRatingEditorSnapshot) {
+    return false;
   }
   persistUserState();
   refreshMovieRating(detailMovieId);
+  return true;
 }
 
 function onDetailRatingSliderInput(event) {
@@ -9827,6 +9852,7 @@ function closeDetail(options = {}) {
   document.body.classList.remove("movie-detail-open");
 
   if (options.popHistory !== false && hadHistoryEntry) {
+    detailCloseNavigationPending = true;
     history.back();
   }
 }
@@ -11030,6 +11056,14 @@ function navigateToCustomList(listId, options = {}) {
 
 function syncViewFromLocation() {
   const parsed = parseLocationHash();
+  if (detailCloseNavigationPending && parsed.kind !== "movie") {
+    // openDetail adds a history entry on top of the already-rendered view.
+    // Returning to that entry only needs to dismiss the overlay; rebuilding
+    // and rehydrating the unchanged grid makes closing feel like a page load.
+    detailCloseNavigationPending = false;
+    closeDetail({ popHistory: false });
+    return;
+  }
   if (parsed.kind === "movie") {
     const state = history.state;
     if (state?.appView) {
@@ -11064,6 +11098,7 @@ function syncViewFromLocation() {
       hydrateActiveList();
     } else {
       render();
+      hydrateActiveList();
     }
     syncDetailFromLocation();
     return;
@@ -11748,7 +11783,7 @@ function detailNavigationIds() {
   if (isDiscoverActive()) {
     return discoverDisplayIds();
   }
-  return displayMovieIds();
+  return renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
 }
 
 function syncDiscoverTabUi() {
@@ -12422,8 +12457,20 @@ backupRestoreDialog?.addEventListener("click", (event) => {
   }
 });
 
-window.addEventListener("popstate", syncViewFromLocation);
-window.addEventListener("hashchange", syncViewFromLocation);
+let lastLocationNavigationKey = null;
+function onLocationNavigation() {
+  // A hash-changing history traversal emits both events in some browsers.
+  // Treat that pair as one navigation so expensive views are not rendered twice.
+  const key = `${window.location.href}\n${JSON.stringify(history.state)}`;
+  if (key === lastLocationNavigationKey) {
+    return;
+  }
+  lastLocationNavigationKey = key;
+  syncViewFromLocation();
+}
+
+window.addEventListener("popstate", onLocationNavigation);
+window.addEventListener("hashchange", onLocationNavigation);
 
 listsNavBtn?.addEventListener("click", onListsNavClick);
 customListCreateBtn?.addEventListener("click", promptCreateCustomListName);
@@ -12674,9 +12721,7 @@ async function startApp() {
   // paint shows real cards instead of skeletons, which is the whole point.
   await loadLocalMovieData();
 
-  render();
   syncViewFromLocation();
-  hydrateActiveList();
 
   // Reconcile rather than pull: startup is also when this tab is most likely to
   // be holding something the Gist has not seen yet.

@@ -12,7 +12,6 @@
   position: absolute;
   inset: 0;
   background: rgba(5, 7, 10, 0.85);
-  backdrop-filter: blur(3px);
 }
 
 .movie-detail-panel {

@@ -332,8 +332,20 @@ backupRestoreDialog?.addEventListener("click", (event) => {
   }
 });
 
-window.addEventListener("popstate", syncViewFromLocation);
-window.addEventListener("hashchange", syncViewFromLocation);
+let lastLocationNavigationKey = null;
+function onLocationNavigation() {
+  // A hash-changing history traversal emits both events in some browsers.
+  // Treat that pair as one navigation so expensive views are not rendered twice.
+  const key = `${window.location.href}\n${JSON.stringify(history.state)}`;
+  if (key === lastLocationNavigationKey) {
+    return;
+  }
+  lastLocationNavigationKey = key;
+  syncViewFromLocation();
+}
+
+window.addEventListener("popstate", onLocationNavigation);
+window.addEventListener("hashchange", onLocationNavigation);
 
 listsNavBtn?.addEventListener("click", onListsNavClick);
 customListCreateBtn?.addEventListener("click", promptCreateCustomListName);
@@ -584,9 +596,7 @@ async function startApp() {
   // paint shows real cards instead of skeletons, which is the whole point.
   await loadLocalMovieData();
 
-  render();
   syncViewFromLocation();
-  hydrateActiveList();
 
   // Reconcile rather than pull: startup is also when this tab is most likely to
   // be holding something the Gist has not seen yet.

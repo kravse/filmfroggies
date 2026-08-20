@@ -214,6 +214,14 @@ function navigateToCustomList(listId, options = {}) {
 
 function syncViewFromLocation() {
   const parsed = parseLocationHash();
+  if (detailCloseNavigationPending && parsed.kind !== "movie") {
+    // openDetail adds a history entry on top of the already-rendered view.
+    // Returning to that entry only needs to dismiss the overlay; rebuilding
+    // and rehydrating the unchanged grid makes closing feel like a page load.
+    detailCloseNavigationPending = false;
+    closeDetail({ popHistory: false });
+    return;
+  }
   if (parsed.kind === "movie") {
     const state = history.state;
     if (state?.appView) {
@@ -248,6 +256,7 @@ function syncViewFromLocation() {
       hydrateActiveList();
     } else {
       render();
+      hydrateActiveList();
     }
     syncDetailFromLocation();
     return;

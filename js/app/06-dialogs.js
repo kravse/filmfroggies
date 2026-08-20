@@ -739,11 +739,16 @@ function toggleDetailRatingEditor() {
 }
 
 function commitDetailRating() {
-  if (detailMovieId == null) {
-    return;
+  if (detailMovieId == null || !detailRatingEditorOpen) {
+    return false;
+  }
+  const current = appRatings.getRating(userState.ratings, detailMovieId);
+  if (current === detailRatingEditorSnapshot) {
+    return false;
   }
   persistUserState();
   refreshMovieRating(detailMovieId);
+  return true;
 }
 
 function onDetailRatingSliderInput(event) {
@@ -902,6 +907,7 @@ function closeDetail(options = {}) {
   document.body.classList.remove("movie-detail-open");
 
   if (options.popHistory !== false && hadHistoryEntry) {
+    detailCloseNavigationPending = true;
     history.back();
   }
 }

@@ -722,6 +722,7 @@ function render() {
     return;
   }
   const ids = displayMovieIds();
+  renderedMovieIds = [...ids];
   grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
   bindPosterImages(grid);
   renderListTabs();
@@ -753,7 +754,8 @@ function needsResortAfterHydration() {
 }
 
 function hydrateActiveList() {
-  return hydrateMovies(displayMovieIds(), {
+  const ids = renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
+  return hydrateMovies(ids, {
     onRecord: applyHydratedRecord,
     onUpdate: applyHydratedRecord,
   }).then((result) => {

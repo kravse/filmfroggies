@@ -22,7 +22,7 @@ function detailNavigationIds() {
   if (isDiscoverActive()) {
     return discoverDisplayIds();
   }
-  return displayMovieIds();
+  return renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
 }
 
 function syncDiscoverTabUi() {

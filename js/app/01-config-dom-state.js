@@ -198,6 +198,8 @@ const movieErrors = new Set();
 let gridViewMode = "cards";
 let reorderModeActive = false;
 let detailMovieId = null;
+let detailCloseNavigationPending = false;
+let renderedMovieIds = [];
 let detailRatingEditorOpen = false;
 /** Rating saved when the editor opens; Cancel restores this value. */
 let detailRatingEditorSnapshot = null;
@@ -298,6 +300,22 @@ function displayMovieIds() {
       getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
       getWatchedOn: (id) => appViewingHistory.latestViewingDate(userState.viewingHistory, id),
     };
+    if (appSort.getSortField(userState.preferences.sort) === "watched") {
+      const latestByMovie = new Map();
+      const normalized = appViewingHistory.normalizeViewingHistory(userState.viewingHistory);
+      for (const [movieId, entries] of Object.entries(normalized)) {
+        let latest = null;
+        for (const entry of entries) {
+          if (!entry.deletedAt && (!latest || entry.watchedOn > latest)) {
+            latest = entry.watchedOn;
+          }
+        }
+        if (latest) {
+          latestByMovie.set(Number(movieId), latest);
+        }
+      }
+      sortContext.getWatchedOn = (id) => latestByMovie.get(Number(id)) ?? null;
+    }
     if (ctx.listKind === "custom") {
       const joinOrder = appSort.buildOrderIndex(ctx.movieIds);
       sortContext.getListJoinIndex = (id) => joinOrder.get(Number(id)) ?? null;
