@@ -30,12 +30,12 @@ test("hasAddMovieDestinations requires a preset or at least one custom list", ()
 
 test("applyAddMovie is a no-op without destinations or a valid id", () => {
   const state = defaultUserState();
-  assert.equal(applyAddMovie(state, { movieId: 1 }, NOW), state);
-  assert.equal(applyAddMovie(state, { movieId: 0, presetListId: WATCHED_ID }, NOW), state);
+  assert.equal(applyAddMovie(state, { movieId: 1 }, NOW).state, state);
+  assert.equal(applyAddMovie(state, { movieId: 0, presetListId: WATCHED_ID }, NOW).state, state);
 });
 
 test("applyAddMovie to watched records status, addedAt, rating, and viewing", () => {
-  const next = applyAddMovie(
+  const { state: next } = applyAddMovie(
     defaultUserState(),
     {
       movieId: 12,
@@ -55,7 +55,7 @@ test("applyAddMovie to watched records status, addedAt, rating, and viewing", ()
 });
 
 test("applyAddMovie to watchlist ignores rating and viewing date", () => {
-  const next = applyAddMovie(
+  const { state: next } = applyAddMovie(
     defaultUserState(),
     {
       movieId: 12,
@@ -73,7 +73,7 @@ test("applyAddMovie to watchlist ignores rating and viewing date", () => {
 test("applyAddMovie can add only to a custom list", () => {
   const state = stateWithCustomList();
   const listId = state.customLists[0].id;
-  const next = applyAddMovie(
+  const { state: next } = applyAddMovie(
     state,
     { movieId: 44, customListIds: [listId], rating: 7 },
     NOW,
@@ -87,7 +87,7 @@ test("applyAddMovie can add only to a custom list", () => {
 test("applyAddMovie can combine a preset with custom lists", () => {
   const state = stateWithCustomList();
   const listId = state.customLists[0].id;
-  const next = applyAddMovie(
+  const { state: next } = applyAddMovie(
     state,
     { movieId: 44, presetListId: WATCHLIST_ID, customListIds: [listId] },
     NOW,
@@ -102,11 +102,28 @@ test("applyAddMovie restamps addedAt when re-adding a removed movie", () => {
     statuses: setMovieStatus({}, 12, REMOVED_STATUS, new Date("2026-01-01T00:00:00.000Z")),
     addedAt: { 12: "2025-12-01T00:00:00.000Z" },
   };
-  const next = applyAddMovie(
+  const { state: next } = applyAddMovie(
     removed,
     { movieId: 12, presetListId: WATCHLIST_ID },
     NOW,
   );
   assert.equal(getAddedAt(next.addedAt, 12), NOW.toISOString());
   assert.equal(next.statuses["12"].status, "watchlist");
+});
+
+test("applyAddMovie reports custom lists that are at the movie cap", () => {
+  const state = stateWithCustomList();
+  const listId = state.customLists[0].id;
+  const ids = Array.from({ length: 200 }, (_, index) => index + 1);
+  const full = {
+    ...state,
+    customLists: [{ ...state.customLists[0], movieIds: ids }],
+  };
+  const { state: next, cappedCustomLists } = applyAddMovie(
+    full,
+    { movieId: 999, customListIds: [listId] },
+    NOW,
+  );
+  assert.equal(next, full);
+  assert.deepEqual(cappedCustomLists, ["Noir"]);
 });

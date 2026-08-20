@@ -60,6 +60,16 @@ function getCustomListMerge() {
   throw new Error("appCustomListMerge is not available");
 }
 
+function getCustomLists() {
+  if (typeof appCustomLists !== "undefined") {
+    return appCustomLists;
+  }
+  if (typeof require === "function") {
+    return require("./custom-lists");
+  }
+  throw new Error("appCustomLists is not available");
+}
+
 function parseStamp(value) {
   const time = Date.parse(value || "");
   return Number.isFinite(time) ? time : null;
@@ -235,6 +245,55 @@ function orderedIdsForStatus(statuses, listId, orderHints) {
   return ordered;
 }
 
+function mergePreferences(primary, secondary, customLists) {
+  const customListsLib = getCustomLists();
+  const primaryPrefs =
+    primary?.preferences && typeof primary.preferences === "object"
+      ? primary.preferences
+      : {};
+  const secondaryPrefs =
+    secondary?.preferences && typeof secondary.preferences === "object"
+      ? secondary.preferences
+      : {};
+
+  const primaryPin = customListsLib.normalizePinnedCustomListId(
+    primaryPrefs.pinnedCustomListId,
+    customLists,
+  );
+  const secondaryPin = customListsLib.normalizePinnedCustomListId(
+    secondaryPrefs.pinnedCustomListId,
+    customLists,
+  );
+  const primaryPinAt = parseStamp(primaryPrefs.pinnedCustomListAt);
+  const secondaryPinAt = parseStamp(secondaryPrefs.pinnedCustomListAt);
+
+  let pinnedCustomListId;
+  let pinnedCustomListAt;
+  if (primaryPinAt != null && (secondaryPinAt == null || primaryPinAt >= secondaryPinAt)) {
+    pinnedCustomListId = primaryPin;
+    pinnedCustomListAt =
+      typeof primaryPrefs.pinnedCustomListAt === "string"
+        ? primaryPrefs.pinnedCustomListAt
+        : null;
+  } else if (secondaryPinAt != null) {
+    pinnedCustomListId = secondaryPin;
+    pinnedCustomListAt =
+      typeof secondaryPrefs.pinnedCustomListAt === "string"
+        ? secondaryPrefs.pinnedCustomListAt
+        : null;
+  } else {
+    pinnedCustomListId = primaryPin ?? secondaryPin;
+    pinnedCustomListAt = null;
+  }
+
+  return {
+    ...secondaryPrefs,
+    ...primaryPrefs,
+    pinnedCustomListId,
+    pinnedCustomListAt,
+  };
+}
+
 /**
  * Combines two payloads. The result is raw: callers run it through
  * normalizeUserState to re-apply the list invariants.
@@ -275,6 +334,7 @@ function mergeUserStates(a, b) {
   return {
     ...primary,
     updatedAt: newerStamp(a.updatedAt, b.updatedAt),
+    preferences: mergePreferences(primary, secondary, customListState.customLists),
     lists: lists.LIST_IDS.map((listId) => ({
       id: listId,
       movieIds: orderedIdsForStatus(statuses, listId, orderHints),

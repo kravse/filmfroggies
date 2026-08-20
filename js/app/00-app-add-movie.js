@@ -76,8 +76,9 @@ const appAddMovie = (function () {
   }
 
   function applyAddMovie(userState, options = {}, now = new Date()) {
+    const empty = { state: userState, cappedCustomLists: [] };
     if (!userState || typeof userState !== "object") {
-      return userState;
+      return empty;
     }
 
     const movieId = Number(options.movieId);
@@ -89,10 +90,10 @@ const appAddMovie = (function () {
     const watchedOn = options.watchedOn || null;
 
     if (!Number.isInteger(movieId) || movieId <= 0) {
-      return userState;
+      return empty;
     }
     if (!hasAddMovieDestinations(presetListId, customListIds)) {
-      return userState;
+      return empty;
     }
 
     const listsLib = getLists();
@@ -104,6 +105,7 @@ const appAddMovie = (function () {
 
     let next = userState;
     let changed = false;
+    const cappedCustomLists = [];
 
     if (listsLib.isListId(presetListId)) {
       const nextLists = listsLib.assignMovieToList(next.lists, presetListId, movieId);
@@ -131,6 +133,15 @@ const appAddMovie = (function () {
 
     let nextCustomLists = next.customLists;
     for (const listId of customListIds) {
+      const list = customLib.findCustomList(nextCustomLists, listId);
+      if (
+        list &&
+        !list.movieIds.includes(movieId) &&
+        customLib.isCustomListAtMovieCap(nextCustomLists, listId)
+      ) {
+        cappedCustomLists.push(list.name);
+        continue;
+      }
       const updated = customLib.addMovieToCustomList(
         nextCustomLists,
         listId,
@@ -171,7 +182,10 @@ const appAddMovie = (function () {
       }
     }
 
-    return changed ? next : userState;
+    return {
+      state: changed ? next : userState,
+      cappedCustomLists,
+    };
   }
 
   return {

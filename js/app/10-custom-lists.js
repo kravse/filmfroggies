@@ -399,6 +399,12 @@ function persistCustomLists(nextLists, nextTombstones) {
   persistUserState();
 }
 
+function syncCustomListIndexSortFromState() {
+  customListIndexSort = appCustomLists.normalizeCustomListIndexSort(
+    userState.preferences?.customListIndexSort,
+  );
+}
+
 function pinnedCustomListId() {
   return userState.preferences?.pinnedCustomListId ?? null;
 }
@@ -409,6 +415,7 @@ function persistPinnedCustomListId(nextPin) {
     preferences: {
       ...userState.preferences,
       pinnedCustomListId: nextPin,
+      pinnedCustomListAt: new Date().toISOString(),
     },
   };
   persistUserState();
@@ -436,7 +443,7 @@ function renderCustomListsIndex(options = {}) {
   const atMax = (userState.customLists || []).length >= appCustomLists.MAX_CUSTOM_LISTS;
   if (customListCreateBtn) {
     customListCreateBtn.disabled = atMax;
-    customListCreateBtn.title = atMax ? "Maximum of 10 lists" : "";
+    customListCreateBtn.title = atMax ? `Maximum of ${appCustomLists.MAX_CUSTOM_LISTS} lists` : "";
   }
   if (customListsSortSelect) {
     customListsSortSelect.value = customListIndexSort;
@@ -504,6 +511,14 @@ function onCustomListIndexSortChange() {
   customListIndexSort = appCustomLists.normalizeCustomListIndexSort(
     customListsSortSelect.value,
   );
+  userState = {
+    ...userState,
+    preferences: {
+      ...userState.preferences,
+      customListIndexSort,
+    },
+  };
+  persistUserState();
   renderCustomListsIndex();
 }
 
@@ -517,9 +532,13 @@ function promptCreateCustomListName() {
     window.alert("Enter a list name.");
     return;
   }
+  if ((userState.customLists || []).length >= appCustomLists.MAX_CUSTOM_LISTS) {
+    notifyCustomListsCapReached();
+    return;
+  }
   const next = appCustomLists.createCustomList(userState.customLists, trimmed);
   if (next === userState.customLists) {
-    window.alert("Could not create list. You may be at the limit or the name is already in use.");
+    window.alert("Could not create list. Check the name length and that it is unique.");
     return;
   }
   persistCustomLists(next);
@@ -594,10 +613,10 @@ function confirmDeleteCustomList() {
     userState.customListTombstones,
     listId,
   );
-  const nextPin =
-    pinnedCustomListId() === listId
-      ? null
-      : appCustomLists.normalizePinnedCustomListId(pinnedCustomListId(), customLists);
+  const wasPinned = pinnedCustomListId() === listId;
+  const nextPin = wasPinned
+    ? null
+    : appCustomLists.normalizePinnedCustomListId(pinnedCustomListId(), customLists);
   userState = {
     ...userState,
     customLists,
@@ -605,6 +624,9 @@ function confirmDeleteCustomList() {
     preferences: {
       ...userState.preferences,
       pinnedCustomListId: nextPin,
+      pinnedCustomListAt: wasPinned
+        ? new Date().toISOString()
+        : userState.preferences?.pinnedCustomListAt ?? null,
     },
     ratings: appRatings.normalizeRatings(userState.ratings, userState.lists, customLists),
   };
@@ -885,9 +907,25 @@ function confirmWatchedPicker() {
   if (!isCustomListDetailActive() || watchedPickerSelectedIds.size === 0) {
     return;
   }
+  const activeList = appCustomLists.findCustomList(userState.customLists, activeCustomListId);
   let nextLists = userState.customLists;
+  let added = 0;
+  let skipped = 0;
   for (const id of watchedPickerSelectedIds) {
+    const before = nextLists;
     nextLists = appCustomLists.addMovieToCustomList(nextLists, activeCustomListId, id);
+    const listBefore = appCustomLists.findCustomList(before, activeCustomListId);
+    if (nextLists !== before) {
+      added += 1;
+    } else if (!listBefore?.movieIds.includes(id)) {
+      skipped += 1;
+    }
+  }
+  if (skipped > 0) {
+    notifyCustomListMovieCapReached(activeList?.name);
+  }
+  if (added === 0) {
+    return;
   }
   persistCustomLists(nextLists);
   closeWatchedPicker();
@@ -945,6 +983,16 @@ function onAddMovieCustomListPickerClick(event) {
   if (selectedAddCustomListIds.has(listId)) {
     selectedAddCustomListIds.delete(listId);
   } else {
+    const list = appCustomLists.findCustomList(userState.customLists, listId);
+    if (
+      list &&
+      pendingAddResult &&
+      !list.movieIds.includes(pendingAddResult.id) &&
+      appCustomLists.isCustomListAtMovieCap(userState.customLists, listId)
+    ) {
+      notifyCustomListMovieCapReached(list.name);
+      return;
+    }
     selectedAddCustomListIds.add(listId);
   }
   if (isCustomListDetailActive() && activeCustomListId) {
@@ -972,6 +1020,7 @@ function onWatchedPickerClick(event) {
 }
 
 function onRemoteCustomListsAdopted() {
+  syncCustomListIndexSortFromState();
   if (isCustomListDetailActive()) {
     const list = appCustomLists.findCustomList(userState.customLists, activeCustomListId);
     if (!list) {

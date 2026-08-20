@@ -311,3 +311,71 @@ test("mergeUserStates merges custom lists with per-list LWW", () => {
   assert.equal(merged.customLists[0].name, "Remote");
   assert.deepEqual(merged.customLists[0].movieIds, [1, 2]);
 });
+
+test("mergeUserStates keeps a newer pin change when the payload stamp is newer", () => {
+  const customLists = [
+    {
+      id: "custom-a",
+      name: "Sci-Fi",
+      movieIds: [],
+      createdAt: T1,
+      updatedAt: T1,
+    },
+  ];
+  const pinned = {
+    ...state({ watched: [1], updatedAt: T2 }),
+    customLists,
+    customListTombstones: {},
+    preferences: {
+      pinnedCustomListId: "custom-a",
+      pinnedCustomListAt: T2,
+    },
+  };
+  const edited = {
+    ...state({ watched: [1, 2], updatedAt: T3 }),
+    customLists,
+    customListTombstones: {},
+    preferences: {
+      pinnedCustomListId: null,
+      pinnedCustomListAt: null,
+    },
+  };
+
+  const merged = mergeUserStates(pinned, edited);
+  assert.equal(merged.preferences.pinnedCustomListId, "custom-a");
+  assert.equal(merged.preferences.pinnedCustomListAt, T2);
+});
+
+test("mergeUserStates adopts an explicit unpin when it is newer", () => {
+  const customLists = [
+    {
+      id: "custom-a",
+      name: "Sci-Fi",
+      movieIds: [],
+      createdAt: T1,
+      updatedAt: T1,
+    },
+  ];
+  const pinned = {
+    ...state({ watched: [1], updatedAt: T1 }),
+    customLists,
+    customListTombstones: {},
+    preferences: {
+      pinnedCustomListId: "custom-a",
+      pinnedCustomListAt: T1,
+    },
+  };
+  const unpinned = {
+    ...state({ watched: [1], updatedAt: T1 }),
+    customLists,
+    customListTombstones: {},
+    preferences: {
+      pinnedCustomListId: null,
+      pinnedCustomListAt: T3,
+    },
+  };
+
+  const merged = mergeUserStates(pinned, unpinned);
+  assert.equal(merged.preferences.pinnedCustomListId, null);
+  assert.equal(merged.preferences.pinnedCustomListAt, T3);
+});

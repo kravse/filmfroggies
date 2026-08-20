@@ -251,3 +251,37 @@ input:focus-visible,
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+.app-toast {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  z-index: 200;
+  max-width: min(420px, calc(100vw - 2rem));
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  font-family: var(--ui-font);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  text-align: center;
+  opacity: 0;
+  transform: translateX(-50%) translateY(120%);
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.app-toast.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.app-toast.is-error {
+  border-color: rgba(220, 90, 90, 0.55);
+}
+
+.app-toast.is-ok {
+  border-color: rgba(90, 180, 120, 0.55);
+}

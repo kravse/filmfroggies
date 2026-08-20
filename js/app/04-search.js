@@ -500,7 +500,7 @@ function confirmAddMovie() {
 
   const movieId = pendingAddResult.id;
   const includeExtras = showAddMovieRatingAndWatchDate();
-  const next = appAddMovie.applyAddMovie(userState, {
+  const { state: next, cappedCustomLists } = appAddMovie.applyAddMovie(userState, {
     movieId,
     presetListId: selectedAddListId,
     customListIds: [...selectedAddCustomListIds],
@@ -509,8 +509,10 @@ function confirmAddMovie() {
       includeExtras && addMovieWatchDateActive ? addMovieWatchDate?.value : null,
   });
   if (next === userState) {
+    notifyCustomListMovieCaps(cappedCustomLists);
     return;
   }
+  notifyCustomListMovieCaps(cappedCustomLists);
   userState = next;
   persistUserState();
   closeAddMovieDialog();

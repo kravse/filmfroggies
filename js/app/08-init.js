@@ -711,6 +711,7 @@ async function startApp() {
   loadHostedSession();
   loadGistConfig();
   loadUserState();
+  syncCustomListIndexSortFromState();
   refreshViewModeForActiveList();
   updateSearchClearVisibility();
 

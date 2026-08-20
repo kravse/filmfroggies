@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
   MAX_CUSTOM_LISTS,
+  MAX_CUSTOM_LIST_MOVIES,
   isCustomListId,
   defaultCustomLists,
   normalizeCustomLists,
@@ -19,6 +20,8 @@ const {
   deleteCustomList,
   addMovieToCustomList,
   removeMovieFromCustomList,
+  isCustomListAtMovieCap,
+  canAddMovieToCustomList,
 } = require("../scripts/lib/custom-lists");
 
 const NOW = new Date("2026-08-19T12:00:00.000Z");
@@ -81,7 +84,7 @@ test("membership add and remove are independent per list", () => {
 
 test("normalizeCustomLists drops invalid entries and caps at max", () => {
   const raw = [];
-  for (let i = 0; i < 12; i += 1) {
+  for (let i = 0; i < MAX_CUSTOM_LISTS + 2; i += 1) {
     raw.push(seedList(`custom-${i}`, `Name ${i}`, [i]));
   }
   raw.push({ id: "watched", name: "Bad", movieIds: [] });
@@ -165,4 +168,16 @@ test("sortCustomListsForIndex pins one list to the top regardless of sort", () =
   assert.equal(togglePinnedCustomListId(null, "custom-b", lists), "custom-b");
   assert.equal(togglePinnedCustomListId("custom-b", "custom-b", lists), null);
   assert.equal(togglePinnedCustomListId("custom-a", "custom-b", lists), "custom-b");
+});
+
+test("addMovieToCustomList enforces the per-list movie cap", () => {
+  let lists = createCustomList(defaultCustomLists(), "Big", NOW);
+  const listId = lists[0].id;
+  for (let id = 1; id <= MAX_CUSTOM_LIST_MOVIES; id += 1) {
+    lists = addMovieToCustomList(lists, listId, id, LATER);
+  }
+  assert.equal(lists[0].movieIds.length, MAX_CUSTOM_LIST_MOVIES);
+  assert.equal(isCustomListAtMovieCap(lists, listId), true);
+  assert.equal(canAddMovieToCustomList(lists, listId, 999), false);
+  assert.equal(addMovieToCustomList(lists, listId, 999, LATER), lists);
 });

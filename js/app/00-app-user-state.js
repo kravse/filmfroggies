@@ -90,8 +90,15 @@ const appUserState = (function () {
     return {
       viewMode: "cards",
       sort: getSort().DEFAULT_PREFERENCE_SORT,
+      customListIndexSort: getCustomLists().DEFAULT_CUSTOM_LIST_INDEX_SORT,
       pinnedCustomListId: null,
+      pinnedCustomListAt: null,
     };
+  }
+
+  function normalizeIsoStamp(value) {
+    const time = Date.parse(value || "");
+    return Number.isFinite(time) ? new Date(time).toISOString() : null;
   }
 
   function defaultUserState() {
@@ -112,7 +119,7 @@ const appUserState = (function () {
     };
   }
 
-  function normalizePreferences(raw) {
+  function normalizePreferences(raw, customLists) {
     const base = defaultPreferences();
     if (!raw || typeof raw !== "object") {
       return base;
@@ -121,9 +128,19 @@ const appUserState = (function () {
     if (viewMode === "list") {
       viewMode = "cards";
     }
+    const customListsLib = getCustomLists();
+    const lists = customLists ?? customListsLib.defaultCustomLists();
     return {
       viewMode: VIEW_MODES.has(viewMode) ? viewMode : base.viewMode,
       sort: getSort().normalizeWatchedSort(raw.sort, base.sort),
+      customListIndexSort: customListsLib.normalizeCustomListIndexSort(
+        raw.customListIndexSort ?? base.customListIndexSort,
+      ),
+      pinnedCustomListId: customListsLib.normalizePinnedCustomListId(
+        raw.pinnedCustomListId,
+        lists,
+      ),
+      pinnedCustomListAt: normalizeIsoStamp(raw.pinnedCustomListAt),
     };
   }
 
@@ -153,7 +170,7 @@ const appUserState = (function () {
       raw.customListTombstones,
     );
 
-    const preferences = normalizePreferences(raw.preferences);
+    const preferences = normalizePreferences(raw.preferences, customLists);
 
     return {
       version: USER_STATE_VERSION,
@@ -163,13 +180,7 @@ const appUserState = (function () {
       activeListId: lists.isListId(activeListId)
         ? activeListId
         : lists.DEFAULT_LIST_ID,
-      preferences: {
-        ...preferences,
-        pinnedCustomListId: customListsLib.normalizePinnedCustomListId(
-          raw.preferences?.pinnedCustomListId,
-          customLists,
-        ),
-      },
+      preferences,
       ratings: getRatings().normalizeRatings(raw.ratings, normalizedLists, customLists),
       addedAt: getAddedAt().normalizeAddedAt(raw.addedAt, normalizedLists),
       viewingHistory: getViewingHistory().normalizeViewingHistory(raw.viewingHistory),

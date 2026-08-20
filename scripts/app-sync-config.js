@@ -318,6 +318,7 @@ const APP_SYNC_ENTRIES = [
     header: "Generated from scripts/lib/custom-lists.js — run npm run bundle",
     exports: [
       "MAX_CUSTOM_LISTS",
+      "MAX_CUSTOM_LIST_MOVIES",
       "MAX_NAME_LENGTH",
       "MIN_NAME_LENGTH",
       "CUSTOM_ID_PREFIX",
@@ -337,6 +338,8 @@ const APP_SYNC_ENTRIES = [
       "findCustomList",
       "customListsForMovie",
       "isDuplicateName",
+      "isCustomListAtMovieCap",
+      "canAddMovieToCustomList",
       "createCustomListId",
       "createCustomList",
       "ensureCustomListsFromImport",

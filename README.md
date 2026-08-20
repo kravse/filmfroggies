@@ -77,7 +77,7 @@ When Watched has hydrated movies, a filter bar appears below the header. It is d
 
 **Lists** (header, top right on the main collection view) opens the custom lists index at `#lists`:
 
-- Create up to 10 lists; rename or delete from the index
+- Create up to 20 lists (200 movies each); rename or delete from the index
 - Sort the index by Recent, Alphabetical, or Size
 - Open a list at `#lists/{id}` for the same card/detail layout and sort controls as Watched
 - **← Collection** returns to Watched/Watchlist; **← All lists** returns from a list detail to the index

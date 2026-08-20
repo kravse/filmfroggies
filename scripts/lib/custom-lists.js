@@ -3,7 +3,8 @@
  * A movie may belong to multiple custom lists and optionally to a preset list.
  */
 
-const MAX_CUSTOM_LISTS = 10;
+const MAX_CUSTOM_LISTS = 20;
+const MAX_CUSTOM_LIST_MOVIES = 200;
 const MAX_NAME_LENGTH = 40;
 const MIN_NAME_LENGTH = 1;
 const CUSTOM_ID_PREFIX = "custom-";
@@ -139,7 +140,7 @@ function normalizeCustomList(raw, fallbackStamp) {
   return {
     id,
     name,
-    movieIds: normalizeMovieIds(raw.movieIds),
+    movieIds: normalizeMovieIds(raw.movieIds).slice(0, MAX_CUSTOM_LIST_MOVIES),
     createdAt: normalizeStamp(raw.createdAt, stamp),
     updatedAt: stamp,
   };
@@ -322,19 +323,40 @@ function deleteCustomList(customLists, tombstones, listId, now = new Date()) {
   };
 }
 
+function isCustomListAtMovieCap(customLists, listId) {
+  const list = findCustomList(customLists, listId);
+  return Boolean(list && list.movieIds.length >= MAX_CUSTOM_LIST_MOVIES);
+}
+
+function canAddMovieToCustomList(customLists, listId, movieId) {
+  const list = findCustomList(customLists, listId);
+  const id = Number(movieId);
+  if (!list || !Number.isInteger(id) || id <= 0) {
+    return false;
+  }
+  if (list.movieIds.includes(id)) {
+    return true;
+  }
+  return list.movieIds.length < MAX_CUSTOM_LIST_MOVIES;
+}
+
 function addMovieToCustomList(customLists, listId, movieId, now = new Date()) {
   const id = Number(movieId);
   if (!isCustomListId(listId) || !Number.isInteger(id) || id <= 0) {
     return customLists;
   }
+  const list = findCustomList(customLists, listId);
+  if (!list || list.movieIds.includes(id) || list.movieIds.length >= MAX_CUSTOM_LIST_MOVIES) {
+    return customLists;
+  }
   const stamp = now.toISOString();
-  return customLists.map((list) => {
-    if (list.id !== listId || list.movieIds.includes(id)) {
-      return list;
+  return customLists.map((entry) => {
+    if (entry.id !== listId) {
+      return entry;
     }
     return {
-      ...list,
-      movieIds: [...list.movieIds, id],
+      ...entry,
+      movieIds: [...entry.movieIds, id],
       updatedAt: stamp,
     };
   });
@@ -363,7 +385,7 @@ function replaceCustomListMovieIds(customLists, listId, movieIds, now = new Date
     return customLists;
   }
   const stamp = now.toISOString();
-  const normalized = normalizeMovieIds(movieIds);
+  const normalized = normalizeMovieIds(movieIds).slice(0, MAX_CUSTOM_LIST_MOVIES);
   return customLists.map((list) =>
     list.id === listId ? { ...list, movieIds: normalized, updatedAt: stamp } : list,
   );
@@ -371,6 +393,7 @@ function replaceCustomListMovieIds(customLists, listId, movieIds, now = new Date
 
 module.exports = {
   MAX_CUSTOM_LISTS,
+  MAX_CUSTOM_LIST_MOVIES,
   MAX_NAME_LENGTH,
   MIN_NAME_LENGTH,
   CUSTOM_ID_PREFIX,
@@ -390,6 +413,8 @@ module.exports = {
   findCustomList,
   customListsForMovie,
   isDuplicateName,
+  isCustomListAtMovieCap,
+  canAddMovieToCustomList,
   createCustomListId,
   createCustomList,
   ensureCustomListsFromImport,

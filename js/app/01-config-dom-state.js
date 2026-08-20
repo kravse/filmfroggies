@@ -135,6 +135,9 @@ const collectionImportMessage = document.getElementById("collection-import-messa
 const collectionImportCancel = document.getElementById("collection-import-cancel");
 const collectionImportOk = document.getElementById("collection-import-ok");
 
+const appToastEl = document.getElementById("app-toast");
+let appToastTimer = null;
+
 const aboutDialog = document.getElementById("about-dialog");
 const aboutClose = document.getElementById("about-close");
 
@@ -357,6 +360,48 @@ function setStatus(element, message, tone) {
   element.textContent = message || "";
   element.classList.toggle("is-ok", tone === "ok");
   element.classList.toggle("is-error", tone === "error");
+}
+
+function showAppToast(message, tone = "error") {
+  if (!appToastEl || !message) {
+    return;
+  }
+  if (appToastTimer) {
+    window.clearTimeout(appToastTimer);
+    appToastTimer = null;
+  }
+  appToastEl.textContent = message;
+  appToastEl.classList.toggle("is-error", tone === "error");
+  appToastEl.classList.toggle("is-ok", tone === "ok");
+  appToastEl.hidden = false;
+  appToastEl.classList.add("is-visible");
+  appToastTimer = window.setTimeout(() => {
+    appToastEl.classList.remove("is-visible");
+    appToastEl.hidden = true;
+    appToastTimer = null;
+  }, 4000);
+}
+
+function notifyCustomListsCapReached() {
+  showAppToast(`You can create up to ${appCustomLists.MAX_CUSTOM_LISTS} custom lists.`);
+}
+
+function notifyCustomListMovieCapReached(listName) {
+  const label = listName ? `“${listName}”` : "This list";
+  showAppToast(`${label} is full (${appCustomLists.MAX_CUSTOM_LIST_MOVIES} movies max).`);
+}
+
+function notifyCustomListMovieCaps(listNames) {
+  const names = [...new Set((listNames || []).filter(Boolean))];
+  if (names.length === 1) {
+    notifyCustomListMovieCapReached(names[0]);
+    return;
+  }
+  if (names.length > 1) {
+    showAppToast(
+      `${names.length} lists are full (${appCustomLists.MAX_CUSTOM_LIST_MOVIES} movies max).`,
+    );
+  }
 }
 
 /** Keeps range sliders responsive on touch devices during slow drags. */

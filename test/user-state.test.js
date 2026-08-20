@@ -116,37 +116,82 @@ test("the serialized payload carries no credential fields", () => {
 });
 
 test("normalizePreferences rejects an unknown view mode and migrates list to cards", () => {
+  const basePrefs = {
+    customListIndexSort: "recent",
+    pinnedCustomListId: null,
+    pinnedCustomListAt: null,
+  };
   assert.deepEqual(normalizePreferences({ viewMode: "carousel" }), {
     viewMode: "cards",
     sort: "user-rating-desc",
+    ...basePrefs,
   });
   assert.deepEqual(normalizePreferences({ viewMode: "cards" }), {
     viewMode: "cards",
     sort: "user-rating-desc",
+    ...basePrefs,
   });
   assert.deepEqual(normalizePreferences({ viewMode: "detail" }), {
     viewMode: "detail",
     sort: "user-rating-desc",
+    ...basePrefs,
   });
   assert.deepEqual(normalizePreferences({ viewMode: "list" }), {
     viewMode: "cards",
     sort: "user-rating-desc",
+    ...basePrefs,
   });
 });
 
 test("normalizePreferences normalizes watched sort modes", () => {
+  const basePrefs = {
+    customListIndexSort: "recent",
+    pinnedCustomListId: null,
+    pinnedCustomListAt: null,
+  };
   assert.deepEqual(normalizePreferences({ sort: "year-desc" }), {
     viewMode: "cards",
     sort: "year-desc",
+    ...basePrefs,
   });
   assert.deepEqual(normalizePreferences({ sort: "invalid" }), {
     viewMode: "cards",
     sort: "user-rating-desc",
+    ...basePrefs,
   });
   assert.deepEqual(normalizePreferences({ sort: "custom" }), {
     viewMode: "cards",
     sort: "user-rating-desc",
+    ...basePrefs,
   });
+});
+
+test("normalizePreferences keeps a valid pinned custom list id", () => {
+  const customLists = [
+    {
+      id: "custom-abc",
+      name: "Sci-Fi",
+      movieIds: [],
+      createdAt: "2026-08-19T00:00:00.000Z",
+      updatedAt: "2026-08-19T00:00:00.000Z",
+    },
+  ];
+  assert.deepEqual(
+    normalizePreferences(
+      {
+        pinnedCustomListId: "custom-abc",
+        pinnedCustomListAt: "2026-08-19T12:00:00.000Z",
+      },
+      customLists,
+    ),
+    {
+      viewMode: "cards",
+      sort: "user-rating-desc",
+      customListIndexSort: "recent",
+      pinnedCustomListId: "custom-abc",
+      pinnedCustomListAt: "2026-08-19T12:00:00.000Z",
+    },
+  );
 });
 
 test("normalizeUserState falls back when the active list id is not a preset", () => {

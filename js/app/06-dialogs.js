@@ -343,11 +343,16 @@ function saveDetailListPicker() {
   const movieId = detailMovieId;
   let nextLists = userState.customLists;
   let customChanged = false;
+  const cappedListNames = [];
 
   for (const list of userState.customLists || []) {
     const isMember = list.movieIds.includes(movieId);
     const shouldBeMember = detailListPickerSelectedIds.has(list.id);
     if (shouldBeMember && !isMember) {
+      if (appCustomLists.isCustomListAtMovieCap(nextLists, list.id)) {
+        cappedListNames.push(list.name);
+        continue;
+      }
       const updated = appCustomLists.addMovieToCustomList(nextLists, list.id, movieId);
       if (updated !== nextLists) {
         nextLists = updated;
@@ -369,6 +374,7 @@ function saveDetailListPicker() {
   if (customChanged) {
     persistCustomLists(nextLists);
   }
+  notifyCustomListMovieCaps(cappedListNames);
 
   if (customChanged) {
     if (isCustomListDetailActive() && !activeMovieIds().includes(movieId)) {
@@ -396,6 +402,16 @@ function toggleDetailListPickerChip(listId) {
   if (detailListPickerSelectedIds.has(listId)) {
     detailListPickerSelectedIds.delete(listId);
   } else {
+    const list = appCustomLists.findCustomList(userState.customLists, listId);
+    if (
+      detailMovieId != null &&
+      list &&
+      !list.movieIds.includes(detailMovieId) &&
+      appCustomLists.isCustomListAtMovieCap(userState.customLists, listId)
+    ) {
+      notifyCustomListMovieCapReached(list.name);
+      return;
+    }
     detailListPickerSelectedIds.add(listId);
   }
   syncDetailListsPickerUi();
@@ -1252,6 +1268,16 @@ function onDetailAddCustomListClick(listId) {
   if (detailAddCustomListIds.has(listId)) {
     detailAddCustomListIds.delete(listId);
   } else {
+    const list = appCustomLists.findCustomList(userState.customLists, listId);
+    if (
+      detailMovieId != null &&
+      list &&
+      !list.movieIds.includes(detailMovieId) &&
+      appCustomLists.isCustomListAtMovieCap(userState.customLists, listId)
+    ) {
+      notifyCustomListMovieCapReached(list.name);
+      return;
+    }
     detailAddCustomListIds.add(listId);
   }
   syncDetailAddFormUi();
@@ -1300,7 +1326,7 @@ function confirmDetailAddMovie() {
   }
   const includeExtras = detailAddListId === appLists.WATCHED_ID;
   const dateInput = document.getElementById("detail-add-watch-date");
-  const next = appAddMovie.applyAddMovie(userState, {
+  const { state: next, cappedCustomLists } = appAddMovie.applyAddMovie(userState, {
     movieId: detailMovieId,
     presetListId: detailAddListId,
     customListIds: [...detailAddCustomListIds],
@@ -1313,8 +1339,10 @@ function confirmDetailAddMovie() {
         : null,
   });
   if (next === userState) {
+    notifyCustomListMovieCaps(cappedCustomLists);
     return;
   }
+  notifyCustomListMovieCaps(cappedCustomLists);
   userState = next;
   persistUserState();
   resetDetailAddFormState();
