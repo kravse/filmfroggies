@@ -220,20 +220,20 @@ function friendRatingLegendHtml() {
       <div class="friend-view-rating-legend-row">
         ${friendRatingLegendChitHtml()}
         <span class="friend-view-rating-legend-text">${friendRatingLegendText()}</span>
+        <label class="friend-fan-ratings-toggle" for="friend-fan-ratings-toggle">
+          <span class="friend-fan-ratings-toggle-label">Fan ratings</span>
+          <span class="toggle-switch">
+            <input
+              type="checkbox"
+              id="friend-fan-ratings-toggle"
+              aria-label="Show fan ratings"
+              ${showFan ? "checked" : ""}
+            />
+            <span class="toggle-switch-track" aria-hidden="true"></span>
+          </span>
+        </label>
       </div>
     </div>
-    <label class="friend-fan-ratings-toggle" for="friend-fan-ratings-toggle">
-      <span class="friend-fan-ratings-toggle-label">Fan ratings</span>
-      <span class="toggle-switch">
-        <input
-          type="checkbox"
-          id="friend-fan-ratings-toggle"
-          aria-label="Show fan ratings"
-          ${showFan ? "checked" : ""}
-        />
-        <span class="toggle-switch-track" aria-hidden="true"></span>
-      </span>
-    </label>
   </div>`;
 }
 
