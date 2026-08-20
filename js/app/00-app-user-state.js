@@ -252,6 +252,7 @@ const appUserState = (function () {
     GIST_SYNC_KEY,
     TMDB_AUTH_KEY,
     HOSTED_SESSION_KEY,
+    ACCOUNT_KEY,
     USER_STATE_VERSION,
     defaultUserState,
     normalizePreferences,
