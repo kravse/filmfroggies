@@ -208,7 +208,7 @@ wrangler d1 create cinequeue
 
 Copy the `database_id` from the output into [`worker/wrangler.toml`](worker/wrangler.toml) under `[[d1_databases]]`.
 
-**2. Apply schema** (creates `users`, `user_data`, `friends`, `rate_limits`, `movies`):
+**2. Apply schema** (creates `users`, `user_data`, `friends`, `rate_limits`, `movies`, `invite_codes`):
 
 ```bash
 wrangler d1 execute cinequeue --remote --file=schema.sql
@@ -219,6 +219,7 @@ wrangler d1 execute cinequeue --remote --file=schema.sql
 ```bash
 wrangler d1 execute cinequeue --remote --file=migrations/001_rate_limits.sql
 wrangler d1 execute cinequeue --remote --file=migrations/002_movies.sql
+wrangler d1 execute cinequeue --remote --file=migrations/003_invite_codes.sql
 ```
 
 **4. Set secrets** (required):
@@ -227,18 +228,26 @@ wrangler d1 execute cinequeue --remote --file=migrations/002_movies.sql
 # Random 32+ byte secret — used to sign session tokens
 openssl rand -base64 32 | wrangler secret put SESSION_SECRET
 
-# Shared invite password — required before anyone can create an account
-wrangler secret put SIGNUP_INVITE_CODE
-
 # v4 TMDB read token — same value as npm run scrape uses locally
 wrangler secret put TMDB_READ_TOKEN
 ```
 
-When prompted for `SIGNUP_INVITE_CODE`, enter the password you will share privately with people allowed to register (not the same as anyone’s login password). Signups are **blocked** until this secret exists on the Worker.
+**5. Generate signup invite codes** (one-time each; run on your machine):
 
-To rotate the invite code later: `wrangler secret put SIGNUP_INVITE_CODE` again with a new value, then `wrangler deploy`. Existing users can still log in; only new signups need the new code.
+```bash
+# Apply migration 003 first if this is an existing database (see step 3).
+npm run generate-invite-codes -- --count 3
+```
 
-**5. Deploy:**
+Plaintext codes print once in the terminal. Only SHA-256 hashes are stored in D1. Share a code privately with each person who should register. Wrong or already-used codes get the same neutral signup response as a duplicate email.
+
+To revoke the old shared signup secret (if you used one before):
+
+```bash
+cd worker && wrangler secret delete SIGNUP_INVITE_CODE
+```
+
+**6. Deploy:**
 
 ```bash
 wrangler deploy
@@ -279,9 +288,11 @@ Secrets and vars (set in Cloudflare, not committed):
 | Name | Required | Purpose |
 |------|----------|---------|
 | `SESSION_SECRET` | **Yes** | HMAC key for bearer session tokens (30-day lifetime) |
-| `SIGNUP_INVITE_CODE` | **Yes** | Shared invite password checked on `POST /api/signup` only |
 | `TMDB_READ_TOKEN` | **Yes** | v4 TMDB API Read Access Token for `GET /api/tmdb` and `POST /api/movies/batch` |
+| `ADMIN_PASSWORD` | No | Enables `#admin` and `/api/admin/*` (user stats, delete, invite generation) |
 | `ALLOWED_ORIGINS` | No | Comma-separated extra CORS origins merged with the default allowlist |
+
+Signup invite codes live in D1 (`invite_codes`). Generate with `npm run generate-invite-codes`, or from `#admin` when `ADMIN_PASSWORD` is set.
 
 Default CORS origins (hardcoded): `https://filmfroggies.com`, `https://www.filmfroggies.com`, `http://localhost:8743`, `http://127.0.0.1:8743`.
 
@@ -290,10 +301,20 @@ Default CORS origins (hardcoded): `https://filmfroggies.com`, `https://www.filmf
 - Passwords: PBKDF2-SHA256, 100k iterations, per-user salt
 - Sessions: signed bearer token in `Authorization` header; not stored server-side
 - Rate limits (by IP / email): signup 5/hr per IP; login 15/15 min per IP; 5 failed logins/15 min per email
-- **Closed signups:** new accounts require `SIGNUP_INVITE_CODE` in Settings → Account → Create account; wrong codes get the same neutral response as a duplicate email
+- **Closed signups:** new accounts require a one-time invite code (Settings → Account → Create account); wrong or used codes get the same neutral response as a duplicate email
 - Signup and friend-request responses are intentionally neutral (no email enumeration)
 
 Logout today clears the browser session only; tokens remain valid until expiry unless you add server-side revocation.
+
+### Admin (`#admin`)
+
+When `ADMIN_PASSWORD` is set on the Worker:
+
+```bash
+cd worker && wrangler secret put ADMIN_PASSWORD
+```
+
+Open `#admin` on the site (hash-only route, e.g. `https://filmfroggies.com/#admin`). Sign in with that password to view user counts, delete accounts, and generate one-time invite codes (up to 20 per batch). Admin sessions last 1 hour and live in `sessionStorage` only. Failed admin logins are capped at **3 per IP per hour** and **8 globally per hour**.
 
 ### Using accounts locally
 
@@ -308,10 +329,12 @@ To run the Worker itself locally against a local D1:
 ```bash
 cd worker
 wrangler d1 execute cinequeue --local --file=schema.sql
+wrangler d1 execute cinequeue --local --file=migrations/003_invite_codes.sql
 wrangler secret put SESSION_SECRET   # prompts; needed for wrangler dev too
-wrangler secret put SIGNUP_INVITE_CODE
 wrangler dev
 ```
+
+From repo root, seed local invite codes with `npm run generate-invite-codes -- --count 1 --local`.
 
 Point `ACCOUNT_API_DIRECT` at the `wrangler dev` URL while testing, then restore the production Worker URL before committing.
 

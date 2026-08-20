@@ -659,6 +659,12 @@ function syncHeaderViewTitle() {
     headerTitleEl.hidden = true;
     return;
   }
+  if (isAdminViewActive()) {
+    customListViewTitleEl.textContent = "Admin";
+    customListViewTitleEl.hidden = false;
+    headerTitleEl.hidden = true;
+    return;
+  }
   if (isCustomListDetailActive()) {
     customListViewTitleEl.textContent = getActiveDisplayContext().listName;
     customListViewTitleEl.hidden = false;
@@ -697,6 +703,10 @@ function updateListHeader() {
     listSubtitleEl.textContent = accountSyncEnabled()
       ? "Add friends by email, then open their shared lists"
       : "Sign in to connect with friends";
+    return;
+  }
+  if (isAdminViewActive()) {
+    listSubtitleEl.textContent = "User management and invite codes";
     return;
   }
   if (isFriendViewActive()) {

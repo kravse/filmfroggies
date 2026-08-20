@@ -476,7 +476,7 @@ friendRemoveConfirmDialog?.addEventListener("click", (event) => {
 customListBackBtn?.addEventListener("click", () => {
   if (isFriendViewActive()) {
     navigateFromFriendView();
-  } else if (isFriendsIndexActive()) {
+  } else if (isFriendsIndexActive() || isAdminViewActive()) {
     navigateToMain();
   } else if (isDiscoverActive()) {
     navigateToMain();

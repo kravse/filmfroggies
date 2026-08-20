@@ -12,6 +12,13 @@ import {
 } from "./tmdb-proxy.js";
 import { rateLimit, rateLimitBlocked } from "./rate-limit.js";
 import { handleMoviesBatch } from "./movies-cache.js";
+import {
+  linkInviteCodeToUser,
+  normalizeInviteCode,
+  releaseInviteCode,
+  reserveInviteCode,
+} from "./invite-codes.js";
+import { handleAdminRoutes } from "./admin.js";
 
 export { rateLimit, rateLimitBlocked };
 
@@ -131,22 +138,6 @@ function timingSafeEqualString(a, b) {
     return false;
   }
   return timingSafeEqualBytes(left, right);
-}
-
-/** Signup is allowed only when SIGNUP_INVITE_CODE is set and the caller supplies a match. */
-export function verifySignupInviteCode(env, provided) {
-  const expected = env?.SIGNUP_INVITE_CODE;
-  if (!expected) {
-    return { ok: false, reason: "disabled" };
-  }
-  const code = String(provided ?? "");
-  if (!code) {
-    return { ok: false, reason: "missing" };
-  }
-  return {
-    ok: timingSafeEqualString(code, expected),
-    reason: timingSafeEqualString(code, expected) ? "ok" : "mismatch",
-  };
 }
 
 async function hmacKey(secret) {
@@ -325,16 +316,19 @@ async function handleAuth(request, env, path, res) {
   const ip = clientIp(request);
 
   if (path === "/api/signup") {
-    const invite = verifySignupInviteCode(env, body?.inviteCode);
-    if (invite.reason === "disabled") {
-      return res.json(503, { error: "Signups are not available" });
-    }
-    if (!invite.ok) {
+    const inviteCode = normalizeInviteCode(body?.inviteCode);
+    if (!inviteCode) {
       return res.json(201, SIGNUP_ACK);
     }
     if (password.length < 8) return res.json(400, { error: "Password must be at least 8 characters" });
     const limited = await enforceRateLimit(env, `signup:ip:${ip}`, AUTH_RATE_LIMITS.signupIp, res);
     if (limited) return limited;
+
+    const invite = await reserveInviteCode(env, inviteCode);
+    if (!invite.ok) {
+      return res.json(201, SIGNUP_ACK);
+    }
+
     const hash = await hashPassword(password);
     const displayName = normalizeDisplayName(body?.displayName, email);
     let result;
@@ -343,8 +337,10 @@ async function handleAuth(request, env, path, res) {
         "INSERT INTO users (email, password_hash, display_name, created_at) VALUES (?, ?, ?, ?) RETURNING id, email, display_name"
       ).bind(email, hash, displayName, Date.now()).first();
     } catch (_) {
+      await releaseInviteCode(env, invite.codeHash, invite.reservedAt);
       return res.json(201, SIGNUP_ACK);
     }
+    await linkInviteCodeToUser(env, invite.codeHash, result.id);
     return res.json(201, { ...SIGNUP_ACK, user: publicUser(result), ...(await issueToken(env, result.id)) });
   }
 
@@ -514,6 +510,14 @@ export default {
 
     if ((path === "/api/signup" || path === "/api/login") && request.method === "POST") {
       return handleAuth(request, env, path, res);
+    }
+
+    if (path.startsWith("/api/admin")) {
+      return handleAdminRoutes(request, env, path, res, {
+        clientIp,
+        readJsonBody,
+        deleteUserAccount,
+      });
     }
 
     const session = await requireUser(request, env);

@@ -23,6 +23,20 @@ const customListsSortControl = document.getElementById("custom-lists-sort-contro
 const customListsEmpty = document.getElementById("custom-lists-empty");
 const customListCreateBtn = document.getElementById("custom-list-create-btn");
 const customListBackBtn = document.getElementById("custom-list-back-btn");
+const adminPageEl = document.getElementById("admin-page");
+const adminLoginPanel = document.getElementById("admin-login-panel");
+const adminDashboardPanel = document.getElementById("admin-dashboard-panel");
+const adminLoginForm = document.getElementById("admin-login-form");
+const adminPasswordInput = document.getElementById("admin-password-input");
+const adminLoginErrorEl = document.getElementById("admin-login-error");
+const adminUserCountEl = document.getElementById("admin-user-count");
+const adminUnusedInvitesEl = document.getElementById("admin-unused-invites");
+const adminUsersListEl = document.getElementById("admin-users-list");
+const adminInviteCountInput = document.getElementById("admin-invite-count");
+const adminGenerateInvitesBtn = document.getElementById("admin-generate-invites-btn");
+const adminGeneratedCodesEl = document.getElementById("admin-generated-codes");
+const adminStatusEl = document.getElementById("admin-status");
+const adminLogoutBtn = document.getElementById("admin-logout-btn");
 const customListBackLabel = document.getElementById("custom-list-back-label");
 const addMovieFromWatchedSection = document.getElementById("add-movie-from-watched-section");
 const addMovieFromWatchedBtn = document.getElementById("add-movie-from-watched-btn");
@@ -269,7 +283,7 @@ let pendingCustomListDeleteId = null;
 let pendingFriendRemoveId = null;
 let tmdbCredential = "";
 
-/** "main" | "customIndex" | "customDetail" | "discover" | "friend" */
+/** "main" | "customIndex" | "customDetail" | "discover" | "friend" | "friendsIndex" | "admin" */
 let appView = "main";
 let activeCustomListId = null;
 let activeFriendId = null;
@@ -299,6 +313,10 @@ function isFriendsIndexActive() {
 
 function isFriendViewActive() {
   return appView === "friend" && activeFriendId != null;
+}
+
+function isAdminViewActive() {
+  return appView === "admin";
 }
 
 function usesWatchedStyleDisplay() {

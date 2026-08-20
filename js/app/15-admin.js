@@ -1,0 +1,306 @@
+/**
+ * Admin page (#admin): password gate, user roster, invite code generation.
+ */
+
+const ADMIN_TOKEN_KEY = "moviecollector-admin-token";
+const ADMIN_TIMEOUT_MS = 15_000;
+
+function parseAdminHash(hash) {
+  return hash === "#admin" || hash === "#admin/" ? true : false;
+}
+
+function loadAdminToken() {
+  try {
+    const text = sessionStorage.getItem(ADMIN_TOKEN_KEY);
+    if (!text) {
+      return null;
+    }
+    const parsed = JSON.parse(text);
+    const token = typeof parsed?.token === "string" ? parsed.token.trim() : "";
+    const expiresAt = Number(parsed?.expiresAt);
+    if (!token || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+      return null;
+    }
+    return { token, expiresAt };
+  } catch (_) {
+    return null;
+  }
+}
+
+function saveAdminToken(payload) {
+  try {
+    if (!payload?.token) {
+      sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+      return;
+    }
+    sessionStorage.setItem(ADMIN_TOKEN_KEY, JSON.stringify(payload));
+  } catch (_) {
+    /* Private browsing may refuse storage. */
+  }
+}
+
+function clearAdminToken() {
+  saveAdminToken(null);
+}
+
+async function adminRequest(path, options = {}) {
+  const { method = "GET", body, auth = true } = options;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ADMIN_TIMEOUT_MS);
+  try {
+    const headers = {};
+    if (auth) {
+      const session = loadAdminToken();
+      headers.authorization = `Bearer ${session?.token || ""}`;
+    }
+    if (body) {
+      headers["content-type"] = "application/json";
+    }
+    const base = appAccountSync.resolveAccountApiBase(window.location.hostname);
+    const response = await fetch(`${base}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      if (response.status === 401 && auth) {
+        clearAdminToken();
+      }
+      const error = new Error(payload?.error || `Admin request failed (${response.status})`);
+      error.status = response.status;
+      throw error;
+    }
+    return payload;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function setAdminStatus(message, isError = false) {
+  if (!adminStatusEl) {
+    return;
+  }
+  adminStatusEl.textContent = message || "";
+  adminStatusEl.classList.toggle("is-error", Boolean(isError && message));
+}
+
+function showAdminLogin() {
+  if (adminLoginPanel) {
+    adminLoginPanel.hidden = false;
+  }
+  if (adminDashboardPanel) {
+    adminDashboardPanel.hidden = true;
+  }
+  if (adminLoginErrorEl) {
+    adminLoginErrorEl.textContent = "";
+  }
+}
+
+function showAdminDashboard() {
+  if (adminLoginPanel) {
+    adminLoginPanel.hidden = true;
+  }
+  if (adminDashboardPanel) {
+    adminDashboardPanel.hidden = false;
+  }
+}
+
+function renderAdminUserRow(user) {
+  const li = document.createElement("li");
+  li.className = "admin-user-row";
+  li.dataset.userId = String(user.id);
+
+  const meta = document.createElement("div");
+  meta.className = "admin-user-meta";
+
+  const name = document.createElement("strong");
+  name.className = "admin-user-name";
+  name.textContent = user.displayName || user.email;
+
+  const email = document.createElement("span");
+  email.className = "admin-user-email";
+  email.textContent = user.email;
+
+  meta.append(name, email);
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.type = "button";
+  deleteBtn.className = "ghost-btn admin-user-delete";
+  deleteBtn.textContent = "Delete";
+  deleteBtn.addEventListener("click", () => {
+    onAdminDeleteUser(user);
+  });
+
+  li.append(meta, deleteBtn);
+  return li;
+}
+
+function renderAdminUsers(users) {
+  if (!adminUsersListEl) {
+    return;
+  }
+  adminUsersListEl.replaceChildren();
+  if (!users.length) {
+    const empty = document.createElement("li");
+    empty.className = "admin-users-empty";
+    empty.textContent = "No users yet.";
+    adminUsersListEl.append(empty);
+    return;
+  }
+  for (const user of users) {
+    adminUsersListEl.append(renderAdminUserRow(user));
+  }
+}
+
+function renderAdminGeneratedCodes(codes) {
+  if (!adminGeneratedCodesEl) {
+    return;
+  }
+  adminGeneratedCodesEl.replaceChildren();
+  if (!codes?.length) {
+    adminGeneratedCodesEl.hidden = true;
+    return;
+  }
+  adminGeneratedCodesEl.hidden = false;
+  const title = document.createElement("p");
+  title.className = "admin-generated-title";
+  title.textContent = "New invite codes (copy now — shown once):";
+  adminGeneratedCodesEl.append(title);
+
+  const list = document.createElement("ul");
+  list.className = "admin-generated-list";
+  for (const code of codes) {
+    const item = document.createElement("li");
+    const codeEl = document.createElement("code");
+    codeEl.textContent = code;
+    item.append(codeEl);
+    list.append(item);
+  }
+  adminGeneratedCodesEl.append(list);
+}
+
+async function refreshAdminDashboard() {
+  setAdminStatus("");
+  try {
+    const [stats, usersBody] = await Promise.all([
+      adminRequest("/admin/stats"),
+      adminRequest("/admin/users"),
+    ]);
+    if (adminUserCountEl) {
+      adminUserCountEl.textContent = String(stats.userCount ?? 0);
+    }
+    if (adminUnusedInvitesEl) {
+      adminUnusedInvitesEl.textContent = String(stats.unusedInviteCount ?? 0);
+    }
+    renderAdminUsers(usersBody.users || []);
+  } catch (error) {
+    if (error?.status === 401 || error?.status === 503) {
+      showAdminLogin();
+    }
+    setAdminStatus(error?.message || "Could not load admin data.", true);
+  }
+}
+
+async function onAdminLoginSubmit(event) {
+  event.preventDefault();
+  if (!adminPasswordInput) {
+    return;
+  }
+  const password = adminPasswordInput.value;
+  if (adminLoginErrorEl) {
+    adminLoginErrorEl.textContent = "";
+  }
+  setAdminStatus("");
+  try {
+    const body = await adminRequest("/admin/login", {
+      method: "POST",
+      body: { password },
+      auth: false,
+    });
+    saveAdminToken({ token: body.token, expiresAt: body.expiresAt });
+    adminPasswordInput.value = "";
+    showAdminDashboard();
+    await refreshAdminDashboard();
+  } catch (error) {
+    const message = error?.message || "Login failed.";
+    if (adminLoginErrorEl) {
+      adminLoginErrorEl.textContent = message;
+    }
+  }
+}
+
+async function onAdminDeleteUser(user) {
+  const label = user.displayName || user.email;
+  if (!window.confirm(`Delete account for ${label}? This cannot be undone.`)) {
+    return;
+  }
+  setAdminStatus("");
+  try {
+    await adminRequest(`/admin/users/${user.id}`, { method: "DELETE" });
+    setAdminStatus(`Deleted ${label}.`);
+    await refreshAdminDashboard();
+  } catch (error) {
+    setAdminStatus(error?.message || "Delete failed.", true);
+  }
+}
+
+async function onAdminGenerateInvites() {
+  const count = Number(adminInviteCountInput?.value || 1);
+  setAdminStatus("");
+  renderAdminGeneratedCodes([]);
+  try {
+    const body = await adminRequest("/admin/invite-codes", {
+      method: "POST",
+      body: { count },
+    });
+    renderAdminGeneratedCodes(body.codes || []);
+    setAdminStatus(`Generated ${body.codes?.length || 0} invite code(s).`);
+    await refreshAdminDashboard();
+  } catch (error) {
+    setAdminStatus(error?.message || "Could not generate codes.", true);
+  }
+}
+
+function onAdminLogout() {
+  clearAdminToken();
+  renderAdminGeneratedCodes([]);
+  setAdminStatus("");
+  showAdminLogin();
+}
+
+function renderAdminView() {
+  if (!isAdminViewActive()) {
+    return;
+  }
+  syncAppViewChrome();
+  if (loadAdminToken()) {
+    showAdminDashboard();
+    refreshAdminDashboard();
+  } else {
+    showAdminLogin();
+  }
+}
+
+function navigateToAdmin(options = {}) {
+  closeDetail({ popHistory: false });
+  if (typeof closeSettings === "function" && !settingsDialog.hidden) {
+    closeSettings();
+  }
+  if (typeof clearFriendViewState === "function") {
+    clearFriendViewState();
+  }
+  appView = "admin";
+  activeCustomListId = null;
+  if (options.pushHistory !== false) {
+    history.pushState({ appView: "admin" }, "", "#admin");
+    markProgrammaticLocation();
+  }
+  renderAdminView();
+}
+
+adminLoginForm?.addEventListener("submit", onAdminLoginSubmit);
+adminGenerateInvitesBtn?.addEventListener("click", onAdminGenerateInvites);
+adminLogoutBtn?.addEventListener("click", onAdminLogout);

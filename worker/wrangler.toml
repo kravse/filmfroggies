@@ -13,6 +13,9 @@ database_id = "e8fd9017-45e1-4abb-aa97-32e9db8ffbf1"
 #
 # Secrets (wrangler secret put … — never commit values):
 #   SESSION_SECRET       — required; signs login sessions
-#   SIGNUP_INVITE_CODE   — required for new signups; shared invite password
 #   TMDB_READ_TOKEN      — required for GET /api/tmdb (account-gated TMDB proxy)
+#   ADMIN_PASSWORD       — optional; enables #admin UI and /api/admin/* routes
 #   ALLOWED_ORIGINS      — optional; extra CORS origins, comma-separated
+#
+# Signup uses one-time invite codes in D1 (invite_codes table). Generate locally:
+#   npm run generate-invite-codes -- --count 3

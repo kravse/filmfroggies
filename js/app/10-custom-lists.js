@@ -33,6 +33,9 @@ function parseLocationHash() {
   if (appFriendView.parseFriendsIndexHash(hash)) {
     return { kind: "friendsIndex" };
   }
+  if (parseAdminHash(hash)) {
+    return { kind: "admin" };
+  }
   return { kind: "main" };
 }
 
@@ -145,6 +148,7 @@ function syncAppViewChrome() {
   document.body.classList.toggle("view-discover", isDiscoverActive());
   document.body.classList.toggle("view-friends-index", isFriendsIndexActive());
   document.body.classList.toggle("view-friend", isFriendViewActive());
+  document.body.classList.toggle("view-admin", isAdminViewActive());
   if (customListsIndex) {
     customListsIndex.hidden = !isCustomListIndexActive();
   }
@@ -154,12 +158,19 @@ function syncAppViewChrome() {
   if (friendViewEl) {
     friendViewEl.hidden = !isFriendViewActive();
   }
+  if (adminPageEl) {
+    adminPageEl.hidden = !isAdminViewActive();
+  }
   if (grid) {
-    grid.hidden = isFriendViewActive() || isFriendsIndexActive();
+    grid.hidden = isFriendViewActive() || isFriendsIndexActive() || isAdminViewActive();
   }
   if (listTabs) {
     listTabs.hidden =
-      isCustomListView() || isDiscoverActive() || isFriendViewActive() || isFriendsIndexActive();
+      isCustomListView() ||
+      isDiscoverActive() ||
+      isFriendViewActive() ||
+      isFriendsIndexActive() ||
+      isAdminViewActive();
   }
   if (discoverTabs) {
     discoverTabs.hidden = !isDiscoverActive();
@@ -169,12 +180,13 @@ function syncAppViewChrome() {
       !isCustomListView() &&
       !isDiscoverActive() &&
       !isFriendViewActive() &&
-      !isFriendsIndexActive();
+      !isFriendsIndexActive() &&
+      !isAdminViewActive();
   }
   if (customListBackLabel) {
     if (isFriendViewActive()) {
       customListBackLabel.textContent = "Friends";
-    } else if (isFriendsIndexActive() || isDiscoverActive()) {
+    } else if (isFriendsIndexActive() || isDiscoverActive() || isAdminViewActive()) {
       customListBackLabel.textContent = "Collection";
     } else {
       customListBackLabel.textContent = isCustomListIndexActive() ? "Collection" : "All lists";
@@ -188,7 +200,8 @@ function syncAppViewChrome() {
       isCustomListIndexActive() ||
       isDiscoverActive() ||
       isFriendViewActive() ||
-      isFriendsIndexActive();
+      isFriendsIndexActive() ||
+      isAdminViewActive();
   }
   updateListHeader();
   syncHeaderNavUi();
@@ -304,6 +317,9 @@ function appViewMatchesLocation(parsed) {
   if (parsed.kind === "friend") {
     return appView === "friend" && activeFriendId === parsed.userId;
   }
+  if (parsed.kind === "admin") {
+    return appView === "admin";
+  }
   return false;
 }
 
@@ -333,6 +349,9 @@ function movieUnderlayMatchesHistoryState() {
   }
   if (state.appView === "friend") {
     return activeFriendId === (state.activeFriendId ?? null);
+  }
+  if (state.appView === "admin") {
+    return appView === "admin";
   }
   return true;
 }
@@ -364,6 +383,10 @@ function paintLocationUnderlay() {
     } else if (!friendViewLoading) {
       loadFriendView(activeFriendId);
     }
+    return;
+  }
+  if (isAdminViewActive()) {
+    renderAdminView();
     return;
   }
   render();
@@ -513,6 +536,17 @@ function syncViewFromLocation(options = {}) {
     } else {
       loadFriendView(parsed.userId);
     }
+    return;
+  }
+
+  if (parsed.kind === "admin") {
+    appView = "admin";
+    activeCustomListId = null;
+    if (typeof clearFriendViewState === "function") {
+      clearFriendViewState();
+    }
+    syncAppViewChrome();
+    renderAdminView();
     return;
   }
 

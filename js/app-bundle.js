@@ -25,6 +25,20 @@ const customListsSortControl = document.getElementById("custom-lists-sort-contro
 const customListsEmpty = document.getElementById("custom-lists-empty");
 const customListCreateBtn = document.getElementById("custom-list-create-btn");
 const customListBackBtn = document.getElementById("custom-list-back-btn");
+const adminPageEl = document.getElementById("admin-page");
+const adminLoginPanel = document.getElementById("admin-login-panel");
+const adminDashboardPanel = document.getElementById("admin-dashboard-panel");
+const adminLoginForm = document.getElementById("admin-login-form");
+const adminPasswordInput = document.getElementById("admin-password-input");
+const adminLoginErrorEl = document.getElementById("admin-login-error");
+const adminUserCountEl = document.getElementById("admin-user-count");
+const adminUnusedInvitesEl = document.getElementById("admin-unused-invites");
+const adminUsersListEl = document.getElementById("admin-users-list");
+const adminInviteCountInput = document.getElementById("admin-invite-count");
+const adminGenerateInvitesBtn = document.getElementById("admin-generate-invites-btn");
+const adminGeneratedCodesEl = document.getElementById("admin-generated-codes");
+const adminStatusEl = document.getElementById("admin-status");
+const adminLogoutBtn = document.getElementById("admin-logout-btn");
 const customListBackLabel = document.getElementById("custom-list-back-label");
 const addMovieFromWatchedSection = document.getElementById("add-movie-from-watched-section");
 const addMovieFromWatchedBtn = document.getElementById("add-movie-from-watched-btn");
@@ -271,7 +285,7 @@ let pendingCustomListDeleteId = null;
 let pendingFriendRemoveId = null;
 let tmdbCredential = "";
 
-/** "main" | "customIndex" | "customDetail" | "discover" | "friend" */
+/** "main" | "customIndex" | "customDetail" | "discover" | "friend" | "friendsIndex" | "admin" */
 let appView = "main";
 let activeCustomListId = null;
 let activeFriendId = null;
@@ -301,6 +315,10 @@ function isFriendsIndexActive() {
 
 function isFriendViewActive() {
   return appView === "friend" && activeFriendId != null;
+}
+
+function isAdminViewActive() {
+  return appView === "admin";
 }
 
 function usesWatchedStyleDisplay() {
@@ -9499,6 +9517,12 @@ function syncHeaderViewTitle() {
     headerTitleEl.hidden = true;
     return;
   }
+  if (isAdminViewActive()) {
+    customListViewTitleEl.textContent = "Admin";
+    customListViewTitleEl.hidden = false;
+    headerTitleEl.hidden = true;
+    return;
+  }
   if (isCustomListDetailActive()) {
     customListViewTitleEl.textContent = getActiveDisplayContext().listName;
     customListViewTitleEl.hidden = false;
@@ -9537,6 +9561,10 @@ function updateListHeader() {
     listSubtitleEl.textContent = accountSyncEnabled()
       ? "Add friends by email, then open their shared lists"
       : "Sign in to connect with friends";
+    return;
+  }
+  if (isAdminViewActive()) {
+    listSubtitleEl.textContent = "User management and invite codes";
     return;
   }
   if (isFriendViewActive()) {
@@ -12868,6 +12896,9 @@ function parseLocationHash() {
   if (appFriendView.parseFriendsIndexHash(hash)) {
     return { kind: "friendsIndex" };
   }
+  if (parseAdminHash(hash)) {
+    return { kind: "admin" };
+  }
   return { kind: "main" };
 }
 
@@ -12980,6 +13011,7 @@ function syncAppViewChrome() {
   document.body.classList.toggle("view-discover", isDiscoverActive());
   document.body.classList.toggle("view-friends-index", isFriendsIndexActive());
   document.body.classList.toggle("view-friend", isFriendViewActive());
+  document.body.classList.toggle("view-admin", isAdminViewActive());
   if (customListsIndex) {
     customListsIndex.hidden = !isCustomListIndexActive();
   }
@@ -12989,12 +13021,19 @@ function syncAppViewChrome() {
   if (friendViewEl) {
     friendViewEl.hidden = !isFriendViewActive();
   }
+  if (adminPageEl) {
+    adminPageEl.hidden = !isAdminViewActive();
+  }
   if (grid) {
-    grid.hidden = isFriendViewActive() || isFriendsIndexActive();
+    grid.hidden = isFriendViewActive() || isFriendsIndexActive() || isAdminViewActive();
   }
   if (listTabs) {
     listTabs.hidden =
-      isCustomListView() || isDiscoverActive() || isFriendViewActive() || isFriendsIndexActive();
+      isCustomListView() ||
+      isDiscoverActive() ||
+      isFriendViewActive() ||
+      isFriendsIndexActive() ||
+      isAdminViewActive();
   }
   if (discoverTabs) {
     discoverTabs.hidden = !isDiscoverActive();
@@ -13004,12 +13043,13 @@ function syncAppViewChrome() {
       !isCustomListView() &&
       !isDiscoverActive() &&
       !isFriendViewActive() &&
-      !isFriendsIndexActive();
+      !isFriendsIndexActive() &&
+      !isAdminViewActive();
   }
   if (customListBackLabel) {
     if (isFriendViewActive()) {
       customListBackLabel.textContent = "Friends";
-    } else if (isFriendsIndexActive() || isDiscoverActive()) {
+    } else if (isFriendsIndexActive() || isDiscoverActive() || isAdminViewActive()) {
       customListBackLabel.textContent = "Collection";
     } else {
       customListBackLabel.textContent = isCustomListIndexActive() ? "Collection" : "All lists";
@@ -13023,7 +13063,8 @@ function syncAppViewChrome() {
       isCustomListIndexActive() ||
       isDiscoverActive() ||
       isFriendViewActive() ||
-      isFriendsIndexActive();
+      isFriendsIndexActive() ||
+      isAdminViewActive();
   }
   updateListHeader();
   syncHeaderNavUi();
@@ -13139,6 +13180,9 @@ function appViewMatchesLocation(parsed) {
   if (parsed.kind === "friend") {
     return appView === "friend" && activeFriendId === parsed.userId;
   }
+  if (parsed.kind === "admin") {
+    return appView === "admin";
+  }
   return false;
 }
 
@@ -13168,6 +13212,9 @@ function movieUnderlayMatchesHistoryState() {
   }
   if (state.appView === "friend") {
     return activeFriendId === (state.activeFriendId ?? null);
+  }
+  if (state.appView === "admin") {
+    return appView === "admin";
   }
   return true;
 }
@@ -13199,6 +13246,10 @@ function paintLocationUnderlay() {
     } else if (!friendViewLoading) {
       loadFriendView(activeFriendId);
     }
+    return;
+  }
+  if (isAdminViewActive()) {
+    renderAdminView();
     return;
   }
   render();
@@ -13348,6 +13399,17 @@ function syncViewFromLocation(options = {}) {
     } else {
       loadFriendView(parsed.userId);
     }
+    return;
+  }
+
+  if (parsed.kind === "admin") {
+    appView = "admin";
+    activeCustomListId = null;
+    if (typeof clearFriendViewState === "function") {
+      clearFriendViewState();
+    }
+    syncAppViewChrome();
+    renderAdminView();
     return;
   }
 
@@ -15000,6 +15062,315 @@ function navigateToFriendsIndex(options = {}) {
   renderFriendsIndex();
 }
 
+/* ===== Admin page ===== */
+
+/**
+ * Admin page (#admin): password gate, user roster, invite code generation.
+ */
+
+const ADMIN_TOKEN_KEY = "moviecollector-admin-token";
+const ADMIN_TIMEOUT_MS = 15_000;
+
+function parseAdminHash(hash) {
+  return hash === "#admin" || hash === "#admin/" ? true : false;
+}
+
+function loadAdminToken() {
+  try {
+    const text = sessionStorage.getItem(ADMIN_TOKEN_KEY);
+    if (!text) {
+      return null;
+    }
+    const parsed = JSON.parse(text);
+    const token = typeof parsed?.token === "string" ? parsed.token.trim() : "";
+    const expiresAt = Number(parsed?.expiresAt);
+    if (!token || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+      return null;
+    }
+    return { token, expiresAt };
+  } catch (_) {
+    return null;
+  }
+}
+
+function saveAdminToken(payload) {
+  try {
+    if (!payload?.token) {
+      sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+      return;
+    }
+    sessionStorage.setItem(ADMIN_TOKEN_KEY, JSON.stringify(payload));
+  } catch (_) {
+    /* Private browsing may refuse storage. */
+  }
+}
+
+function clearAdminToken() {
+  saveAdminToken(null);
+}
+
+async function adminRequest(path, options = {}) {
+  const { method = "GET", body, auth = true } = options;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ADMIN_TIMEOUT_MS);
+  try {
+    const headers = {};
+    if (auth) {
+      const session = loadAdminToken();
+      headers.authorization = `Bearer ${session?.token || ""}`;
+    }
+    if (body) {
+      headers["content-type"] = "application/json";
+    }
+    const base = appAccountSync.resolveAccountApiBase(window.location.hostname);
+    const response = await fetch(`${base}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      if (response.status === 401 && auth) {
+        clearAdminToken();
+      }
+      const error = new Error(payload?.error || `Admin request failed (${response.status})`);
+      error.status = response.status;
+      throw error;
+    }
+    return payload;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function setAdminStatus(message, isError = false) {
+  if (!adminStatusEl) {
+    return;
+  }
+  adminStatusEl.textContent = message || "";
+  adminStatusEl.classList.toggle("is-error", Boolean(isError && message));
+}
+
+function showAdminLogin() {
+  if (adminLoginPanel) {
+    adminLoginPanel.hidden = false;
+  }
+  if (adminDashboardPanel) {
+    adminDashboardPanel.hidden = true;
+  }
+  if (adminLoginErrorEl) {
+    adminLoginErrorEl.textContent = "";
+  }
+}
+
+function showAdminDashboard() {
+  if (adminLoginPanel) {
+    adminLoginPanel.hidden = true;
+  }
+  if (adminDashboardPanel) {
+    adminDashboardPanel.hidden = false;
+  }
+}
+
+function renderAdminUserRow(user) {
+  const li = document.createElement("li");
+  li.className = "admin-user-row";
+  li.dataset.userId = String(user.id);
+
+  const meta = document.createElement("div");
+  meta.className = "admin-user-meta";
+
+  const name = document.createElement("strong");
+  name.className = "admin-user-name";
+  name.textContent = user.displayName || user.email;
+
+  const email = document.createElement("span");
+  email.className = "admin-user-email";
+  email.textContent = user.email;
+
+  meta.append(name, email);
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.type = "button";
+  deleteBtn.className = "ghost-btn admin-user-delete";
+  deleteBtn.textContent = "Delete";
+  deleteBtn.addEventListener("click", () => {
+    onAdminDeleteUser(user);
+  });
+
+  li.append(meta, deleteBtn);
+  return li;
+}
+
+function renderAdminUsers(users) {
+  if (!adminUsersListEl) {
+    return;
+  }
+  adminUsersListEl.replaceChildren();
+  if (!users.length) {
+    const empty = document.createElement("li");
+    empty.className = "admin-users-empty";
+    empty.textContent = "No users yet.";
+    adminUsersListEl.append(empty);
+    return;
+  }
+  for (const user of users) {
+    adminUsersListEl.append(renderAdminUserRow(user));
+  }
+}
+
+function renderAdminGeneratedCodes(codes) {
+  if (!adminGeneratedCodesEl) {
+    return;
+  }
+  adminGeneratedCodesEl.replaceChildren();
+  if (!codes?.length) {
+    adminGeneratedCodesEl.hidden = true;
+    return;
+  }
+  adminGeneratedCodesEl.hidden = false;
+  const title = document.createElement("p");
+  title.className = "admin-generated-title";
+  title.textContent = "New invite codes (copy now — shown once):";
+  adminGeneratedCodesEl.append(title);
+
+  const list = document.createElement("ul");
+  list.className = "admin-generated-list";
+  for (const code of codes) {
+    const item = document.createElement("li");
+    const codeEl = document.createElement("code");
+    codeEl.textContent = code;
+    item.append(codeEl);
+    list.append(item);
+  }
+  adminGeneratedCodesEl.append(list);
+}
+
+async function refreshAdminDashboard() {
+  setAdminStatus("");
+  try {
+    const [stats, usersBody] = await Promise.all([
+      adminRequest("/admin/stats"),
+      adminRequest("/admin/users"),
+    ]);
+    if (adminUserCountEl) {
+      adminUserCountEl.textContent = String(stats.userCount ?? 0);
+    }
+    if (adminUnusedInvitesEl) {
+      adminUnusedInvitesEl.textContent = String(stats.unusedInviteCount ?? 0);
+    }
+    renderAdminUsers(usersBody.users || []);
+  } catch (error) {
+    if (error?.status === 401 || error?.status === 503) {
+      showAdminLogin();
+    }
+    setAdminStatus(error?.message || "Could not load admin data.", true);
+  }
+}
+
+async function onAdminLoginSubmit(event) {
+  event.preventDefault();
+  if (!adminPasswordInput) {
+    return;
+  }
+  const password = adminPasswordInput.value;
+  if (adminLoginErrorEl) {
+    adminLoginErrorEl.textContent = "";
+  }
+  setAdminStatus("");
+  try {
+    const body = await adminRequest("/admin/login", {
+      method: "POST",
+      body: { password },
+      auth: false,
+    });
+    saveAdminToken({ token: body.token, expiresAt: body.expiresAt });
+    adminPasswordInput.value = "";
+    showAdminDashboard();
+    await refreshAdminDashboard();
+  } catch (error) {
+    const message = error?.message || "Login failed.";
+    if (adminLoginErrorEl) {
+      adminLoginErrorEl.textContent = message;
+    }
+  }
+}
+
+async function onAdminDeleteUser(user) {
+  const label = user.displayName || user.email;
+  if (!window.confirm(`Delete account for ${label}? This cannot be undone.`)) {
+    return;
+  }
+  setAdminStatus("");
+  try {
+    await adminRequest(`/admin/users/${user.id}`, { method: "DELETE" });
+    setAdminStatus(`Deleted ${label}.`);
+    await refreshAdminDashboard();
+  } catch (error) {
+    setAdminStatus(error?.message || "Delete failed.", true);
+  }
+}
+
+async function onAdminGenerateInvites() {
+  const count = Number(adminInviteCountInput?.value || 1);
+  setAdminStatus("");
+  renderAdminGeneratedCodes([]);
+  try {
+    const body = await adminRequest("/admin/invite-codes", {
+      method: "POST",
+      body: { count },
+    });
+    renderAdminGeneratedCodes(body.codes || []);
+    setAdminStatus(`Generated ${body.codes?.length || 0} invite code(s).`);
+    await refreshAdminDashboard();
+  } catch (error) {
+    setAdminStatus(error?.message || "Could not generate codes.", true);
+  }
+}
+
+function onAdminLogout() {
+  clearAdminToken();
+  renderAdminGeneratedCodes([]);
+  setAdminStatus("");
+  showAdminLogin();
+}
+
+function renderAdminView() {
+  if (!isAdminViewActive()) {
+    return;
+  }
+  syncAppViewChrome();
+  if (loadAdminToken()) {
+    showAdminDashboard();
+    refreshAdminDashboard();
+  } else {
+    showAdminLogin();
+  }
+}
+
+function navigateToAdmin(options = {}) {
+  closeDetail({ popHistory: false });
+  if (typeof closeSettings === "function" && !settingsDialog.hidden) {
+    closeSettings();
+  }
+  if (typeof clearFriendViewState === "function") {
+    clearFriendViewState();
+  }
+  appView = "admin";
+  activeCustomListId = null;
+  if (options.pushHistory !== false) {
+    history.pushState({ appView: "admin" }, "", "#admin");
+    markProgrammaticLocation();
+  }
+  renderAdminView();
+}
+
+adminLoginForm?.addEventListener("submit", onAdminLoginSubmit);
+adminGenerateInvitesBtn?.addEventListener("click", onAdminGenerateInvites);
+adminLogoutBtn?.addEventListener("click", onAdminLogout);
+
 /* ===== Event wiring and startup ===== */
 
 /* Event wiring and startup. Closes the shared IIFE opened in 01-config-dom-state.js. */
@@ -15480,7 +15851,7 @@ friendRemoveConfirmDialog?.addEventListener("click", (event) => {
 customListBackBtn?.addEventListener("click", () => {
   if (isFriendViewActive()) {
     navigateFromFriendView();
-  } else if (isFriendsIndexActive()) {
+  } else if (isFriendsIndexActive() || isAdminViewActive()) {
     navigateToMain();
   } else if (isDiscoverActive()) {
     navigateToMain();

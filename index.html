@@ -45,6 +45,7 @@
     <link rel="stylesheet" href="css/custom-lists.css" />
     <link rel="stylesheet" href="css/discover.css" />
     <link rel="stylesheet" href="css/friend-view.css" />
+    <link rel="stylesheet" href="css/admin.css" />
     <link rel="stylesheet" href="css/mobile.css" />
   </head>
   <body>
@@ -463,6 +464,62 @@
       <section class="friend-view" id="friend-view" hidden>
         <div class="friend-view-overview" id="friend-view-overview"></div>
         <div class="friend-view-sections" id="friend-view-sections"></div>
+      </section>
+      <section class="admin-page" id="admin-page" hidden>
+        <div class="admin-panel" id="admin-login-panel">
+          <h2>Admin sign in</h2>
+          <form id="admin-login-form">
+            <label class="admin-login-field" for="admin-password-input">
+              <span>Password</span>
+              <input
+                type="password"
+                id="admin-password-input"
+                autocomplete="current-password"
+                required
+              />
+            </label>
+            <p class="admin-login-error" id="admin-login-error" role="alert"></p>
+            <button type="submit" class="primary-btn">Sign in</button>
+          </form>
+        </div>
+        <div class="admin-panel" id="admin-dashboard-panel" hidden>
+          <div class="admin-toolbar">
+            <button type="button" class="ghost-btn" id="admin-logout-btn">Sign out</button>
+          </div>
+          <div class="admin-stats">
+            <div class="admin-stat">
+              <span class="admin-stat-label">Users</span>
+              <span class="admin-stat-value" id="admin-user-count">0</span>
+            </div>
+            <div class="admin-stat">
+              <span class="admin-stat-label">Unused invites</span>
+              <span class="admin-stat-value" id="admin-unused-invites">0</span>
+            </div>
+          </div>
+          <h2>Users</h2>
+          <ul class="admin-users-list" id="admin-users-list" aria-label="Users"></ul>
+          <div class="admin-invite-section">
+            <h2>Invite codes</h2>
+            <div class="admin-invite-row">
+              <label class="admin-invite-field" for="admin-invite-count">
+                <span>Count</span>
+                <input
+                  type="number"
+                  id="admin-invite-count"
+                  min="1"
+                  max="20"
+                  value="1"
+                  inputmode="numeric"
+                />
+              </label>
+              <button type="button" class="primary-btn" id="admin-generate-invites-btn">
+                Generate
+              </button>
+            </div>
+            <div class="admin-generated-codes" id="admin-generated-codes" hidden></div>
+          </div>
+          <p class="admin-status status-text" id="admin-status" role="status"></p>
+        </div>
       </section>
       <div class="grid" id="grid"></div>
       <nav

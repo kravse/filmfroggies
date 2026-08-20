@@ -1,32 +1,120 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { verifySignupInviteCode } from "./src/index.js";
+import {
+  hashInviteCodeHex,
+  linkInviteCodeToUser,
+  normalizeInviteCode,
+  releaseInviteCode,
+  reserveInviteCode,
+} from "./src/invite-codes.js";
 
-const env = { SIGNUP_INVITE_CODE: "friends-only-2026" };
+function createInviteDb() {
+  const rows = new Map();
 
-test("verifySignupInviteCode requires a configured secret", () => {
-  assert.deepEqual(verifySignupInviteCode({}, "friends-only-2026"), {
+  return {
+    rows,
+    prepare(sql) {
+      const normalized = sql.replace(/\s+/g, " ").trim();
+      return {
+        bind(...args) {
+          return {
+            async run() {
+              if (
+                normalized.startsWith(
+                  "UPDATE invite_codes SET used_at = ?1 WHERE code_hash = ?2 AND used_at IS NULL",
+                )
+              ) {
+                const [usedAt, codeHash] = args;
+                const row = rows.get(codeHash);
+                if (!row || row.used_at != null) {
+                  return { meta: { changes: 0 } };
+                }
+                row.used_at = usedAt;
+                row.used_by_user_id = null;
+                return { meta: { changes: 1 } };
+              }
+              if (
+                normalized.startsWith(
+                  "UPDATE invite_codes SET used_at = NULL, used_by_user_id = NULL WHERE code_hash = ?1 AND used_at = ?2 AND used_by_user_id IS NULL",
+                )
+              ) {
+                const [codeHash, usedAt] = args;
+                const row = rows.get(codeHash);
+                if (!row || row.used_at !== usedAt || row.used_by_user_id != null) {
+                  return { meta: { changes: 0 } };
+                }
+                row.used_at = null;
+                row.used_by_user_id = null;
+                return { meta: { changes: 1 } };
+              }
+              if (normalized.startsWith("UPDATE invite_codes SET used_by_user_id = ?1 WHERE code_hash = ?2")) {
+                const [userId, codeHash] = args;
+                const row = rows.get(codeHash);
+                if (!row) {
+                  return { meta: { changes: 0 } };
+                }
+                row.used_by_user_id = userId;
+                return { meta: { changes: 1 } };
+              }
+              return { meta: { changes: 0 } };
+            },
+          };
+        },
+      };
+    },
+    seed(codeHash) {
+      rows.set(codeHash, { used_at: null, used_by_user_id: null });
+    },
+  };
+}
+
+test("normalizeInviteCode trims and rejects empty values", () => {
+  assert.equal(normalizeInviteCode("  abc  "), "abc");
+  assert.equal(normalizeInviteCode(""), null);
+  assert.equal(normalizeInviteCode(null), null);
+});
+
+test("hashInviteCodeHex is stable for the same plaintext", async () => {
+  const first = await hashInviteCodeHex("test-code");
+  const second = await hashInviteCodeHex(" test-code ");
+  assert.equal(first, second);
+  assert.match(first, /^[0-9a-f]{64}$/);
+});
+
+test("reserveInviteCode rejects missing and unknown codes", async () => {
+  const env = { DB: createInviteDb() };
+  assert.deepEqual(await reserveInviteCode(env, ""), {
     ok: false,
-    reason: "disabled",
+    reason: "missing",
+    codeHash: null,
+    reservedAt: null,
   });
+
+  const unknown = await reserveInviteCode(env, "unknown-code");
+  assert.equal(unknown.ok, false);
+  assert.equal(unknown.reason, "invalid");
 });
 
-test("verifySignupInviteCode rejects missing and wrong codes", () => {
-  assert.deepEqual(verifySignupInviteCode(env, ""), { ok: false, reason: "missing" });
-  assert.deepEqual(verifySignupInviteCode(env, "wrong"), {
-    ok: false,
-    reason: "mismatch",
-  });
-});
+test("reserveInviteCode consumes a code once and release restores unused reservations", async () => {
+  const code = "one-time-code";
+  const codeHash = await hashInviteCodeHex(code);
+  const db = createInviteDb();
+  db.seed(codeHash);
+  const env = { DB: db };
 
-test("verifySignupInviteCode accepts an exact match", () => {
-  assert.deepEqual(verifySignupInviteCode(env, "friends-only-2026"), {
-    ok: true,
-    reason: "ok",
-  });
-});
+  const first = await reserveInviteCode(env, code);
+  assert.equal(first.ok, true);
+  assert.equal(first.codeHash, codeHash);
+  assert.ok(first.reservedAt);
 
-test("verifySignupInviteCode uses timing-safe equality", () => {
-  assert.equal(verifySignupInviteCode(env, "friends-only-2027").ok, false);
-  assert.equal(verifySignupInviteCode(env, "Friends-only-2026").ok, false);
+  const second = await reserveInviteCode(env, code);
+  assert.equal(second.ok, false);
+  assert.equal(second.reason, "invalid");
+
+  await releaseInviteCode(env, codeHash, first.reservedAt);
+  const third = await reserveInviteCode(env, code);
+  assert.equal(third.ok, true);
+
+  await linkInviteCodeToUser(env, codeHash, 42);
+  assert.equal(db.rows.get(codeHash).used_by_user_id, 42);
 });
