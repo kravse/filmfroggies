@@ -412,14 +412,6 @@ viewingRemoveConfirmDialog.addEventListener("click", (event) => {
   }
 });
 
-backupRestoreCancel?.addEventListener("click", () => closeBackupRestoreConfirm());
-backupRestoreOk?.addEventListener("click", () => onConfirmBackupRestore());
-backupRestoreDialog?.addEventListener("click", (event) => {
-  if (event.target.hasAttribute("data-close-backup-restore")) {
-    closeBackupRestoreConfirm();
-  }
-});
-
 let lastLocationNavigationKey = null;
 let ignoreHashChange = false;
 
@@ -517,14 +509,6 @@ settingsDialog.addEventListener("click", (event) => {
     closeSettings();
   }
 });
-tmdbKeySave.addEventListener("click", onSaveCredential);
-tmdbKeyInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    onSaveCredential();
-  }
-});
-tmdbKeyClear.addEventListener("click", onClearCredential);
 cacheClearBtn.addEventListener("click", onClearCache);
 exportCsvBtn.addEventListener("click", onExportCsv);
 collectionImportRead?.addEventListener("click", onReviewCollectionImport);
@@ -534,12 +518,6 @@ collectionImportCancel?.addEventListener("click", closeCollectionImportConfirm);
 collectionImportDialog?.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-collection-import")) closeCollectionImportConfirm();
 });
-storageTabLocal.addEventListener("click", () => onStorageModeChange("local"));
-storageTabGist.addEventListener("click", () => onStorageModeChange("gist"));
-storageTabAccount.addEventListener("click", () => onStorageModeChange("account"));
-gistConnectBtn.addEventListener("click", onConnectGist);
-gistClearBtn.addEventListener("click", onDisconnectGist);
-gistBackupList?.addEventListener("click", onGistBackupListClick);
 accountAuthTabLogin.addEventListener("click", () => setAccountAuthMode("login"));
 accountAuthTabSignup.addEventListener("click", () => setAccountAuthMode("signup"));
 accountSubmitBtn.addEventListener("click", onAccountAuth);
@@ -579,58 +557,10 @@ aboutDialog.addEventListener("click", (event) => {
   }
 });
 
-/* --- Logo: single click home (delayed); triple-click hosted unlock --- */
-
-let logoClickCount = 0;
-let logoClickTimer = null;
-const LOGO_CLICK_WINDOW_MS = 600;
+/* --- Logo: single click home --- */
 
 headerLogo.addEventListener("click", () => {
-  logoClickCount += 1;
-  if (logoClickTimer) {
-    clearTimeout(logoClickTimer);
-  }
-
-  if (logoClickCount >= 3) {
-    logoClickCount = 0;
-    logoClickTimer = null;
-    if (hasHostedAccess()) {
-      openHostedLockDialog();
-    } else {
-      openHostedUnlockDialog();
-    }
-    return;
-  }
-
-  logoClickTimer = setTimeout(() => {
-    if (logoClickCount === 1) {
-      navigateHomeToWatched();
-    }
-    logoClickCount = 0;
-    logoClickTimer = null;
-  }, LOGO_CLICK_WINDOW_MS);
-});
-
-hostedUnlockCancel.addEventListener("click", () => closeHostedUnlockDialog());
-hostedUnlockSubmit.addEventListener("click", () => submitHostedUnlock());
-hostedUnlockInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    submitHostedUnlock();
-  }
-});
-hostedUnlockDialog.addEventListener("click", (event) => {
-  if (event.target.hasAttribute("data-close-hosted-unlock")) {
-    closeHostedUnlockDialog();
-  }
-});
-
-hostedLockCancel.addEventListener("click", () => closeHostedLockDialog());
-hostedLockOk.addEventListener("click", () => confirmHostedLock());
-hostedLockDialog.addEventListener("click", (event) => {
-  if (event.target.hasAttribute("data-close-hosted-lock")) {
-    closeHostedLockDialog();
-  }
+  navigateHomeToWatched();
 });
 
 /* --- Global keys --- */
@@ -639,18 +569,6 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     if (!collectionImportDialog.hidden) {
       closeCollectionImportConfirm();
-      return;
-    }
-    if (!hostedUnlockDialog.hidden) {
-      closeHostedUnlockDialog();
-      return;
-    }
-    if (!hostedLockDialog.hidden) {
-      closeHostedLockDialog();
-      return;
-    }
-    if (!backupRestoreDialog.hidden) {
-      closeBackupRestoreConfirm();
       return;
     }
     if (!customListDeleteDialog.hidden) {
@@ -738,14 +656,12 @@ document.addEventListener("keydown", (event) => {
 /* --- Startup --- */
 
 async function startApp() {
-  loadCredential();
-  loadHostedSession();
-  loadGistConfig();
   loadAccountConfig();
   loadUserState();
   syncCustomListIndexSortFromState();
   refreshViewModeForActiveList();
   updateSearchClearVisibility();
+  syncAccountLoginGate();
 
   // One static file, read before the first paint. When it covers the list that
   // paint shows real cards instead of skeletons, which is the whole point.
@@ -760,13 +676,13 @@ async function startApp() {
   syncViewFromLocation();
   lastLocationNavigationKey = window.location.href;
 
-  // Reconcile rather than pull: startup is also when this tab is most likely to
-  // be holding something the Gist has not seen yet.
-  if (gistSyncEnabled()) {
-    queueGistSync();
-  }
+  // Reconcile on startup when logged in so this tab picks up remote changes.
   if (accountSyncEnabled()) {
     queueAccountSync();
+  }
+
+  if (!accountSyncEnabled()) {
+    openSettings();
   }
 }
 

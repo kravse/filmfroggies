@@ -1689,120 +1689,6 @@ function syncDetailFromLocation() {
 
 /* --- Settings --- */
 
-let pendingBackupRestoreFilename = null;
-
-function formatSnapshotLabel(iso) {
-  const time = Date.parse(iso || "");
-  if (!Number.isFinite(time)) {
-    return iso || "Unknown time";
-  }
-  return new Date(time).toLocaleString([], {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-async function refreshGistBackupList() {
-  if (!gistBackupSection || !gistBackupList) {
-    return;
-  }
-  if (!gistSyncEnabled()) {
-    gistBackupSection.hidden = true;
-    gistBackupList.innerHTML = "";
-    setStatus(gistBackupStatus, "", null);
-    return;
-  }
-  gistBackupSection.hidden = false;
-  gistBackupList.innerHTML =
-    '<li class="gist-backup-empty">Loading snapshots…</li>';
-  try {
-    const snapshots = await listGistSnapshots();
-    if (!snapshots.length) {
-      gistBackupList.innerHTML =
-        '<li class="gist-backup-empty">No snapshots yet. The first one is written on load when sync is active.</li>';
-      setStatus(gistBackupStatus, "", null);
-      return;
-    }
-    gistBackupList.innerHTML = snapshots
-      .slice()
-      .reverse()
-      .map((entry) => {
-        const label = formatSnapshotLabel(entry.at);
-        const safeLabel = appCardHtml.escapeHtml(label);
-        return `<li class="gist-backup-item"><button type="button" class="gist-backup-restore-btn" data-backup-at="${entry.at}" data-backup-label="${safeLabel}">Restore ${safeLabel}</button></li>`;
-      })
-      .join("");
-    setStatus(
-      gistBackupStatus,
-      `${snapshots.length} snapshot${snapshots.length === 1 ? "" : "s"} stored (max ${appGistBackup.MAX_SNAPSHOTS}).`,
-      "ok",
-    );
-  } catch (_) {
-    gistBackupList.innerHTML =
-      '<li class="gist-backup-empty">Could not load snapshots.</li>';
-    setStatus(gistBackupStatus, "Could not reach the backup Gist.", "error");
-  }
-}
-
-function openBackupRestoreConfirm(at, label) {
-  pendingBackupRestoreFilename = at;
-  backupRestoreMessage.textContent = `Restore your lists from the snapshot taken ${label}? Your current lists will be replaced and synced to GitHub.`;
-  backupRestoreDialog.hidden = false;
-}
-
-function closeBackupRestoreConfirm() {
-  pendingBackupRestoreFilename = null;
-  backupRestoreDialog.hidden = true;
-}
-
-async function onConfirmBackupRestore() {
-  const at = pendingBackupRestoreFilename;
-  closeBackupRestoreConfirm();
-  if (!at) {
-    return;
-  }
-  setStatus(gistBackupStatus, "Restoring snapshot…", null);
-  backupRestoreOk.disabled = true;
-  try {
-    const result = await restoreGistSnapshot(at);
-    if (!result.ok) {
-      setStatus(gistBackupStatus, result.error, "error");
-      return;
-    }
-    closeSettings();
-    refreshViewModeForActiveList();
-    render();
-    hydrateActiveList();
-  } finally {
-    backupRestoreOk.disabled = false;
-  }
-}
-
-function onGistBackupListClick(event) {
-  const button = event.target.closest("[data-backup-at]");
-  if (!button) {
-    return;
-  }
-  openBackupRestoreConfirm(
-    button.dataset.backupAt,
-    button.dataset.backupLabel || "at that time",
-  );
-}
-
-function setStorageTab(mode) {
-  const tabs = [
-    { mode: "local", tab: storageTabLocal, panel: storagePanelLocal },
-    { mode: "gist", tab: storageTabGist, panel: gistFields },
-    { mode: "account", tab: storageTabAccount, panel: accountFields },
-  ];
-  for (const entry of tabs) {
-    const selected = entry.mode === mode;
-    entry.tab.setAttribute("aria-selected", selected ? "true" : "false");
-    entry.tab.tabIndex = selected ? 0 : -1;
-    entry.panel.hidden = !selected;
-  }
-}
-
 function accountDisplayInitial(config) {
   const source = String(config?.displayName || config?.email || "?").trim();
   return source.charAt(0).toUpperCase() || "?";
@@ -1822,7 +1708,9 @@ function setAccountAuthMode(mode) {
     loginSelected ? "account-auth-tab-login" : "account-auth-tab-signup",
   );
   accountSubmitBtn.textContent = loginSelected ? "Log in" : "Create account";
-  accountAuthTitle.textContent = loginSelected ? "Sign in to sync" : "Create an account";
+  accountAuthTitle.textContent = loginSelected
+    ? "Sign in to use CineQueue"
+    : "Create an account";
   accountPasswordInput.placeholder = loginSelected ? "Your password" : "At least 8 characters";
   accountPasswordInput.autocomplete = loginSelected ? "current-password" : "new-password";
   if (accountInviteField) {
@@ -1831,85 +1719,25 @@ function setAccountAuthMode(mode) {
 }
 
 function refreshSettings() {
-  tmdbKeyInput.value = "";
-  setStatus(
-    tmdbKeyStatus,
-    hasCredential() ? "Read access token saved." : "No token saved.",
-    hasCredential() ? "ok" : null,
-  );
-
-  const mode =
-    userState.storageMode === "gist"
-      ? "gist"
-      : userState.storageMode === "account"
-        ? "account"
-        : "local";
-  setStorageTab(mode);
-  if (mode === "account") {
-    refreshAccountSection();
-  } else {
-    setStatus(accountSyncStatus, "", null);
-  }
-  gistTokenInput.value = "";
-  setStatus(
-    gistStatus,
-    appGistSync.isConnectedGistConfig(gistConfig)
-      ? `Connected to Gist ${gistConfig.gistId.slice(0, 8)}…`
-      : "Not connected.",
-    appGistSync.isConnectedGistConfig(gistConfig) ? "ok" : null,
-  );
+  refreshAccountSection();
   setStatus(cacheStatus, "");
   refreshCollectionTransferStatus();
 }
 
 function openSettings() {
   refreshSettings();
-  refreshGistBackupList();
   settingsDialog.hidden = false;
   settingsBtn.setAttribute("aria-expanded", "true");
-  tmdbKeyInput.focus({ preventScroll: true });
+  if (accountSyncEnabled()) {
+    settingsClose.focus({ preventScroll: true });
+  } else {
+    accountEmailInput.focus({ preventScroll: true });
+  }
 }
 
 function closeSettings() {
   settingsDialog.hidden = true;
   settingsBtn.setAttribute("aria-expanded", "false");
-}
-
-async function onSaveCredential() {
-  const value = tmdbKeyInput.value.trim();
-
-  // Reject the wrong credential shape before storing it, so a mistyped or v3
-  // value never becomes the reason every later request fails.
-  const problem = appTmdb.describeCredentialProblem(value);
-  if (problem) {
-    setStatus(tmdbKeyStatus, problem, "error");
-    return;
-  }
-
-  saveCredential(value);
-  refreshSettings();
-  render();
-  setStatus(tmdbKeyStatus, "Checking with TMDB…", null);
-  tmdbKeySave.disabled = true;
-
-  try {
-    await verifyCredential();
-    refreshSettings();
-    hydrateActiveList();
-  } catch (error) {
-    // The credential stays saved so it can be corrected rather than retyped.
-    setStatus(tmdbKeyStatus, `Saved, but TMDB rejected it. ${error.message}`, "error");
-  } finally {
-    tmdbKeySave.disabled = false;
-  }
-}
-
-function onClearCredential() {
-  saveCredential("");
-  movieById.clear();
-  movieErrors.clear();
-  refreshSettings();
-  render();
 }
 
 async function onClearCache() {
@@ -1974,59 +1802,6 @@ async function onExportCsv() {
   } finally {
     exportCsvBtn.disabled = false;
   }
-}
-
-function onStorageModeChange(mode) {
-  if (mode === "gist") {
-    userState = { ...userState, storageMode: "gist" };
-    persistUserState({ sync: false });
-    refreshSettings();
-    return;
-  }
-  if (mode === "account") {
-    userState = { ...userState, storageMode: "account" };
-    persistUserState({ sync: false });
-    refreshSettings();
-    if (accountSyncEnabled()) {
-      queueAccountSync();
-    }
-    return;
-  }
-  disconnectGist();
-  refreshSettings();
-}
-
-async function onConnectGist() {
-  const token = gistTokenInput.value.trim();
-  setStatus(gistStatus, "Connecting to GitHub…", null);
-  gistConnectBtn.disabled = true;
-  try {
-    const result = await connectGist(token);
-    if (!result.ok) {
-      setStatus(gistStatus, result.error, "error");
-      return;
-    }
-    setStatus(
-      gistStatus,
-      result.action === "adopt"
-        ? "Connected. Loaded the lists already in your Gist."
-        : "Connected. Created a new private Gist for your lists.",
-      "ok",
-    );
-    gistTokenInput.value = "";
-    refreshViewModeForActiveList();
-    render();
-    hydrateActiveList();
-    refreshGistBackupList();
-  } finally {
-    gistConnectBtn.disabled = false;
-  }
-}
-
-function onDisconnectGist() {
-  disconnectGist();
-  refreshSettings();
-  refreshGistBackupList();
 }
 
 /* --- Account & friends --- */
@@ -2108,6 +1883,9 @@ async function onAccountAuth() {
 function onAccountLogout() {
   disconnectAccount();
   refreshSettings();
+  refreshViewModeForActiveList();
+  render();
+  hydrateActiveList();
 }
 
 function openAccountDeleteConfirm() {
@@ -2328,50 +2106,4 @@ function openAbout() {
 function closeAbout() {
   aboutDialog.hidden = true;
   aboutBtn.setAttribute("aria-expanded", "false");
-}
-
-/* --- Hosted unlock (hidden) --- */
-
-function openHostedUnlockDialog() {
-  hostedUnlockInput.value = "";
-  setStatus(hostedUnlockStatus, "");
-  hostedUnlockDialog.hidden = false;
-  hostedUnlockInput.focus({ preventScroll: true });
-}
-
-function closeHostedUnlockDialog() {
-  hostedUnlockDialog.hidden = true;
-  hostedUnlockInput.value = "";
-  setStatus(hostedUnlockStatus, "");
-}
-
-async function submitHostedUnlock() {
-  const password = hostedUnlockInput.value;
-  setStatus(hostedUnlockStatus, "Checking…", null);
-  hostedUnlockSubmit.disabled = true;
-  try {
-    await unlockHostedAccess(password);
-    closeHostedUnlockDialog();
-    render();
-    hydrateActiveList();
-  } catch (error) {
-    setStatus(hostedUnlockStatus, error.message, "error");
-  } finally {
-    hostedUnlockSubmit.disabled = false;
-  }
-}
-
-function openHostedLockDialog() {
-  hostedLockDialog.hidden = false;
-  hostedLockCancel.focus({ preventScroll: true });
-}
-
-function closeHostedLockDialog() {
-  hostedLockDialog.hidden = true;
-}
-
-function confirmHostedLock() {
-  lockHostedAccess();
-  closeHostedLockDialog();
-  render();
 }

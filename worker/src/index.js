@@ -4,6 +4,13 @@
  * payload now carries { uid, exp }. Secret: SESSION_SECRET (wrangler secret).
  */
 
+import {
+  buildProxiedTmdbUrl,
+  parseProxyRequestQuery,
+  TMDB_REQUEST_TIMEOUT_MS,
+  tmdbCacheControl,
+} from "./tmdb-proxy.js";
+
 const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 // ponytail: 100k PBKDF2 iterations fits the free plan's 10ms CPU budget in
 // practice (native WebCrypto); bump iterations or move to paid if CF starts
@@ -22,6 +29,12 @@ export const AUTH_RATE_LIMITS = {
   signupIp: { limit: 5, windowMs: 60 * 60 * 1000 },
   loginIp: { limit: 15, windowMs: 15 * 60 * 1000 },
   loginEmailFail: { limit: 5, windowMs: 15 * 60 * 1000 },
+};
+
+/** Per-user and per-IP caps on proxied TMDB reads. */
+export const TMDB_RATE_LIMITS = {
+  user: { limit: 120, windowMs: 15 * 60 * 1000 },
+  ip: { limit: 120, windowMs: 15 * 60 * 1000 },
 };
 
 const RATE_LIMIT_ERROR = "Too many attempts. Try again later.";
@@ -472,6 +485,64 @@ async function handleFriends(request, env, session, path, res) {
   return res.json(404, { error: "Not found" });
 }
 
+async function handleTmdb(request, env, session, res) {
+  if (request.method !== "GET") {
+    return res.json(405, { error: "Method not allowed" });
+  }
+
+  const tmdbToken = String(env.TMDB_READ_TOKEN || "").trim();
+  if (!tmdbToken) {
+    return res.json(503, { error: "TMDB proxy is not configured" });
+  }
+
+  const ip = clientIp(request);
+  const ipLimited = await enforceRateLimit(env, `tmdb:ip:${ip}`, TMDB_RATE_LIMITS.ip, res);
+  if (ipLimited) return ipLimited;
+  const userLimited = await enforceRateLimit(
+    env,
+    `tmdb:uid:${session.uid}`,
+    TMDB_RATE_LIMITS.user,
+    res,
+  );
+  if (userLimited) return userLimited;
+
+  let proxiedUrl;
+  let pathname;
+  try {
+    const query = Object.fromEntries(new URL(request.url).searchParams.entries());
+    const parsed = parseProxyRequestQuery(query);
+    pathname = parsed.pathname;
+    proxiedUrl = buildProxiedTmdbUrl(pathname, parsed.searchParams);
+  } catch (error) {
+    return res.json(400, { error: error.message || "Bad request" });
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TMDB_REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(proxiedUrl, {
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${tmdbToken}`,
+      },
+      signal: controller.signal,
+    });
+    const text = await response.text();
+    const headers = responseHeaders(request, env);
+    const cacheControl = tmdbCacheControl(pathname);
+    if (cacheControl) {
+      headers["cache-control"] = cacheControl;
+    }
+    return new Response(text, { status: response.status, headers });
+  } catch (error) {
+    const message =
+      error.name === "AbortError" ? "Upstream request timed out" : "Upstream request failed";
+    return res.json(502, { error: message });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export default {
   async fetch(request, env) {
     const res = makeResponder(request, env);
@@ -539,6 +610,10 @@ export default {
 
     if (path.startsWith("/api/friends")) {
       return handleFriends(request, env, session, path, res);
+    }
+
+    if (path === "/api/tmdb") {
+      return handleTmdb(request, env, session, res);
     }
 
     return res.json(404, { error: "Not found" });

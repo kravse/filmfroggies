@@ -2,8 +2,8 @@
  * The only thing this app persists: lists of TMDB ids in display order, which
  * list is active, and the view preference. Movie records are never stored.
  *
- * The TMDB credential and the Gist token live under their own keys and are
- * deliberately absent from this payload so they are never synced to a Gist.
+ * The account session token lives under its own key and is deliberately absent
+ * from this payload so it is never synced to the server doc.
  */
 
 const USER_STATE_KEY = "moviecollector-user-state";
@@ -16,7 +16,7 @@ const ACCOUNT_KEY = "moviecollector-account";
 const USER_STATE_VERSION = 4;
 
 const VIEW_MODES = new Set(["cards", "detail"]);
-const STORAGE_MODES = new Set(["local", "gist", "account"]);
+const STORAGE_MODES = new Set(["account"]);
 
 function getLists() {
   if (typeof appLists !== "undefined") {
@@ -104,7 +104,7 @@ function defaultUserState() {
   return {
     version: USER_STATE_VERSION,
     updatedAt: null,
-    storageMode: "local",
+    storageMode: "account",
     lists: lists.defaultLists(),
     activeListId: lists.DEFAULT_LIST_ID,
     preferences: defaultPreferences(),
@@ -173,7 +173,7 @@ function normalizeUserState(raw) {
   return {
     version: USER_STATE_VERSION,
     updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : null,
-    storageMode: STORAGE_MODES.has(raw.storageMode) ? raw.storageMode : "local",
+    storageMode: "account",
     lists: normalizedLists,
     activeListId: lists.isListId(activeListId)
       ? activeListId

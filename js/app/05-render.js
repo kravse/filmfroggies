@@ -592,6 +592,18 @@ function syncHeaderViewTitle() {
   headerTitleEl.textContent = isCustomListIndexActive() ? "Lists" : "CineQueue";
 }
 
+function syncAccountLoginGate() {
+  const loggedIn = accountSyncEnabled();
+  document.body.classList.toggle("account-login-required", !loggedIn);
+  if (searchInput) {
+    searchInput.disabled = !loggedIn;
+  }
+  if (addMovieFab) {
+    addMovieFab.disabled = !loggedIn;
+  }
+  updateAddMovieHint();
+}
+
 function updateListHeader() {
   syncHeaderViewTitle();
   const count = isDiscoverActive() ? discoverDisplayIds().length : activeMovieIds().length;
@@ -617,7 +629,7 @@ function updateListHeader() {
     return;
   }
   if (count && !hasMovieData()) {
-    listSubtitleEl.textContent = "Add a TMDB credential in Settings to load details";
+    listSubtitleEl.textContent = "Sign in to load movie details from TMDB";
   } else if (count) {
     if (reorderModeActive) {
       listSubtitleEl.textContent = "+ Add a movie · drag to reorder";
@@ -632,7 +644,7 @@ function updateListHeader() {
   } else {
     listSubtitleEl.textContent = hasTmdbAccess()
       ? "Search TMDB to add your first movie"
-      : "Add a TMDB credential in Settings to get started";
+      : "Sign in via Settings → Account to get started";
   }
 }
 
@@ -668,7 +680,7 @@ function renderEmptyState(count) {
   emptyState.hidden = false;
   if (isCustomListDetailActive()) {
     if (!hasTmdbAccess()) {
-      emptyState.innerHTML = `<strong>Add your TMDB token</strong>Open Settings and paste your TMDB API Read Access Token to search and load movies.`;
+      emptyState.innerHTML = `<strong>Sign in to use CineQueue</strong><p class="empty-state-hint">Open Settings → Account to log in or create an account.</p>`;
       return;
     }
     emptyState.innerHTML = `<strong>This list is empty</strong>
@@ -690,7 +702,7 @@ function renderEmptyState(count) {
     return;
   }
   if (!hasTmdbAccess()) {
-    emptyState.innerHTML = `<strong>Add your TMDB token</strong>Open Settings and paste your TMDB API Read Access Token to search and load movies.`;
+    emptyState.innerHTML = `<strong>Sign in to use CineQueue</strong><p class="empty-state-hint">Open Settings → Account to log in or create an account.</p>`;
     return;
   }
   emptyState.innerHTML = `<strong>Nothing in ${appCardHtml.escapeHtml(listName)} yet</strong>
@@ -712,6 +724,7 @@ function onRemoteStateAdopted() {
 }
 
 function render() {
+  syncAccountLoginGate();
   if (isCustomListIndexActive()) {
     syncAppViewChrome();
     renderCustomListsIndex();
