@@ -242,15 +242,15 @@ body.view-mode-detail .card-body-ratings:not(.rating-chit) {
   display: inline-flex;
   align-items: stretch;
   flex: none;
-  gap: 2px;
+  gap: 0;
   padding: 0;
-  background: rgba(var(--bg-rgb), 0.92);
+  background: transparent;
   border-radius: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .rating-chit.card-body-ratings {
-  gap: 2px;
+  gap: 0;
 }
 
 .rating-segment {
@@ -269,6 +269,21 @@ body.view-mode-detail .card-body-ratings:not(.rating-chit) {
   letter-spacing: 0.01em;
   white-space: nowrap;
   border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+.rating-chit .rating-segment + .rating-segment {
+  margin-inline-start: -1px;
+}
+
+.rating-chit .rating-segment:not(:only-child):not(:first-child) {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.rating-chit .rating-segment:not(:only-child):not(:last-child) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
 .rating-segment--them {
