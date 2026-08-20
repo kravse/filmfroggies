@@ -1756,6 +1756,9 @@ function setAccountAuthMode(mode) {
   accountAuthTitle.textContent = loginSelected ? "Sign in to sync" : "Create an account";
   accountPasswordInput.placeholder = loginSelected ? "Your password" : "At least 8 characters";
   accountPasswordInput.autocomplete = loginSelected ? "current-password" : "new-password";
+  if (accountInviteField) {
+    accountInviteField.hidden = loginSelected;
+  }
 }
 
 function refreshSettings() {
@@ -1994,12 +1997,22 @@ async function onAccountAuth() {
     accountPasswordInput.focus({ preventScroll: true });
     return;
   }
+  if (mode === "signup" && !accountInviteInput.value.trim()) {
+    setStatus(accountStatus, "Enter the invite code you were given.", "error");
+    accountInviteInput.focus({ preventScroll: true });
+    return;
+  }
   setStatus(accountStatus, mode === "signup" ? "Creating account…" : "Logging in…", null);
   accountSubmitBtn.disabled = true;
   accountAuthTabLogin.disabled = true;
   accountAuthTabSignup.disabled = true;
   try {
-    const result = await connectAccount(mode, email, password);
+    const result = await connectAccount(
+      mode,
+      email,
+      password,
+      mode === "signup" ? accountInviteInput.value.trim() : "",
+    );
     if (!result.ok) {
       const message =
         mode === "signup" && /already have one/i.test(result.error)
@@ -2009,6 +2022,9 @@ async function onAccountAuth() {
       return;
     }
     accountPasswordInput.value = "";
+    if (accountInviteInput) {
+      accountInviteInput.value = "";
+    }
     refreshSettings();
     refreshViewModeForActiveList();
     render();

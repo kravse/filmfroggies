@@ -106,6 +106,31 @@ function timingSafeEqualBytes(a, b) {
   return diff === 0;
 }
 
+function timingSafeEqualString(a, b) {
+  const left = enc.encode(String(a ?? ""));
+  const right = enc.encode(String(b ?? ""));
+  if (left.length !== right.length) {
+    return false;
+  }
+  return timingSafeEqualBytes(left, right);
+}
+
+/** Signup is allowed only when SIGNUP_INVITE_CODE is set and the caller supplies a match. */
+export function verifySignupInviteCode(env, provided) {
+  const expected = env?.SIGNUP_INVITE_CODE;
+  if (!expected) {
+    return { ok: false, reason: "disabled" };
+  }
+  const code = String(provided ?? "");
+  if (!code) {
+    return { ok: false, reason: "missing" };
+  }
+  return {
+    ok: timingSafeEqualString(code, expected),
+    reason: timingSafeEqualString(code, expected) ? "ok" : "mismatch",
+  };
+}
+
 async function hmacKey(secret) {
   return crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
 }
@@ -329,6 +354,13 @@ async function handleAuth(request, env, path, res) {
   const ip = clientIp(request);
 
   if (path === "/api/signup") {
+    const invite = verifySignupInviteCode(env, body?.inviteCode);
+    if (invite.reason === "disabled") {
+      return res.json(503, { error: "Signups are not available" });
+    }
+    if (!invite.ok) {
+      return res.json(201, SIGNUP_ACK);
+    }
     if (password.length < 8) return res.json(400, { error: "Password must be at least 8 characters" });
     const limited = await enforceRateLimit(env, `signup:ip:${ip}`, AUTH_RATE_LIMITS.signupIp, res);
     if (limited) return limited;

@@ -130,6 +130,8 @@ const accountSessionName = document.getElementById("account-session-name");
 const accountSessionEmail = document.getElementById("account-session-email");
 const accountEmailInput = document.getElementById("account-email-input");
 const accountPasswordInput = document.getElementById("account-password-input");
+const accountInviteField = document.getElementById("account-invite-field");
+const accountInviteInput = document.getElementById("account-invite-input");
 const accountAuthTitle = document.getElementById("account-auth-title");
 const accountAuthTabLogin = document.getElementById("account-auth-tab-login");
 const accountAuthTabSignup = document.getElementById("account-auth-tab-signup");
@@ -7287,12 +7289,16 @@ function queueAccountSync(options = {}) {
  * reconcile so lists already on the account and lists already on this device
  * merge instead of one clobbering the other.
  */
-async function connectAccount(mode, email, password) {
+async function connectAccount(mode, email, password, inviteCode) {
   try {
+    const payload = { email, password };
+    if (mode === "signup") {
+      payload.inviteCode = inviteCode || "";
+    }
     const body = await accountRequest(`/${mode}`, {
       method: "POST",
       auth: false,
-      body: { email, password },
+      body: payload,
     });
     if (!body?.token || !body?.user?.id) {
       return {
@@ -11545,6 +11551,9 @@ function setAccountAuthMode(mode) {
   accountAuthTitle.textContent = loginSelected ? "Sign in to sync" : "Create an account";
   accountPasswordInput.placeholder = loginSelected ? "Your password" : "At least 8 characters";
   accountPasswordInput.autocomplete = loginSelected ? "current-password" : "new-password";
+  if (accountInviteField) {
+    accountInviteField.hidden = loginSelected;
+  }
 }
 
 function refreshSettings() {
@@ -11783,12 +11792,22 @@ async function onAccountAuth() {
     accountPasswordInput.focus({ preventScroll: true });
     return;
   }
+  if (mode === "signup" && !accountInviteInput.value.trim()) {
+    setStatus(accountStatus, "Enter the invite code you were given.", "error");
+    accountInviteInput.focus({ preventScroll: true });
+    return;
+  }
   setStatus(accountStatus, mode === "signup" ? "Creating account…" : "Logging in…", null);
   accountSubmitBtn.disabled = true;
   accountAuthTabLogin.disabled = true;
   accountAuthTabSignup.disabled = true;
   try {
-    const result = await connectAccount(mode, email, password);
+    const result = await connectAccount(
+      mode,
+      email,
+      password,
+      mode === "signup" ? accountInviteInput.value.trim() : "",
+    );
     if (!result.ok) {
       const message =
         mode === "signup" && /already have one/i.test(result.error)
@@ -11798,6 +11817,9 @@ async function onAccountAuth() {
       return;
     }
     accountPasswordInput.value = "";
+    if (accountInviteInput) {
+      accountInviteInput.value = "";
+    }
     refreshSettings();
     refreshViewModeForActiveList();
     render();

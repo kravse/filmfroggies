@@ -833,12 +833,16 @@ function queueAccountSync(options = {}) {
  * reconcile so lists already on the account and lists already on this device
  * merge instead of one clobbering the other.
  */
-async function connectAccount(mode, email, password) {
+async function connectAccount(mode, email, password, inviteCode) {
   try {
+    const payload = { email, password };
+    if (mode === "signup") {
+      payload.inviteCode = inviteCode || "";
+    }
     const body = await accountRequest(`/${mode}`, {
       method: "POST",
       auth: false,
-      body: { email, password },
+      body: payload,
     });
     if (!body?.token || !body?.user?.id) {
       return {

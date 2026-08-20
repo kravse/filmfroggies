@@ -8,11 +8,14 @@
  */
 const path = require("path");
 const express = require("express");
+const { blockInternalStaticPaths } = require("./scripts/lib/static-guard");
 
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT) || 8743;
 
 const app = express();
+
+app.use(blockInternalStaticPaths);
 
 app.use(
   express.static(ROOT, {

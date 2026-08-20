@@ -113,7 +113,7 @@ A movie can be on any combination of Watched, Watchlist, and custom lists. Custo
 
 **Automatic backups** (when Gist sync is connected): a separate private gist holds up to five immutable snapshots in `moviecollector-backups.json`. A new snapshot is appended on load when the latest is older than 20 minutes. Restore replaces local state and re-syncs.
 
-**Account sync:** Settings → Collection storage → **Account**. Sign up or log in with email and password. Lists sync through the CineQueue backend (see [Account backend](#account-backend-cloudflare-worker--d1)). Friends can browse each other's lists once both sides accept a request. The session token stays in this browser and is never part of the synced payload — same rule as the Gist PAT and TMDB token.
+**Account sync:** Settings → Collection storage → **Account**. Sign up or log in with email and password; new signups also need the invite code you were given. Lists sync through the CineQueue backend (see [Account backend](#account-backend-cloudflare-worker--d1)). Friends can browse each other's lists once both sides accept a request. The session token stays in this browser and is never part of the synced payload — same rule as the Gist PAT and TMDB token.
 
 ## User state (what gets saved)
 
@@ -233,7 +233,14 @@ wrangler d1 execute cinequeue --remote --file=migrations/001_rate_limits.sql
 ```bash
 # Random 32+ byte secret — used to sign session tokens
 openssl rand -base64 32 | wrangler secret put SESSION_SECRET
+
+# Shared invite password — required before anyone can create an account
+wrangler secret put SIGNUP_INVITE_CODE
 ```
+
+When prompted for `SIGNUP_INVITE_CODE`, enter the password you will share privately with people allowed to register (not the same as anyone’s login password). Signups are **blocked** until this secret exists on the Worker.
+
+To rotate the invite code later: `wrangler secret put SIGNUP_INVITE_CODE` again with a new value, then `wrangler deploy`. Existing users can still log in; only new signups need the new code.
 
 **5. Deploy:**
 
@@ -276,6 +283,7 @@ Secrets and vars (set in Cloudflare, not committed):
 | Name | Required | Purpose |
 |------|----------|---------|
 | `SESSION_SECRET` | **Yes** | HMAC key for bearer session tokens (30-day lifetime) |
+| `SIGNUP_INVITE_CODE` | **Yes** | Shared invite password checked on `POST /api/signup` only |
 | `ALLOWED_ORIGINS` | No | Comma-separated extra CORS origins merged with the default allowlist |
 
 Default CORS origins (hardcoded): `https://cinequeue.org`, `http://localhost:8743`, `http://127.0.0.1:8743`.
@@ -285,6 +293,7 @@ Default CORS origins (hardcoded): `https://cinequeue.org`, `http://localhost:874
 - Passwords: PBKDF2-SHA256, 100k iterations, per-user salt
 - Sessions: signed bearer token in `Authorization` header; not stored server-side
 - Rate limits (by IP / email): signup 5/hr per IP; login 15/15 min per IP; 5 failed logins/15 min per email
+- **Closed signups:** new accounts require `SIGNUP_INVITE_CODE` in Settings → Account → Create account; wrong codes get the same neutral response as a duplicate email
 - Signup and friend-request responses are intentionally neutral (no email enumeration)
 
 Logout today clears the browser session only; tokens remain valid until expiry unless you add server-side revocation.
@@ -303,6 +312,7 @@ To run the Worker itself locally against a local D1:
 cd worker
 wrangler d1 execute cinequeue --local --file=schema.sql
 wrangler secret put SESSION_SECRET   # prompts; needed for wrangler dev too
+wrangler secret put SIGNUP_INVITE_CODE
 wrangler dev
 ```
 
