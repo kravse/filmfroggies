@@ -244,12 +244,12 @@ body.view-mode-detail .card-body-ratings {
 
 body.view-mode-cards .card-footer .card-user-rating {
   flex: none;
-  padding: 0.04rem 0.22rem;
+  padding: 0.04rem 0.24rem;
   border-radius: 2px;
-  background: rgba(212, 162, 76, 0.18);
-  color: var(--accent);
-  border: 1px solid rgba(212, 162, 76, 0.35);
-  font-size: 0.52rem;
+  background: rgba(236, 192, 104, 0.24);
+  color: #ecc068;
+  border: 1px solid rgba(236, 192, 104, 0.55);
+  font-size: 0.58rem;
   font-weight: 500;
   line-height: 1.15;
   letter-spacing: 0.01em;
@@ -257,19 +257,19 @@ body.view-mode-cards .card-footer .card-user-rating {
 
 body.view-mode-cards .card-footer .card-fan-rating {
   flex: none;
-  padding: 0.04rem 0.22rem;
+  padding: 0.04rem 0.24rem;
   border-radius: 2px;
-  background: rgba(14, 16, 20, 0.78);
-  color: var(--muted);
-  border: 1px solid var(--border-strong);
-  font-size: 0.52rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: #b0bac8;
+  border: 1px solid rgba(184, 194, 208, 0.35);
+  font-size: 0.58rem;
   font-weight: 500;
   line-height: 1.15;
   letter-spacing: 0.01em;
 }
 
 body.view-mode-cards .card-footer .card-fan-rating.is-empty {
-  color: var(--muted-dim);
+  color: #8a939f;
 }
 
 body.view-mode-detail .card-fan-rating,

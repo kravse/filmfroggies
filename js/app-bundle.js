@@ -12179,6 +12179,10 @@ function getListSearchFilter() {
   );
 }
 
+function listSearchFilterSignature() {
+  return JSON.stringify(getListSearchFilter());
+}
+
 function hasActiveListSearch() {
   if (listSearchFilterChips.length > 0) {
     return true;
@@ -12520,10 +12524,13 @@ if (listSearchInput) {
 
   listSearchInput.addEventListener("blur", () => {
     window.setTimeout(() => {
+      const before = listSearchFilterSignature();
       absorbListSearchInputTokens();
       hideListSearchSuggest();
       updateListSearchClearVisibility();
-      listSearchRenderNow();
+      if (listSearchFilterSignature() !== before) {
+        listSearchRenderNow();
+      }
     }, 120);
   });
 

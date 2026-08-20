@@ -67,8 +67,8 @@ body.view-mode-cards .card-footer {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.2rem 0.28rem 0.24rem;
-  min-height: 1.15rem;
+  padding: 0.22rem 0.3rem 0.26rem;
+  min-height: 1.25rem;
   background: var(--panel);
   border-top: 1px solid var(--border);
 }
@@ -95,11 +95,11 @@ body.view-mode-cards .card-footer-main {
   flex: 1;
   min-width: 0;
   font-family: var(--ui-font);
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   line-height: 1.2;
   letter-spacing: 0.02em;
   text-align: left;
-  color: var(--muted);
+  color: #b8c2d0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -107,7 +107,7 @@ body.view-mode-cards .card-footer-main {
 }
 
 body.view-mode-cards .card-footer-main.is-user-rating {
-  color: var(--accent);
+  color: #ecc068;
 }
 
 body.view-mode-cards .card-footer-main.is-user-rating.is-empty {
@@ -115,7 +115,7 @@ body.view-mode-cards .card-footer-main.is-user-rating.is-empty {
 }
 
 body.view-mode-cards .card-footer-main.is-fan-rating {
-  color: var(--muted);
+  color: #b0bac8;
 }
 
 body.view-mode-cards .card-footer-ratings {
@@ -433,7 +433,7 @@ body.view-mode-detail .card--watchlist {
 }
 
 body.view-mode-cards .card--watchlist {
-  --watchlist-title-font: 0.58rem;
+  --watchlist-title-font: 0.64rem;
   --watchlist-title-pad-block: 0.2rem;
   --watchlist-title-pad-inline: 0.26rem;
   height: 100%;
