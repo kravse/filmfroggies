@@ -120,6 +120,7 @@ test("normalizePreferences rejects an unknown view mode and migrates list to car
     customListIndexSort: "recent",
     pinnedCustomListId: null,
     pinnedCustomListAt: null,
+    friendFanRatings: false,
   };
   assert.deepEqual(normalizePreferences({ viewMode: "carousel" }), {
     viewMode: "cards",
@@ -148,6 +149,7 @@ test("normalizePreferences normalizes watched sort modes", () => {
     customListIndexSort: "recent",
     pinnedCustomListId: null,
     pinnedCustomListAt: null,
+    friendFanRatings: false,
   };
   assert.deepEqual(normalizePreferences({ sort: "year-desc" }), {
     viewMode: "cards",
@@ -190,8 +192,14 @@ test("normalizePreferences keeps a valid pinned custom list id", () => {
       customListIndexSort: "recent",
       pinnedCustomListId: "custom-abc",
       pinnedCustomListAt: "2026-08-19T12:00:00.000Z",
+      friendFanRatings: false,
     },
   );
+});
+
+test("normalizePreferences keeps friend fan ratings toggle when true", () => {
+  assert.equal(normalizePreferences({ friendFanRatings: true }).friendFanRatings, true);
+  assert.equal(normalizePreferences({ friendFanRatings: "yes" }).friendFanRatings, false);
 });
 
 test("normalizeUserState falls back when the active list id is not a preset", () => {

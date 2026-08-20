@@ -94,6 +94,7 @@ const appUserState = (function () {
       customListIndexSort: getCustomLists().DEFAULT_CUSTOM_LIST_INDEX_SORT,
       pinnedCustomListId: null,
       pinnedCustomListAt: null,
+      friendFanRatings: false,
     };
   }
 
@@ -142,6 +143,7 @@ const appUserState = (function () {
         lists,
       ),
       pinnedCustomListAt: normalizeIsoStamp(raw.pinnedCustomListAt),
+      friendFanRatings: raw.friendFanRatings === true,
     };
   }
 

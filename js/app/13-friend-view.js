@@ -2,6 +2,10 @@
  * Friend list page: fetch, overview, stacked section grids.
  */
 
+function friendViewShowsFanRatings() {
+  return userState?.preferences?.friendFanRatings === true;
+}
+
 function friendRatingSegmentHtml(kind, text, empty) {
   const labels = {
     them: "Friend rating",
@@ -21,12 +25,17 @@ function friendRatingChitHtml(movieId) {
   const themText = friendRating != null ? appRatings.formatUserRating(friendRating) : "-";
   const myRating = appRatings.getRating(userState.ratings, movieId);
   const mineText = myRating != null ? appRatings.formatUserRating(myRating) : "-";
+  const showFan = friendViewShowsFanRatings();
   const fanLabel = record ? appCardHtml.formatRating(record.voteAverage) : "";
   const fanText = fanLabel || "-";
-  return `<div class="friend-rating-chit card-body-ratings card-body-ratings--friend" aria-label="Ratings friend ${themText}, yours ${mineText}, fan ${fanText}">
+  const ariaLabel = showFan
+    ? `Ratings friend ${themText}, yours ${mineText}, fan ${fanText}`
+    : `Ratings friend ${themText}, yours ${mineText}`;
+  const fanSegment = showFan ? friendRatingSegmentHtml("fan", fanText, !fanLabel) : "";
+  return `<div class="friend-rating-chit card-body-ratings card-body-ratings--friend${showFan ? "" : " friend-rating-chit--dual"}" aria-label="${ariaLabel}">
     ${friendRatingSegmentHtml("them", themText, friendRating == null)}
     ${friendRatingSegmentHtml("mine", mineText, false)}
-    ${friendRatingSegmentHtml("fan", fanText, !fanLabel)}
+    ${fanSegment}
   </div>`;
 }
 
@@ -135,21 +144,82 @@ function friendMovieRowHtml(movieId) {
   return `<div class="movie-row movie-row--card" data-movie-id="${movieId}">${friendRowInnerHtml(movieId)}</div>`;
 }
 
-function friendRatingLegendHtml() {
-  if (!friendShowsRatingChit()) {
-    return "";
-  }
-  return `<div class="friend-view-rating-legend" aria-label="Rating legend">
-    <span class="friend-view-rating-legend-label">Ratings</span>
-    <div class="friend-view-rating-legend-row">
-      <div class="friend-rating-chit friend-rating-chit--legend" aria-hidden="true">
+function friendRatingLegendChitHtml() {
+  const showFan = friendViewShowsFanRatings();
+  const fanSegment = showFan
+    ? '<span class="friend-rating-segment friend-rating-segment--fan">6.2</span>'
+    : "";
+  return `<div class="friend-rating-chit friend-rating-chit--legend${showFan ? "" : " friend-rating-chit--dual"}" aria-hidden="true">
         <span class="friend-rating-segment friend-rating-segment--them">8.0</span>
         <span class="friend-rating-segment friend-rating-segment--mine">7.5</span>
-        <span class="friend-rating-segment friend-rating-segment--fan">6.2</span>
+        ${fanSegment}
+      </div>`;
+}
+
+function friendRatingLegendText() {
+  return friendViewShowsFanRatings() ? "Friend · Yours · Fan" : "Friend · Yours";
+}
+
+function friendRatingLegendHtml() {
+  const showFan = friendViewShowsFanRatings();
+  return `<div class="friend-view-rating-legend" aria-label="Rating legend">
+    <div class="friend-view-rating-legend-main">
+      <span class="friend-view-rating-legend-label">Ratings</span>
+      <div class="friend-view-rating-legend-row">
+        ${friendRatingLegendChitHtml()}
+        <span class="friend-view-rating-legend-text">${friendRatingLegendText()}</span>
       </div>
-      <span class="friend-view-rating-legend-text">Friend · Yours · Fan</span>
     </div>
+    <label class="friend-fan-ratings-toggle" for="friend-fan-ratings-toggle">
+      <span class="friend-fan-ratings-toggle-label">Fan ratings</span>
+      <span class="toggle-switch">
+        <input
+          type="checkbox"
+          id="friend-fan-ratings-toggle"
+          aria-label="Show fan ratings"
+          ${showFan ? "checked" : ""}
+        />
+        <span class="toggle-switch-track" aria-hidden="true"></span>
+      </span>
+    </label>
   </div>`;
+}
+
+function setFriendFanRatings(enabled) {
+  if (!userState) {
+    return;
+  }
+  const next = enabled === true;
+  if (next === friendViewShowsFanRatings()) {
+    return;
+  }
+  userState = {
+    ...userState,
+    preferences: {
+      ...userState.preferences,
+      friendFanRatings: next,
+    },
+  };
+  persistUserState();
+  syncFriendFanRatingsUi();
+}
+
+function syncFriendFanRatingsUi() {
+  const showFan = friendViewShowsFanRatings();
+  if (settingsFriendFanRatingsToggle) {
+    settingsFriendFanRatingsToggle.checked = showFan;
+  }
+  if (!isFriendViewActive()) {
+    return;
+  }
+  renderFriendView();
+  if (detailMovieId != null) {
+    renderDetail();
+  }
+}
+
+function toggleFriendFanRatings() {
+  setFriendFanRatings(!friendViewShowsFanRatings());
 }
 
 function friendOverviewHtml(stats, name) {
@@ -407,11 +477,27 @@ function friendDetailNoteHtml(movieId) {
   if (!isFriendViewActive() || !friendViewState) {
     return "";
   }
-  const names = appFriendView.friendListNamesForMovie(friendViewState, movieId);
-  const listLine = names.length
-    ? `<p class="friend-detail-note-list">${appCardHtml.escapeHtml(`On their ${names.join(", ")}`)}</p>`
-    : "";
-  return `<div class="friend-detail-note">${listLine}${friendRatingChitHtml(movieId)}</div>`;
+  const friendRating = friendViewState.ratings
+    ? appRatings.getRating(friendViewState.ratings, movieId)
+    : null;
+  const ratingText =
+    friendRating != null ? appRatings.formatUserRating(friendRating) : "-";
+  return `<div class="friend-detail-note">
+    <span class="friend-detail-note-label">Friend rating</span>
+    ${friendRatingSegmentHtml("them", ratingText, friendRating == null)}
+  </div>`;
+}
+
+function onFriendFanRatingsToggleChange(event) {
+  if (event.target.id === "friend-fan-ratings-toggle") {
+    if (isFriendViewActive()) {
+      setFriendFanRatings(event.target.checked);
+    }
+    return;
+  }
+  if (event.target.id === "settings-friend-fan-ratings") {
+    setFriendFanRatings(event.target.checked);
+  }
 }
 
 function onFriendViewSectionsClick(event) {

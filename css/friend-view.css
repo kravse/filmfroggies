@@ -357,12 +357,51 @@ body.view-friends-index .empty-state {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 0.55rem 1rem;
   margin-top: 0.85rem;
   padding: 0.55rem 0.65rem;
   background: var(--bg);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
+}
+
+.friend-view-rating-legend-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 1rem;
+  min-width: 0;
+}
+
+.friend-fan-ratings-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex: none;
+  margin-left: auto;
+  cursor: pointer;
+  user-select: none;
+}
+
+.friend-fan-ratings-toggle-label {
+  font-family: var(--ui-font);
+  font-size: 0.78rem;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+
+.friend-fan-ratings-toggle:has(input:checked) .friend-fan-ratings-toggle-label {
+  color: var(--text);
+}
+
+.friend-fan-ratings-toggle .toggle-switch input:checked + .toggle-switch-track {
+  background: rgba(130, 90, 210, 0.22);
+  border-color: rgba(130, 90, 210, 0.45);
+}
+
+.friend-fan-ratings-toggle .toggle-switch input:checked + .toggle-switch-track::after {
+  background: #c4a8f0;
 }
 
 .friend-view-rating-legend-label {
@@ -652,9 +691,9 @@ body.view-friend.view-mode-detail .card-body-ratings--friend {
 
 .friend-detail-note {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 0.55rem 0.75rem;
+  justify-content: space-between;
+  gap: 0.75rem;
   margin: 0 0 0.85rem;
   padding: 0.45rem 0.65rem;
   background: var(--list-chip-dim);
@@ -662,7 +701,7 @@ body.view-friend.view-mode-detail .card-body-ratings--friend {
   border-radius: var(--radius-sm);
 }
 
-.friend-detail-note-list {
+.friend-detail-note-label {
   margin: 0;
   color: var(--list-chip-text);
   font-size: 0.82rem;

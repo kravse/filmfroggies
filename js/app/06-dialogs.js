@@ -1744,6 +1744,7 @@ function setAccountAuthMode(mode) {
 
 function refreshSettings() {
   refreshAccountSection();
+  syncFriendFanRatingsUi();
   setStatus(cacheStatus, "");
   refreshCollectionTransferStatus();
 }

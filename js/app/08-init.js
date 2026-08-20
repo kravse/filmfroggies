@@ -528,6 +528,7 @@ settingsDialog.addEventListener("click", (event) => {
   }
 });
 cacheClearBtn.addEventListener("click", onClearCache);
+settingsFriendFanRatingsToggle?.addEventListener("change", onFriendFanRatingsToggleChange);
 exportCsvBtn.addEventListener("click", onExportCsv);
 collectionImportRead?.addEventListener("click", onReviewCollectionImport);
 collectionImportFile?.addEventListener("change", syncCollectionImportFileLabel);
@@ -562,6 +563,7 @@ friendAddBtn?.addEventListener("click", onAddFriend);
 document.getElementById("friends-invite-form")?.addEventListener("submit", onFriendsInviteSubmit);
 document.getElementById("friends-signin-btn")?.addEventListener("click", openSettings);
 friendsList?.addEventListener("click", onFriendsListClick);
+friendViewOverview?.addEventListener("change", onFriendFanRatingsToggleChange);
 friendViewSectionsEl?.addEventListener("click", onFriendViewSectionsClick);
 friendViewSectionsEl?.addEventListener("keydown", onFriendViewSectionsKeydown);
 

@@ -155,6 +155,7 @@ const friendViewSectionsEl = document.getElementById("friend-view-sections");
 
 const cacheClearBtn = document.getElementById("cache-clear");
 const cacheStatus = document.getElementById("cache-status");
+const settingsFriendFanRatingsToggle = document.getElementById("settings-friend-fan-ratings");
 const exportCsvBtn = document.getElementById("export-csv");
 const exportCsvStatus = document.getElementById("export-csv-status");
 const collectionImportFile = document.getElementById("collection-import-file");

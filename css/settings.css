@@ -151,6 +151,35 @@
   border-color: var(--accent-border);
 }
 
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.35rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.settings-toggle-label {
+  font-family: var(--ui-font);
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.settings-toggle-row:has(input:checked) .settings-toggle-label {
+  color: var(--text);
+}
+
+.settings-toggle-row .toggle-switch input:checked + .toggle-switch-track {
+  background: rgba(130, 90, 210, 0.22);
+  border-color: rgba(130, 90, 210, 0.45);
+}
+
+.settings-toggle-row .toggle-switch input:checked + .toggle-switch-track::after {
+  background: #c4a8f0;
+}
+
 .radio-row {
   display: flex;
   flex-direction: column;

@@ -91,6 +91,7 @@ function defaultPreferences() {
     customListIndexSort: getCustomLists().DEFAULT_CUSTOM_LIST_INDEX_SORT,
     pinnedCustomListId: null,
     pinnedCustomListAt: null,
+    friendFanRatings: false,
   };
 }
 
@@ -139,6 +140,7 @@ function normalizePreferences(raw, customLists) {
       lists,
     ),
     pinnedCustomListAt: normalizeIsoStamp(raw.pinnedCustomListAt),
+    friendFanRatings: raw.friendFanRatings === true,
   };
 }
 
