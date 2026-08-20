@@ -99,7 +99,7 @@ body.view-mode-cards .card-footer-main {
   line-height: 1.2;
   letter-spacing: 0.02em;
   text-align: left;
-  color: #b8c2d0;
+  color: var(--sort-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -112,11 +112,7 @@ body.view-mode-cards .card-footer-main.is-user-rating {
 }
 
 body.view-mode-cards .card-footer-main.is-user-rating.is-empty {
-  color: var(--muted-dim);
-}
-
-body.view-mode-cards .card-footer-main.is-fan-rating {
-  color: #b0bac8;
+  color: var(--sort-text-muted);
 }
 
 body.view-mode-cards .card-footer-ratings {
@@ -173,7 +169,7 @@ body.view-mode-detail .card {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: rgba(14, 16, 20, 0.22);
+  background: rgba(var(--bg-rgb), 0.22);
   pointer-events: none;
 }
 
@@ -342,7 +338,7 @@ body.view-mode-detail .card-meta-year + .card-meta-runtime::before {
   height: 26px;
   border-radius: 50%;
   border: 1px solid var(--border-strong);
-  background: rgba(14, 16, 20, 0.82);
+  background: rgba(var(--bg-rgb), 0.82);
   color: var(--muted);
   font-size: 0.82rem;
   line-height: 1;
@@ -558,7 +554,7 @@ body.view-mode-detail .card-remove-icon {
 .card-remove-btn:hover {
   color: var(--danger);
   border-color: var(--danger);
-  background: rgba(215, 107, 107, 0.12);
+  background: var(--danger-dim);
 }
 
 .watchlist-card-actions .watchlist-action-btn--remove {
@@ -571,7 +567,7 @@ body.view-mode-detail .card-remove-icon {
 
 .watchlist-card-actions .watchlist-action-btn--watch {
   flex: 1 1 75%;
-  background: rgba(14, 16, 20, 0.78);
+  background: rgba(var(--bg-rgb), 0.78);
   color: var(--accent);
   border: none;
   gap: 0.35rem;
@@ -596,14 +592,14 @@ body.view-mode-detail .card-remove-icon {
   }
 
   .watchlist-card-actions .watchlist-action-btn--watch:hover {
-    background: rgba(14, 16, 20, 0.92);
+    background: rgba(var(--bg-rgb), 0.92);
     color: var(--accent);
   }
 }
 
 .card-grip {
   border: 1px solid var(--border-strong);
-  background: rgba(14, 16, 20, 0.82);
+  background: rgba(var(--bg-rgb), 0.82);
   color: var(--muted);
   cursor: grab;
   touch-action: none;

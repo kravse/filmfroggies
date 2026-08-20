@@ -18,7 +18,7 @@
 .sheet-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(6, 8, 11, 0.78);
+  background: rgba(var(--bg-rgb), 0.78);
   backdrop-filter: blur(2px);
 }
 
@@ -174,12 +174,12 @@
 }
 
 .settings-toggle-row .toggle-switch input:checked + .toggle-switch-track {
-  background: rgba(130, 90, 210, 0.22);
-  border-color: rgba(130, 90, 210, 0.45);
+  background: var(--accent-dim);
+  border-color: var(--accent-border);
 }
 
 .settings-toggle-row .toggle-switch input:checked + .toggle-switch-track::after {
-  background: #c4a8f0;
+  background: var(--accent);
 }
 
 .radio-row {
@@ -284,7 +284,7 @@
 }
 
 .storage-panel-card--gist {
-  background: linear-gradient(165deg, rgba(126, 176, 212, 0.1) 0%, var(--bg) 58%);
+  background: linear-gradient(165deg, var(--list-chip-dim) 0%, var(--bg) 58%);
   border-color: var(--list-chip-border);
 }
 
@@ -493,7 +493,7 @@
 }
 
 .account-delete-btn:hover {
-  color: #fff;
+  color: var(--bg);
   background: var(--danger);
   border-color: var(--danger);
 }
@@ -723,7 +723,7 @@
 .confirm-danger {
   background: var(--danger);
   border-color: var(--danger);
-  color: #fff;
+  color: var(--bg);
 }
 
 .confirm-danger:hover {

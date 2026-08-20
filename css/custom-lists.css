@@ -56,6 +56,7 @@
   text-transform: none;
   white-space: nowrap;
   line-height: 1;
+  color: var(--toolbar-text);
 }
 
 .toolbar-action-btn:hover {
@@ -107,15 +108,15 @@ body.view-custom-index .toolbar-right > :not(.custom-lists-index-actions) {
   max-width: 8.5rem;
   min-width: 0;
   font-family: var(--ui-font);
-  color: var(--text);
-  border: 1px solid var(--border-strong);
+  color: var(--sort-text);
+  border: 1px solid var(--accent-surface-border);
   border-radius: var(--radius-sm);
   padding-left: 0.45rem;
   padding-right: 1.65rem;
   background-color: var(--panel);
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%2398a1b1' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23b0c4b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.45rem center;
   background-size: 0.7rem;
@@ -297,7 +298,7 @@ body.view-custom-index .toolbar-right > :not(.custom-lists-index-actions) {
 .custom-list-card.is-pinned .custom-list-card-pin {
   color: var(--accent);
   border-color: var(--accent-border);
-  background: rgba(14, 16, 20, 0.55);
+  background: rgba(var(--bg-rgb), 0.55);
 }
 
 .custom-list-card-pin:focus-visible {
@@ -322,8 +323,8 @@ body.view-custom-index .toolbar-right > :not(.custom-lists-index-actions) {
 }
 
 .custom-list-card-btn--danger:hover {
-  color: var(--danger, #e55);
-  border-color: var(--danger, #e55);
+  color: var(--danger);
+  border-color: var(--danger);
 }
 
 .custom-list-rename-input {
@@ -413,9 +414,9 @@ button.add-custom-list-chip.is-member {
 }
 
 button.add-custom-list-chip.is-member:hover {
-  border-color: rgba(215, 107, 107, 0.55);
-  background: rgba(215, 107, 107, 0.14);
-  color: #efb0b0;
+  border-color: var(--danger-border);
+  background: var(--danger-hover);
+  color: var(--danger-text);
 }
 
 .add-movie-custom-lists-empty {

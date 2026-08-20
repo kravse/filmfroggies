@@ -194,7 +194,7 @@ button.friends-roster-chip:hover {
   width: 1.45rem;
   height: 1.45rem;
   border-radius: 999px;
-  background: rgba(126, 176, 212, 0.2);
+  background: var(--list-chip-dim);
   color: var(--list-chip-text);
   font-size: 0.68rem;
   font-weight: 700;
@@ -268,7 +268,7 @@ button.friends-roster-chip:hover {
 .friends-roster-icon-btn:hover {
   color: var(--danger);
   border-color: var(--danger);
-  background: rgba(215, 107, 107, 0.12);
+  background: var(--danger-dim);
 }
 
 .friends-dock-status {
@@ -427,86 +427,19 @@ body.view-friends-index .empty-state {
   font-weight: 500;
 }
 
-.friend-rating-chit {
-  display: inline-flex;
-  align-items: stretch;
-  flex: none;
-  gap: 2px;
-  padding: 0;
-  background: rgba(8, 10, 14, 0.92);
-  border-radius: 0;
-  overflow: hidden;
-}
-
-.friend-rating-segment {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  min-width: 1.65rem;
-  height: 1.34rem;
-  padding: 0 0.18rem;
-  font-family: var(--ui-font);
-  font-size: 0.74rem;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-  border: 1px solid transparent;
-}
-
-.friend-rating-segment--them {
-  color: var(--friend-them-text);
-  background: var(--friend-them-bg);
-  border-color: var(--friend-them-border);
-}
-
-.friend-rating-segment--mine {
-  color: var(--friend-mine-text);
-  background: var(--friend-mine-bg);
-  border-color: var(--friend-mine-border);
-}
-
-.friend-rating-segment--fan {
-  color: var(--friend-fan-text);
-  background: var(--friend-fan-bg);
-  border-color: var(--friend-fan-border);
-}
-
-.friend-rating-segment.is-empty {
-  font-weight: 500;
-}
-
-.friend-rating-segment--them.is-empty {
-  color: var(--friend-them-empty-text);
-  background: var(--friend-them-empty-bg);
-  border-color: rgba(96, 176, 228, 0.18);
-}
-
-.friend-rating-segment--mine.is-empty {
-  color: var(--friend-mine-empty-text);
-  background: var(--friend-mine-empty-bg);
-  border-color: var(--friend-mine-empty-border);
-}
-
-.friend-rating-segment--fan.is-empty {
-  color: var(--friend-fan-empty-text);
-  background: var(--friend-fan-empty-bg);
-  border-color: var(--friend-fan-empty-border);
-}
-
 body.view-friend .card.card--friend {
   border-width: 2px;
 }
 
 body.view-friend .card.card--friend.is-seen-by-you {
-  border-color: var(--accent-surface-border);
+  border-color: var(--accent);
   background: color-mix(in srgb, var(--accent-surface) 72%, var(--panel));
+  box-shadow: 0 0 0 1px rgba(130, 232, 168, 0.28);
 }
 
 body.view-friend .card.card--friend.is-seen-by-you:hover {
-  border-color: rgba(130, 232, 168, 0.38);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(130, 232, 168, 0.45);
 }
 
 .friend-view-message {
@@ -665,41 +598,13 @@ body.view-friend.view-mode-cards .card-footer--friend .card-footer-sort {
   justify-content: center;
 }
 
-body.view-friend.view-mode-cards .card-footer--friend .card-footer-main,
-body.view-friend.view-mode-cards .card-footer--friend .card-fan-rating,
-body.view-friend.view-mode-cards .card-footer--friend .card-user-rating,
-body.view-friend.view-mode-cards .card-footer--friend .friend-rating-segment--sort-footer {
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1.15;
-}
-
-body.view-friend.view-mode-cards .card-footer--friend .friend-rating-segment--sort-footer {
-  min-width: 2rem;
-  height: 1.28rem;
-  padding: 0 0.16rem;
-  border-radius: 3px;
-}
-
 body.view-friend.view-mode-cards .card-footer--friend .card-body-ratings {
   width: auto;
   justify-content: center;
   padding: 0;
 }
 
-body.view-friend.view-mode-cards .card-footer--friend .friend-rating-chit {
-  width: auto;
-  gap: 1.5px;
-}
-
-body.view-friend.view-mode-cards .card-footer--friend .friend-rating-segment {
-  min-width: 1.4rem;
-  height: 1.14rem;
-  padding: 0 0.14rem;
-  font-size: 0.64rem;
-}
-
-body.view-friend.view-mode-detail .card-body-ratings--friend {
+body.view-friend.view-mode-detail .card-body-ratings {
   flex: none;
 }
 

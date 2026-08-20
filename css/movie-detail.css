@@ -16,7 +16,7 @@
 .movie-detail-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(5, 7, 10, 0.85);
+  background: rgba(var(--bg-rgb), 0.85);
 }
 
 .movie-detail-panel {
@@ -507,7 +507,7 @@
   padding: 0.2rem 0.48rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--list-chip-border);
-  background: rgba(14, 16, 20, 0.35);
+  background: rgba(var(--bg-rgb), 0.35);
   color: var(--list-chip-text);
   cursor: pointer;
   touch-action: manipulation;
@@ -517,7 +517,7 @@
 }
 
 .detail-lists-save-btn:hover {
-  background: rgba(14, 16, 20, 0.5);
+  background: rgba(var(--bg-rgb), 0.5);
   border-color: var(--list-chip);
 }
 
@@ -824,7 +824,7 @@ button.detail-rating-chip.is-rated[aria-expanded="true"] {
 }
 
 .detail-watch-btn {
-  background: rgba(14, 16, 20, 0.78);
+  background: rgba(var(--bg-rgb), 0.78);
   color: var(--accent);
   text-transform: none;
 }
@@ -832,13 +832,13 @@ button.detail-rating-chip.is-rated[aria-expanded="true"] {
 .detail-watch-btn:hover {
   border-color: var(--border-strong);
   color: var(--accent);
-  background: rgba(14, 16, 20, 0.92);
+  background: rgba(var(--bg-rgb), 0.92);
 }
 
 .detail-remove-btn {
-  background: rgba(215, 107, 107, 0.08);
-  border-color: rgba(215, 107, 107, 0.28);
-  color: rgba(239, 176, 176, 0.88);
+  background: var(--danger-dim);
+  border-color: var(--danger-border);
+  color: var(--danger-text);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -848,9 +848,9 @@ button.detail-rating-chip.is-rated[aria-expanded="true"] {
 }
 
 .detail-remove-btn:hover {
-  color: #f5c4c4;
-  border-color: rgba(215, 107, 107, 0.5);
-  background: rgba(215, 107, 107, 0.14);
+  color: var(--danger-text);
+  border-color: var(--danger);
+  background: var(--danger-hover);
 }
 
 .detail-discover-preset-btn {
@@ -863,7 +863,7 @@ button.detail-rating-chip.is-rated[aria-expanded="true"] {
 .detail-discover-preset-btn:hover {
   border-color: var(--list-chip-border);
   color: var(--list-chip-text);
-  background: rgba(14, 16, 20, 0.55);
+  background: rgba(var(--bg-rgb), 0.55);
 }
 
 .detail-discover-preset-btn.is-active {
@@ -909,7 +909,7 @@ button.detail-rating-chip.is-rated[aria-expanded="true"] {
   height: 42px;
   border-radius: 50%;
   border: 1px solid var(--border-strong);
-  background: rgba(14, 16, 20, 0.86);
+  background: rgba(var(--bg-rgb), 0.86);
   color: var(--text);
   font-size: 1.5rem;
   line-height: 1;

@@ -7,14 +7,7 @@ function friendViewShowsFanRatings() {
 }
 
 function friendRatingSegmentHtml(kind, text, empty) {
-  const labels = {
-    them: "Friend rating",
-    mine: "Your rating",
-    fan: "Fan rating",
-  };
-  const safe = appCardHtml.escapeHtml(text);
-  const emptyClass = empty ? " is-empty" : "";
-  return `<span class="friend-rating-segment friend-rating-segment--${kind}${emptyClass}" aria-label="${labels[kind]} ${safe}" title="${labels[kind]}">${safe}</span>`;
+  return ratingSegmentHtml(kind, text, empty);
 }
 
 function friendRatingChitHtml(movieId) {
@@ -32,11 +25,10 @@ function friendRatingChitHtml(movieId) {
     ? `Ratings friend ${themText}, yours ${mineText}, fan ${fanText}`
     : `Ratings friend ${themText}, yours ${mineText}`;
   const fanSegment = showFan ? friendRatingSegmentHtml("fan", fanText, !fanLabel) : "";
-  return `<div class="friend-rating-chit card-body-ratings card-body-ratings--friend${showFan ? "" : " friend-rating-chit--dual"}" aria-label="${ariaLabel}">
-    ${friendRatingSegmentHtml("them", themText, friendRating == null)}
-    ${friendRatingSegmentHtml("mine", mineText, false)}
-    ${fanSegment}
-  </div>`;
+  return ratingChitHtml(
+    `${friendRatingSegmentHtml("them", themText, friendRating == null)}${friendRatingSegmentHtml("mine", mineText, false)}${fanSegment}`,
+    ariaLabel,
+  );
 }
 
 function friendIsRatingSortField(field) {
@@ -147,11 +139,11 @@ function friendMovieRowHtml(movieId) {
 function friendRatingLegendChitHtml() {
   const showFan = friendViewShowsFanRatings();
   const fanSegment = showFan
-    ? '<span class="friend-rating-segment friend-rating-segment--fan">6.2</span>'
+    ? ratingSegmentHtml("fan", "6.2", false)
     : "";
-  return `<div class="friend-rating-chit friend-rating-chit--legend${showFan ? "" : " friend-rating-chit--dual"}" aria-hidden="true">
-        <span class="friend-rating-segment friend-rating-segment--them">8.0</span>
-        <span class="friend-rating-segment friend-rating-segment--mine">7.5</span>
+  return `<div class="rating-chit rating-chit--legend" aria-hidden="true">
+        ${ratingSegmentHtml("them", "8.0", false)}
+        ${ratingSegmentHtml("mine", "7.5", false)}
         ${fanSegment}
       </div>`;
 }

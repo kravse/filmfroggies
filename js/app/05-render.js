@@ -112,11 +112,34 @@ function cardMetaHtml(record) {
   return `${yearHtml}${runtimeHtml}`;
 }
 
+function ratingSegmentHtml(kind, text, empty = false) {
+  const labels = {
+    fan: "Fan rating",
+    mine: "Your rating",
+    them: "Friend rating",
+  };
+  const safe = appCardHtml.escapeHtml(text);
+  const emptyClass = empty ? " is-empty" : "";
+  const label = labels[kind] || "Rating";
+  return `<span class="rating-segment rating-segment--${kind}${emptyClass}" aria-label="${label} ${safe}" title="${label}">${safe}</span>`;
+}
+
+function ratingChitHtml(inner, ariaLabel) {
+  const content = typeof inner === "string" ? inner.trim() : "";
+  if (!content) {
+    return "";
+  }
+  const aria = ariaLabel
+    ? ` aria-label="${appCardHtml.escapeHtml(ariaLabel)}"`
+    : "";
+  return `<div class="rating-chit card-body-ratings"${aria}>${content}</div>`;
+}
+
 function cardUserRatingHtml(movieId) {
   return cardUserRatingChipHtml(movieId);
 }
 
-function cardFanRatingHtml(movieId) {
+function cardFanRatingSegmentHtml(movieId) {
   if (!usesWatchedStyleDisplay() && !isDiscoverActive()) {
     return "";
   }
@@ -126,8 +149,12 @@ function cardFanRatingHtml(movieId) {
   }
   const label = appCardHtml.formatRating(record.voteAverage);
   const text = label || "—";
-  const emptyClass = label ? "" : " is-empty";
-  return `<span class="card-fan-rating${emptyClass}" aria-label="Fan rating ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
+  return ratingSegmentHtml("fan", text, !label);
+}
+
+function cardFanRatingHtml(movieId) {
+  const segment = cardFanRatingSegmentHtml(movieId);
+  return segment ? ratingChitHtml(segment) : "";
 }
 
 function discoverCardPresetButtonHtml(listId, movieId) {
@@ -173,9 +200,10 @@ function cardDetailRatingsHtml(movieId) {
   if (!usesWatchedStyleDisplay()) {
     return "";
   }
-  const fan = cardFanRatingHtml(movieId);
-  const user = cardUserRatingHtml(movieId);
-  return `<div class="card-body-ratings">${fan}${user}</div>`;
+  const fan = cardFanRatingSegmentHtml(movieId);
+  const user = cardUserRatingSegmentHtml(movieId);
+  const inner = `${fan}${user}`;
+  return inner ? ratingChitHtml(inner) : "";
 }
 
 function isUserRatingSortMode() {
@@ -226,7 +254,7 @@ function isWatchedSortMode() {
   return sortMode === "watched-asc" || sortMode === "watched-desc";
 }
 
-function cardUserRatingChipHtml(movieId, { showEmpty = false } = {}) {
+function cardUserRatingSegmentHtml(movieId, { showEmpty = false } = {}) {
   if (isDiscoverActive()) {
     return "";
   }
@@ -239,7 +267,7 @@ function cardUserRatingChipHtml(movieId, { showEmpty = false } = {}) {
     if (!showEmpty) {
       return "";
     }
-    return `<span class="card-user-rating is-empty" aria-label="Your rating —">—</span>`;
+    return ratingSegmentHtml("mine", "—", true);
   }
   const label = appRatings.formatUserRating(
     appRatings.getRating(userState.ratings, movieId),
@@ -248,8 +276,12 @@ function cardUserRatingChipHtml(movieId, { showEmpty = false } = {}) {
     return "";
   }
   const text = label || "—";
-  const emptyClass = label ? "" : " is-empty";
-  return `<span class="card-user-rating${emptyClass}" aria-label="Your rating ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
+  return ratingSegmentHtml("mine", text, !label);
+}
+
+function cardUserRatingChipHtml(movieId, options) {
+  const segment = cardUserRatingSegmentHtml(movieId, options);
+  return segment ? ratingChitHtml(segment) : "";
 }
 
 function cardReleaseYearFooterHtml(movieId) {
