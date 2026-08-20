@@ -114,8 +114,8 @@ const settingsTabConfig = document.getElementById("settings-tab-config");
 const settingsPanelAccount = document.getElementById("settings-panel-account");
 const settingsPanelConfig = document.getElementById("settings-panel-config");
 const settingsFriendsSignin = document.getElementById("settings-friends-signin");
-const friendsDialog = document.getElementById("friends-dialog");
-const friendsClose = document.getElementById("friends-close");
+const friendsIndexEl = document.getElementById("friends-index");
+const friendsIndexEmptyEl = document.getElementById("friends-index-empty");
 
 const accountFields = document.getElementById("account-fields");
 const accountAuthFields = document.getElementById("account-auth-fields");
@@ -146,6 +146,10 @@ const friendEmailInput = document.getElementById("friend-email-input");
 const friendAddBtn = document.getElementById("friend-add");
 const friendsList = document.getElementById("friends-list");
 const friendsStatus = document.getElementById("friends-status");
+const friendRemoveConfirmDialog = document.getElementById("friend-remove-confirm-dialog");
+const friendRemoveConfirmMessage = document.getElementById("friend-remove-confirm-message");
+const friendRemoveConfirmCancel = document.getElementById("friend-remove-confirm-cancel");
+const friendRemoveConfirmOk = document.getElementById("friend-remove-confirm-ok");
 
 const friendViewEl = document.getElementById("friend-view");
 const friendViewOverview = document.getElementById("friend-view-overview");
@@ -262,6 +266,7 @@ let watchConfirmWatchDateActive = false;
 let pendingDiscoverAddMovieId = null;
 let pendingDiscoverAddListId = null;
 let pendingCustomListDeleteId = null;
+let pendingFriendRemoveId = null;
 let tmdbCredential = "";
 
 /** "main" | "customIndex" | "customDetail" | "discover" | "friend" */
@@ -286,6 +291,10 @@ function isCustomListDetailActive() {
 
 function isCustomListView() {
   return isCustomListIndexActive() || isCustomListDetailActive();
+}
+
+function isFriendsIndexActive() {
+  return appView === "friendsIndex";
 }
 
 function isFriendViewActive() {
@@ -379,7 +388,7 @@ function displayMovieIds() {
       const joinOrder = appSort.buildOrderIndex(ctx.movieIds);
       sortContext.getListJoinIndex = (id) => joinOrder.get(Number(id)) ?? null;
     }
-    return appSort.sortMovieIds(ids, userState.preferences.sort, sortContext);
+    return appSort.sortMovieIds(ids, appSort.resolveSortMode(userState.preferences.sort), sortContext);
   }
   return ids;
 }
@@ -4061,6 +4070,8 @@ const appSort = (function () {
     "rating-asc",
     "user-rating-desc",
     "user-rating-asc",
+    "friend-rating-desc",
+    "friend-rating-asc",
     "title-asc",
     "title-desc",
   ]);
@@ -4069,7 +4080,15 @@ const appSort = (function () {
   const DEFAULT_PREFERENCE_SORT = "user-rating-desc";
   const MISSING_SORT_HINT = "—";
 
-  const SORT_FIELDS = new Set(["added", "watched", "year", "rating", "user-rating", "title"]);
+  const SORT_FIELDS = new Set([
+    "added",
+    "watched",
+    "year",
+    "rating",
+    "user-rating",
+    "friend-rating",
+    "title",
+  ]);
 
   const SORT_FIELD_DEFAULTS = {
     added: "added-desc",
@@ -4077,6 +4096,7 @@ const appSort = (function () {
     year: "year-desc",
     rating: "rating-desc",
     "user-rating": "user-rating-desc",
+    "friend-rating": "friend-rating-desc",
     title: "title-desc",
   };
 
@@ -4086,6 +4106,7 @@ const appSort = (function () {
     watched: "Date Watched",
     year: "Release Year",
     rating: "Fan Rating",
+    "friend-rating": "Friend Rating",
     title: "Title",
   };
 
@@ -4095,6 +4116,7 @@ const appSort = (function () {
     watched: "Watched",
     year: "Year",
     rating: "Fan Rating",
+    "friend-rating": "Friend Rating",
     title: "Title",
   };
 
@@ -4127,6 +4149,9 @@ const appSort = (function () {
     }
     if (normalized.startsWith("user-rating-")) {
       return "user-rating";
+    }
+    if (normalized.startsWith("friend-rating-")) {
+      return "friend-rating";
     }
     if (normalized.startsWith("rating-")) {
       return "rating";
@@ -4167,6 +4192,14 @@ const appSort = (function () {
     return SORT_FIELD_DEFAULTS[field] || DEFAULT_PREFERENCE_SORT;
   }
 
+  function resolveSortMode(mode, { friendView = false } = {}) {
+    const normalized = normalizeSort(mode);
+    if (!friendView && getSortField(normalized) === "friend-rating") {
+      return isSortDescending(normalized) ? "user-rating-desc" : "user-rating-asc";
+    }
+    return normalized;
+  }
+
   /** Watched preferences never keep custom; watchlist ignores sort entirely. */
   function normalizeWatchedSort(raw, fallback = DEFAULT_PREFERENCE_SORT) {
     const normalized = normalizeSort(raw, fallback);
@@ -4186,6 +4219,7 @@ const appSort = (function () {
         return descending ? "Newest first" : "Oldest first";
       case "rating":
         return descending ? "Highest first" : "Lowest first";
+      case "friend-rating":
       case "user-rating":
         return descending ? "Highest first" : "Lowest first";
       case "title":
@@ -4299,6 +4333,8 @@ const appSort = (function () {
     const getRecord = typeof context.getRecord === "function" ? context.getRecord : () => null;
     const getUserRating =
       typeof context.getUserRating === "function" ? context.getUserRating : () => null;
+    const getFriendRating =
+      typeof context.getFriendRating === "function" ? context.getFriendRating : () => null;
     const getAddedAt =
       typeof context.getAddedAt === "function" ? context.getAddedAt : () => null;
     const getWatchedOn =
@@ -4378,6 +4414,18 @@ const appSort = (function () {
       );
     }
 
+    if (normalized === "friend-rating-asc" || normalized === "friend-rating-desc") {
+      const direction = normalized === "friend-rating-asc" ? "asc" : "desc";
+      return copy.sort((a, b) =>
+        compareNullableNumber(
+          getFriendRating(a),
+          getFriendRating(b),
+          direction,
+          () => tiebreak(a, b),
+        ),
+      );
+    }
+
     return copy;
   }
 
@@ -4413,6 +4461,10 @@ const appSort = (function () {
       return formatUserRatingHint(context.userRating) || MISSING_SORT_HINT;
     }
 
+    if (normalized === "friend-rating-asc" || normalized === "friend-rating-desc") {
+      return formatUserRatingHint(context.friendRating) || MISSING_SORT_HINT;
+    }
+
     if (normalized === "title-asc" || normalized === "title-desc") {
       const title = String(record.title || "").trim();
       return title || MISSING_SORT_HINT;
@@ -4436,6 +4488,7 @@ const appSort = (function () {
     sortModeForField,
     sortDirectionLabel,
     getSortFieldLabel,
+    resolveSortMode,
     parseYear,
     buildOrderIndex,
     compareOrderTiebreak,
@@ -5093,6 +5146,7 @@ const appFriendView = (function () {
    */
 
   const FRIEND_HASH_RE = /^#friend\/(\d+)$/;
+  const FRIENDS_INDEX_HASH = "#friends";
 
   function getLists() {
     if (typeof appLists !== "undefined") {
@@ -5122,6 +5176,15 @@ const appFriendView = (function () {
       throw new Error("Invalid friend user id");
     }
     return `#friend/${id}`;
+  }
+
+  function parseFriendsIndexHash(hash) {
+    const normalized = hash || "";
+    return normalized === FRIENDS_INDEX_HASH || normalized === `${FRIENDS_INDEX_HASH}/`;
+  }
+
+  function buildFriendsIndexHash() {
+    return FRIENDS_INDEX_HASH;
   }
 
   function friendListSections(friendState) {
@@ -5186,6 +5249,97 @@ const appFriendView = (function () {
     };
   }
 
+  function getSort() {
+    if (typeof appSort !== "undefined") {
+      return appSort;
+    }
+    if (typeof require === "function") {
+      return require("./sort");
+    }
+    throw new Error("appSort is not available");
+  }
+
+  function getRatings() {
+    if (typeof appRatings !== "undefined") {
+      return appRatings;
+    }
+    if (typeof require === "function") {
+      return require("./ratings");
+    }
+    throw new Error("appRatings is not available");
+  }
+
+  function getAddedAtLib() {
+    if (typeof appAddedAt !== "undefined") {
+      return appAddedAt;
+    }
+    if (typeof require === "function") {
+      return require("./added-at");
+    }
+    throw new Error("appAddedAt is not available");
+  }
+
+  function getViewingHistory() {
+    if (typeof appViewingHistory !== "undefined") {
+      return appViewingHistory;
+    }
+    if (typeof require === "function") {
+      return require("./viewing-history");
+    }
+    throw new Error("appViewingHistory is not available");
+  }
+
+  function friendSortContext(sectionMovieIds, viewerState, _friendState, runtimeContext = {}) {
+    const sortLib = getSort();
+    const sortMode = runtimeContext.sortMode ?? sortLib.DEFAULT_PREFERENCE_SORT;
+    const getRecord =
+      typeof runtimeContext.getRecord === "function" ? runtimeContext.getRecord : () => null;
+    const ratingsLib = getRatings();
+    const addedAtLib = getAddedAtLib();
+    const viewingHistoryLib = getViewingHistory();
+
+    const sortContext = {
+      getRecord,
+      getUserRating: (id) => ratingsLib.getRating(viewerState?.ratings, id),
+      getFriendRating: (id) => ratingsLib.getRating(_friendState?.ratings, id),
+      getAddedAt: (id) => addedAtLib.getAddedAt(viewerState?.addedAt, id),
+      getWatchedOn: (id) => viewingHistoryLib.latestViewingDate(viewerState?.viewingHistory, id),
+    };
+
+    const joinOrder = sortLib.buildOrderIndex(sectionMovieIds);
+    sortContext.getListJoinIndex = (id) => joinOrder.get(Number(id)) ?? null;
+
+    if (sortLib.getSortField(sortMode) === "watched") {
+      const latestByMovie = new Map();
+      const normalized = viewingHistoryLib.normalizeViewingHistory(viewerState?.viewingHistory);
+      for (const [movieId, entries] of Object.entries(normalized)) {
+        let latest = null;
+        for (const entry of entries) {
+          if (!entry.deletedAt && (!latest || entry.watchedOn > latest)) {
+            latest = entry.watchedOn;
+          }
+        }
+        if (latest) {
+          latestByMovie.set(Number(movieId), latest);
+        }
+      }
+      sortContext.getWatchedOn = (id) => latestByMovie.get(Number(id)) ?? null;
+    }
+
+    return sortContext;
+  }
+
+  function friendSectionSortedIds(section, sortMode, viewerState, friendState, runtimeContext = {}) {
+    return getSort().sortMovieIds(
+      section.movieIds,
+      sortMode,
+      friendSortContext(section.movieIds, viewerState, friendState, {
+        ...runtimeContext,
+        sortMode,
+      }),
+    );
+  }
+
   function friendSectionContainingMovie(sections, movieId) {
     const id = Number(movieId);
     if (!Number.isInteger(id) || id <= 0) {
@@ -5199,14 +5353,26 @@ const appFriendView = (function () {
     return null;
   }
 
-  function friendNavigationIds(sections, movieId) {
+  function friendNavigationIds(sections, movieId, options = {}) {
+    const sortMode = options.sortMode ?? null;
+    const viewerState = options.viewerState ?? null;
+    const friendState = options.friendState ?? null;
+    const runtimeContext = options.runtimeContext ?? {};
+
+    function idsForSection(section) {
+      if (sortMode == null) {
+        return [...section.movieIds];
+      }
+      return friendSectionSortedIds(section, sortMode, viewerState, friendState, runtimeContext);
+    }
+
     if (movieId != null) {
       const section = friendSectionContainingMovie(sections, movieId);
       if (section) {
-        return [...section.movieIds];
+        return idsForSection(section);
       }
     }
-    return sections.flatMap((section) => section.movieIds);
+    return sections.flatMap((section) => idsForSection(section));
   }
 
   function friendListNamesForMovie(friendState, movieId) {
@@ -5222,8 +5388,13 @@ const appFriendView = (function () {
   return {
     parseFriendHash,
     buildFriendHash,
+    parseFriendsIndexHash,
+    buildFriendsIndexHash,
+    FRIENDS_INDEX_HASH,
     friendListSections,
     friendOverviewStats,
+    friendSortContext,
+    friendSectionSortedIds,
     friendSectionContainingMovie,
     friendNavigationIds,
     friendListNamesForMovie,
@@ -9039,6 +9210,34 @@ function listShowsReorderGrip() {
   );
 }
 
+const FRIEND_SORT_OPTION_VALUE = "friend-rating";
+
+function syncFriendSortSelectOption() {
+  if (!listSortSelect) {
+    return;
+  }
+  let option = listSortSelect.querySelector(`option[value="${FRIEND_SORT_OPTION_VALUE}"]`);
+  const showFriendOption =
+    isFriendViewActive() &&
+    !friendViewLoading &&
+    !friendViewError &&
+    friendViewSections.some((section) => section.movieIds.length > 0);
+  if (showFriendOption) {
+    if (!option) {
+      option = document.createElement("option");
+      option.value = FRIEND_SORT_OPTION_VALUE;
+      const userRatingOption = listSortSelect.querySelector('option[value="user-rating"]');
+      if (userRatingOption?.nextSibling) {
+        listSortSelect.insertBefore(option, userRatingOption.nextSibling);
+      } else {
+        listSortSelect.appendChild(option);
+      }
+    }
+    return;
+  }
+  option?.remove();
+}
+
 function syncSortSelectLabels() {
   const options = listSortSelect?.options;
   if (!options?.length) {
@@ -9052,28 +9251,37 @@ function syncSortSelectLabels() {
 }
 
 function syncSortControlUi() {
-  const show =
+  const showOnMain =
     !isDiscoverActive() &&
     !isFriendViewActive() &&
     usesWatchedStyleDisplay() &&
     activeMovieIds().length > 0 &&
     hasMovieData();
+  const showOnFriend =
+    isFriendViewActive() &&
+    !friendViewLoading &&
+    !friendViewError &&
+    friendViewSections.some((section) => section.movieIds.length > 0);
+  const show = showOnMain || showOnFriend;
+  syncFriendSortSelectOption();
   const sort = userState.preferences.sort;
+  const sortField = appSort.getSortField(
+    isFriendViewActive() ? sort : appSort.resolveSortMode(sort),
+  );
   if (sortControl) {
     sortControl.hidden = !show;
   }
   if (listSortSelect) {
     if (show) {
-      listSortSelect.value = appSort.getSortField(sort);
+      listSortSelect.value = sortField;
     }
   }
   if (sortReverseBtn) {
     sortReverseBtn.hidden = !show;
     const descending = appSort.isSortDescending(sort);
-    const field = appSort.getSortField(sort);
     sortReverseBtn.classList.toggle("is-descending", descending);
     sortReverseBtn.classList.toggle("is-ascending", !descending);
-    const directionLabel = appSort.sortDirectionLabel(field, descending);
+    const directionLabel = appSort.sortDirectionLabel(sortField, descending);
     sortReverseBtn.title = `${directionLabel} · click to reverse`;
     sortReverseBtn.setAttribute(
       "aria-label",
@@ -9249,6 +9457,12 @@ function syncHeaderViewTitle() {
     headerTitleEl.hidden = true;
     return;
   }
+  if (isFriendsIndexActive()) {
+    customListViewTitleEl.textContent = "Friends";
+    customListViewTitleEl.hidden = false;
+    headerTitleEl.hidden = true;
+    return;
+  }
   if (isCustomListDetailActive()) {
     customListViewTitleEl.textContent = getActiveDisplayContext().listName;
     customListViewTitleEl.hidden = false;
@@ -9283,6 +9497,12 @@ function updateListHeader() {
     listSubtitleEl.textContent = "Create and manage custom lists";
     return;
   }
+  if (isFriendsIndexActive()) {
+    listSubtitleEl.textContent = accountSyncEnabled()
+      ? "Add friends by email, then open their shared lists"
+      : "Sign in to connect with friends";
+    return;
+  }
   if (isFriendViewActive()) {
     if (friendViewLoading) {
       listSubtitleEl.textContent = "Loading their lists…";
@@ -9293,7 +9513,11 @@ function updateListHeader() {
       return;
     }
     if (friendViewSections.length) {
-      listSubtitleEl.textContent = "Tap a movie to open details and add to your lists";
+      const sortField = appSort.getSortField(userState.preferences.sort);
+      listSubtitleEl.textContent =
+        sortField === "custom"
+          ? "Tap a movie to open details and add to your lists"
+          : "Tap a movie to open details and add to your lists · sorted view";
       return;
     }
     listSubtitleEl.textContent = "No shared lists yet";
@@ -9419,6 +9643,10 @@ function render() {
     renderFriendView();
     return;
   }
+  if (isFriendsIndexActive()) {
+    renderFriendsIndex();
+    return;
+  }
   if (isCustomListIndexActive()) {
     syncAppViewChrome();
     renderCustomListsIndex();
@@ -9460,10 +9688,13 @@ function applyHydratedRecord(movieId, options = {}) {
 }
 
 function needsResortAfterHydration() {
+  const field = appSort.getSortField(userState.preferences.sort);
+  if (isFriendViewActive()) {
+    return field === "title" || field === "year" || field === "rating";
+  }
   if (!getActiveDisplayContext().sortable) {
     return false;
   }
-  const field = appSort.getSortField(userState.preferences.sort);
   return field === "title" || field === "year" || field === "rating";
 }
 
@@ -9557,6 +9788,10 @@ function scheduleResortAfterHydration() {
   }
   rowHydrateResortTimer = setTimeout(() => {
     rowHydrateResortTimer = 0;
+    if (isFriendViewActive()) {
+      renderFriendView();
+      return;
+    }
     reorderGridRows();
   }, 300);
 }
@@ -11599,19 +11834,13 @@ function closeSettings() {
 }
 
 function openFriends() {
-  refreshAccountSection();
-  friendsDialog.hidden = false;
-  friendsEntryBtn?.setAttribute("aria-expanded", "true");
-  if (accountSyncEnabled()) {
-    friendEmailInput?.focus({ preventScroll: true });
-  } else {
-    friendsClose?.focus({ preventScroll: true });
-  }
+  navigateToFriendsIndex();
 }
 
 function closeFriends() {
-  friendsDialog.hidden = true;
-  friendsEntryBtn?.setAttribute("aria-expanded", "false");
+  if (isFriendsIndexActive()) {
+    navigateToMain();
+  }
 }
 
 async function onClearCache() {
@@ -11804,39 +12033,60 @@ function friendDisplayName(friend) {
   return friend.displayName || friend.email;
 }
 
-function friendItemHtml(friend) {
+function friendInitial(friend) {
+  const name = friendDisplayName(friend).trim();
+  return (name[0] || "?").toUpperCase();
+}
+
+function friendRosterItemHtml(friend) {
   const name = appCardHtml.escapeHtml(friendDisplayName(friend));
+  const initial = appCardHtml.escapeHtml(friendInitial(friend));
   const pending = friend.status === "pending";
-  const meta = pending
-    ? friend.direction === "incoming"
-      ? "wants to be friends"
-      : "request sent"
-    : "";
-  const buttons = [];
-  if (pending && friend.direction === "incoming") {
-    buttons.push(
-      `<button type="button" class="primary-btn friend-btn" data-friend-action="accept" data-friend-id="${friend.id}">Accept</button>`,
-    );
+  const incoming = pending && friend.direction === "incoming";
+  const outgoing = pending && friend.direction === "outgoing";
+  const itemClass = pending ? " friends-roster-item--pending" : "";
+  const chipClass = pending ? " friends-roster-chip--pending" : "";
+
+  if (incoming) {
+    return `<li class="friends-roster-item${itemClass}">
+  <span class="friends-roster-chip${chipClass}">
+    <span class="friends-roster-avatar" aria-hidden="true">${initial}</span>
+    <span class="friends-roster-name">${name}</span>
+    <span class="friends-roster-tag">Incoming</span>
+  </span>
+  <button type="button" class="friends-roster-action" data-friend-action="accept" data-friend-id="${friend.id}">Accept</button>
+  <button type="button" class="friends-roster-icon-btn" data-friend-action="remove" data-friend-id="${friend.id}" aria-label="Decline ${name}">×</button>
+</li>`;
   }
-  if (!pending) {
-    buttons.push(
-      `<button type="button" class="ghost-btn friend-btn" data-friend-action="view" data-friend-id="${friend.id}" data-friend-name="${name}">View lists</button>`,
-    );
+
+  if (outgoing) {
+    return `<li class="friends-roster-item${itemClass}">
+  <span class="friends-roster-chip${chipClass}">
+    <span class="friends-roster-avatar" aria-hidden="true">${initial}</span>
+    <span class="friends-roster-name">${name}</span>
+    <span class="friends-roster-tag">Pending</span>
+  </span>
+  <button type="button" class="friends-roster-icon-btn" data-friend-action="remove" data-friend-id="${friend.id}" aria-label="Cancel request for ${name}">×</button>
+</li>`;
   }
-  buttons.push(
-    `<button type="button" class="ghost-btn friend-btn" data-friend-action="remove" data-friend-id="${friend.id}">${pending && friend.direction === "outgoing" ? "Cancel" : "Remove"}</button>`,
-  );
-  return `<li class="friend-item"><span class="friend-name">${name}</span><span class="friend-meta">${meta}</span><span class="friend-actions">${buttons.join("")}</span></li>`;
+
+  return `<li class="friends-roster-item">
+  <button type="button" class="friends-roster-chip" data-friend-action="view" data-friend-id="${friend.id}" data-friend-name="${name}" aria-label="Open ${name}'s lists">
+    <span class="friends-roster-avatar" aria-hidden="true">${initial}</span>
+    <span class="friends-roster-name">${name}</span>
+  </button>
+  <button type="button" class="friends-roster-icon-btn" data-friend-action="remove" data-friend-id="${friend.id}" data-friend-name="${name}" aria-label="Remove ${name}">×</button>
+</li>`;
 }
 
 async function refreshFriendsList() {
-  friendsList.innerHTML = '<li class="gist-backup-empty">Loading…</li>';
+  friendsList.innerHTML = '<li class="friends-roster-empty">Loading friends…</li>';
   try {
     const body = await fetchFriends();
     const friends = body?.friends || [];
     friendsList.innerHTML = friends.length
-      ? friends.map(friendItemHtml).join("")
-      : '<li class="gist-backup-empty">No friends yet. Add one by email above.</li>';
+      ? friends.map(friendRosterItemHtml).join("")
+      : '<li class="friends-roster-empty">No friends yet. Add someone by email above.</li>';
     setStatus(friendsStatus, "", null);
   } catch (error) {
     friendsList.innerHTML = "";
@@ -11860,7 +12110,7 @@ async function onAddFriend() {
     friendEmailInput.value = "";
     setStatus(
       friendsStatus,
-      "Request sent. If they have an account, they can accept it from Settings → Friends.",
+      "Request sent. They can accept it from their Friends page.",
       "ok",
     );
     refreshFriendsList();
@@ -11868,6 +12118,35 @@ async function onAddFriend() {
     setStatus(friendsStatus, error.message, "error");
   } finally {
     friendAddBtn.disabled = false;
+  }
+}
+
+function requestRemoveFriendConfirm(friendId, name) {
+  pendingFriendRemoveId = friendId;
+  friendRemoveConfirmMessage.textContent = `Remove ${name} as a friend? You can send a new request later.`;
+  friendRemoveConfirmDialog.hidden = false;
+  friendRemoveConfirmCancel.focus({ preventScroll: true });
+}
+
+function closeFriendRemoveConfirm() {
+  pendingFriendRemoveId = null;
+  friendRemoveConfirmDialog.hidden = true;
+}
+
+async function confirmRemoveFriend() {
+  const friendId = pendingFriendRemoveId;
+  closeFriendRemoveConfirm();
+  if (!friendId) {
+    return;
+  }
+  try {
+    await removeFriend(friendId);
+    if (isFriendViewActive() && activeFriendId === friendId) {
+      navigateFromFriendView();
+    }
+    refreshFriendsList();
+  } catch (error) {
+    setStatus(friendsStatus, error.message, "error");
   }
 }
 
@@ -11883,8 +12162,12 @@ async function onFriendsListClick(event) {
       await acceptFriend(friendId);
       refreshFriendsList();
     } else if (action === "remove") {
-      await removeFriend(friendId);
-      refreshFriendsList();
+      if (button.closest(".friends-roster-item--pending")) {
+        await removeFriend(friendId);
+        refreshFriendsList();
+      } else {
+        requestRemoveFriendConfirm(friendId, button.dataset.friendName || "this friend");
+      }
     } else if (action === "view") {
       navigateToFriendView(friendId, button.dataset.friendName || "Friend");
     }
@@ -12537,6 +12820,9 @@ function parseLocationHash() {
   if (friendMatch) {
     return { kind: "friend", userId: friendMatch.userId };
   }
+  if (appFriendView.parseFriendsIndexHash(hash)) {
+    return { kind: "friendsIndex" };
+  }
   return { kind: "main" };
 }
 
@@ -12609,6 +12895,11 @@ function applyRestoredViewContext(restored) {
     activeCustomListId = null;
     return true;
   }
+  if (restored.appView === "friendsIndex") {
+    appView = "friendsIndex";
+    activeCustomListId = null;
+    return true;
+  }
   if (restored.appView === "friend" && restored.activeFriendId) {
     appView = "friend";
     activeCustomListId = null;
@@ -12619,39 +12910,59 @@ function applyRestoredViewContext(restored) {
   return false;
 }
 
+function syncHeaderNavUi() {
+  let activeNav = "lists";
+  if (isDiscoverActive()) {
+    activeNav = "discover";
+  } else if (isFriendsIndexActive() || isFriendViewActive()) {
+    activeNav = "friends";
+  }
+
+  discoverEntryBtn?.classList.toggle("is-active", activeNav === "discover");
+  friendsEntryBtn?.classList.toggle("is-active", activeNav === "friends");
+  listsNavBtn?.classList.toggle("is-active", activeNav === "lists");
+
+  discoverEntryBtn?.setAttribute("aria-current", activeNav === "discover" ? "page" : "false");
+  friendsEntryBtn?.setAttribute("aria-current", activeNav === "friends" ? "page" : "false");
+  listsNavBtn?.setAttribute("aria-current", activeNav === "lists" ? "page" : "false");
+}
+
 function syncAppViewChrome() {
   document.body.classList.toggle("view-custom-index", isCustomListIndexActive());
   document.body.classList.toggle("view-custom-detail", isCustomListDetailActive());
   document.body.classList.toggle("view-discover", isDiscoverActive());
+  document.body.classList.toggle("view-friends-index", isFriendsIndexActive());
   document.body.classList.toggle("view-friend", isFriendViewActive());
   if (customListsIndex) {
     customListsIndex.hidden = !isCustomListIndexActive();
+  }
+  if (friendsIndexEl) {
+    friendsIndexEl.hidden = !isFriendsIndexActive();
   }
   if (friendViewEl) {
     friendViewEl.hidden = !isFriendViewActive();
   }
   if (grid) {
-    grid.hidden = isFriendViewActive();
+    grid.hidden = isFriendViewActive() || isFriendsIndexActive();
   }
   if (listTabs) {
-    listTabs.hidden = isCustomListView() || isDiscoverActive() || isFriendViewActive();
+    listTabs.hidden =
+      isCustomListView() || isDiscoverActive() || isFriendViewActive() || isFriendsIndexActive();
   }
   if (discoverTabs) {
     discoverTabs.hidden = !isDiscoverActive();
   }
-  if (discoverEntryBtn) {
-    discoverEntryBtn.hidden = isCustomListView() || isDiscoverActive() || isFriendViewActive();
-  }
-  if (listsNavBtn) {
-    listsNavBtn.hidden = isCustomListView() || isDiscoverActive() || isFriendViewActive();
-  }
   if (customListBackBtn) {
-    customListBackBtn.hidden = !isCustomListView() && !isDiscoverActive() && !isFriendViewActive();
+    customListBackBtn.hidden =
+      !isCustomListView() &&
+      !isDiscoverActive() &&
+      !isFriendViewActive() &&
+      !isFriendsIndexActive();
   }
   if (customListBackLabel) {
     if (isFriendViewActive()) {
-      customListBackLabel.textContent = "Collection";
-    } else if (isDiscoverActive()) {
+      customListBackLabel.textContent = "Friends";
+    } else if (isFriendsIndexActive() || isDiscoverActive()) {
       customListBackLabel.textContent = "Collection";
     } else {
       customListBackLabel.textContent = isCustomListIndexActive() ? "Collection" : "All lists";
@@ -12661,9 +12972,14 @@ function syncAppViewChrome() {
     customListsIndexActions.hidden = !isCustomListIndexActive();
   }
   if (addMovieFab) {
-    addMovieFab.hidden = isCustomListIndexActive() || isDiscoverActive() || isFriendViewActive();
+    addMovieFab.hidden =
+      isCustomListIndexActive() ||
+      isDiscoverActive() ||
+      isFriendViewActive() ||
+      isFriendsIndexActive();
   }
   updateListHeader();
+  syncHeaderNavUi();
   syncListSearchVisibility();
   syncReorderModeUi();
 }
@@ -12770,6 +13086,9 @@ function appViewMatchesLocation(parsed) {
       discoverPage === appDiscover.normalizeDiscoverPage(parsed.page)
     );
   }
+  if (parsed.kind === "friendsIndex") {
+    return appView === "friendsIndex";
+  }
   if (parsed.kind === "friend") {
     return appView === "friend" && activeFriendId === parsed.userId;
   }
@@ -12797,6 +13116,9 @@ function movieUnderlayMatchesHistoryState() {
         : discoverPage;
     return tab === discoverTab && page === discoverPage;
   }
+  if (state.appView === "friendsIndex") {
+    return appView === "friendsIndex";
+  }
   if (state.appView === "friend") {
     return activeFriendId === (state.activeFriendId ?? null);
   }
@@ -12808,6 +13130,10 @@ function paintLocationUnderlay() {
   refreshViewModeForActiveList();
   if (isCustomListIndexActive()) {
     renderCustomListsIndex();
+    return;
+  }
+  if (isFriendsIndexActive()) {
+    renderFriendsIndex();
     return;
   }
   if (isDiscoverActive()) {
@@ -12873,6 +13199,10 @@ function syncViewFromLocation(options = {}) {
       if (state.appView === "friend") {
         activeFriendId = state.activeFriendId ?? null;
         friendViewName = state.friendViewName || "Friend";
+      } else if (state.appView === "friendsIndex") {
+        if (typeof clearFriendViewState === "function") {
+          clearFriendViewState();
+        }
       }
       if (state.discoverTab) {
         discoverTab = appDiscover.normalizeDiscoverTab(state.discoverTab);
@@ -12941,6 +13271,17 @@ function syncViewFromLocation(options = {}) {
       discoverPage = page;
       renderDiscover();
     }
+    return;
+  }
+
+  if (parsed.kind === "friendsIndex") {
+    appView = "friendsIndex";
+    activeCustomListId = null;
+    if (typeof clearFriendViewState === "function") {
+      clearFriendViewState();
+    }
+    syncAppViewChrome();
+    renderFriendsIndex();
     return;
   }
 
@@ -13634,7 +13975,11 @@ function detailNavigationIds() {
     return discoverDisplayIds();
   }
   if (isFriendViewActive()) {
-    return appFriendView.friendNavigationIds(friendViewSections, detailMovieId);
+    return appFriendView.friendNavigationIds(
+      friendViewSections,
+      detailMovieId,
+      friendViewNavigationOptions(),
+    );
   }
   return renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
 }
@@ -13984,45 +14329,86 @@ function onConfirmCollectionImport() {
  * Friend list page: fetch, overview, stacked section grids.
  */
 
-function friendCardRatingChipHtml(movieId) {
-  if (!friendViewState?.ratings) {
-    return "";
-  }
-  const rating = appRatings.getRating(friendViewState.ratings, movieId);
-  if (rating == null) {
-    return "";
-  }
-  const text = appRatings.formatUserRating(rating);
-  return `<span class="card-friend-rating" aria-label="Friend rating ${appCardHtml.escapeHtml(text)}" title="Friend">★ ${appCardHtml.escapeHtml(text)}</span>`;
+function friendRatingSegmentHtml(kind, text, empty) {
+  const labels = {
+    them: "Friend rating",
+    mine: "Your rating",
+    fan: "Fan rating",
+  };
+  const safe = appCardHtml.escapeHtml(text);
+  const emptyClass = empty ? " is-empty" : "";
+  return `<span class="friend-rating-segment friend-rating-segment--${kind}${emptyClass}" aria-label="${labels[kind]} ${safe}" title="${labels[kind]}">${safe}</span>`;
 }
 
-function friendMyRatingChipHtml(movieId) {
-  const rating = appRatings.getRating(userState.ratings, movieId);
-  if (rating == null) {
-    return "";
-  }
-  const text = appRatings.formatUserRating(rating);
-  return `<span class="card-user-rating" aria-label="Your rating ${appCardHtml.escapeHtml(text)}" title="You">${appCardHtml.escapeHtml(text)}</span>`;
+function friendRatingChitHtml(movieId) {
+  const record = movieById.get(movieId) ?? localMovieRecord(movieId);
+  const friendRating = friendViewState?.ratings
+    ? appRatings.getRating(friendViewState.ratings, movieId)
+    : null;
+  const themText = friendRating != null ? appRatings.formatUserRating(friendRating) : "-";
+  const myRating = appRatings.getRating(userState.ratings, movieId);
+  const mineText = myRating != null ? appRatings.formatUserRating(myRating) : "-";
+  const fanLabel = record ? appCardHtml.formatRating(record.voteAverage) : "";
+  const fanText = fanLabel || "-";
+  return `<div class="friend-rating-chit card-body-ratings card-body-ratings--friend" aria-label="Ratings friend ${themText}, yours ${mineText}, fan ${fanText}">
+    ${friendRatingSegmentHtml("them", themText, friendRating == null)}
+    ${friendRatingSegmentHtml("mine", mineText, false)}
+    ${friendRatingSegmentHtml("fan", fanText, !fanLabel)}
+  </div>`;
 }
 
-function friendCardRatingsHtml(movieId) {
-  const friend = friendCardRatingChipHtml(movieId);
-  const mine = friendMyRatingChipHtml(movieId);
-  if (!friend && !mine) {
-    return "";
+function friendIsRatingSortField(field) {
+  return field === "user-rating" || field === "friend-rating" || field === "rating";
+}
+
+function friendShowsRatingChit() {
+  const field = appSort.getSortField(userState.preferences.sort);
+  return (
+    friendIsRatingSortField(field) ||
+    field === "custom" ||
+    field === "title" ||
+    field === "added"
+  );
+}
+
+function friendReleaseYearFooterHtml(movieId) {
+  const record = movieById.get(movieId) ?? localMovieRecord(movieId);
+  const year = record ? appCardHtml.formatYear(record.releaseDate) : "";
+  const text = year || "—";
+  const emptyClass = year ? "" : " is-empty";
+  return `<span class="card-footer-main${emptyClass}" aria-label="Release year ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
+}
+
+function friendSortFooterContentHtml(movieId) {
+  if (friendShowsRatingChit()) {
+    return friendRatingChitHtml(movieId);
   }
-  return `<div class="card-body-ratings card-body-ratings--friend">${friend}${mine}</div>`;
+  const field = appSort.getSortField(userState.preferences.sort);
+  if (field === "year") {
+    return friendReleaseYearFooterHtml(movieId);
+  }
+  if (field === "watched") {
+    return cardWatchDateFooterHtml(movieId);
+  }
+  return friendRatingChitHtml(movieId);
+}
+
+function friendCardDetailTrailingHtml(movieId) {
+  return friendRatingChitHtml(movieId);
 }
 
 function friendCardFooterHtml(movieId) {
   if (gridViewMode !== "cards") {
     return "";
   }
-  const ratings = friendCardRatingsHtml(movieId);
-  if (!ratings) {
+  const content = friendSortFooterContentHtml(movieId);
+  if (!content) {
     return "";
   }
-  return `<div class="card-footer card-footer--friend">${ratings}</div>`;
+  if (friendShowsRatingChit()) {
+    return `<div class="card-footer card-footer--friend">${content}</div>`;
+  }
+  return `<div class="card-footer card-footer--sort card-footer--friend"><div class="card-footer-sort">${content}</div></div>`;
 }
 
 function friendCardInnerHtml(movieId) {
@@ -14035,18 +14421,14 @@ function friendCardInnerHtml(movieId) {
   if (gridViewMode === "cards") {
     return `${posterWrapOpen(movieId)}${posterHtml(record, appTmdb.POSTER_SIZES.card)}</div>${friendCardFooterHtml(movieId)}`;
   }
-  const ratings = friendCardRatingsHtml(movieId);
+  const ratings = friendCardDetailTrailingHtml(movieId);
   return `${posterWrapOpen(movieId)}
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
 </div>
 <div class="card-body">
   <div class="card-text">
     <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>
-    ${
-      ratings
-        ? `<div class="card-meta-row"><div class="card-meta">${cardMetaHtml(record)}</div>${ratings}</div>`
-        : `<div class="card-meta">${cardMetaHtml(record)}</div>`
-    }
+    <div class="card-meta-row"><div class="card-meta">${cardMetaHtml(record)}</div>${ratings}</div>
   </div>
 </div>`;
 }
@@ -14081,18 +14463,19 @@ function friendMovieRowHtml(movieId) {
 }
 
 function friendRatingLegendHtml() {
+  if (!friendShowsRatingChit()) {
+    return "";
+  }
   return `<div class="friend-view-rating-legend" aria-label="Rating legend">
     <span class="friend-view-rating-legend-label">Ratings</span>
-    <ul class="friend-view-rating-legend-items">
-      <li class="friend-view-rating-legend-item">
-        <span class="friend-view-rating-legend-chip friend-view-rating-legend-chip--friend">★ 8.0</span>
-        <span class="friend-view-rating-legend-text">Their rating</span>
-      </li>
-      <li class="friend-view-rating-legend-item">
-        <span class="friend-view-rating-legend-chip friend-view-rating-legend-chip--mine">8.0</span>
-        <span class="friend-view-rating-legend-text">Your rating</span>
-      </li>
-    </ul>
+    <div class="friend-view-rating-legend-row">
+      <div class="friend-rating-chit friend-rating-chit--legend" aria-hidden="true">
+        <span class="friend-rating-segment friend-rating-segment--them">8.0</span>
+        <span class="friend-rating-segment friend-rating-segment--mine">7.5</span>
+        <span class="friend-rating-segment friend-rating-segment--fan">6.2</span>
+      </div>
+      <span class="friend-view-rating-legend-text">Friend · Yours · Fan</span>
+    </div>
   </div>`;
 }
 
@@ -14111,6 +14494,32 @@ function friendOverviewHtml(stats, name) {
   ${friendRatingLegendHtml()}`;
 }
 
+function friendViewSortRuntime() {
+  return {
+    getRecord: (id) => movieById.get(id) ?? localMovieRecord(id),
+    sortMode: userState.preferences.sort,
+  };
+}
+
+function friendViewNavigationOptions() {
+  return {
+    sortMode: userState.preferences.sort,
+    viewerState: userState,
+    friendState: friendViewState,
+    runtimeContext: friendViewSortRuntime(),
+  };
+}
+
+function friendDisplayIdsForSection(section) {
+  return appFriendView.friendSectionSortedIds(
+    section,
+    userState.preferences.sort,
+    userState,
+    friendViewState,
+    friendViewSortRuntime(),
+  );
+}
+
 function friendWatchedOverlapHtml(stats) {
   if (!stats || stats.overlapWatched <= 0) {
     return "";
@@ -14124,7 +14533,8 @@ function friendSectionHtml(section, stats) {
   const barClass = overlapHtml ? " friend-view-list-bar--has-overlap" : "";
   const collapsed = friendViewCollapsedSections.has(section.id);
   const bodyId = `friend-section-body-${section.id}`;
-  const rows = section.movieIds.map((id) => friendMovieRowHtml(id)).join("");
+  const displayIds = friendDisplayIdsForSection(section);
+  const rows = displayIds.map((id) => friendMovieRowHtml(id)).join("");
   return `<section class="friend-view-section" id="friend-section-${appCardHtml.escapeHtml(section.id)}" data-friend-section-id="${appCardHtml.escapeHtml(section.id)}">
     <div class="friend-view-list-card${collapsed ? " is-collapsed" : ""}">
       <div class="friend-view-list-bar${barClass}">
@@ -14140,7 +14550,7 @@ function friendSectionHtml(section, stats) {
             </svg>
           </span>
           <span class="friend-view-list-title">${appCardHtml.escapeHtml(section.name)}</span>
-          <span class="friend-view-list-count">${section.movieIds.length}</span>
+          <span class="friend-view-list-count">${displayIds.length}</span>
         </button>
         ${overlapHtml}
       </div>
@@ -14195,9 +14605,6 @@ function navigateToFriendView(userId, name, options = {}) {
   if (typeof closeSettings === "function" && !settingsDialog.hidden) {
     closeSettings();
   }
-  if (typeof closeFriends === "function" && !friendsDialog.hidden) {
-    closeFriends();
-  }
   appView = "friend";
   activeCustomListId = null;
   activeFriendId = id;
@@ -14220,8 +14627,7 @@ function navigateToFriendView(userId, name, options = {}) {
 }
 
 function navigateFromFriendView(options = {}) {
-  clearFriendViewState();
-  navigateToMain(options);
+  navigateToFriendsIndex(options);
 }
 
 async function loadFriendView(userId) {
@@ -14257,7 +14663,11 @@ async function loadFriendView(userId) {
 }
 
 function hydrateFriendView() {
-  const ids = appFriendView.friendNavigationIds(friendViewSections, null);
+  const ids = appFriendView.friendNavigationIds(
+    friendViewSections,
+    null,
+    friendViewNavigationOptions(),
+  );
   if (!ids.length) {
     return;
   }
@@ -14280,6 +14690,9 @@ function applyFriendHydratedRecord(movieId) {
   }
   if (detailMovieId === movieId) {
     renderDetail();
+  }
+  if (typeof scheduleResortAfterHydration === "function") {
+    scheduleResortAfterHydration();
   }
 }
 
@@ -14322,22 +14735,10 @@ function friendDetailNoteHtml(movieId) {
     return "";
   }
   const names = appFriendView.friendListNamesForMovie(friendViewState, movieId);
-  const rating = appRatings.getRating(friendViewState.ratings, movieId);
-  const parts = [];
-  if (names.length) {
-    parts.push(`On their ${names.join(", ")}`);
-  }
-  if (rating != null) {
-    parts.push(`Friend rated ★ ${appRatings.formatUserRating(rating)}`);
-  }
-  const myRating = appRatings.getRating(userState.ratings, movieId);
-  if (myRating != null) {
-    parts.push(`You rated ★ ${appRatings.formatUserRating(myRating)}`);
-  }
-  if (!parts.length) {
-    return "";
-  }
-  return `<p class="friend-detail-note">${appCardHtml.escapeHtml(parts.join(" · "))}</p>`;
+  const listLine = names.length
+    ? `<p class="friend-detail-note-list">${appCardHtml.escapeHtml(`On their ${names.join(", ")}`)}</p>`
+    : "";
+  return `<div class="friend-detail-note">${listLine}${friendRatingChitHtml(movieId)}</div>`;
 }
 
 function onFriendViewSectionsClick(event) {
@@ -14369,6 +14770,48 @@ function onFriendViewSectionsKeydown(event) {
   }
   event.preventDefault();
   openDetail(Number(card.dataset.movieId));
+}
+
+/* ===== Friends index page ===== */
+
+/**
+ * Friends index page (#friends): compact roster and add-friend form.
+ */
+
+function renderFriendsIndex() {
+  if (!isFriendsIndexActive()) {
+    return;
+  }
+  syncAppViewChrome();
+  refreshAccountSection();
+  if (accountSyncEnabled()) {
+    refreshFriendsList();
+  }
+  if (friendsIndexEmptyEl) {
+    friendsIndexEmptyEl.hidden = !accountSyncEnabled();
+  }
+}
+
+function onFriendsInviteSubmit(event) {
+  event.preventDefault();
+  onAddFriend();
+}
+
+function navigateToFriendsIndex(options = {}) {
+  closeDetail({ popHistory: false });
+  if (typeof closeSettings === "function" && !settingsDialog.hidden) {
+    closeSettings();
+  }
+  if (typeof clearFriendViewState === "function") {
+    clearFriendViewState();
+  }
+  appView = "friendsIndex";
+  activeCustomListId = null;
+  if (options.pushHistory !== false) {
+    history.pushState({ appView: "friendsIndex" }, "", appFriendView.buildFriendsIndexHash());
+    markProgrammaticLocation();
+  }
+  renderFriendsIndex();
 }
 
 /* ===== Event wiring and startup ===== */
@@ -14411,12 +14854,8 @@ addMovieDialog.addEventListener("click", (event) => {
 });
 
 discoverEntryBtn?.addEventListener("click", openDiscover);
-friendsEntryBtn?.addEventListener("click", openFriends);
-friendsClose?.addEventListener("click", closeFriends);
-friendsDialog?.addEventListener("click", (event) => {
-  if (event.target.hasAttribute("data-close-friends")) {
-    closeFriends();
-  }
+friendsEntryBtn?.addEventListener("click", () => {
+  navigateToFriendsIndex();
 });
 
 discoverTabs?.addEventListener("click", onDiscoverTabClick);
@@ -14843,9 +15282,20 @@ customListDeleteDialog?.addEventListener("click", (event) => {
     closeCustomListDeleteConfirm();
   }
 });
+friendRemoveConfirmCancel?.addEventListener("click", closeFriendRemoveConfirm);
+friendRemoveConfirmOk?.addEventListener("click", () => {
+  confirmRemoveFriend();
+});
+friendRemoveConfirmDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-friend-remove-confirm")) {
+    closeFriendRemoveConfirm();
+  }
+});
 customListBackBtn?.addEventListener("click", () => {
   if (isFriendViewActive()) {
     navigateFromFriendView();
+  } else if (isFriendsIndexActive()) {
+    navigateToMain();
   } else if (isDiscoverActive()) {
     navigateToMain();
   } else if (isCustomListIndexActive()) {
@@ -14926,8 +15376,10 @@ accountDeletePassword.addEventListener("keydown", (event) => {
     onAccountDeleteConfirm();
   }
 });
-friendAddBtn.addEventListener("click", onAddFriend);
-friendsList.addEventListener("click", onFriendsListClick);
+friendAddBtn?.addEventListener("click", onAddFriend);
+document.getElementById("friends-invite-form")?.addEventListener("submit", onFriendsInviteSubmit);
+document.getElementById("friends-signin-btn")?.addEventListener("click", openSettings);
+friendsList?.addEventListener("click", onFriendsListClick);
 friendViewSectionsEl?.addEventListener("click", onFriendViewSectionsClick);
 friendViewSectionsEl?.addEventListener("keydown", onFriendViewSectionsKeydown);
 

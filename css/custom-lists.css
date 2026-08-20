@@ -25,6 +25,26 @@
   color: var(--accent);
 }
 
+.header-nav-btn--icon {
+  width: 1.75rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-nav-btn.is-active {
+  border-color: var(--accent-border);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.header-nav-btn.is-active:hover {
+  border-color: var(--accent-border);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent-dim) 88%, var(--panel-raised));
+}
+
 .toolbar-action-btn {
   display: flex;
   align-items: center;

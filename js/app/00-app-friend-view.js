@@ -6,6 +6,7 @@ const appFriendView = (function () {
    */
 
   const FRIEND_HASH_RE = /^#friend\/(\d+)$/;
+  const FRIENDS_INDEX_HASH = "#friends";
 
   function getLists() {
     if (typeof appLists !== "undefined") {
@@ -35,6 +36,15 @@ const appFriendView = (function () {
       throw new Error("Invalid friend user id");
     }
     return `#friend/${id}`;
+  }
+
+  function parseFriendsIndexHash(hash) {
+    const normalized = hash || "";
+    return normalized === FRIENDS_INDEX_HASH || normalized === `${FRIENDS_INDEX_HASH}/`;
+  }
+
+  function buildFriendsIndexHash() {
+    return FRIENDS_INDEX_HASH;
   }
 
   function friendListSections(friendState) {
@@ -99,6 +109,97 @@ const appFriendView = (function () {
     };
   }
 
+  function getSort() {
+    if (typeof appSort !== "undefined") {
+      return appSort;
+    }
+    if (typeof require === "function") {
+      return require("./sort");
+    }
+    throw new Error("appSort is not available");
+  }
+
+  function getRatings() {
+    if (typeof appRatings !== "undefined") {
+      return appRatings;
+    }
+    if (typeof require === "function") {
+      return require("./ratings");
+    }
+    throw new Error("appRatings is not available");
+  }
+
+  function getAddedAtLib() {
+    if (typeof appAddedAt !== "undefined") {
+      return appAddedAt;
+    }
+    if (typeof require === "function") {
+      return require("./added-at");
+    }
+    throw new Error("appAddedAt is not available");
+  }
+
+  function getViewingHistory() {
+    if (typeof appViewingHistory !== "undefined") {
+      return appViewingHistory;
+    }
+    if (typeof require === "function") {
+      return require("./viewing-history");
+    }
+    throw new Error("appViewingHistory is not available");
+  }
+
+  function friendSortContext(sectionMovieIds, viewerState, _friendState, runtimeContext = {}) {
+    const sortLib = getSort();
+    const sortMode = runtimeContext.sortMode ?? sortLib.DEFAULT_PREFERENCE_SORT;
+    const getRecord =
+      typeof runtimeContext.getRecord === "function" ? runtimeContext.getRecord : () => null;
+    const ratingsLib = getRatings();
+    const addedAtLib = getAddedAtLib();
+    const viewingHistoryLib = getViewingHistory();
+
+    const sortContext = {
+      getRecord,
+      getUserRating: (id) => ratingsLib.getRating(viewerState?.ratings, id),
+      getFriendRating: (id) => ratingsLib.getRating(_friendState?.ratings, id),
+      getAddedAt: (id) => addedAtLib.getAddedAt(viewerState?.addedAt, id),
+      getWatchedOn: (id) => viewingHistoryLib.latestViewingDate(viewerState?.viewingHistory, id),
+    };
+
+    const joinOrder = sortLib.buildOrderIndex(sectionMovieIds);
+    sortContext.getListJoinIndex = (id) => joinOrder.get(Number(id)) ?? null;
+
+    if (sortLib.getSortField(sortMode) === "watched") {
+      const latestByMovie = new Map();
+      const normalized = viewingHistoryLib.normalizeViewingHistory(viewerState?.viewingHistory);
+      for (const [movieId, entries] of Object.entries(normalized)) {
+        let latest = null;
+        for (const entry of entries) {
+          if (!entry.deletedAt && (!latest || entry.watchedOn > latest)) {
+            latest = entry.watchedOn;
+          }
+        }
+        if (latest) {
+          latestByMovie.set(Number(movieId), latest);
+        }
+      }
+      sortContext.getWatchedOn = (id) => latestByMovie.get(Number(id)) ?? null;
+    }
+
+    return sortContext;
+  }
+
+  function friendSectionSortedIds(section, sortMode, viewerState, friendState, runtimeContext = {}) {
+    return getSort().sortMovieIds(
+      section.movieIds,
+      sortMode,
+      friendSortContext(section.movieIds, viewerState, friendState, {
+        ...runtimeContext,
+        sortMode,
+      }),
+    );
+  }
+
   function friendSectionContainingMovie(sections, movieId) {
     const id = Number(movieId);
     if (!Number.isInteger(id) || id <= 0) {
@@ -112,14 +213,26 @@ const appFriendView = (function () {
     return null;
   }
 
-  function friendNavigationIds(sections, movieId) {
+  function friendNavigationIds(sections, movieId, options = {}) {
+    const sortMode = options.sortMode ?? null;
+    const viewerState = options.viewerState ?? null;
+    const friendState = options.friendState ?? null;
+    const runtimeContext = options.runtimeContext ?? {};
+
+    function idsForSection(section) {
+      if (sortMode == null) {
+        return [...section.movieIds];
+      }
+      return friendSectionSortedIds(section, sortMode, viewerState, friendState, runtimeContext);
+    }
+
     if (movieId != null) {
       const section = friendSectionContainingMovie(sections, movieId);
       if (section) {
-        return [...section.movieIds];
+        return idsForSection(section);
       }
     }
-    return sections.flatMap((section) => section.movieIds);
+    return sections.flatMap((section) => idsForSection(section));
   }
 
   function friendListNamesForMovie(friendState, movieId) {
@@ -135,8 +248,13 @@ const appFriendView = (function () {
   return {
     parseFriendHash,
     buildFriendHash,
+    parseFriendsIndexHash,
+    buildFriendsIndexHash,
+    FRIENDS_INDEX_HASH,
     friendListSections,
     friendOverviewStats,
+    friendSortContext,
+    friendSectionSortedIds,
     friendSectionContainingMovie,
     friendNavigationIds,
     friendListNamesForMovie,

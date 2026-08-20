@@ -23,7 +23,11 @@ function detailNavigationIds() {
     return discoverDisplayIds();
   }
   if (isFriendViewActive()) {
-    return appFriendView.friendNavigationIds(friendViewSections, detailMovieId);
+    return appFriendView.friendNavigationIds(
+      friendViewSections,
+      detailMovieId,
+      friendViewNavigationOptions(),
+    );
   }
   return renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
 }

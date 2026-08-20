@@ -2,45 +2,86 @@
  * Friend list page: fetch, overview, stacked section grids.
  */
 
-function friendCardRatingChipHtml(movieId) {
-  if (!friendViewState?.ratings) {
-    return "";
-  }
-  const rating = appRatings.getRating(friendViewState.ratings, movieId);
-  if (rating == null) {
-    return "";
-  }
-  const text = appRatings.formatUserRating(rating);
-  return `<span class="card-friend-rating" aria-label="Friend rating ${appCardHtml.escapeHtml(text)}" title="Friend">★ ${appCardHtml.escapeHtml(text)}</span>`;
+function friendRatingSegmentHtml(kind, text, empty) {
+  const labels = {
+    them: "Friend rating",
+    mine: "Your rating",
+    fan: "Fan rating",
+  };
+  const safe = appCardHtml.escapeHtml(text);
+  const emptyClass = empty ? " is-empty" : "";
+  return `<span class="friend-rating-segment friend-rating-segment--${kind}${emptyClass}" aria-label="${labels[kind]} ${safe}" title="${labels[kind]}">${safe}</span>`;
 }
 
-function friendMyRatingChipHtml(movieId) {
-  const rating = appRatings.getRating(userState.ratings, movieId);
-  if (rating == null) {
-    return "";
-  }
-  const text = appRatings.formatUserRating(rating);
-  return `<span class="card-user-rating" aria-label="Your rating ${appCardHtml.escapeHtml(text)}" title="You">${appCardHtml.escapeHtml(text)}</span>`;
+function friendRatingChitHtml(movieId) {
+  const record = movieById.get(movieId) ?? localMovieRecord(movieId);
+  const friendRating = friendViewState?.ratings
+    ? appRatings.getRating(friendViewState.ratings, movieId)
+    : null;
+  const themText = friendRating != null ? appRatings.formatUserRating(friendRating) : "-";
+  const myRating = appRatings.getRating(userState.ratings, movieId);
+  const mineText = myRating != null ? appRatings.formatUserRating(myRating) : "-";
+  const fanLabel = record ? appCardHtml.formatRating(record.voteAverage) : "";
+  const fanText = fanLabel || "-";
+  return `<div class="friend-rating-chit card-body-ratings card-body-ratings--friend" aria-label="Ratings friend ${themText}, yours ${mineText}, fan ${fanText}">
+    ${friendRatingSegmentHtml("them", themText, friendRating == null)}
+    ${friendRatingSegmentHtml("mine", mineText, false)}
+    ${friendRatingSegmentHtml("fan", fanText, !fanLabel)}
+  </div>`;
 }
 
-function friendCardRatingsHtml(movieId) {
-  const friend = friendCardRatingChipHtml(movieId);
-  const mine = friendMyRatingChipHtml(movieId);
-  if (!friend && !mine) {
-    return "";
+function friendIsRatingSortField(field) {
+  return field === "user-rating" || field === "friend-rating" || field === "rating";
+}
+
+function friendShowsRatingChit() {
+  const field = appSort.getSortField(userState.preferences.sort);
+  return (
+    friendIsRatingSortField(field) ||
+    field === "custom" ||
+    field === "title" ||
+    field === "added"
+  );
+}
+
+function friendReleaseYearFooterHtml(movieId) {
+  const record = movieById.get(movieId) ?? localMovieRecord(movieId);
+  const year = record ? appCardHtml.formatYear(record.releaseDate) : "";
+  const text = year || "—";
+  const emptyClass = year ? "" : " is-empty";
+  return `<span class="card-footer-main${emptyClass}" aria-label="Release year ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
+}
+
+function friendSortFooterContentHtml(movieId) {
+  if (friendShowsRatingChit()) {
+    return friendRatingChitHtml(movieId);
   }
-  return `<div class="card-body-ratings card-body-ratings--friend">${friend}${mine}</div>`;
+  const field = appSort.getSortField(userState.preferences.sort);
+  if (field === "year") {
+    return friendReleaseYearFooterHtml(movieId);
+  }
+  if (field === "watched") {
+    return cardWatchDateFooterHtml(movieId);
+  }
+  return friendRatingChitHtml(movieId);
+}
+
+function friendCardDetailTrailingHtml(movieId) {
+  return friendRatingChitHtml(movieId);
 }
 
 function friendCardFooterHtml(movieId) {
   if (gridViewMode !== "cards") {
     return "";
   }
-  const ratings = friendCardRatingsHtml(movieId);
-  if (!ratings) {
+  const content = friendSortFooterContentHtml(movieId);
+  if (!content) {
     return "";
   }
-  return `<div class="card-footer card-footer--friend">${ratings}</div>`;
+  if (friendShowsRatingChit()) {
+    return `<div class="card-footer card-footer--friend">${content}</div>`;
+  }
+  return `<div class="card-footer card-footer--sort card-footer--friend"><div class="card-footer-sort">${content}</div></div>`;
 }
 
 function friendCardInnerHtml(movieId) {
@@ -53,18 +94,14 @@ function friendCardInnerHtml(movieId) {
   if (gridViewMode === "cards") {
     return `${posterWrapOpen(movieId)}${posterHtml(record, appTmdb.POSTER_SIZES.card)}</div>${friendCardFooterHtml(movieId)}`;
   }
-  const ratings = friendCardRatingsHtml(movieId);
+  const ratings = friendCardDetailTrailingHtml(movieId);
   return `${posterWrapOpen(movieId)}
   ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
 </div>
 <div class="card-body">
   <div class="card-text">
     <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>
-    ${
-      ratings
-        ? `<div class="card-meta-row"><div class="card-meta">${cardMetaHtml(record)}</div>${ratings}</div>`
-        : `<div class="card-meta">${cardMetaHtml(record)}</div>`
-    }
+    <div class="card-meta-row"><div class="card-meta">${cardMetaHtml(record)}</div>${ratings}</div>
   </div>
 </div>`;
 }
@@ -99,18 +136,19 @@ function friendMovieRowHtml(movieId) {
 }
 
 function friendRatingLegendHtml() {
+  if (!friendShowsRatingChit()) {
+    return "";
+  }
   return `<div class="friend-view-rating-legend" aria-label="Rating legend">
     <span class="friend-view-rating-legend-label">Ratings</span>
-    <ul class="friend-view-rating-legend-items">
-      <li class="friend-view-rating-legend-item">
-        <span class="friend-view-rating-legend-chip friend-view-rating-legend-chip--friend">★ 8.0</span>
-        <span class="friend-view-rating-legend-text">Their rating</span>
-      </li>
-      <li class="friend-view-rating-legend-item">
-        <span class="friend-view-rating-legend-chip friend-view-rating-legend-chip--mine">8.0</span>
-        <span class="friend-view-rating-legend-text">Your rating</span>
-      </li>
-    </ul>
+    <div class="friend-view-rating-legend-row">
+      <div class="friend-rating-chit friend-rating-chit--legend" aria-hidden="true">
+        <span class="friend-rating-segment friend-rating-segment--them">8.0</span>
+        <span class="friend-rating-segment friend-rating-segment--mine">7.5</span>
+        <span class="friend-rating-segment friend-rating-segment--fan">6.2</span>
+      </div>
+      <span class="friend-view-rating-legend-text">Friend · Yours · Fan</span>
+    </div>
   </div>`;
 }
 
@@ -129,6 +167,32 @@ function friendOverviewHtml(stats, name) {
   ${friendRatingLegendHtml()}`;
 }
 
+function friendViewSortRuntime() {
+  return {
+    getRecord: (id) => movieById.get(id) ?? localMovieRecord(id),
+    sortMode: userState.preferences.sort,
+  };
+}
+
+function friendViewNavigationOptions() {
+  return {
+    sortMode: userState.preferences.sort,
+    viewerState: userState,
+    friendState: friendViewState,
+    runtimeContext: friendViewSortRuntime(),
+  };
+}
+
+function friendDisplayIdsForSection(section) {
+  return appFriendView.friendSectionSortedIds(
+    section,
+    userState.preferences.sort,
+    userState,
+    friendViewState,
+    friendViewSortRuntime(),
+  );
+}
+
 function friendWatchedOverlapHtml(stats) {
   if (!stats || stats.overlapWatched <= 0) {
     return "";
@@ -142,7 +206,8 @@ function friendSectionHtml(section, stats) {
   const barClass = overlapHtml ? " friend-view-list-bar--has-overlap" : "";
   const collapsed = friendViewCollapsedSections.has(section.id);
   const bodyId = `friend-section-body-${section.id}`;
-  const rows = section.movieIds.map((id) => friendMovieRowHtml(id)).join("");
+  const displayIds = friendDisplayIdsForSection(section);
+  const rows = displayIds.map((id) => friendMovieRowHtml(id)).join("");
   return `<section class="friend-view-section" id="friend-section-${appCardHtml.escapeHtml(section.id)}" data-friend-section-id="${appCardHtml.escapeHtml(section.id)}">
     <div class="friend-view-list-card${collapsed ? " is-collapsed" : ""}">
       <div class="friend-view-list-bar${barClass}">
@@ -158,7 +223,7 @@ function friendSectionHtml(section, stats) {
             </svg>
           </span>
           <span class="friend-view-list-title">${appCardHtml.escapeHtml(section.name)}</span>
-          <span class="friend-view-list-count">${section.movieIds.length}</span>
+          <span class="friend-view-list-count">${displayIds.length}</span>
         </button>
         ${overlapHtml}
       </div>
@@ -213,9 +278,6 @@ function navigateToFriendView(userId, name, options = {}) {
   if (typeof closeSettings === "function" && !settingsDialog.hidden) {
     closeSettings();
   }
-  if (typeof closeFriends === "function" && !friendsDialog.hidden) {
-    closeFriends();
-  }
   appView = "friend";
   activeCustomListId = null;
   activeFriendId = id;
@@ -238,8 +300,7 @@ function navigateToFriendView(userId, name, options = {}) {
 }
 
 function navigateFromFriendView(options = {}) {
-  clearFriendViewState();
-  navigateToMain(options);
+  navigateToFriendsIndex(options);
 }
 
 async function loadFriendView(userId) {
@@ -275,7 +336,11 @@ async function loadFriendView(userId) {
 }
 
 function hydrateFriendView() {
-  const ids = appFriendView.friendNavigationIds(friendViewSections, null);
+  const ids = appFriendView.friendNavigationIds(
+    friendViewSections,
+    null,
+    friendViewNavigationOptions(),
+  );
   if (!ids.length) {
     return;
   }
@@ -298,6 +363,9 @@ function applyFriendHydratedRecord(movieId) {
   }
   if (detailMovieId === movieId) {
     renderDetail();
+  }
+  if (typeof scheduleResortAfterHydration === "function") {
+    scheduleResortAfterHydration();
   }
 }
 
@@ -340,22 +408,10 @@ function friendDetailNoteHtml(movieId) {
     return "";
   }
   const names = appFriendView.friendListNamesForMovie(friendViewState, movieId);
-  const rating = appRatings.getRating(friendViewState.ratings, movieId);
-  const parts = [];
-  if (names.length) {
-    parts.push(`On their ${names.join(", ")}`);
-  }
-  if (rating != null) {
-    parts.push(`Friend rated ★ ${appRatings.formatUserRating(rating)}`);
-  }
-  const myRating = appRatings.getRating(userState.ratings, movieId);
-  if (myRating != null) {
-    parts.push(`You rated ★ ${appRatings.formatUserRating(myRating)}`);
-  }
-  if (!parts.length) {
-    return "";
-  }
-  return `<p class="friend-detail-note">${appCardHtml.escapeHtml(parts.join(" · "))}</p>`;
+  const listLine = names.length
+    ? `<p class="friend-detail-note-list">${appCardHtml.escapeHtml(`On their ${names.join(", ")}`)}</p>`
+    : "";
+  return `<div class="friend-detail-note">${listLine}${friendRatingChitHtml(movieId)}</div>`;
 }
 
 function onFriendViewSectionsClick(event) {

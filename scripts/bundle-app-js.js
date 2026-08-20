@@ -188,6 +188,10 @@ const PARTS = [
     title: "Friend list page with overview",
   },
   {
+    file: "14-friends-index.js",
+    title: "Friends index page",
+  },
+  {
     file: "08-init.js",
     title: "Event wiring and startup",
   },

@@ -374,6 +374,34 @@ function listShowsReorderGrip() {
   );
 }
 
+const FRIEND_SORT_OPTION_VALUE = "friend-rating";
+
+function syncFriendSortSelectOption() {
+  if (!listSortSelect) {
+    return;
+  }
+  let option = listSortSelect.querySelector(`option[value="${FRIEND_SORT_OPTION_VALUE}"]`);
+  const showFriendOption =
+    isFriendViewActive() &&
+    !friendViewLoading &&
+    !friendViewError &&
+    friendViewSections.some((section) => section.movieIds.length > 0);
+  if (showFriendOption) {
+    if (!option) {
+      option = document.createElement("option");
+      option.value = FRIEND_SORT_OPTION_VALUE;
+      const userRatingOption = listSortSelect.querySelector('option[value="user-rating"]');
+      if (userRatingOption?.nextSibling) {
+        listSortSelect.insertBefore(option, userRatingOption.nextSibling);
+      } else {
+        listSortSelect.appendChild(option);
+      }
+    }
+    return;
+  }
+  option?.remove();
+}
+
 function syncSortSelectLabels() {
   const options = listSortSelect?.options;
   if (!options?.length) {
@@ -387,28 +415,37 @@ function syncSortSelectLabels() {
 }
 
 function syncSortControlUi() {
-  const show =
+  const showOnMain =
     !isDiscoverActive() &&
     !isFriendViewActive() &&
     usesWatchedStyleDisplay() &&
     activeMovieIds().length > 0 &&
     hasMovieData();
+  const showOnFriend =
+    isFriendViewActive() &&
+    !friendViewLoading &&
+    !friendViewError &&
+    friendViewSections.some((section) => section.movieIds.length > 0);
+  const show = showOnMain || showOnFriend;
+  syncFriendSortSelectOption();
   const sort = userState.preferences.sort;
+  const sortField = appSort.getSortField(
+    isFriendViewActive() ? sort : appSort.resolveSortMode(sort),
+  );
   if (sortControl) {
     sortControl.hidden = !show;
   }
   if (listSortSelect) {
     if (show) {
-      listSortSelect.value = appSort.getSortField(sort);
+      listSortSelect.value = sortField;
     }
   }
   if (sortReverseBtn) {
     sortReverseBtn.hidden = !show;
     const descending = appSort.isSortDescending(sort);
-    const field = appSort.getSortField(sort);
     sortReverseBtn.classList.toggle("is-descending", descending);
     sortReverseBtn.classList.toggle("is-ascending", !descending);
-    const directionLabel = appSort.sortDirectionLabel(field, descending);
+    const directionLabel = appSort.sortDirectionLabel(sortField, descending);
     sortReverseBtn.title = `${directionLabel} · click to reverse`;
     sortReverseBtn.setAttribute(
       "aria-label",
@@ -584,6 +621,12 @@ function syncHeaderViewTitle() {
     headerTitleEl.hidden = true;
     return;
   }
+  if (isFriendsIndexActive()) {
+    customListViewTitleEl.textContent = "Friends";
+    customListViewTitleEl.hidden = false;
+    headerTitleEl.hidden = true;
+    return;
+  }
   if (isCustomListDetailActive()) {
     customListViewTitleEl.textContent = getActiveDisplayContext().listName;
     customListViewTitleEl.hidden = false;
@@ -618,6 +661,12 @@ function updateListHeader() {
     listSubtitleEl.textContent = "Create and manage custom lists";
     return;
   }
+  if (isFriendsIndexActive()) {
+    listSubtitleEl.textContent = accountSyncEnabled()
+      ? "Add friends by email, then open their shared lists"
+      : "Sign in to connect with friends";
+    return;
+  }
   if (isFriendViewActive()) {
     if (friendViewLoading) {
       listSubtitleEl.textContent = "Loading their lists…";
@@ -628,7 +677,11 @@ function updateListHeader() {
       return;
     }
     if (friendViewSections.length) {
-      listSubtitleEl.textContent = "Tap a movie to open details and add to your lists";
+      const sortField = appSort.getSortField(userState.preferences.sort);
+      listSubtitleEl.textContent =
+        sortField === "custom"
+          ? "Tap a movie to open details and add to your lists"
+          : "Tap a movie to open details and add to your lists · sorted view";
       return;
     }
     listSubtitleEl.textContent = "No shared lists yet";
@@ -754,6 +807,10 @@ function render() {
     renderFriendView();
     return;
   }
+  if (isFriendsIndexActive()) {
+    renderFriendsIndex();
+    return;
+  }
   if (isCustomListIndexActive()) {
     syncAppViewChrome();
     renderCustomListsIndex();
@@ -795,10 +852,13 @@ function applyHydratedRecord(movieId, options = {}) {
 }
 
 function needsResortAfterHydration() {
+  const field = appSort.getSortField(userState.preferences.sort);
+  if (isFriendViewActive()) {
+    return field === "title" || field === "year" || field === "rating";
+  }
   if (!getActiveDisplayContext().sortable) {
     return false;
   }
-  const field = appSort.getSortField(userState.preferences.sort);
   return field === "title" || field === "year" || field === "rating";
 }
 
@@ -892,6 +952,10 @@ function scheduleResortAfterHydration() {
   }
   rowHydrateResortTimer = setTimeout(() => {
     rowHydrateResortTimer = 0;
+    if (isFriendViewActive()) {
+      renderFriendView();
+      return;
+    }
     reorderGridRows();
   }, 300);
 }

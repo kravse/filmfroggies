@@ -15,6 +15,8 @@ const SORT_MODES = new Set([
   "rating-asc",
   "user-rating-desc",
   "user-rating-asc",
+  "friend-rating-desc",
+  "friend-rating-asc",
   "title-asc",
   "title-desc",
 ]);
@@ -23,7 +25,15 @@ const DEFAULT_SORT = "custom";
 const DEFAULT_PREFERENCE_SORT = "user-rating-desc";
 const MISSING_SORT_HINT = "—";
 
-const SORT_FIELDS = new Set(["added", "watched", "year", "rating", "user-rating", "title"]);
+const SORT_FIELDS = new Set([
+  "added",
+  "watched",
+  "year",
+  "rating",
+  "user-rating",
+  "friend-rating",
+  "title",
+]);
 
 const SORT_FIELD_DEFAULTS = {
   added: "added-desc",
@@ -31,6 +41,7 @@ const SORT_FIELD_DEFAULTS = {
   year: "year-desc",
   rating: "rating-desc",
   "user-rating": "user-rating-desc",
+  "friend-rating": "friend-rating-desc",
   title: "title-desc",
 };
 
@@ -40,6 +51,7 @@ const SORT_FIELD_LABELS = {
   watched: "Date Watched",
   year: "Release Year",
   rating: "Fan Rating",
+  "friend-rating": "Friend Rating",
   title: "Title",
 };
 
@@ -49,6 +61,7 @@ const SORT_FIELD_LABELS_SHORT = {
   watched: "Watched",
   year: "Year",
   rating: "Fan Rating",
+  "friend-rating": "Friend Rating",
   title: "Title",
 };
 
@@ -81,6 +94,9 @@ function getSortField(mode) {
   }
   if (normalized.startsWith("user-rating-")) {
     return "user-rating";
+  }
+  if (normalized.startsWith("friend-rating-")) {
+    return "friend-rating";
   }
   if (normalized.startsWith("rating-")) {
     return "rating";
@@ -121,6 +137,14 @@ function sortModeForField(field, currentMode) {
   return SORT_FIELD_DEFAULTS[field] || DEFAULT_PREFERENCE_SORT;
 }
 
+function resolveSortMode(mode, { friendView = false } = {}) {
+  const normalized = normalizeSort(mode);
+  if (!friendView && getSortField(normalized) === "friend-rating") {
+    return isSortDescending(normalized) ? "user-rating-desc" : "user-rating-asc";
+  }
+  return normalized;
+}
+
 /** Watched preferences never keep custom; watchlist ignores sort entirely. */
 function normalizeWatchedSort(raw, fallback = DEFAULT_PREFERENCE_SORT) {
   const normalized = normalizeSort(raw, fallback);
@@ -140,6 +164,7 @@ function sortDirectionLabel(field, descending) {
       return descending ? "Newest first" : "Oldest first";
     case "rating":
       return descending ? "Highest first" : "Lowest first";
+    case "friend-rating":
     case "user-rating":
       return descending ? "Highest first" : "Lowest first";
     case "title":
@@ -253,6 +278,8 @@ function sortMovieIds(movieIds, mode, context = {}) {
   const getRecord = typeof context.getRecord === "function" ? context.getRecord : () => null;
   const getUserRating =
     typeof context.getUserRating === "function" ? context.getUserRating : () => null;
+  const getFriendRating =
+    typeof context.getFriendRating === "function" ? context.getFriendRating : () => null;
   const getAddedAt =
     typeof context.getAddedAt === "function" ? context.getAddedAt : () => null;
   const getWatchedOn =
@@ -332,6 +359,18 @@ function sortMovieIds(movieIds, mode, context = {}) {
     );
   }
 
+  if (normalized === "friend-rating-asc" || normalized === "friend-rating-desc") {
+    const direction = normalized === "friend-rating-asc" ? "asc" : "desc";
+    return copy.sort((a, b) =>
+      compareNullableNumber(
+        getFriendRating(a),
+        getFriendRating(b),
+        direction,
+        () => tiebreak(a, b),
+      ),
+    );
+  }
+
   return copy;
 }
 
@@ -367,6 +406,10 @@ function formatSortCardHint(mode, context = {}) {
     return formatUserRatingHint(context.userRating) || MISSING_SORT_HINT;
   }
 
+  if (normalized === "friend-rating-asc" || normalized === "friend-rating-desc") {
+    return formatUserRatingHint(context.friendRating) || MISSING_SORT_HINT;
+  }
+
   if (normalized === "title-asc" || normalized === "title-desc") {
     const title = String(record.title || "").trim();
     return title || MISSING_SORT_HINT;
@@ -390,6 +433,7 @@ module.exports = {
   sortModeForField,
   sortDirectionLabel,
   getSortFieldLabel,
+  resolveSortMode,
   parseYear,
   parseAddedTime,
   formatAddedHint,

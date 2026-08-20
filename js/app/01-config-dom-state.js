@@ -112,8 +112,8 @@ const settingsTabConfig = document.getElementById("settings-tab-config");
 const settingsPanelAccount = document.getElementById("settings-panel-account");
 const settingsPanelConfig = document.getElementById("settings-panel-config");
 const settingsFriendsSignin = document.getElementById("settings-friends-signin");
-const friendsDialog = document.getElementById("friends-dialog");
-const friendsClose = document.getElementById("friends-close");
+const friendsIndexEl = document.getElementById("friends-index");
+const friendsIndexEmptyEl = document.getElementById("friends-index-empty");
 
 const accountFields = document.getElementById("account-fields");
 const accountAuthFields = document.getElementById("account-auth-fields");
@@ -144,6 +144,10 @@ const friendEmailInput = document.getElementById("friend-email-input");
 const friendAddBtn = document.getElementById("friend-add");
 const friendsList = document.getElementById("friends-list");
 const friendsStatus = document.getElementById("friends-status");
+const friendRemoveConfirmDialog = document.getElementById("friend-remove-confirm-dialog");
+const friendRemoveConfirmMessage = document.getElementById("friend-remove-confirm-message");
+const friendRemoveConfirmCancel = document.getElementById("friend-remove-confirm-cancel");
+const friendRemoveConfirmOk = document.getElementById("friend-remove-confirm-ok");
 
 const friendViewEl = document.getElementById("friend-view");
 const friendViewOverview = document.getElementById("friend-view-overview");
@@ -260,6 +264,7 @@ let watchConfirmWatchDateActive = false;
 let pendingDiscoverAddMovieId = null;
 let pendingDiscoverAddListId = null;
 let pendingCustomListDeleteId = null;
+let pendingFriendRemoveId = null;
 let tmdbCredential = "";
 
 /** "main" | "customIndex" | "customDetail" | "discover" | "friend" */
@@ -284,6 +289,10 @@ function isCustomListDetailActive() {
 
 function isCustomListView() {
   return isCustomListIndexActive() || isCustomListDetailActive();
+}
+
+function isFriendsIndexActive() {
+  return appView === "friendsIndex";
 }
 
 function isFriendViewActive() {
@@ -377,7 +386,7 @@ function displayMovieIds() {
       const joinOrder = appSort.buildOrderIndex(ctx.movieIds);
       sortContext.getListJoinIndex = (id) => joinOrder.get(Number(id)) ?? null;
     }
-    return appSort.sortMovieIds(ids, userState.preferences.sort, sortContext);
+    return appSort.sortMovieIds(ids, appSort.resolveSortMode(userState.preferences.sort), sortContext);
   }
   return ids;
 }

@@ -36,12 +36,8 @@ addMovieDialog.addEventListener("click", (event) => {
 });
 
 discoverEntryBtn?.addEventListener("click", openDiscover);
-friendsEntryBtn?.addEventListener("click", openFriends);
-friendsClose?.addEventListener("click", closeFriends);
-friendsDialog?.addEventListener("click", (event) => {
-  if (event.target.hasAttribute("data-close-friends")) {
-    closeFriends();
-  }
+friendsEntryBtn?.addEventListener("click", () => {
+  navigateToFriendsIndex();
 });
 
 discoverTabs?.addEventListener("click", onDiscoverTabClick);
@@ -468,9 +464,20 @@ customListDeleteDialog?.addEventListener("click", (event) => {
     closeCustomListDeleteConfirm();
   }
 });
+friendRemoveConfirmCancel?.addEventListener("click", closeFriendRemoveConfirm);
+friendRemoveConfirmOk?.addEventListener("click", () => {
+  confirmRemoveFriend();
+});
+friendRemoveConfirmDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-friend-remove-confirm")) {
+    closeFriendRemoveConfirm();
+  }
+});
 customListBackBtn?.addEventListener("click", () => {
   if (isFriendViewActive()) {
     navigateFromFriendView();
+  } else if (isFriendsIndexActive()) {
+    navigateToMain();
   } else if (isDiscoverActive()) {
     navigateToMain();
   } else if (isCustomListIndexActive()) {
@@ -551,8 +558,10 @@ accountDeletePassword.addEventListener("keydown", (event) => {
     onAccountDeleteConfirm();
   }
 });
-friendAddBtn.addEventListener("click", onAddFriend);
-friendsList.addEventListener("click", onFriendsListClick);
+friendAddBtn?.addEventListener("click", onAddFriend);
+document.getElementById("friends-invite-form")?.addEventListener("submit", onFriendsInviteSubmit);
+document.getElementById("friends-signin-btn")?.addEventListener("click", openSettings);
+friendsList?.addEventListener("click", onFriendsListClick);
 friendViewSectionsEl?.addEventListener("click", onFriendViewSectionsClick);
 friendViewSectionsEl?.addEventListener("keydown", onFriendViewSectionsKeydown);
 

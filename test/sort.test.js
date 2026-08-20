@@ -121,6 +121,21 @@ test("rating-desc and user-rating-desc sort high to low with unrated last", () =
   );
 });
 
+test("friend-rating-desc sorts by friend rating with unrated movies last", () => {
+  const records = [movie(1), movie(2), movie(3)];
+  const ctx = context(records);
+  ctx.getFriendRating = (id) => ({ 1: 6, 2: 9, 3: 7.5 }[id] ?? null);
+  assert.deepEqual(sortMovieIds([1, 2, 3], "friend-rating-desc", ctx), [2, 3, 1]);
+});
+
+test("resolveSortMode maps friend rating to user rating outside friend view", () => {
+  const { resolveSortMode, getSortField } = require("../scripts/lib/sort");
+  assert.equal(resolveSortMode("friend-rating-desc"), "user-rating-desc");
+  assert.equal(resolveSortMode("friend-rating-asc"), "user-rating-asc");
+  assert.equal(resolveSortMode("friend-rating-desc", { friendView: true }), "friend-rating-desc");
+  assert.equal(getSortField("friend-rating-desc"), "friend-rating");
+});
+
 test("title sorts ignore custom order", () => {
   const records = [
     movie(1, { title: "Charlie" }),

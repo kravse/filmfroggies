@@ -1766,19 +1766,13 @@ function closeSettings() {
 }
 
 function openFriends() {
-  refreshAccountSection();
-  friendsDialog.hidden = false;
-  friendsEntryBtn?.setAttribute("aria-expanded", "true");
-  if (accountSyncEnabled()) {
-    friendEmailInput?.focus({ preventScroll: true });
-  } else {
-    friendsClose?.focus({ preventScroll: true });
-  }
+  navigateToFriendsIndex();
 }
 
 function closeFriends() {
-  friendsDialog.hidden = true;
-  friendsEntryBtn?.setAttribute("aria-expanded", "false");
+  if (isFriendsIndexActive()) {
+    navigateToMain();
+  }
 }
 
 async function onClearCache() {
@@ -1971,39 +1965,60 @@ function friendDisplayName(friend) {
   return friend.displayName || friend.email;
 }
 
-function friendItemHtml(friend) {
+function friendInitial(friend) {
+  const name = friendDisplayName(friend).trim();
+  return (name[0] || "?").toUpperCase();
+}
+
+function friendRosterItemHtml(friend) {
   const name = appCardHtml.escapeHtml(friendDisplayName(friend));
+  const initial = appCardHtml.escapeHtml(friendInitial(friend));
   const pending = friend.status === "pending";
-  const meta = pending
-    ? friend.direction === "incoming"
-      ? "wants to be friends"
-      : "request sent"
-    : "";
-  const buttons = [];
-  if (pending && friend.direction === "incoming") {
-    buttons.push(
-      `<button type="button" class="primary-btn friend-btn" data-friend-action="accept" data-friend-id="${friend.id}">Accept</button>`,
-    );
+  const incoming = pending && friend.direction === "incoming";
+  const outgoing = pending && friend.direction === "outgoing";
+  const itemClass = pending ? " friends-roster-item--pending" : "";
+  const chipClass = pending ? " friends-roster-chip--pending" : "";
+
+  if (incoming) {
+    return `<li class="friends-roster-item${itemClass}">
+  <span class="friends-roster-chip${chipClass}">
+    <span class="friends-roster-avatar" aria-hidden="true">${initial}</span>
+    <span class="friends-roster-name">${name}</span>
+    <span class="friends-roster-tag">Incoming</span>
+  </span>
+  <button type="button" class="friends-roster-action" data-friend-action="accept" data-friend-id="${friend.id}">Accept</button>
+  <button type="button" class="friends-roster-icon-btn" data-friend-action="remove" data-friend-id="${friend.id}" aria-label="Decline ${name}">×</button>
+</li>`;
   }
-  if (!pending) {
-    buttons.push(
-      `<button type="button" class="ghost-btn friend-btn" data-friend-action="view" data-friend-id="${friend.id}" data-friend-name="${name}">View lists</button>`,
-    );
+
+  if (outgoing) {
+    return `<li class="friends-roster-item${itemClass}">
+  <span class="friends-roster-chip${chipClass}">
+    <span class="friends-roster-avatar" aria-hidden="true">${initial}</span>
+    <span class="friends-roster-name">${name}</span>
+    <span class="friends-roster-tag">Pending</span>
+  </span>
+  <button type="button" class="friends-roster-icon-btn" data-friend-action="remove" data-friend-id="${friend.id}" aria-label="Cancel request for ${name}">×</button>
+</li>`;
   }
-  buttons.push(
-    `<button type="button" class="ghost-btn friend-btn" data-friend-action="remove" data-friend-id="${friend.id}">${pending && friend.direction === "outgoing" ? "Cancel" : "Remove"}</button>`,
-  );
-  return `<li class="friend-item"><span class="friend-name">${name}</span><span class="friend-meta">${meta}</span><span class="friend-actions">${buttons.join("")}</span></li>`;
+
+  return `<li class="friends-roster-item">
+  <button type="button" class="friends-roster-chip" data-friend-action="view" data-friend-id="${friend.id}" data-friend-name="${name}" aria-label="Open ${name}'s lists">
+    <span class="friends-roster-avatar" aria-hidden="true">${initial}</span>
+    <span class="friends-roster-name">${name}</span>
+  </button>
+  <button type="button" class="friends-roster-icon-btn" data-friend-action="remove" data-friend-id="${friend.id}" data-friend-name="${name}" aria-label="Remove ${name}">×</button>
+</li>`;
 }
 
 async function refreshFriendsList() {
-  friendsList.innerHTML = '<li class="gist-backup-empty">Loading…</li>';
+  friendsList.innerHTML = '<li class="friends-roster-empty">Loading friends…</li>';
   try {
     const body = await fetchFriends();
     const friends = body?.friends || [];
     friendsList.innerHTML = friends.length
-      ? friends.map(friendItemHtml).join("")
-      : '<li class="gist-backup-empty">No friends yet. Add one by email above.</li>';
+      ? friends.map(friendRosterItemHtml).join("")
+      : '<li class="friends-roster-empty">No friends yet. Add someone by email above.</li>';
     setStatus(friendsStatus, "", null);
   } catch (error) {
     friendsList.innerHTML = "";
@@ -2027,7 +2042,7 @@ async function onAddFriend() {
     friendEmailInput.value = "";
     setStatus(
       friendsStatus,
-      "Request sent. If they have an account, they can accept it from Settings → Friends.",
+      "Request sent. They can accept it from their Friends page.",
       "ok",
     );
     refreshFriendsList();
@@ -2035,6 +2050,35 @@ async function onAddFriend() {
     setStatus(friendsStatus, error.message, "error");
   } finally {
     friendAddBtn.disabled = false;
+  }
+}
+
+function requestRemoveFriendConfirm(friendId, name) {
+  pendingFriendRemoveId = friendId;
+  friendRemoveConfirmMessage.textContent = `Remove ${name} as a friend? You can send a new request later.`;
+  friendRemoveConfirmDialog.hidden = false;
+  friendRemoveConfirmCancel.focus({ preventScroll: true });
+}
+
+function closeFriendRemoveConfirm() {
+  pendingFriendRemoveId = null;
+  friendRemoveConfirmDialog.hidden = true;
+}
+
+async function confirmRemoveFriend() {
+  const friendId = pendingFriendRemoveId;
+  closeFriendRemoveConfirm();
+  if (!friendId) {
+    return;
+  }
+  try {
+    await removeFriend(friendId);
+    if (isFriendViewActive() && activeFriendId === friendId) {
+      navigateFromFriendView();
+    }
+    refreshFriendsList();
+  } catch (error) {
+    setStatus(friendsStatus, error.message, "error");
   }
 }
 
@@ -2050,8 +2094,12 @@ async function onFriendsListClick(event) {
       await acceptFriend(friendId);
       refreshFriendsList();
     } else if (action === "remove") {
-      await removeFriend(friendId);
-      refreshFriendsList();
+      if (button.closest(".friends-roster-item--pending")) {
+        await removeFriend(friendId);
+        refreshFriendsList();
+      } else {
+        requestRemoveFriendConfirm(friendId, button.dataset.friendName || "this friend");
+      }
     } else if (action === "view") {
       navigateToFriendView(friendId, button.dataset.friendName || "Friend");
     }

@@ -6,6 +6,7 @@ const {
   buildFriendHash,
   friendListSections,
   friendOverviewStats,
+  friendSectionSortedIds,
   friendSectionContainingMovie,
   friendNavigationIds,
 } = require("../scripts/lib/friend-view");
@@ -70,4 +71,63 @@ test("friendNavigationIds prefers the section containing the active movie", () =
   assert.deepEqual(friendNavigationIds(sections, 3), [3, 4]);
   assert.deepEqual(friendNavigationIds(sections, null), [1, 2, 3, 4]);
   assert.equal(friendSectionContainingMovie(sections, 2)?.id, "watched");
+});
+
+test("friendSectionSortedIds applies the same sort mode within a section", () => {
+  const section = { id: "watched", name: "Watched", movieIds: [1, 2, 3] };
+  const viewerState = defaultUserState();
+  viewerState.ratings = { 1: 5, 2: 9, 3: 7 };
+  const friendState = { lists: [], customLists: [], ratings: {} };
+  const runtimeContext = {
+    getRecord: (id) => ({ id, title: `Movie ${id}`, voteAverage: id }),
+    sortMode: "user-rating-desc",
+  };
+  assert.deepEqual(
+    friendSectionSortedIds(section, "user-rating-desc", viewerState, friendState, runtimeContext),
+    [2, 3, 1],
+  );
+});
+
+test("friendNavigationIds respects the active sort mode within a section", () => {
+  const sections = [
+    { id: "watched", name: "Watched", movieIds: [1, 2, 3] },
+    { id: "watchlist", name: "Watchlist", movieIds: [4] },
+  ];
+  const viewerState = defaultUserState();
+  viewerState.ratings = { 1: 5, 2: 9, 3: 7, 4: 6 };
+  const friendState = { lists: [], customLists: [], ratings: {} };
+  const runtimeContext = {
+    getRecord: (id) => ({ id, title: `Movie ${id}`, voteAverage: id }),
+    sortMode: "user-rating-desc",
+  };
+  const options = { sortMode: "user-rating-desc", viewerState, friendState, runtimeContext };
+  assert.deepEqual(friendNavigationIds(sections, 2, options), [2, 3, 1]);
+  assert.deepEqual(friendNavigationIds(sections, null, options), [2, 3, 1, 4]);
+});
+
+test("parseFriendsIndexHash recognizes the friends page hash", () => {
+  const { parseFriendsIndexHash, buildFriendsIndexHash, FRIENDS_INDEX_HASH } = require("../scripts/lib/friend-view");
+  assert.equal(FRIENDS_INDEX_HASH, "#friends");
+  assert.equal(parseFriendsIndexHash("#friends"), true);
+  assert.equal(parseFriendsIndexHash("#friends/"), true);
+  assert.equal(parseFriendsIndexHash("#friend/42"), false);
+  assert.equal(buildFriendsIndexHash(), "#friends");
+});
+
+test("friendSectionSortedIds can sort by friend rating", () => {
+  const section = { id: "watched", name: "Watched", movieIds: [1, 2, 3] };
+  const viewerState = defaultUserState();
+  const friendState = {
+    lists: [],
+    customLists: [],
+    ratings: { 1: 6, 2: 9, 3: 7.5 },
+  };
+  const runtimeContext = {
+    getRecord: (id) => ({ id, title: `Movie ${id}`, voteAverage: id }),
+    sortMode: "friend-rating-desc",
+  };
+  assert.deepEqual(
+    friendSectionSortedIds(section, "friend-rating-desc", viewerState, friendState, runtimeContext),
+    [2, 3, 1],
+  );
 });
