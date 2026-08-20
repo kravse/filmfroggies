@@ -677,6 +677,10 @@ body.view-friend .empty-state {
     padding: 0.5rem var(--layout-gutter) 0.65rem;
   }
 
+  body.view-friend.view-mode-detail .friend-view-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .friends-dock-invite {
     flex-wrap: wrap;
   }
