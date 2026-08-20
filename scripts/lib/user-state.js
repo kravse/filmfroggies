@@ -12,10 +12,11 @@ const USER_STATE_BACKUP_KEY = "moviecollector-user-state-backup";
 const GIST_SYNC_KEY = "moviecollector-gist-sync";
 const TMDB_AUTH_KEY = "moviecollector-tmdb-auth";
 const HOSTED_SESSION_KEY = "moviecollector-hosted-session";
+const ACCOUNT_KEY = "moviecollector-account";
 const USER_STATE_VERSION = 4;
 
 const VIEW_MODES = new Set(["cards", "detail"]);
-const STORAGE_MODES = new Set(["local", "gist"]);
+const STORAGE_MODES = new Set(["local", "gist", "account"]);
 
 function getLists() {
   if (typeof appLists !== "undefined") {
@@ -259,6 +260,7 @@ module.exports = {
   GIST_SYNC_KEY,
   TMDB_AUTH_KEY,
   HOSTED_SESSION_KEY,
+  ACCOUNT_KEY,
   USER_STATE_VERSION,
   defaultUserState,
   normalizePreferences,

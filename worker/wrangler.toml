@@ -1,0 +1,18 @@
+name = "cinequeue-api"
+main = "src/index.js"
+compatibility_date = "2026-08-20"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cinequeue"
+database_id = "e8fd9017-45e1-4abb-aa97-32e9db8ffbf1"
+
+# No [[ratelimits]] binding here on purpose: it deploys and reports success on
+# this account but never actually counts (verified with limit=1/10s letting four
+# back-to-back requests through), so auth throttling is counted in D1 instead.
+#
+# Secrets (wrangler secret put … — never commit values):
+#   SESSION_SECRET       — required; signs login sessions
+#   SIGNUP_INVITE_CODE   — required for new signups; shared invite password
+#   TMDB_READ_TOKEN      — optional today; for future TMDB cache on Worker
+#   ALLOWED_ORIGINS      — optional; extra CORS origins, comma-separated

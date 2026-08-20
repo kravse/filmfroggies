@@ -10,6 +10,7 @@ const express = require("express");
 const path = require("path");
 
 const { bundleLetterboxdTool } = require("./bundle-letterboxd-tool");
+const { blockInternalStaticPaths } = require("./lib/static-guard");
 
 const ROOT = path.join(__dirname, "..");
 const PORT = Number(process.env.LETTERBOXD_TOOL_PORT) || 8744;
@@ -32,6 +33,7 @@ function openBrowser(url) {
 function startToolServer() {
   bundleLetterboxdTool();
   const app = express();
+  app.use(blockInternalStaticPaths);
   app.use(
     express.static(ROOT, {
       extensions: ["html"],

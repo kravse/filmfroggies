@@ -391,6 +391,7 @@ const APP_SYNC_ENTRIES = [
       "GIST_SYNC_KEY",
       "TMDB_AUTH_KEY",
       "HOSTED_SESSION_KEY",
+      "ACCOUNT_KEY",
       "USER_STATE_VERSION",
       "defaultUserState",
       "normalizePreferences",
@@ -441,6 +442,20 @@ const APP_SYNC_ENTRIES = [
       "buildBackupGistCreatePayload",
       "buildBackupGistUpdatePayload",
       "extractBackupContent",
+    ],
+  },
+  {
+    sources: [path.join(LIB, "account-sync.js")],
+    target: "00-app-account-sync.js",
+    globalName: "appAccountSync",
+    header: "Generated from scripts/lib/account-sync.js — run npm run bundle",
+    exports: [
+      "ACCOUNT_API_DIRECT",
+      "ACCOUNT_API_PROXIED",
+      "resolveAccountApiBase",
+      "parseAccountConfig",
+      "serializeAccountConfig",
+      "isConnectedAccountConfig",
     ],
   },
   {

@@ -13,6 +13,11 @@
   to = "/.netlify/functions/tmdb"
   status = 200
 
+[[redirects]]
+  from = "/api/backend/*"
+  to = "https://cinequeue-api.cinequeue.workers.dev/api/:splat"
+  status = 200
+
 [[headers]]
   for = "/*"
   [headers.values]

@@ -1,6 +1,6 @@
 # CineQueue
 
-Search [TMDB](https://www.themoviedb.org/), add movies to ordered lists, and browse them as a cover grid or a detail-style layout. No account and no backend — your lists live in the browser, with optional sync to a private GitHub Gist.
+Search [TMDB](https://www.themoviedb.org/), add movies to ordered lists, and browse them as a cover grid or a detail-style layout. No account required — your lists live in the browser by default, with optional sync to a private GitHub Gist or a **CineQueue account** (Cloudflare Worker + D1).
 
 ## How it works
 
@@ -99,7 +99,7 @@ A movie can be on any combination of Watched, Watchlist, and custom lists. Custo
 
 ### Footer
 
-**Settings** (bottom left): TMDB token, optional Gist sync, import/export CSV, clear cached movie/poster data, hosted-access lock (Netlify only).
+**Settings** (bottom left): TMDB token, collection storage (this device / GitHub Gist / Account), import/export CSV, clear cached movie/poster data, hosted-access lock (Netlify only).
 
 **About** (bottom right): short description and TMDB attribution.
 
@@ -113,9 +113,11 @@ A movie can be on any combination of Watched, Watchlist, and custom lists. Custo
 
 **Automatic backups** (when Gist sync is connected): a separate private gist holds up to five immutable snapshots in `moviecollector-backups.json`. A new snapshot is appended on load when the latest is older than 20 minutes. Restore replaces local state and re-syncs.
 
+**Account sync:** Settings → Collection storage → **Account**. Sign up or log in with email and password; new signups also need the invite code you were given. Lists sync through the CineQueue backend (see [Account backend](#account-backend-cloudflare-worker--d1)). Friends can browse each other's lists once both sides accept a request. The session token stays in this browser and is never part of the synced payload — same rule as the Gist PAT and TMDB token.
+
 ## User state (what gets saved)
 
-Stored under `moviecollector-user-state` (and optionally synced to Gist). Movie records from TMDB are **not** part of this payload.
+Stored under `moviecollector-user-state` (and optionally synced to Gist or a CineQueue account). Movie records from TMDB are **not** part of this payload.
 
 | Field | Role |
 |-------|------|
@@ -128,7 +130,7 @@ Stored under `moviecollector-user-state` (and optionally synced to Gist). Movie 
 | `viewingHistory` | `{ movieId → viewing[] }` — optional dated viewings; opt in when adding to Watched or marking watched from the watchlist, or add later from the detail overlay |
 | `preferences` | `{ viewMode: "cards"\|"detail", sort: "<mode>" }` |
 | `activeListId` | Which preset tab was last active |
-| `storageMode` | `"local"` or `"gist"` |
+| `storageMode` | `"local"`, `"gist"`, or `"account"` |
 | `updatedAt` | Payload touch time; **not** used for per-movie merge |
 
 ### Browser storage keys
@@ -140,6 +142,7 @@ Stored under `moviecollector-user-state` (and optionally synced to Gist). Movie 
 | `moviecollector-tmdb-auth` | TMDB read access token |
 | `moviecollector-hosted-session` | Opaque hosted-access session (Netlify only) |
 | `moviecollector-gist-sync` | `{ token, gistId, backupGistId }` when Gist sync is connected |
+| `moviecollector-account` | `{ token, email, userId, displayName }` when Account sync is connected |
 
 ### How sync avoids losing movies
 
@@ -153,6 +156,167 @@ A tab left open holds its own copy of your lists, so a naive "newest payload win
 - **Tabs self-heal.** Background tabs merge on focus.
 
 Recovery: every push creates a Gist revision; `moviecollector-user-state-backup` holds pre-merge state; automatic backups hold periodic snapshots.
+
+Account sync uses the same merge rules as Gist (read before write, per-movie stamps, serialized promise chain) against `GET`/`PUT /api/data` on the Worker.
+
+## Account backend (Cloudflare Worker + D1)
+
+The optional account feature is a small [Cloudflare Worker](https://developers.cloudflare.com/workers/) with a [D1](https://developers.cloudflare.com/d1/) SQLite database. It stores:
+
+- **Accounts** — email, PBKDF2 password hash, display name
+- **User data** — one JSON doc per user (same shape as Gist sync)
+- **Friends** — pending/accepted relationships; accepted friends can `GET` each other's docs
+
+Movie metadata still comes from the committed `data/` snapshot and TMDB. The Worker never sees your TMDB or GitHub tokens.
+
+### How the site reaches the Worker
+
+| Environment | API base | Notes |
+|-------------|----------|-------|
+| **Production** (`cinequeue.org`) | `/api/backend/…` | Netlify proxies to the Worker (see [`netlify.toml`](netlify.toml)) |
+| **Local dev** (`localhost:8743`) | Worker URL directly | CORS allowlist includes `http://localhost:8743` and `http://127.0.0.1:8743` |
+
+Configured in [`scripts/lib/account-sync.js`](scripts/lib/account-sync.js) (`ACCOUNT_API_DIRECT` for local dev, `ACCOUNT_API_PROXIED` for production). After changing the Worker URL, update that file and the Netlify redirect, then `npm run bundle`.
+
+### API surface
+
+All paths are under `/api`. Authenticated routes expect `Authorization: Bearer <token>`.
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `POST` | `/signup` | No | Create account (returns session token on success) |
+| `POST` | `/login` | No | Log in |
+| `GET` | `/me` | Yes | Current user profile |
+| `GET` | `/data` | Yes | Fetch synced list doc (`404` if never pushed) |
+| `PUT` | `/data` | Yes | Save list doc (max ~200 KB JSON) |
+| `GET` | `/friends` | Yes | List friends and pending requests |
+| `POST` | `/friends/request` | Yes | Send friend request by email |
+| `POST` | `/friends/{id}/accept` | Yes | Accept an incoming request |
+| `DELETE` | `/friends/{id}` | Yes | Remove friend or cancel outgoing pending request |
+| `DELETE` | `/account` | Yes | Delete account (body: `{ password }`; removes server data only) |
+| `GET` | `/friends/{id}/data` | Yes | Read an accepted friend's list doc |
+
+Implementation: [`worker/src/index.js`](worker/src/index.js). Schema: [`worker/schema.sql`](worker/schema.sql).
+
+### Wrangler setup (first deploy)
+
+You need a [Cloudflare account](https://dash.cloudflare.com/sign-up), the [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/), and a **verified account email** (deploy fails with error 10034 otherwise).
+
+```bash
+cd worker
+npm install          # installs nothing extra today; keeps test script local
+wrangler login
+```
+
+**1. Create a D1 database** (once per Cloudflare account / project):
+
+```bash
+wrangler d1 create cinequeue
+```
+
+Copy the `database_id` from the output into [`worker/wrangler.toml`](worker/wrangler.toml) under `[[d1_databases]]`.
+
+**2. Apply schema** (creates `users`, `user_data`, `friends`, `rate_limits`):
+
+```bash
+wrangler d1 execute cinequeue --remote --file=schema.sql
+```
+
+**3. Apply migrations** (if any exist under `worker/migrations/`):
+
+```bash
+wrangler d1 execute cinequeue --remote --file=migrations/001_rate_limits.sql
+```
+
+**4. Set secrets** (required):
+
+```bash
+# Random 32+ byte secret — used to sign session tokens
+openssl rand -base64 32 | wrangler secret put SESSION_SECRET
+
+# Shared invite password — required before anyone can create an account
+wrangler secret put SIGNUP_INVITE_CODE
+```
+
+When prompted for `SIGNUP_INVITE_CODE`, enter the password you will share privately with people allowed to register (not the same as anyone’s login password). Signups are **blocked** until this secret exists on the Worker.
+
+To rotate the invite code later: `wrangler secret put SIGNUP_INVITE_CODE` again with a new value, then `wrangler deploy`. Existing users can still log in; only new signups need the new code.
+
+**5. Deploy:**
+
+```bash
+wrangler deploy
+```
+
+Note the deployed URL (e.g. `https://cinequeue-api.<subdomain>.workers.dev`). Wire it into the static site:
+
+1. [`scripts/lib/account-sync.js`](scripts/lib/account-sync.js) — set `ACCOUNT_API_DIRECT` to `https://…/api`
+2. [`netlify.toml`](netlify.toml) — set the `/api/backend/*` redirect target to the same host
+3. `npm run bundle` and redeploy the static site
+
+### Wrangler day-to-day
+
+| Task | Command |
+|------|---------|
+| Deploy Worker changes | `cd worker && wrangler deploy` |
+| Run Worker unit tests | `cd worker && npm test` |
+| Local Worker dev server | `cd worker && wrangler dev` |
+| Local D1 (offline) | Add `--local` to `wrangler d1 execute …` and use `wrangler dev` with local D1 |
+| Inspect remote D1 | `wrangler d1 execute cinequeue --remote --command "SELECT COUNT(*) FROM users"` |
+| Tail live logs | `wrangler tail` |
+
+After editing [`worker/schema.sql`](worker/schema.sql) for an existing database, add a numbered file under `worker/migrations/` and apply it with `wrangler d1 execute cinequeue --remote --file=migrations/….sql` — do not rely on re-running the full schema on production.
+
+### Worker configuration
+
+[`worker/wrangler.toml`](worker/wrangler.toml):
+
+| Key | Purpose |
+|-----|---------|
+| `name` | Worker script name in Cloudflare |
+| `main` | Entry point (`src/index.js`) |
+| `compatibility_date` | Workers runtime pin |
+| `[[d1_databases]]` | Binds D1 as `env.DB` |
+
+Secrets and vars (set in Cloudflare, not committed):
+
+| Name | Required | Purpose |
+|------|----------|---------|
+| `SESSION_SECRET` | **Yes** | HMAC key for bearer session tokens (30-day lifetime) |
+| `SIGNUP_INVITE_CODE` | **Yes** | Shared invite password checked on `POST /api/signup` only |
+| `ALLOWED_ORIGINS` | No | Comma-separated extra CORS origins merged with the default allowlist |
+
+Default CORS origins (hardcoded): `https://cinequeue.org`, `http://localhost:8743`, `http://127.0.0.1:8743`.
+
+### Auth and limits
+
+- Passwords: PBKDF2-SHA256, 100k iterations, per-user salt
+- Sessions: signed bearer token in `Authorization` header; not stored server-side
+- Rate limits (by IP / email): signup 5/hr per IP; login 15/15 min per IP; 5 failed logins/15 min per email
+- **Closed signups:** new accounts require `SIGNUP_INVITE_CODE` in Settings → Account → Create account; wrong codes get the same neutral response as a duplicate email
+- Signup and friend-request responses are intentionally neutral (no email enumeration)
+
+Logout today clears the browser session only; tokens remain valid until expiry unless you add server-side revocation.
+
+### Using accounts locally
+
+```bash
+npm run serve    # http://localhost:8743
+```
+
+Open **Settings → Collection storage → Account**. Localhost talks to the deployed Worker URL directly (CORS must allow your dev origin — the defaults cover port **8743**).
+
+To run the Worker itself locally against a local D1:
+
+```bash
+cd worker
+wrangler d1 execute cinequeue --local --file=schema.sql
+wrangler secret put SESSION_SECRET   # prompts; needed for wrangler dev too
+wrangler secret put SIGNUP_INVITE_CODE
+wrangler dev
+```
+
+Point `ACCOUNT_API_DIRECT` at the `wrangler dev` URL while testing, then restore the production Worker URL before committing.
 
 ## Collection backup CSV
 
@@ -233,15 +397,16 @@ The `tools/` directory is served locally only and is **not** copied into `build/
 npm run build    # bundles JS, writes build/
 ```
 
-`build/` is a plain static directory — `index.html`, bundled `css/app.css`, fingerprinted `js/app-bundle.js`, `images/`, the committed `data/` snapshot, and a `noindex` robots file. Routing is hash-only; no SPA fallback is needed beyond [`netlify.toml`](netlify.toml) redirects for Netlify Functions.
+`build/` is a plain static directory — `index.html`, bundled `css/app.css`, fingerprinted `js/app-bundle.js`, `images/`, the committed `data/` snapshot, and a `noindex` robots file. Routing is hash-only; no SPA fallback is needed beyond [`netlify.toml`](netlify.toml) redirects for Netlify Functions and the account API proxy.
 
 Build details:
 
 - `npm run build` runs `npm run bundle` internally, then copies assets into `build/`
 - Production HTML links one CSS file and `js/app-bundle.js?v=<hash>` (12-char SHA-256 of file contents) for cache busting
 - [`netlify.toml`](netlify.toml) sets `Cache-Control: no-cache` on `index.html` and `must-revalidate` on `/js/*`
+- `/api/backend/*` is proxied to the Cloudflare Worker (account signup, login, sync, friends)
 
-Point any static host at `build/` if you are not using Netlify Functions.
+Point any static host at `build/` if you are not using Netlify Functions or the account proxy — Gist-only deploys still work; Account mode needs the Worker reachable from the browser (direct URL or your own reverse proxy).
 
 ### Netlify (optional hosted TMDB access)
 
@@ -262,8 +427,10 @@ Casual visitors see the normal site — snapshot movies render without a credent
 
 | Command | Use |
 |---------|-----|
-| `npm run serve` | Static site only; TMDB token in Settings |
-| `netlify dev` | Static site **and** `/api/auth` + `/api/tmdb` ([Netlify CLI](https://docs.netlify.com/cli/get-started/)); env from Netlify or `.env` |
+| `npm run serve` | Static site on port 8743; TMDB token in Settings; Account mode hits the deployed Worker directly |
+| `netlify dev` | Static site **and** `/api/auth` + `/api/tmdb` + `/api/backend` proxy ([Netlify CLI](https://docs.netlify.com/cli/get-started/)); env from Netlify or `.env` |
+| `cd worker && wrangler dev` | Run the account API locally (see [Account backend](#account-backend-cloudflare-worker--d1)) |
+| `cd worker && npm test` | Worker auth, CORS, and rate-limit unit tests |
 
 ## Development
 
@@ -311,7 +478,7 @@ Adding a new `scripts/lib/` module: implement + test, add its exports to [`scrip
 These are deliberate design decisions — see also [`.cursor/rules/moviecollector-project.mdc`](.cursor/rules/moviecollector-project.mdc):
 
 - **No edit layer** for TMDB metadata; no overriding titles/posters in user state
-- **Browser-only writes** for lists, ratings, and preferences (`localStorage` / Gist). `server.js` is read-only static files; only `npm run scrape` writes `data/`
+- **Browser-only writes** for lists, ratings, and preferences (`localStorage`, Gist, or Account API from the browser). `server.js` is read-only static files; only `npm run scrape` writes `data/`
 - **Only ids are persisted** in user state; movies are rehydrated by id
 - **Snapshot before API** for ids in `data/movies.json`; no background revalidation of snapshot hits
 - **Watchlist disjoint from Watched** — enforced on read and write
@@ -338,6 +505,11 @@ These are deliberate design decisions — see also [`.cursor/rules/moviecollecto
 | `build.js` | Static deploy output (`npm run build`) |
 | `netlify.toml` | Netlify build, redirects, cache headers |
 | `netlify/functions/` | Hosted auth + TMDB proxy |
+| `worker/` | Cloudflare Worker account API (`wrangler deploy`) |
+| `worker/wrangler.toml` | Worker name, D1 binding, compatibility date |
+| `worker/schema.sql` | D1 base schema |
+| `worker/migrations/` | Incremental D1 migrations |
+| `scripts/lib/account-sync.js` | Account API URL helpers (synced to `js/app/00-app-account-sync.js`) |
 
 ## npm scripts
 
@@ -350,6 +522,8 @@ These are deliberate design decisions — see also [`.cursor/rules/moviecollecto
 | `letterboxd-import` | Open local Letterboxd tool (`http://127.0.0.1:8744/tools/letterboxd.html`) |
 | `bundle:letterboxd` | Build the local Letterboxd tool bundle |
 | `build` | Bundle + write static site to `build/` |
+
+Worker tests (separate from site tests): `cd worker && npm test`.
 
 ## Attribution
 

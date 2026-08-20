@@ -1789,6 +1789,47 @@ function onGistBackupListClick(event) {
   );
 }
 
+function setStorageTab(mode) {
+  const tabs = [
+    { mode: "local", tab: storageTabLocal, panel: storagePanelLocal },
+    { mode: "gist", tab: storageTabGist, panel: gistFields },
+    { mode: "account", tab: storageTabAccount, panel: accountFields },
+  ];
+  for (const entry of tabs) {
+    const selected = entry.mode === mode;
+    entry.tab.setAttribute("aria-selected", selected ? "true" : "false");
+    entry.tab.tabIndex = selected ? 0 : -1;
+    entry.panel.hidden = !selected;
+  }
+}
+
+function accountDisplayInitial(config) {
+  const source = String(config?.displayName || config?.email || "?").trim();
+  return source.charAt(0).toUpperCase() || "?";
+}
+
+let accountAuthMode = "login";
+
+function setAccountAuthMode(mode) {
+  accountAuthMode = mode === "signup" ? "signup" : "login";
+  const loginSelected = accountAuthMode === "login";
+  accountAuthTabLogin.setAttribute("aria-selected", loginSelected ? "true" : "false");
+  accountAuthTabLogin.tabIndex = loginSelected ? 0 : -1;
+  accountAuthTabSignup.setAttribute("aria-selected", loginSelected ? "false" : "true");
+  accountAuthTabSignup.tabIndex = loginSelected ? -1 : 0;
+  accountAuthForm?.setAttribute(
+    "aria-labelledby",
+    loginSelected ? "account-auth-tab-login" : "account-auth-tab-signup",
+  );
+  accountSubmitBtn.textContent = loginSelected ? "Log in" : "Create account";
+  accountAuthTitle.textContent = loginSelected ? "Sign in to sync" : "Create an account";
+  accountPasswordInput.placeholder = loginSelected ? "Your password" : "At least 8 characters";
+  accountPasswordInput.autocomplete = loginSelected ? "current-password" : "new-password";
+  if (accountInviteField) {
+    accountInviteField.hidden = loginSelected;
+  }
+}
+
 function refreshSettings() {
   tmdbKeyInput.value = "";
   setStatus(
@@ -1797,10 +1838,18 @@ function refreshSettings() {
     hasCredential() ? "ok" : null,
   );
 
-  const usingGist = userState.storageMode === "gist";
-  storageModeLocal.checked = !usingGist;
-  storageModeGist.checked = usingGist;
-  gistFields.hidden = !usingGist;
+  const mode =
+    userState.storageMode === "gist"
+      ? "gist"
+      : userState.storageMode === "account"
+        ? "account"
+        : "local";
+  setStorageTab(mode);
+  if (mode === "account") {
+    refreshAccountSection();
+  } else {
+    setStatus(accountSyncStatus, "", null);
+  }
   gistTokenInput.value = "";
   setStatus(
     gistStatus,
@@ -1930,13 +1979,20 @@ async function onExportCsv() {
 function onStorageModeChange(mode) {
   if (mode === "gist") {
     userState = { ...userState, storageMode: "gist" };
-    gistFields.hidden = false;
     persistUserState({ sync: false });
     refreshSettings();
     return;
   }
+  if (mode === "account") {
+    userState = { ...userState, storageMode: "account" };
+    persistUserState({ sync: false });
+    refreshSettings();
+    if (accountSyncEnabled()) {
+      queueAccountSync();
+    }
+    return;
+  }
   disconnectGist();
-  gistFields.hidden = true;
   refreshSettings();
 }
 
@@ -1971,6 +2027,294 @@ function onDisconnectGist() {
   disconnectGist();
   refreshSettings();
   refreshGistBackupList();
+}
+
+/* --- Account & friends --- */
+
+function refreshAccountSection() {
+  const connected = appAccountSync.isConnectedAccountConfig(accountConfig);
+  accountAuthFields.hidden = connected;
+  accountSessionCard.hidden = !connected;
+  accountFriendsSection.hidden = !connected;
+  if (connected) {
+    const displayName =
+      accountConfig.displayName || accountConfig.email.split("@")[0] || "Account";
+    accountAvatar.textContent = accountDisplayInitial(accountConfig);
+    accountSessionName.textContent = displayName;
+    accountSessionEmail.textContent = accountConfig.email || "";
+    setStatus(accountStatus, "", null);
+    refreshFriendsList();
+  } else {
+    setAccountAuthMode("login");
+    setStatus(accountStatus, "", null);
+    setStatus(accountSyncStatus, "", null);
+    friendsList.innerHTML = "";
+  }
+}
+
+async function onAccountAuth() {
+  const mode = accountAuthMode;
+  const email = accountEmailInput.value.trim();
+  const password = accountPasswordInput.value;
+  if (!email) {
+    setStatus(accountStatus, "Enter your email first.", "error");
+    accountEmailInput.focus({ preventScroll: true });
+    return;
+  }
+  if (!password) {
+    setStatus(accountStatus, "Enter your password first.", "error");
+    accountPasswordInput.focus({ preventScroll: true });
+    return;
+  }
+  if (mode === "signup" && !accountInviteInput.value.trim()) {
+    setStatus(accountStatus, "Enter the invite code you were given.", "error");
+    accountInviteInput.focus({ preventScroll: true });
+    return;
+  }
+  setStatus(accountStatus, mode === "signup" ? "Creating account…" : "Logging in…", null);
+  accountSubmitBtn.disabled = true;
+  accountAuthTabLogin.disabled = true;
+  accountAuthTabSignup.disabled = true;
+  try {
+    const result = await connectAccount(
+      mode,
+      email,
+      password,
+      mode === "signup" ? accountInviteInput.value.trim() : "",
+    );
+    if (!result.ok) {
+      const message =
+        mode === "signup" && /already have one/i.test(result.error)
+          ? `${result.error} Switch to Log in above.`
+          : result.error;
+      setStatus(accountStatus, message, "error");
+      return;
+    }
+    accountPasswordInput.value = "";
+    if (accountInviteInput) {
+      accountInviteInput.value = "";
+    }
+    refreshSettings();
+    refreshViewModeForActiveList();
+    render();
+    hydrateActiveList();
+  } finally {
+    accountSubmitBtn.disabled = false;
+    accountAuthTabLogin.disabled = false;
+    accountAuthTabSignup.disabled = false;
+  }
+}
+
+function onAccountLogout() {
+  disconnectAccount();
+  refreshSettings();
+}
+
+function openAccountDeleteConfirm() {
+  accountDeletePassword.value = "";
+  setStatus(accountDeleteStatus, "", null);
+  accountDeleteDialog.hidden = false;
+  accountDeletePassword.focus({ preventScroll: true });
+}
+
+function closeAccountDeleteConfirm() {
+  accountDeleteDialog.hidden = true;
+  accountDeletePassword.value = "";
+  setStatus(accountDeleteStatus, "", null);
+}
+
+async function onAccountDeleteConfirm() {
+  const password = accountDeletePassword.value;
+  if (!password) {
+    setStatus(accountDeleteStatus, "Enter your password to confirm.", "error");
+    accountDeletePassword.focus({ preventScroll: true });
+    return;
+  }
+  accountDeleteOk.disabled = true;
+  setStatus(accountDeleteStatus, "Deleting account…", null);
+  try {
+    await deleteRemoteAccount(password);
+    closeAccountDeleteConfirm();
+    disconnectAccount();
+    refreshSettings();
+    refreshViewModeForActiveList();
+    render();
+    hydrateActiveList();
+    setStatus(accountStatus, "Account deleted. Your lists are still on this device.", "ok");
+  } catch (error) {
+    setStatus(accountDeleteStatus, error.message, "error");
+  } finally {
+    accountDeleteOk.disabled = false;
+  }
+}
+
+function friendDisplayName(friend) {
+  return friend.displayName || friend.email;
+}
+
+function friendItemHtml(friend) {
+  const name = appCardHtml.escapeHtml(friendDisplayName(friend));
+  const pending = friend.status === "pending";
+  const meta = pending
+    ? friend.direction === "incoming"
+      ? "wants to be friends"
+      : "request sent"
+    : "";
+  const buttons = [];
+  if (pending && friend.direction === "incoming") {
+    buttons.push(
+      `<button type="button" class="primary-btn friend-btn" data-friend-action="accept" data-friend-id="${friend.id}">Accept</button>`,
+    );
+  }
+  if (!pending) {
+    buttons.push(
+      `<button type="button" class="ghost-btn friend-btn" data-friend-action="view" data-friend-id="${friend.id}" data-friend-name="${name}">View lists</button>`,
+    );
+  }
+  buttons.push(
+    `<button type="button" class="ghost-btn friend-btn" data-friend-action="remove" data-friend-id="${friend.id}">${pending && friend.direction === "outgoing" ? "Cancel" : "Remove"}</button>`,
+  );
+  return `<li class="friend-item"><span class="friend-name">${name}</span><span class="friend-meta">${meta}</span><span class="friend-actions">${buttons.join("")}</span></li>`;
+}
+
+async function refreshFriendsList() {
+  friendsList.innerHTML = '<li class="gist-backup-empty">Loading…</li>';
+  try {
+    const body = await fetchFriends();
+    const friends = body?.friends || [];
+    friendsList.innerHTML = friends.length
+      ? friends.map(friendItemHtml).join("")
+      : '<li class="gist-backup-empty">No friends yet. Add one by email above.</li>';
+    setStatus(friendsStatus, "", null);
+  } catch (error) {
+    friendsList.innerHTML = "";
+    setStatus(friendsStatus, error.message, "error");
+    if (error?.status === 401) {
+      refreshAccountSection();
+    }
+  }
+}
+
+async function onAddFriend() {
+  const email = friendEmailInput.value.trim();
+  if (!email) {
+    setStatus(friendsStatus, "Enter your friend's account email first.", "error");
+    return;
+  }
+  friendAddBtn.disabled = true;
+  setStatus(friendsStatus, "Sending request…", null);
+  try {
+    const body = await sendFriendRequest(email);
+    friendEmailInput.value = "";
+    setStatus(
+      friendsStatus,
+      "Request sent. If they have an account, they can accept it from their settings.",
+      "ok",
+    );
+    refreshFriendsList();
+  } catch (error) {
+    setStatus(friendsStatus, error.message, "error");
+  } finally {
+    friendAddBtn.disabled = false;
+  }
+}
+
+async function onFriendsListClick(event) {
+  const button = event.target.closest("[data-friend-action]");
+  if (!button) {
+    return;
+  }
+  const friendId = Number(button.dataset.friendId);
+  const action = button.dataset.friendAction;
+  try {
+    if (action === "accept") {
+      await acceptFriend(friendId);
+      refreshFriendsList();
+    } else if (action === "remove") {
+      await removeFriend(friendId);
+      refreshFriendsList();
+    } else if (action === "view") {
+      openFriendView(friendId, button.dataset.friendName || "Friend");
+    }
+  } catch (error) {
+    setStatus(friendsStatus, error.message, "error");
+  }
+}
+
+/* --- Friend list viewer (read-only) --- */
+
+function closeFriendView() {
+  friendViewDialog.hidden = true;
+  friendViewContent.innerHTML = "";
+}
+
+/** Resolves a movie title from cache/snapshot/TMDB; never blocks the dialog. */
+async function friendMovieLabel(movieId) {
+  try {
+    const record = await getMovie(movieId);
+    const year = appCardHtml.formatYear(record.release_date);
+    return `${record.title}${year ? ` (${year})` : ""}`;
+  } catch (_) {
+    return `TMDB #${movieId}`;
+  }
+}
+
+function friendViewListHtml(name, movieIds, labels, ratings) {
+  const items = movieIds
+    .map((id) => {
+      const rating = appRatings.getRating(ratings, id);
+      const ratingHtml =
+        rating == null
+          ? ""
+          : ` <span class="friend-view-rating">★ ${appRatings.formatUserRating(rating)}</span>`;
+      return `<li>${appCardHtml.escapeHtml(labels.get(id) || `TMDB #${id}`)}${ratingHtml}</li>`;
+    })
+    .join("");
+  return `<section class="friend-view-list"><h4>${appCardHtml.escapeHtml(name)} (${movieIds.length})</h4><ol>${items}</ol></section>`;
+}
+
+async function openFriendView(friendId, friendName) {
+  friendViewTitle.textContent = `${friendName}'s lists`;
+  friendViewContent.innerHTML = '<p class="sheet-note">Loading…</p>';
+  friendViewDialog.hidden = false;
+  try {
+    const state = await fetchFriendState(friendId);
+    if (!state) {
+      friendViewContent.innerHTML =
+        '<p class="sheet-note">They have not synced any lists yet.</p>';
+      return;
+    }
+    const sections = [
+      ...appLists.PRESET_LISTS.map((preset) => ({
+        name: preset.name,
+        movieIds: appLists.findList(state.lists, preset.id)?.movieIds || [],
+      })),
+      ...state.customLists.map((list) => ({
+        name: list.name,
+        movieIds: list.movieIds,
+      })),
+    ].filter((section) => section.movieIds.length);
+
+    if (!sections.length) {
+      friendViewContent.innerHTML =
+        '<p class="sheet-note">Their lists are empty so far.</p>';
+      return;
+    }
+
+    const uniqueIds = [...new Set(sections.flatMap((s) => s.movieIds))];
+    const labels = new Map(
+      await Promise.all(
+        uniqueIds.map(async (id) => [id, await friendMovieLabel(id)]),
+      ),
+    );
+    friendViewContent.innerHTML = sections
+      .map((section) =>
+        friendViewListHtml(section.name, section.movieIds, labels, state.ratings),
+      )
+      .join("");
+  } catch (error) {
+    friendViewContent.innerHTML = `<p class="sheet-note">Could not load their lists. ${appCardHtml.escapeHtml(error.message)}</p>`;
+  }
 }
 
 /* --- About --- */

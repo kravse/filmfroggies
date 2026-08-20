@@ -1,0 +1,8 @@
+{
+  "name": "cinequeue-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test.js test-rate-limit.js test-cors.js test-auth-friends.js test-account-delete.js test-signup-invite.js"
+  }
+}
