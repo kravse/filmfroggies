@@ -35,6 +35,9 @@ const adminUserCountEl = document.getElementById("admin-user-count");
 const adminUnusedInvitesEl = document.getElementById("admin-unused-invites");
 const adminUsersListEl = document.getElementById("admin-users-list");
 const adminInviteCountInput = document.getElementById("admin-invite-count");
+const adminInviteCountDisplay = document.getElementById("admin-invite-count-display");
+const adminInviteCountDec = document.getElementById("admin-invite-count-dec");
+const adminInviteCountInc = document.getElementById("admin-invite-count-inc");
 const adminGenerateInvitesBtn = document.getElementById("admin-generate-invites-btn");
 const adminGeneratedCodesEl = document.getElementById("admin-generated-codes");
 const adminStatusEl = document.getElementById("admin-status");
@@ -9307,6 +9310,8 @@ function syncSortSelectLabels() {
 function syncSortControlUi() {
   const showOnMain =
     !isDiscoverActive() &&
+    !isAdminViewActive() &&
+    !isFriendsIndexActive() &&
     !isFriendViewActive() &&
     usesWatchedStyleDisplay() &&
     activeMovieIds().length > 0 &&
@@ -9348,6 +9353,9 @@ function syncSortControlUi() {
 function syncReorderModeUi() {
   const canReorder =
     !isDiscoverActive() &&
+    !isAdminViewActive() &&
+    !isFriendsIndexActive() &&
+    !isFriendViewActive() &&
     isWatchlistActive() &&
     appLists.isListReorderable(userState.activeListId) &&
     activeMovieIds().length > 0;
@@ -13405,6 +13413,7 @@ function syncViewFromLocation(options = {}) {
   if (parsed.kind === "admin") {
     appView = "admin";
     activeCustomListId = null;
+    reorderModeActive = false;
     if (typeof clearFriendViewState === "function") {
       clearFriendViewState();
     }
@@ -15241,6 +15250,7 @@ function renderAdminGeneratedCodes(codes) {
   for (const code of codes) {
     const item = document.createElement("li");
     const codeEl = document.createElement("code");
+    codeEl.className = "admin-code-chip";
     codeEl.textContent = code;
     item.append(codeEl);
     list.append(item);
@@ -15314,7 +15324,7 @@ async function onAdminDeleteUser(user) {
 }
 
 async function onAdminGenerateInvites() {
-  const count = Number(adminInviteCountInput?.value || 1);
+  const count = getAdminInviteCount();
   setAdminStatus("");
   renderAdminGeneratedCodes([]);
   try {
@@ -15328,6 +15338,53 @@ async function onAdminGenerateInvites() {
   } catch (error) {
     setAdminStatus(error?.message || "Could not generate codes.", true);
   }
+}
+
+const ADMIN_INVITE_COUNT_MIN = 1;
+const ADMIN_INVITE_COUNT_MAX = 20;
+
+function clampAdminInviteCount(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return ADMIN_INVITE_COUNT_MIN;
+  }
+  return Math.min(ADMIN_INVITE_COUNT_MAX, Math.max(ADMIN_INVITE_COUNT_MIN, Math.trunc(n)));
+}
+
+function getAdminInviteCount() {
+  return clampAdminInviteCount(adminInviteCountInput?.value || ADMIN_INVITE_COUNT_MIN);
+}
+
+function syncAdminInviteCountUi() {
+  const count = getAdminInviteCount();
+  if (adminInviteCountInput) {
+    adminInviteCountInput.value = String(count);
+  }
+  if (adminInviteCountDisplay) {
+    adminInviteCountDisplay.textContent = String(count);
+  }
+  if (adminInviteCountDec) {
+    adminInviteCountDec.disabled = count <= ADMIN_INVITE_COUNT_MIN;
+  }
+  if (adminInviteCountInc) {
+    adminInviteCountInc.disabled = count >= ADMIN_INVITE_COUNT_MAX;
+  }
+}
+
+function onAdminInviteCountDec() {
+  const next = clampAdminInviteCount(getAdminInviteCount() - 1);
+  if (adminInviteCountInput) {
+    adminInviteCountInput.value = String(next);
+  }
+  syncAdminInviteCountUi();
+}
+
+function onAdminInviteCountInc() {
+  const next = clampAdminInviteCount(getAdminInviteCount() + 1);
+  if (adminInviteCountInput) {
+    adminInviteCountInput.value = String(next);
+  }
+  syncAdminInviteCountUi();
 }
 
 function onAdminLogout() {
@@ -15358,6 +15415,7 @@ function navigateToAdmin(options = {}) {
   if (typeof clearFriendViewState === "function") {
     clearFriendViewState();
   }
+  reorderModeActive = false;
   appView = "admin";
   activeCustomListId = null;
   if (options.pushHistory !== false) {
@@ -15370,6 +15428,9 @@ function navigateToAdmin(options = {}) {
 adminLoginForm?.addEventListener("submit", onAdminLoginSubmit);
 adminGenerateInvitesBtn?.addEventListener("click", onAdminGenerateInvites);
 adminLogoutBtn?.addEventListener("click", onAdminLogout);
+adminInviteCountDec?.addEventListener("click", onAdminInviteCountDec);
+adminInviteCountInc?.addEventListener("click", onAdminInviteCountInc);
+syncAdminInviteCountUi();
 
 /* ===== Event wiring and startup ===== */
 

@@ -449,6 +449,8 @@ function syncSortSelectLabels() {
 function syncSortControlUi() {
   const showOnMain =
     !isDiscoverActive() &&
+    !isAdminViewActive() &&
+    !isFriendsIndexActive() &&
     !isFriendViewActive() &&
     usesWatchedStyleDisplay() &&
     activeMovieIds().length > 0 &&
@@ -490,6 +492,9 @@ function syncSortControlUi() {
 function syncReorderModeUi() {
   const canReorder =
     !isDiscoverActive() &&
+    !isAdminViewActive() &&
+    !isFriendsIndexActive() &&
+    !isFriendViewActive() &&
     isWatchlistActive() &&
     appLists.isListReorderable(userState.activeListId) &&
     activeMovieIds().length > 0;

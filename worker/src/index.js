@@ -191,18 +191,21 @@ export async function verifyPassword(password, stored) {
   return timingSafeEqualBytes(new Uint8Array(bits), fromB64url(parts[2]));
 }
 
-/** Prefer forwarded client IP (Netlify proxy); fall back to Cloudflare connecting IP. */
+/** Client IP for rate limits. CF-Connecting-IP is set by Cloudflare and cannot be spoofed on direct Worker traffic. X-Forwarded-For is used only for Netlify-proxied /api/backend requests, where CF-Connecting-IP is Netlify's edge. */
 export function clientIp(request) {
+  const cf = request.headers.get("CF-Connecting-IP")?.trim();
   const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) {
-      return first.slice(0, 64);
-    }
+  const firstForwarded = forwarded?.split(",")[0]?.trim();
+  const netlifyProxied = Boolean(request.headers.get("x-nf-request-id"));
+
+  if (netlifyProxied && firstForwarded) {
+    return firstForwarded.slice(0, 64);
   }
-  const connecting = request.headers.get("CF-Connecting-IP");
-  if (connecting) {
-    return connecting.trim().slice(0, 64);
+  if (cf) {
+    return cf.slice(0, 64);
+  }
+  if (firstForwarded) {
+    return firstForwarded.slice(0, 64);
   }
   return "unknown";
 }

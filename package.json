@@ -9,7 +9,6 @@
     "bundle:letterboxd": "node scripts/bundle-letterboxd-tool.js",
     "scrape": "node scripts/scrape-data.js",
     "letterboxd-import": "node scripts/letterboxd-import.js",
-    "generate-invite-codes": "node scripts/generate-invite-codes.js",
     "test": "node --test \"test/*.test.js\"",
     "build": "node build.js"
   },

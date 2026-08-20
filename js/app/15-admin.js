@@ -175,6 +175,7 @@ function renderAdminGeneratedCodes(codes) {
   for (const code of codes) {
     const item = document.createElement("li");
     const codeEl = document.createElement("code");
+    codeEl.className = "admin-code-chip";
     codeEl.textContent = code;
     item.append(codeEl);
     list.append(item);
@@ -248,7 +249,7 @@ async function onAdminDeleteUser(user) {
 }
 
 async function onAdminGenerateInvites() {
-  const count = Number(adminInviteCountInput?.value || 1);
+  const count = getAdminInviteCount();
   setAdminStatus("");
   renderAdminGeneratedCodes([]);
   try {
@@ -262,6 +263,53 @@ async function onAdminGenerateInvites() {
   } catch (error) {
     setAdminStatus(error?.message || "Could not generate codes.", true);
   }
+}
+
+const ADMIN_INVITE_COUNT_MIN = 1;
+const ADMIN_INVITE_COUNT_MAX = 20;
+
+function clampAdminInviteCount(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return ADMIN_INVITE_COUNT_MIN;
+  }
+  return Math.min(ADMIN_INVITE_COUNT_MAX, Math.max(ADMIN_INVITE_COUNT_MIN, Math.trunc(n)));
+}
+
+function getAdminInviteCount() {
+  return clampAdminInviteCount(adminInviteCountInput?.value || ADMIN_INVITE_COUNT_MIN);
+}
+
+function syncAdminInviteCountUi() {
+  const count = getAdminInviteCount();
+  if (adminInviteCountInput) {
+    adminInviteCountInput.value = String(count);
+  }
+  if (adminInviteCountDisplay) {
+    adminInviteCountDisplay.textContent = String(count);
+  }
+  if (adminInviteCountDec) {
+    adminInviteCountDec.disabled = count <= ADMIN_INVITE_COUNT_MIN;
+  }
+  if (adminInviteCountInc) {
+    adminInviteCountInc.disabled = count >= ADMIN_INVITE_COUNT_MAX;
+  }
+}
+
+function onAdminInviteCountDec() {
+  const next = clampAdminInviteCount(getAdminInviteCount() - 1);
+  if (adminInviteCountInput) {
+    adminInviteCountInput.value = String(next);
+  }
+  syncAdminInviteCountUi();
+}
+
+function onAdminInviteCountInc() {
+  const next = clampAdminInviteCount(getAdminInviteCount() + 1);
+  if (adminInviteCountInput) {
+    adminInviteCountInput.value = String(next);
+  }
+  syncAdminInviteCountUi();
 }
 
 function onAdminLogout() {
@@ -292,6 +340,7 @@ function navigateToAdmin(options = {}) {
   if (typeof clearFriendViewState === "function") {
     clearFriendViewState();
   }
+  reorderModeActive = false;
   appView = "admin";
   activeCustomListId = null;
   if (options.pushHistory !== false) {
@@ -304,3 +353,6 @@ function navigateToAdmin(options = {}) {
 adminLoginForm?.addEventListener("submit", onAdminLoginSubmit);
 adminGenerateInvitesBtn?.addEventListener("click", onAdminGenerateInvites);
 adminLogoutBtn?.addEventListener("click", onAdminLogout);
+adminInviteCountDec?.addEventListener("click", onAdminInviteCountDec);
+adminInviteCountInc?.addEventListener("click", onAdminInviteCountInc);
+syncAdminInviteCountUi();

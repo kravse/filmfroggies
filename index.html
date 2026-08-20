@@ -466,59 +466,94 @@
         <div class="friend-view-sections" id="friend-view-sections"></div>
       </section>
       <section class="admin-page" id="admin-page" hidden>
-        <div class="admin-panel" id="admin-login-panel">
-          <h2>Admin sign in</h2>
-          <form id="admin-login-form">
-            <label class="admin-login-field" for="admin-password-input">
-              <span>Password</span>
-              <input
-                type="password"
-                id="admin-password-input"
-                autocomplete="current-password"
-                required
-              />
-            </label>
-            <p class="admin-login-error" id="admin-login-error" role="alert"></p>
-            <button type="submit" class="primary-btn">Sign in</button>
-          </form>
+        <div class="admin-card" id="admin-login-panel">
+          <div class="admin-card-body">
+            <h2 class="admin-card-title">Admin sign in</h2>
+            <form id="admin-login-form" class="admin-login-form">
+              <label class="admin-login-field" for="admin-password-input">
+                <span>Password</span>
+                <input
+                  type="password"
+                  id="admin-password-input"
+                  autocomplete="current-password"
+                  required
+                />
+              </label>
+              <p class="admin-login-error" id="admin-login-error" role="alert"></p>
+              <button type="submit" class="primary-btn">Sign in</button>
+            </form>
+          </div>
         </div>
-        <div class="admin-panel" id="admin-dashboard-panel" hidden>
-          <div class="admin-toolbar">
+        <div class="admin-card" id="admin-dashboard-panel" hidden>
+          <div class="admin-card-header">
+            <h2 class="admin-card-title">Dashboard</h2>
             <button type="button" class="ghost-btn" id="admin-logout-btn">Sign out</button>
           </div>
-          <div class="admin-stats">
-            <div class="admin-stat">
-              <span class="admin-stat-label">Users</span>
-              <span class="admin-stat-value" id="admin-user-count">0</span>
+          <div class="admin-card-body">
+            <div class="admin-stats">
+              <div class="admin-stat">
+                <span class="admin-stat-label">Users</span>
+                <span class="admin-stat-value" id="admin-user-count">0</span>
+              </div>
+              <div class="admin-stat">
+                <span class="admin-stat-label">Unused invites</span>
+                <span class="admin-stat-value" id="admin-unused-invites">0</span>
+              </div>
             </div>
-            <div class="admin-stat">
-              <span class="admin-stat-label">Unused invites</span>
-              <span class="admin-stat-value" id="admin-unused-invites">0</span>
+            <div class="admin-section">
+              <h3 class="admin-section-title">Users</h3>
+              <ul class="admin-users-list" id="admin-users-list" aria-label="Users"></ul>
             </div>
-          </div>
-          <h2>Users</h2>
-          <ul class="admin-users-list" id="admin-users-list" aria-label="Users"></ul>
-          <div class="admin-invite-section">
-            <h2>Invite codes</h2>
-            <div class="admin-invite-row">
-              <label class="admin-invite-field" for="admin-invite-count">
-                <span>Count</span>
+            <div class="admin-section">
+              <h3 class="admin-section-title">Invite codes</h3>
+              <div class="admin-invite-bar">
+                <div class="admin-count-stepper" role="group" aria-label="Number of codes to generate">
+                  <button
+                    type="button"
+                    class="admin-count-step admin-count-step--dec"
+                    id="admin-invite-count-dec"
+                    aria-label="Fewer codes"
+                  >
+                    −
+                  </button>
+                  <output class="admin-count-value" id="admin-invite-count-display" for="admin-invite-count">
+                    1
+                  </output>
+                  <button
+                    type="button"
+                    class="admin-count-step admin-count-step--inc"
+                    id="admin-invite-count-inc"
+                    aria-label="More codes"
+                  >
+                    +
+                  </button>
+                </div>
                 <input
                   type="number"
+                  class="admin-invite-count-input"
                   id="admin-invite-count"
                   min="1"
                   max="20"
                   value="1"
-                  inputmode="numeric"
+                  tabindex="-1"
+                  aria-hidden="true"
                 />
-              </label>
-              <button type="button" class="primary-btn" id="admin-generate-invites-btn">
-                Generate
-              </button>
+                <div class="admin-invite-meta">
+                  <span class="admin-invite-label">Codes to generate</span>
+                  <p class="admin-invite-hint">One-time use each · max 20 per batch</p>
+                </div>
+                <button
+                  type="button"
+                  class="primary-btn admin-generate-btn"
+                  id="admin-generate-invites-btn"
+                >
+                  Generate
+                </button>
+              </div>
+              <div class="admin-generated-codes" id="admin-generated-codes" hidden></div>
             </div>
-            <div class="admin-generated-codes" id="admin-generated-codes" hidden></div>
+            <p class="admin-status status-text" id="admin-status" role="status"></p>
           </div>
-          <p class="admin-status status-text" id="admin-status" role="status"></p>
         </div>
       </section>
       <div class="grid" id="grid"></div>

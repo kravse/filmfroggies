@@ -6,6 +6,7 @@ import {
   createAdminSessionToken,
   verifyAdminSessionToken,
   verifyAdminPassword,
+  adminAuthConfigured,
   handleAdminRoutes,
   MAX_ADMIN_INVITE_BATCH,
 } from "./src/admin.js";
@@ -31,6 +32,13 @@ test("verifyAdminPassword uses timing-safe compare", () => {
   assert.equal(verifyAdminPassword({}, "hunter2"), false);
 });
 
+test("adminAuthConfigured requires password and session secret", () => {
+  assert.equal(adminAuthConfigured({}), false);
+  assert.equal(adminAuthConfigured({ ADMIN_PASSWORD: "x" }), false);
+  assert.equal(adminAuthConfigured({ ADMIN_SESSION_SECRET: "y" }), false);
+  assert.equal(adminAuthConfigured({ ADMIN_PASSWORD: "x", ADMIN_SESSION_SECRET: "y" }), true);
+});
+
 test("admin login rejects missing configuration", async () => {
   const res = makeJsonResponder();
   const response = await handleAdminRoutes(
@@ -51,7 +59,7 @@ test("admin login issues token for valid password", async () => {
   const json = makeJsonResponder();
   const env = {
     ADMIN_PASSWORD: "secret-pass",
-    SESSION_SECRET: "session-key",
+    ADMIN_SESSION_SECRET: "admin-session-key",
     DB: makeRateLimitDb(),
   };
   const response = await handleAdminRoutes(
@@ -76,7 +84,7 @@ test("admin stats requires bearer token", async () => {
   const json = makeJsonResponder();
   const env = {
     ADMIN_PASSWORD: "secret-pass",
-    SESSION_SECRET: "session-key",
+    ADMIN_SESSION_SECRET: "admin-session-key",
     DB: makeRateLimitDb(),
   };
   const unauthorized = await handleAdminRoutes(
@@ -128,8 +136,11 @@ test("admin stats requires bearer token", async () => {
 
 test("admin delete user calls deleteUserAccount", async () => {
   const json = makeJsonResponder();
-  const env = { ADMIN_PASSWORD: "secret-pass", SESSION_SECRET: "session-key" };
-  const token = await createAdminSessionToken(env.SESSION_SECRET, Date.now() + 60_000);
+  const env = {
+    ADMIN_PASSWORD: "secret-pass",
+    ADMIN_SESSION_SECRET: "admin-session-key",
+  };
+  const token = await createAdminSessionToken(env.ADMIN_SESSION_SECRET, Date.now() + 60_000);
   let deletedId = null;
   const db = {
     prepare(sql) {
@@ -169,8 +180,11 @@ test("admin delete user calls deleteUserAccount", async () => {
 
 test("admin invite batch validates count", async () => {
   const json = makeJsonResponder();
-  const env = { ADMIN_PASSWORD: "secret-pass", SESSION_SECRET: "session-key" };
-  const token = await createAdminSessionToken(env.SESSION_SECRET, Date.now() + 60_000);
+  const env = {
+    ADMIN_PASSWORD: "secret-pass",
+    ADMIN_SESSION_SECRET: "admin-session-key",
+  };
+  const token = await createAdminSessionToken(env.ADMIN_SESSION_SECRET, Date.now() + 60_000);
 
   const bad = await handleAdminRoutes(
     new Request("https://example.com/api/admin/invite-codes", {
@@ -189,9 +203,19 @@ test("admin invite batch validates count", async () => {
   assert.equal(bad.status, 400);
 });
 
+test("admin session token cannot be verified with user session secret", async () => {
+  const exp = Date.now() + 60_000;
+  const token = await createAdminSessionToken("admin-only-secret", exp);
+  assert.equal(await verifyAdminSessionToken("user-session-secret", token, Date.now()), null);
+});
+
 test("admin login rate limits failed attempts per IP", async () => {
   const json = makeJsonResponder();
-  const env = { ADMIN_PASSWORD: "secret-pass", SESSION_SECRET: "session-key", DB: makeRateLimitDb() };
+  const env = {
+    ADMIN_PASSWORD: "secret-pass",
+    ADMIN_SESSION_SECRET: "admin-session-key",
+    DB: makeRateLimitDb(),
+  };
   const limits = ADMIN_LOGIN_RATE_LIMITS.ip;
 
   for (let i = 0; i < limits.limit; i += 1) {

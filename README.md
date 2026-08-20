@@ -232,25 +232,18 @@ openssl rand -base64 32 | wrangler secret put SESSION_SECRET
 wrangler secret put TMDB_READ_TOKEN
 ```
 
-**5. Generate signup invite codes** (one-time each; run on your machine):
+**5. Deploy:**
 
 ```bash
-# Apply migration 003 first if this is an existing database (see step 3).
-npm run generate-invite-codes -- --count 3
+wrangler deploy
 ```
 
-Plaintext codes print once in the terminal. Only SHA-256 hashes are stored in D1. Share a code privately with each person who should register. Wrong or already-used codes get the same neutral signup response as a duplicate email.
+Generate signup invite codes from `#admin` after the static site is deployed (see [Admin](#admin)). Only SHA-256 hashes are stored in D1. Share each code privately; wrong or already-used codes get the same neutral signup response as a duplicate email.
 
 To revoke the old shared signup secret (if you used one before):
 
 ```bash
 cd worker && wrangler secret delete SIGNUP_INVITE_CODE
-```
-
-**6. Deploy:**
-
-```bash
-wrangler deploy
 ```
 
 Note the deployed URL (e.g. `https://cinequeue-api.<subdomain>.workers.dev`). Wire it into the static site:
@@ -289,10 +282,11 @@ Secrets and vars (set in Cloudflare, not committed):
 |------|----------|---------|
 | `SESSION_SECRET` | **Yes** | HMAC key for bearer session tokens (30-day lifetime) |
 | `TMDB_READ_TOKEN` | **Yes** | v4 TMDB API Read Access Token for `GET /api/tmdb` and `POST /api/movies/batch` |
-| `ADMIN_PASSWORD` | No | Enables `#admin` and `/api/admin/*` (user stats, delete, invite generation) |
+| `ADMIN_PASSWORD` | No | Admin UI login password (`#admin`) |
+| `ADMIN_SESSION_SECRET` | No | HMAC key for admin bearer tokens (required with `ADMIN_PASSWORD`) |
 | `ALLOWED_ORIGINS` | No | Comma-separated extra CORS origins merged with the default allowlist |
 
-Signup invite codes live in D1 (`invite_codes`). Generate with `npm run generate-invite-codes`, or from `#admin` when `ADMIN_PASSWORD` is set.
+Signup invite codes live in D1 (`invite_codes`). Generate from `#admin` when admin secrets are set.
 
 Default CORS origins (hardcoded): `https://filmfroggies.com`, `https://www.filmfroggies.com`, `http://localhost:8743`, `http://127.0.0.1:8743`.
 
@@ -308,10 +302,12 @@ Logout today clears the browser session only; tokens remain valid until expiry u
 
 ### Admin (`#admin`)
 
-When `ADMIN_PASSWORD` is set on the Worker:
+When `ADMIN_PASSWORD` and `ADMIN_SESSION_SECRET` are set on the Worker:
 
 ```bash
-cd worker && wrangler secret put ADMIN_PASSWORD
+cd worker
+wrangler secret put ADMIN_PASSWORD
+openssl rand -base64 32 | wrangler secret put ADMIN_SESSION_SECRET
 ```
 
 Open `#admin` on the site (hash-only route, e.g. `https://filmfroggies.com/#admin`). Sign in with that password to view user counts, delete accounts, and generate one-time invite codes (up to 20 per batch). Admin sessions last 1 hour and live in `sessionStorage` only. Failed admin logins are capped at **3 per IP per hour** and **8 globally per hour**.
@@ -333,8 +329,6 @@ wrangler d1 execute cinequeue --local --file=migrations/003_invite_codes.sql
 wrangler secret put SESSION_SECRET   # prompts; needed for wrangler dev too
 wrangler dev
 ```
-
-From repo root, seed local invite codes with `npm run generate-invite-codes -- --count 1 --local`.
 
 Point `ACCOUNT_API_DIRECT` at the `wrangler dev` URL while testing, then restore the production Worker URL before committing.
 

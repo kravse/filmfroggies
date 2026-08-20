@@ -47,7 +47,7 @@ function createMockDb() {
   };
 }
 
-test("clientIp prefers x-forwarded-for then CF-Connecting-IP", () => {
+test("clientIp prefers CF-Connecting-IP on direct Worker traffic", () => {
   assert.equal(
     clientIp(
       new Request("https://example.com", {
@@ -57,13 +57,28 @@ test("clientIp prefers x-forwarded-for then CF-Connecting-IP", () => {
         },
       }),
     ),
-    "203.0.113.5",
+    "198.51.100.2",
   );
   assert.equal(
     clientIp(new Request("https://example.com", { headers: { "CF-Connecting-IP": "198.51.100.2" } })),
     "198.51.100.2",
   );
   assert.equal(clientIp(new Request("https://example.com")), "unknown");
+});
+
+test("clientIp uses X-Forwarded-For for Netlify-proxied requests", () => {
+  assert.equal(
+    clientIp(
+      new Request("https://example.com", {
+        headers: {
+          "x-nf-request-id": "abc123",
+          "x-forwarded-for": "203.0.113.5, 10.0.0.1",
+          "CF-Connecting-IP": "198.51.100.2",
+        },
+      }),
+    ),
+    "203.0.113.5",
+  );
 });
 
 test("rateLimit allows up to limit then blocks until window expires", async () => {

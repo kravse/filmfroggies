@@ -542,6 +542,7 @@ function syncViewFromLocation(options = {}) {
   if (parsed.kind === "admin") {
     appView = "admin";
     activeCustomListId = null;
+    reorderModeActive = false;
     if (typeof clearFriendViewState === "function") {
       clearFriendViewState();
     }

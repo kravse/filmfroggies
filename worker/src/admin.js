@@ -82,6 +82,10 @@ export function verifyAdminPassword(env, password) {
   return timingSafeEqualString(password, expected);
 }
 
+export function adminAuthConfigured(env) {
+  return Boolean(env.ADMIN_PASSWORD && env.ADMIN_SESSION_SECRET);
+}
+
 function readBearerToken(request) {
   const match = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization") || "");
   return match ? match[1].trim() : "";
@@ -100,7 +104,7 @@ export async function handleAdminRoutes(request, env, path, res, deps) {
   const { clientIp, readJsonBody, deleteUserAccount } = deps;
 
   if (path === "/api/admin/login" && request.method === "POST") {
-    if (!env.ADMIN_PASSWORD) {
+    if (!adminAuthConfigured(env)) {
       return res.json(503, { error: "Admin is not configured" });
     }
     const ip = clientIp(request);
@@ -122,16 +126,16 @@ export async function handleAdminRoutes(request, env, path, res, deps) {
     }
 
     const exp = Date.now() + ADMIN_SESSION_LIFETIME_MS;
-    const token = await createAdminSessionToken(env.SESSION_SECRET, exp);
+    const token = await createAdminSessionToken(env.ADMIN_SESSION_SECRET, exp);
     return res.json(200, { token, expiresAt: exp });
   }
 
-  if (!env.ADMIN_PASSWORD) {
+  if (!adminAuthConfigured(env)) {
     return res.json(503, { error: "Admin is not configured" });
   }
 
   const session = await verifyAdminSessionToken(
-    env.SESSION_SECRET,
+    env.ADMIN_SESSION_SECRET,
     readBearerToken(request),
     Date.now(),
   );
