@@ -154,7 +154,7 @@ body.view-custom-index .toolbar-right > :not(.custom-lists-index-actions) {
   padding: 0.75rem;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card-lg);
   transition:
     background 0.15s ease,
     border-color 0.15s ease;
@@ -204,7 +204,7 @@ body.view-custom-index .toolbar-right > :not(.custom-lists-index-actions) {
 
 .custom-list-card-cover {
   aspect-ratio: 2 / 3;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-card);
   overflow: hidden;
   background: var(--skeleton-base);
   border: 1px solid var(--border);

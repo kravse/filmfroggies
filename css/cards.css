@@ -59,7 +59,7 @@ body.view-mode-detail .movie-row {
 
 body.view-mode-cards .card {
   height: 100%;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-card);
 }
 
 body.view-mode-cards .card-footer {
@@ -134,14 +134,14 @@ body.view-mode-cards .card-grip {
 
 body.view-mode-detail .card {
   height: 100%;
-  border-radius: var(--radius);
+  border-radius: var(--radius-card-lg);
 }
 
 .card {
   position: relative;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card-lg);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -801,6 +801,6 @@ body.reorder-active {
 .drop-target {
   outline: 2px dashed var(--drop-border);
   outline-offset: 2px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-card-lg);
   box-shadow: 0 0 0 6px var(--drag-glow);
 }
