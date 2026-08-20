@@ -144,7 +144,7 @@ body.view-discover .discover-poster-placeholder::before {
   width: 158%;
   aspect-ratio: 1;
   max-height: none;
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(89, 195, 129, 0.08);
   -webkit-mask-image: url("../images/projector.png");
   mask-image: url("../images/projector.png");
   -webkit-mask-size: contain;
@@ -324,7 +324,7 @@ body.view-discover .discover-detail-poster-mark::before {
   width: 158%;
   aspect-ratio: 1;
   max-height: none;
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(89, 195, 129, 0.08);
   -webkit-mask-image: url("../images/projector.png");
   mask-image: url("../images/projector.png");
   -webkit-mask-size: contain;

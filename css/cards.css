@@ -657,7 +657,7 @@ body.reorder-mode .card-grip {
   color: transparent;
 }
 
-/* Shimmer over per-tile grey while the record or poster is still loading. */
+/* Shimmer over per-tile wash while the record or poster is still loading. */
 .card.is-skeleton .poster-wrap::before,
 .poster-wrap:has(img[data-poster-src]:not(.is-poster-ready))::before {
   content: "";
@@ -668,7 +668,7 @@ body.reorder-mode .card-grip {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.03) 50%,
+    var(--skeleton-shimmer) 50%,
     transparent 100%
   );
   background-size: 200% 100%;

@@ -102,6 +102,13 @@ function copyBundle() {
   );
 }
 
+function copyManifest() {
+  const src = path.join(ROOT, "manifest.webmanifest");
+  if (fs.existsSync(src)) {
+    fs.copyFileSync(src, path.join(BUILD_DIR, "manifest.webmanifest"));
+  }
+}
+
 /**
  * Ships committed poster files for faster, stable grid images. my_list.csv is
  * scraper input and stays out of the build.
@@ -135,6 +142,7 @@ function build() {
   copyImages();
   copyBundle();
   rewriteHtml();
+  copyManifest();
   copyData();
   writeRobots();
 }
@@ -142,7 +150,7 @@ function build() {
 if (require.main === module) {
   build();
   console.log(
-    `Wrote build/ (index.html, css/${CSS_BUNDLE_NAME}, js/app-bundle.js, images/, data/, robots.txt)`,
+    `Wrote build/ (index.html, manifest.webmanifest, css/${CSS_BUNDLE_NAME}, js/app-bundle.js, images/, data/, robots.txt)`,
   );
 }
 
