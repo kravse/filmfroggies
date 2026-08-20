@@ -120,14 +120,6 @@ const PARTS = [
     title: "User state persistence (generated from scripts/lib/user-state.js)",
   },
   {
-    file: "00-app-gist-sync.js",
-    title: "GitHub Gist sync helpers (generated from scripts/lib/gist-sync.js)",
-  },
-  {
-    file: "00-app-gist-backup.js",
-    title: "GitHub Gist snapshot backups (generated from scripts/lib/gist-backup.js)",
-  },
-  {
     file: "00-app-account-sync.js",
     title: "Account sync helpers (generated from scripts/lib/account-sync.js)",
   },

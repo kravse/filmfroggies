@@ -3,6 +3,9 @@
 
 /* Opens the shared IIFE scope for every partial. Closed by 08-init.js. */
 
+const ACCOUNT_LOGIN_HINT =
+  "Sign in via Settings → Account to search TMDB and sync your lists.";
+
 /* --- DOM --- */
 
 const listSubtitleEl = document.getElementById("list-subtitle");
@@ -103,22 +106,6 @@ const aboutBtn = document.getElementById("about-btn");
 
 const settingsDialog = document.getElementById("settings-dialog");
 const settingsClose = document.getElementById("settings-close");
-const tmdbKeyInput = document.getElementById("tmdb-key-input");
-const tmdbKeySave = document.getElementById("tmdb-key-save");
-const tmdbKeyClear = document.getElementById("tmdb-key-clear");
-const tmdbKeyStatus = document.getElementById("tmdb-key-status");
-const storageTabLocal = document.getElementById("storage-tab-local");
-const storageTabGist = document.getElementById("storage-tab-gist");
-const storageTabAccount = document.getElementById("storage-tab-account");
-const storagePanelLocal = document.getElementById("storage-panel-local");
-const gistFields = document.getElementById("gist-fields");
-const gistTokenInput = document.getElementById("gist-token-input");
-const gistConnectBtn = document.getElementById("gist-connect");
-const gistClearBtn = document.getElementById("gist-clear");
-const gistStatus = document.getElementById("gist-status");
-const gistBackupSection = document.getElementById("gist-backup-section");
-const gistBackupList = document.getElementById("gist-backup-list");
-const gistBackupStatus = document.getElementById("gist-backup-status");
 
 const accountFields = document.getElementById("account-fields");
 const accountAuthFields = document.getElementById("account-auth-fields");
@@ -155,10 +142,6 @@ const friendViewTitle = document.getElementById("friend-view-title");
 const friendViewContent = document.getElementById("friend-view-content");
 const friendViewClose = document.getElementById("friend-view-close");
 
-const backupRestoreDialog = document.getElementById("backup-restore-dialog");
-const backupRestoreMessage = document.getElementById("backup-restore-message");
-const backupRestoreCancel = document.getElementById("backup-restore-cancel");
-const backupRestoreOk = document.getElementById("backup-restore-ok");
 const cacheClearBtn = document.getElementById("cache-clear");
 const cacheStatus = document.getElementById("cache-status");
 const exportCsvBtn = document.getElementById("export-csv");
@@ -226,16 +209,6 @@ const discoverAddConfirmTitle = document.getElementById("discover-add-confirm-ti
 const discoverAddConfirmMessage = document.getElementById("discover-add-confirm-message");
 const discoverAddConfirmCancel = document.getElementById("discover-add-confirm-cancel");
 const discoverAddConfirmOk = document.getElementById("discover-add-confirm-ok");
-
-const hostedUnlockDialog = document.getElementById("hosted-unlock-dialog");
-const hostedUnlockInput = document.getElementById("hosted-unlock-input");
-const hostedUnlockStatus = document.getElementById("hosted-unlock-status");
-const hostedUnlockCancel = document.getElementById("hosted-unlock-cancel");
-const hostedUnlockSubmit = document.getElementById("hosted-unlock-submit");
-
-const hostedLockDialog = document.getElementById("hosted-lock-dialog");
-const hostedLockCancel = document.getElementById("hosted-lock-cancel");
-const hostedLockOk = document.getElementById("hosted-lock-ok");
 
 /* --- Mutable state --- */
 

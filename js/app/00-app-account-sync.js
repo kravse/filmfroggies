@@ -12,12 +12,20 @@ const appAccountSync = (function () {
   /** Direct Worker URL for local dev; Netlify proxies /api/backend in production. */
   const ACCOUNT_API_DIRECT = "https://cinequeue-api.cinequeue.workers.dev/api";
   const ACCOUNT_API_PROXIED = "/api/backend";
+  const TMDB_API_PROXIED = "/api/tmdb";
 
   function resolveAccountApiBase(hostname) {
     const host = String(hostname || "");
     return host === "localhost" || host === "127.0.0.1"
       ? ACCOUNT_API_DIRECT
       : ACCOUNT_API_PROXIED;
+  }
+
+  function resolveTmdbApiBase(hostname) {
+    const host = String(hostname || "");
+    return host === "localhost" || host === "127.0.0.1"
+      ? `${ACCOUNT_API_DIRECT}/tmdb`
+      : TMDB_API_PROXIED;
   }
 
   function parseAccountConfig(json) {
@@ -60,7 +68,9 @@ const appAccountSync = (function () {
   return {
     ACCOUNT_API_DIRECT,
     ACCOUNT_API_PROXIED,
+    TMDB_API_PROXIED,
     resolveAccountApiBase,
+    resolveTmdbApiBase,
     parseAccountConfig,
     serializeAccountConfig,
     isConnectedAccountConfig,

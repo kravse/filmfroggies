@@ -3,7 +3,9 @@ const assert = require("node:assert/strict");
 const {
   ACCOUNT_API_DIRECT,
   ACCOUNT_API_PROXIED,
+  TMDB_API_PROXIED,
   resolveAccountApiBase,
+  resolveTmdbApiBase,
   parseAccountConfig,
   serializeAccountConfig,
   isConnectedAccountConfig,
@@ -14,6 +16,12 @@ test("resolveAccountApiBase picks the Worker directly only for local dev", () =>
   assert.equal(resolveAccountApiBase("127.0.0.1"), ACCOUNT_API_DIRECT);
   assert.equal(resolveAccountApiBase("cinequeue.example.com"), ACCOUNT_API_PROXIED);
   assert.equal(resolveAccountApiBase(""), ACCOUNT_API_PROXIED);
+});
+
+test("resolveTmdbApiBase picks the Worker directly only for local dev", () => {
+  assert.equal(resolveTmdbApiBase("localhost"), `${ACCOUNT_API_DIRECT}/tmdb`);
+  assert.equal(resolveTmdbApiBase("127.0.0.1"), `${ACCOUNT_API_DIRECT}/tmdb`);
+  assert.equal(resolveTmdbApiBase("cinequeue.org"), TMDB_API_PROXIED);
 });
 
 test("account config roundtrip", () => {

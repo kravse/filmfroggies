@@ -244,7 +244,7 @@ function onSearchInput() {
   }
 
   if (!hasTmdbAccess()) {
-    showSuggestMessage("Add a TMDB credential in Settings to search.");
+    showSuggestMessage(ACCOUNT_LOGIN_HINT);
     return;
   }
 
@@ -264,7 +264,7 @@ function updateAddMovieHint() {
     return;
   }
   if (!hasTmdbAccess()) {
-    addMovieHint.textContent = "Add a TMDB credential in Settings to search.";
+    addMovieHint.textContent = ACCOUNT_LOGIN_HINT;
     return;
   }
   addMovieHint.textContent = searchDirectorMode
@@ -535,6 +535,10 @@ function syncAddMovieFromWatchedSection() {
 }
 
 function openAddMovieDialog() {
+  if (!accountSyncEnabled()) {
+    openSettings();
+    return;
+  }
   setSearchDirectorMode(false);
   showAddSearchStep();
   clearSearch();

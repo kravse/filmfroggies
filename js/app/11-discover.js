@@ -78,7 +78,7 @@ function renderDiscoverEmptyState(count) {
   }
   emptyState.hidden = false;
   if (!hasTmdbAccess()) {
-    emptyState.innerHTML = `<strong>Add your TMDB token</strong>Open Settings and paste your TMDB API Read Access Token to use Discover.`;
+    emptyState.innerHTML = `<strong>Sign in to use Discover</strong><p class="empty-state-hint">Open Settings → Account to log in or create an account.</p>`;
     return;
   }
   if (discoverLoading) {
@@ -86,7 +86,7 @@ function renderDiscoverEmptyState(count) {
     return;
   }
   if (discoverLoadError) {
-    emptyState.innerHTML = `<strong>Could not load releases</strong><p class="empty-state-hint">Check your credential and connection, then try again.</p>`;
+    emptyState.innerHTML = `<strong>Could not load releases</strong><p class="empty-state-hint">Check your connection, then try again.</p>`;
     return;
   }
   emptyState.innerHTML = `<strong>No releases to show</strong>`;
@@ -228,5 +228,9 @@ function onDiscoverTabClick(event) {
 }
 
 function openDiscover() {
+  if (!accountSyncEnabled()) {
+    openSettings();
+    return;
+  }
   navigateToDiscover(appDiscover.DEFAULT_DISCOVER_TAB);
 }

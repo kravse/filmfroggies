@@ -93,10 +93,10 @@ test("userStateSignature is stable regardless of map key order", () => {
   assert.equal(userStateSignature(ascending), userStateSignature(descending));
 });
 
-test("defaultUserState starts on local storage with the two preset lists", () => {
+test("defaultUserState uses account storage with the two preset lists", () => {
   const state = defaultUserState();
   assert.equal(state.version, USER_STATE_VERSION);
-  assert.equal(state.storageMode, "local");
+  assert.equal(state.storageMode, "account");
   assert.equal(state.activeListId, "watched");
   assert.equal(state.preferences.sort, "user-rating-desc");
   assert.deepEqual(
@@ -206,9 +206,10 @@ test("normalizeUserState keeps a valid preset as the active list", () => {
   assert.equal(normalizeUserState({ activeListId: "watched" }).activeListId, "watched");
 });
 
-test("normalizeUserState rejects an unknown storage mode", () => {
-  assert.equal(normalizeUserState({ storageMode: "dropbox" }).storageMode, "local");
-  assert.equal(normalizeUserState({ storageMode: "gist" }).storageMode, "gist");
+test("normalizeUserState normalizes legacy storage modes to account", () => {
+  assert.equal(normalizeUserState({ storageMode: "dropbox" }).storageMode, "account");
+  assert.equal(normalizeUserState({ storageMode: "gist" }).storageMode, "account");
+  assert.equal(normalizeUserState({ storageMode: "local" }).storageMode, "account");
 });
 
 test("normalizeUserState cleans movie ids inside lists", () => {

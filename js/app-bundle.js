@@ -5,6 +5,9 @@
 
 /* Opens the shared IIFE scope for every partial. Closed by 08-init.js. */
 
+const ACCOUNT_LOGIN_HINT =
+  "Sign in via Settings → Account to search TMDB and sync your lists.";
+
 /* --- DOM --- */
 
 const listSubtitleEl = document.getElementById("list-subtitle");
@@ -105,22 +108,6 @@ const aboutBtn = document.getElementById("about-btn");
 
 const settingsDialog = document.getElementById("settings-dialog");
 const settingsClose = document.getElementById("settings-close");
-const tmdbKeyInput = document.getElementById("tmdb-key-input");
-const tmdbKeySave = document.getElementById("tmdb-key-save");
-const tmdbKeyClear = document.getElementById("tmdb-key-clear");
-const tmdbKeyStatus = document.getElementById("tmdb-key-status");
-const storageTabLocal = document.getElementById("storage-tab-local");
-const storageTabGist = document.getElementById("storage-tab-gist");
-const storageTabAccount = document.getElementById("storage-tab-account");
-const storagePanelLocal = document.getElementById("storage-panel-local");
-const gistFields = document.getElementById("gist-fields");
-const gistTokenInput = document.getElementById("gist-token-input");
-const gistConnectBtn = document.getElementById("gist-connect");
-const gistClearBtn = document.getElementById("gist-clear");
-const gistStatus = document.getElementById("gist-status");
-const gistBackupSection = document.getElementById("gist-backup-section");
-const gistBackupList = document.getElementById("gist-backup-list");
-const gistBackupStatus = document.getElementById("gist-backup-status");
 
 const accountFields = document.getElementById("account-fields");
 const accountAuthFields = document.getElementById("account-auth-fields");
@@ -157,10 +144,6 @@ const friendViewTitle = document.getElementById("friend-view-title");
 const friendViewContent = document.getElementById("friend-view-content");
 const friendViewClose = document.getElementById("friend-view-close");
 
-const backupRestoreDialog = document.getElementById("backup-restore-dialog");
-const backupRestoreMessage = document.getElementById("backup-restore-message");
-const backupRestoreCancel = document.getElementById("backup-restore-cancel");
-const backupRestoreOk = document.getElementById("backup-restore-ok");
 const cacheClearBtn = document.getElementById("cache-clear");
 const cacheStatus = document.getElementById("cache-status");
 const exportCsvBtn = document.getElementById("export-csv");
@@ -228,16 +211,6 @@ const discoverAddConfirmTitle = document.getElementById("discover-add-confirm-ti
 const discoverAddConfirmMessage = document.getElementById("discover-add-confirm-message");
 const discoverAddConfirmCancel = document.getElementById("discover-add-confirm-cancel");
 const discoverAddConfirmOk = document.getElementById("discover-add-confirm-ok");
-
-const hostedUnlockDialog = document.getElementById("hosted-unlock-dialog");
-const hostedUnlockInput = document.getElementById("hosted-unlock-input");
-const hostedUnlockStatus = document.getElementById("hosted-unlock-status");
-const hostedUnlockCancel = document.getElementById("hosted-unlock-cancel");
-const hostedUnlockSubmit = document.getElementById("hosted-unlock-submit");
-
-const hostedLockDialog = document.getElementById("hosted-lock-dialog");
-const hostedLockCancel = document.getElementById("hosted-lock-cancel");
-const hostedLockOk = document.getElementById("hosted-lock-ok");
 
 /* --- Mutable state --- */
 
@@ -5162,8 +5135,8 @@ const appUserState = (function () {
    * The only thing this app persists: lists of TMDB ids in display order, which
    * list is active, and the view preference. Movie records are never stored.
    *
-   * The TMDB credential and the Gist token live under their own keys and are
-   * deliberately absent from this payload so they are never synced to a Gist.
+   * The account session token lives under its own key and is deliberately absent
+   * from this payload so it is never synced to the server doc.
    */
 
   const USER_STATE_KEY = "moviecollector-user-state";
@@ -5176,7 +5149,7 @@ const appUserState = (function () {
   const USER_STATE_VERSION = 4;
 
   const VIEW_MODES = new Set(["cards", "detail"]);
-  const STORAGE_MODES = new Set(["local", "gist", "account"]);
+  const STORAGE_MODES = new Set(["account"]);
 
   function getLists() {
     if (typeof appLists !== "undefined") {
@@ -5264,7 +5237,7 @@ const appUserState = (function () {
     return {
       version: USER_STATE_VERSION,
       updatedAt: null,
-      storageMode: "local",
+      storageMode: "account",
       lists: lists.defaultLists(),
       activeListId: lists.DEFAULT_LIST_ID,
       preferences: defaultPreferences(),
@@ -5333,7 +5306,7 @@ const appUserState = (function () {
     return {
       version: USER_STATE_VERSION,
       updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : null,
-      storageMode: STORAGE_MODES.has(raw.storageMode) ? raw.storageMode : "local",
+      storageMode: "account",
       lists: normalizedLists,
       activeListId: lists.isListId(activeListId)
         ? activeListId
@@ -5432,317 +5405,6 @@ const appUserState = (function () {
   };
 })();
 
-/* ===== GitHub Gist sync helpers (generated from scripts/lib/gist-sync.js) ===== */
-
-/* Generated from scripts/lib/gist-sync.js — run npm run bundle */
-
-const appGistSync = (function () {
-  /**
-   * GitHub Gist sync helpers, ported from arkham's viewer-gist-sync.
-   *
-   * Only the user state is written to the Gist. The Gist token and the TMDB
-   * credential are stored under separate localStorage keys and never appear in
-   * the payload.
-   */
-
-  const GIST_STATE_FILENAME = "moviecollector-state.json";
-  const GITHUB_API = "https://api.github.com";
-  const GIST_DESCRIPTION = "Movie collector sync";
-
-  function getSyncMerge() {
-    if (typeof appSyncMerge !== "undefined") {
-      return appSyncMerge;
-    }
-    if (typeof require === "function") {
-      return require("./sync-merge");
-    }
-    throw new Error("appSyncMerge is not available");
-  }
-
-  function parseGistSyncConfig(json) {
-    if (json == null || json === "") {
-      return null;
-    }
-    try {
-      const parsed = typeof json === "string" ? JSON.parse(json) : json;
-      const token = typeof parsed.token === "string" ? parsed.token.trim() : "";
-      const gistId = typeof parsed.gistId === "string" ? parsed.gistId.trim() : "";
-      const backupGistId =
-        typeof parsed.backupGistId === "string" ? parsed.backupGistId.trim() : "";
-      if (!token) {
-        return null;
-      }
-      return { token, gistId, backupGistId };
-    } catch (_) {
-      return null;
-    }
-  }
-
-  function serializeGistSyncConfig(config) {
-    return JSON.stringify({
-      token: config.token,
-      gistId: config.gistId || "",
-      backupGistId: config.backupGistId || "",
-    });
-  }
-
-  function isConnectedGistConfig(config) {
-    return Boolean(config?.token && config?.gistId);
-  }
-
-  function extractStateJsonFromGistResponse(body) {
-    if (!body || typeof body !== "object") {
-      return null;
-    }
-    const file = body.files?.[GIST_STATE_FILENAME];
-    if (!file || typeof file.content !== "string") {
-      return null;
-    }
-    return file.content;
-  }
-
-  function findCollectorGistId(gists, stateFilename = GIST_STATE_FILENAME) {
-    if (!Array.isArray(gists)) {
-      return null;
-    }
-    const match = gists.find((gist) => gist?.files && gist.files[stateFilename]);
-    return match?.id || null;
-  }
-
-  function buildGistCreatePayload(stateJson) {
-    return {
-      description: GIST_DESCRIPTION,
-      public: false,
-      files: { [GIST_STATE_FILENAME]: { content: stateJson } },
-    };
-  }
-
-  function buildGistUpdatePayload(stateJson) {
-    return {
-      files: { [GIST_STATE_FILENAME]: { content: stateJson } },
-    };
-  }
-
-  /**
-   * Connecting adopts an existing Gist rather than overwriting it, so pointing a
-   * second device at the same account picks up the lists already there. The two
-   * sides are merged rather than swapped, so movies added on this device before
-   * connecting are not dropped on the way in.
-   */
-  function resolveGistConnectState({ gistId, remoteState, localState }) {
-    if (gistId) {
-      if (!remoteState) {
-        return {
-          ok: false,
-          error:
-            "Found an existing sync Gist but could not read moviecollector-state.json. Your Gist was not changed.",
-        };
-      }
-      return {
-        ok: true,
-        action: "adopt",
-        gistId,
-        nextState: getSyncMerge().mergeUserStates(remoteState, localState),
-      };
-    }
-
-    return { ok: true, action: "create", gistId: "", nextState: localState };
-  }
-
-  return {
-    GIST_STATE_FILENAME,
-    GITHUB_API,
-    parseGistSyncConfig,
-    serializeGistSyncConfig,
-    isConnectedGistConfig,
-    extractStateJsonFromGistResponse,
-    findCollectorGistId,
-    buildGistCreatePayload,
-    buildGistUpdatePayload,
-    resolveGistConnectState,
-  };
-})();
-
-/* ===== GitHub Gist snapshot backups (generated from scripts/lib/gist-backup.js) ===== */
-
-/* Generated from scripts/lib/gist-backup.js — run npm run bundle */
-
-const appGistBackup = (function () {
-  /**
-   * Gist snapshot backups: one private gist, one JSON file, up to five immutable
-   * state entries appended over time. The file is rewritten on each append, but
-   * existing snapshot objects in the array are copied forward unchanged.
-   */
-
-  const BACKUP_GIST_DESCRIPTION = "Movie collector backups";
-  const BACKUP_FILENAME = "moviecollector-backups.json";
-  const BACKUP_PAYLOAD_VERSION = 1;
-  const MAX_SNAPSHOTS = 5;
-  const SNAPSHOT_INTERVAL_MS = 20 * 60 * 1000;
-
-  function emptyBackupPayload() {
-    return { version: BACKUP_PAYLOAD_VERSION, snapshots: [] };
-  }
-
-  function normalizeAtStamp(value) {
-    const time = Date.parse(String(value || ""));
-    if (!Number.isFinite(time)) {
-      return null;
-    }
-    return new Date(time).toISOString();
-  }
-
-  function normalizeSnapshotEntry(entry) {
-    if (!entry || typeof entry !== "object") {
-      return null;
-    }
-    const at = normalizeAtStamp(entry.at);
-    const state = entry.state;
-    if (!at || !state || typeof state !== "object") {
-      return null;
-    }
-    return { at, state };
-  }
-
-  function parseBackupPayload(json) {
-    if (json == null || json === "") {
-      return emptyBackupPayload();
-    }
-    try {
-      const parsed = typeof json === "string" ? JSON.parse(json) : json;
-      if (!parsed || typeof parsed !== "object") {
-        return emptyBackupPayload();
-      }
-      const snapshots = Array.isArray(parsed.snapshots)
-        ? parsed.snapshots.map(normalizeSnapshotEntry).filter(Boolean)
-        : [];
-      snapshots.sort((a, b) => a.at.localeCompare(b.at));
-      return {
-        version: BACKUP_PAYLOAD_VERSION,
-        snapshots,
-      };
-    } catch (_) {
-      return emptyBackupPayload();
-    }
-  }
-
-  function serializeBackupPayload(payload) {
-    const snapshots = Array.isArray(payload?.snapshots)
-      ? payload.snapshots.map(normalizeSnapshotEntry).filter(Boolean)
-      : [];
-    snapshots.sort((a, b) => a.at.localeCompare(b.at));
-    return JSON.stringify(
-      {
-        version: BACKUP_PAYLOAD_VERSION,
-        snapshots,
-      },
-      null,
-      2,
-    );
-  }
-
-  function snapshotListEntries(payload) {
-    return (payload?.snapshots || []).map((entry) => ({ at: entry.at }));
-  }
-
-  function shouldCreateSnapshot(snapshots, nowMs, intervalMs = SNAPSHOT_INTERVAL_MS) {
-    if (!snapshots?.length) {
-      return true;
-    }
-    const latestAt = Date.parse(snapshots[snapshots.length - 1]?.at || "");
-    if (!Number.isFinite(latestAt)) {
-      return true;
-    }
-    return nowMs - latestAt >= intervalMs;
-  }
-
-  function appendSnapshot(payload, state, at, maxSnapshots = MAX_SNAPSHOTS) {
-    const atIso = normalizeAtStamp(at);
-    if (!atIso || !state || typeof state !== "object") {
-      return payload || emptyBackupPayload();
-    }
-    const previous = (payload?.snapshots || [])
-      .map(normalizeSnapshotEntry)
-      .filter(Boolean);
-    const next = [...previous, { at: atIso, state }];
-    const trimmed =
-      next.length > maxSnapshots ? next.slice(next.length - maxSnapshots) : next;
-    return {
-      version: BACKUP_PAYLOAD_VERSION,
-      snapshots: trimmed,
-    };
-  }
-
-  function findSnapshotByAt(payload, at) {
-    const needle = normalizeAtStamp(at);
-    if (!needle) {
-      return null;
-    }
-    return (payload?.snapshots || []).find((entry) => entry.at === needle) || null;
-  }
-
-  function findBackupGistId(gists, syncGistId) {
-    if (!Array.isArray(gists)) {
-      return null;
-    }
-    let byDescription = null;
-    for (const gist of gists) {
-      if (!gist?.id || gist.id === syncGistId) {
-        continue;
-      }
-      const files = gist.files || {};
-      if (files[BACKUP_FILENAME]) {
-        return gist.id;
-      }
-      if (gist.description === BACKUP_GIST_DESCRIPTION && !byDescription) {
-        byDescription = gist.id;
-      }
-    }
-    return byDescription;
-  }
-
-  function buildBackupGistCreatePayload(contentJson) {
-    return {
-      description: BACKUP_GIST_DESCRIPTION,
-      public: false,
-      files: { [BACKUP_FILENAME]: { content: contentJson } },
-    };
-  }
-
-  function buildBackupGistUpdatePayload(contentJson) {
-    return {
-      files: { [BACKUP_FILENAME]: { content: contentJson } },
-    };
-  }
-
-  function extractBackupContent(body) {
-    if (!body?.files || typeof body.files !== "object") {
-      return null;
-    }
-    const content = body.files[BACKUP_FILENAME]?.content;
-    return typeof content === "string" ? content : null;
-  }
-
-  return {
-    BACKUP_GIST_DESCRIPTION,
-    BACKUP_FILENAME,
-    BACKUP_PAYLOAD_VERSION,
-    MAX_SNAPSHOTS,
-    SNAPSHOT_INTERVAL_MS,
-    emptyBackupPayload,
-    parseBackupPayload,
-    serializeBackupPayload,
-    snapshotListEntries,
-    shouldCreateSnapshot,
-    appendSnapshot,
-    findSnapshotByAt,
-    findBackupGistId,
-    buildBackupGistCreatePayload,
-    buildBackupGistUpdatePayload,
-    extractBackupContent,
-  };
-})();
-
 /* ===== Account sync helpers (generated from scripts/lib/account-sync.js) ===== */
 
 /* Generated from scripts/lib/account-sync.js — run npm run bundle */
@@ -5759,12 +5421,20 @@ const appAccountSync = (function () {
   /** Direct Worker URL for local dev; Netlify proxies /api/backend in production. */
   const ACCOUNT_API_DIRECT = "https://cinequeue-api.cinequeue.workers.dev/api";
   const ACCOUNT_API_PROXIED = "/api/backend";
+  const TMDB_API_PROXIED = "/api/tmdb";
 
   function resolveAccountApiBase(hostname) {
     const host = String(hostname || "");
     return host === "localhost" || host === "127.0.0.1"
       ? ACCOUNT_API_DIRECT
       : ACCOUNT_API_PROXIED;
+  }
+
+  function resolveTmdbApiBase(hostname) {
+    const host = String(hostname || "");
+    return host === "localhost" || host === "127.0.0.1"
+      ? `${ACCOUNT_API_DIRECT}/tmdb`
+      : TMDB_API_PROXIED;
   }
 
   function parseAccountConfig(json) {
@@ -5807,7 +5477,9 @@ const appAccountSync = (function () {
   return {
     ACCOUNT_API_DIRECT,
     ACCOUNT_API_PROXIED,
+    TMDB_API_PROXIED,
     resolveAccountApiBase,
+    resolveTmdbApiBase,
     parseAccountConfig,
     serializeAccountConfig,
     isConnectedAccountConfig,
@@ -6770,21 +6442,11 @@ const appListSearch = (function () {
 /* ===== User state runtime, localStorage, and Gist storage mode ===== */
 
 /**
- * User state runtime: localStorage persistence plus optional GitHub Gist sync.
+ * User state runtime: localStorage persistence plus optional account sync.
  *
- * Only the list payload is ever synced. The Gist token and TMDB credential
- * live under their own keys and are never part of the serialized state.
+ * Only the list payload is ever synced. The account session token lives under
+ * its own key and is never part of the serialized state.
  */
-
-const GIST_TIMEOUT_MS = 15000;
-
-let gistConfig = null;
-
-/** `updatedAt` of the Gist payload this tab last saw, for staleness reporting. */
-let lastRemoteUpdatedAt = null;
-
-/** Serializes every Gist read/write pair; see queueGistSync(). */
-let gistSyncChain = Promise.resolve();
 
 function readStorage(key) {
   try {
@@ -6845,19 +6507,9 @@ function backupUserState(state) {
   );
 }
 
-function gistSyncEnabled() {
-  return (
-    userState.storageMode === "gist" &&
-    appGistSync.isConnectedGistConfig(gistConfig)
-  );
-}
-
 function persistUserState(options = {}) {
   userState = appUserState.touchUserState(userState);
   writeUserStateToStorage();
-  if (options.sync !== false && gistSyncEnabled()) {
-    queueGistSync({ push: true });
-  }
   if (options.sync !== false && accountSyncEnabled()) {
     queueAccountSync({ push: true });
   }
@@ -7002,61 +6654,6 @@ function setViewMode(mode) {
   syncViewModeButton();
 }
 
-/* --- Gist sync --- */
-
-function loadGistConfig() {
-  gistConfig = appGistSync.parseGistSyncConfig(
-    readStorage(appUserState.GIST_SYNC_KEY),
-  );
-  return gistConfig;
-}
-
-function saveGistConfig(config) {
-  gistConfig = config;
-  if (config) {
-    writeStorage(
-      appUserState.GIST_SYNC_KEY,
-      appGistSync.serializeGistSyncConfig(config),
-    );
-  } else {
-    removeStorage(appUserState.GIST_SYNC_KEY);
-  }
-}
-
-async function gistRequest(pathname, options = {}) {
-  const { method = "GET", token, body } = options;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), GIST_TIMEOUT_MS);
-  try {
-    const headers = {
-      accept: "application/vnd.github+json",
-      authorization: `Bearer ${token}`,
-    };
-    if (body) {
-      headers["content-type"] = "application/json";
-    }
-    const response = await fetch(`${appGistSync.GITHUB_API}${pathname}`, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      const error = new Error(`GitHub request failed (${response.status})`);
-      error.status = response.status;
-      throw error;
-    }
-    return await response.json();
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function remoteStateFromGistBody(body) {
-  const json = appGistSync.extractStateJsonFromGistResponse(body);
-  return json ? appUserState.parseUserState(json) : null;
-}
-
 /** Adopts a merged payload locally, keeping the previous one as a backup. */
 function adoptMergedState(merged) {
   backupUserState(userState);
@@ -7071,53 +6668,6 @@ function mergeIntoUserState(incoming) {
   );
 }
 
-/**
- * Reads the Gist, merges, and only then writes. The read is the whole point: a
- * blind PATCH from a tab that has been open a while replaces whatever another
- * tab has since added, and because the stale copy carries a fresh `updatedAt`,
- * every later pull believes it. Merging first means a stale tab contributes its
- * change instead of overwriting the payload.
- */
-async function reconcileWithGist(options = {}) {
-  if (!appGistSync.isConnectedGistConfig(gistConfig)) {
-    return { ok: false, reason: "disconnected" };
-  }
-
-  const body = await gistRequest(`/gists/${gistConfig.gistId}`, {
-    token: gistConfig.token,
-  });
-  const remoteState = remoteStateFromGistBody(body);
-
-  const localSignature = appUserState.userStateSignature(userState);
-  const merged = mergeIntoUserState(remoteState);
-  const mergedSignature = appUserState.userStateSignature(merged);
-  const remoteSignature = remoteState
-    ? appUserState.userStateSignature(remoteState)
-    : null;
-
-  const localChanged = mergedSignature !== localSignature;
-  if (localChanged) {
-    adoptMergedState(merged);
-  }
-
-  lastRemoteUpdatedAt = remoteState?.updatedAt || null;
-
-  if (options.push || mergedSignature !== remoteSignature) {
-    userState = appUserState.touchUserState(userState);
-    writeUserStateToStorage();
-    await gistRequest(`/gists/${gistConfig.gistId}`, {
-      method: "PATCH",
-      token: gistConfig.token,
-      body: appGistSync.buildGistUpdatePayload(
-        appUserState.serializeUserState(userState),
-      ),
-    });
-    lastRemoteUpdatedAt = userState.updatedAt;
-  }
-
-  return { ok: true, localChanged };
-}
-
 function formatSyncTime(value) {
   const time = Date.parse(value || "");
   if (!Number.isFinite(time)) {
@@ -7127,44 +6677,6 @@ function formatSyncTime(value) {
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-/**
- * Every sync runs through one chain. Two overlapping GET/PATCH pairs would let
- * the second PATCH carry a payload built before the first one landed, which is
- * the same lost update the read-before-write is there to prevent.
- */
-function queueGistSync(options = {}) {
-  gistSyncChain = gistSyncChain
-    .then(() => reconcileWithGist(options))
-    .then(async (result) => {
-      if (!result?.ok) {
-        return;
-      }
-      if (result.localChanged) {
-        onRemoteStateAdopted();
-      }
-      setStatus(
-        gistStatus,
-        `Synced with GitHub at ${formatSyncTime(userState.updatedAt)}.`,
-        "ok",
-      );
-      try {
-        await maybeCreateGistSnapshot();
-      } catch (_) {
-        /* Backup failures must not block live sync or overwrite snapshots. */
-      }
-    })
-    .catch(() => {
-      // Never fall back to a blind write: keeping the change local and retrying
-      // later is always safer than overwriting a payload we could not read.
-      setStatus(
-        gistStatus,
-        "Could not reach GitHub. Changes are saved on this device and will sync later.",
-        "error",
-      );
-    });
-  return gistSyncChain;
 }
 
 /**
@@ -7195,263 +6707,9 @@ function onVisibilityRefresh() {
   if (document.visibilityState !== "visible") {
     return;
   }
-  if (gistSyncEnabled()) {
-    queueGistSync();
-  }
   if (accountSyncEnabled()) {
     queueAccountSync();
   }
-}
-
-/**
- * Connecting looks for an existing sync Gist on the account and adopts it, so
- * a second device picks up lists already there instead of overwriting them.
- */
-async function connectGist(token) {
-  const trimmed = String(token || "").trim();
-  if (!trimmed) {
-    return { ok: false, error: "Paste a GitHub token first." };
-  }
-
-  try {
-    const gists = await gistRequest("/gists", { token: trimmed });
-    const gistId = appGistSync.findCollectorGistId(gists);
-    let remoteState = null;
-
-    if (gistId) {
-      const body = await gistRequest(`/gists/${gistId}`, { token: trimmed });
-      remoteState = remoteStateFromGistBody(body);
-    }
-
-    const resolved = appGistSync.resolveGistConnectState({
-      gistId,
-      remoteState,
-      localState: userState,
-    });
-    if (!resolved.ok) {
-      return resolved;
-    }
-
-    let nextGistId = resolved.gistId;
-    if (resolved.action === "create") {
-      const created = await gistRequest("/gists", {
-        method: "POST",
-        token: trimmed,
-        body: appGistSync.buildGistCreatePayload(
-          appUserState.serializeUserState(userState),
-        ),
-      });
-      nextGistId = created?.id || "";
-      if (!nextGistId) {
-        return { ok: false, error: "GitHub did not return a Gist id." };
-      }
-    }
-
-    const backupGistId = appGistBackup.findBackupGistId(gists, nextGistId) || "";
-    saveGistConfig({ token: trimmed, gistId: nextGistId, backupGistId });
-    backupUserState(userState);
-    userState = {
-      ...appUserState.normalizeUserState(resolved.nextState),
-      storageMode: "gist",
-    };
-    gridViewMode = userState.preferences.viewMode;
-    writeUserStateToStorage();
-    queueGistSync();
-    return { ok: true, action: resolved.action };
-  } catch (error) {
-    return { ok: false, error: `Could not reach GitHub. ${error.message}` };
-  }
-}
-
-function disconnectGist() {
-  saveGistConfig(null);
-  userState = { ...userState, storageMode: "local" };
-  writeUserStateToStorage();
-}
-
-/* --- Gist snapshot backups (write-only, separate gist) --- */
-
-let backupSnapshotChain = Promise.resolve();
-
-function clearStoredBackupGistId() {
-  if (!gistConfig?.backupGistId) {
-    return;
-  }
-  saveGistConfig({ ...gistConfig, backupGistId: "" });
-}
-
-async function resolveBackupGistId() {
-  if (!gistConfig?.token) {
-    return null;
-  }
-  if (gistConfig.backupGistId) {
-    return gistConfig.backupGistId;
-  }
-  const gists = await gistRequest("/gists", { token: gistConfig.token });
-  const backupGistId = appGistBackup.findBackupGistId(gists, gistConfig.gistId);
-  if (backupGistId) {
-    saveGistConfig({ ...gistConfig, backupGistId });
-  }
-  return backupGistId || null;
-}
-
-async function fetchBackupGistBody(backupGistId) {
-  try {
-    return await gistRequest(`/gists/${backupGistId}`, {
-      token: gistConfig.token,
-    });
-  } catch (error) {
-    if (error?.status === 404) {
-      clearStoredBackupGistId();
-      return null;
-    }
-    throw error;
-  }
-}
-
-async function readBackupPayload(backupGistId) {
-  const body = await fetchBackupGistBody(backupGistId);
-  if (!body) {
-    return appGistBackup.emptyBackupPayload();
-  }
-  const content = appGistBackup.extractBackupContent(body);
-  return content
-    ? appGistBackup.parseBackupPayload(content)
-    : appGistBackup.emptyBackupPayload();
-}
-
-async function writeBackupPayload(backupGistId, payload) {
-  const contentJson = appGistBackup.serializeBackupPayload(payload);
-  try {
-    await gistRequest(`/gists/${backupGistId}`, {
-      method: "PATCH",
-      token: gistConfig.token,
-      body: appGistBackup.buildBackupGistUpdatePayload(contentJson),
-    });
-  } catch (error) {
-    if (error?.status === 404) {
-      clearStoredBackupGistId();
-      await createBackupGist(payload);
-      return;
-    }
-    throw error;
-  }
-}
-
-async function createBackupGist(payload) {
-  const contentJson = appGistBackup.serializeBackupPayload(payload);
-  const created = await gistRequest("/gists", {
-    method: "POST",
-    token: gistConfig.token,
-    body: appGistBackup.buildBackupGistCreatePayload(contentJson),
-  });
-  const backupGistId = created?.id || "";
-  if (!backupGistId) {
-    throw new Error("GitHub did not return a backup Gist id.");
-  }
-  saveGistConfig({ ...gistConfig, backupGistId });
-  return backupGistId;
-}
-
-async function createGistSnapshotNow() {
-  const now = Date.now();
-  const atIso = new Date(now).toISOString();
-  const stateObject = appUserState.parseUserState(
-    appUserState.serializeUserState(userState),
-  );
-  if (!stateObject) {
-    return { ok: false, reason: "state" };
-  }
-
-  let backupGistId = await resolveBackupGistId();
-  let payload = appGistBackup.emptyBackupPayload();
-
-  if (backupGistId) {
-    const body = await fetchBackupGistBody(backupGistId);
-    if (!body) {
-      backupGistId = null;
-    } else {
-      payload = appGistBackup.parseBackupPayload(
-        appGistBackup.extractBackupContent(body) || "",
-      );
-      if (!appGistBackup.shouldCreateSnapshot(payload.snapshots, now)) {
-        return { ok: true, skipped: true };
-      }
-    }
-  }
-
-  if (!backupGistId && !appGistBackup.shouldCreateSnapshot([], now)) {
-    return { ok: true, skipped: true };
-  }
-
-  const nextPayload = appGistBackup.appendSnapshot(payload, stateObject, atIso);
-
-  if (!backupGistId) {
-    await createBackupGist(nextPayload);
-    return { ok: true, created: true };
-  }
-
-  await writeBackupPayload(backupGistId, nextPayload);
-  return { ok: true, created: true };
-}
-
-/**
- * Adds an immutable snapshot when the latest one is at least 20 minutes old.
- * All snapshots live in one backup gist file and are only appended or purged.
- */
-async function maybeCreateGistSnapshot() {
-  if (!gistSyncEnabled()) {
-    return { ok: false, reason: "disabled" };
-  }
-  backupSnapshotChain = backupSnapshotChain.then(() => createGistSnapshotNow());
-  return backupSnapshotChain;
-}
-
-async function listGistSnapshots() {
-  if (!gistSyncEnabled()) {
-    return [];
-  }
-  const backupGistId = await resolveBackupGistId();
-  if (!backupGistId) {
-    return [];
-  }
-  const payload = await readBackupPayload(backupGistId);
-  return appGistBackup.snapshotListEntries(payload);
-}
-
-async function restoreGistSnapshot(at) {
-  if (!gistSyncEnabled()) {
-    return { ok: false, error: "Gist sync is not connected." };
-  }
-  if (!Date.parse(String(at || ""))) {
-    return { ok: false, error: "That snapshot is not valid." };
-  }
-
-  const backupGistId = await resolveBackupGistId();
-  if (!backupGistId) {
-    return { ok: false, error: "No backup Gist found." };
-  }
-
-  const payload = await readBackupPayload(backupGistId);
-  const entry = appGistBackup.findSnapshotByAt(payload, at);
-  if (!entry) {
-    return { ok: false, error: "Could not find that snapshot." };
-  }
-  const parsed = appUserState.parseUserState(entry.state);
-  if (!parsed) {
-    return { ok: false, error: "Could not read that snapshot." };
-  }
-
-  backupUserState(userState);
-  userState = {
-    ...parsed,
-    storageMode: "gist",
-  };
-  gridViewMode = userState.preferences.viewMode;
-  writeUserStateToStorage();
-  queueGistSync({ push: true });
-  onRemoteStateAdopted();
-  return { ok: true };
 }
 
 /* --- Account sync (CineQueue backend: Cloudflare Worker + D1) --- */
@@ -7558,7 +6816,7 @@ async function reconcileWithAccount(options = {}) {
     adoptMergedState(merged);
   }
 
-  if (options.push || mergedSignature !== remoteSignature) {
+  if (options.push && mergedSignature !== remoteSignature) {
     userState = appUserState.touchUserState(userState);
     writeUserStateToStorage();
     await accountRequest("/data", {
@@ -7600,9 +6858,8 @@ function queueAccountSync(options = {}) {
 }
 
 /**
- * Signup and login share a shape: get a session, switch to account mode, then
- * reconcile so lists already on the account and lists already on this device
- * merge instead of one clobbering the other.
+ * Signup and login share a shape: get a session, then pull remote lists only.
+ * Local data is not pushed on connect — export/import CSV to migrate old lists.
  */
 async function connectAccount(mode, email, password, inviteCode) {
   try {
@@ -7633,7 +6890,7 @@ async function connectAccount(mode, email, password, inviteCode) {
     backupUserState(userState);
     userState = { ...userState, storageMode: "account" };
     writeUserStateToStorage();
-    await queueAccountSync({ push: true });
+    await queueAccountSync({ push: false });
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error.message };
@@ -7642,7 +6899,7 @@ async function connectAccount(mode, email, password, inviteCode) {
 
 function disconnectAccount() {
   saveAccountConfig(null);
-  userState = { ...userState, storageMode: "local" };
+  userState = { ...userState, storageMode: "account" };
   writeUserStateToStorage();
 }
 
@@ -7693,8 +6950,8 @@ async function fetchFriendState(userId) {
  * covers is served from the repo and never requested, so the API is only
  * consulted for ids added since the last `npm run scrape`.
  *
- * On Netlify, an optional hosted session routes API calls through /api/tmdb so
- * the read token stays server-side. Personal tokens in Settings still work.
+ * When logged in, all TMDB traffic goes through the account-gated Worker proxy
+ * at /api/tmdb (Netlify redirect in production, direct Worker URL on localhost).
  */
 
 const TMDB_CACHE_NAME = "moviecollector-tmdb-v1";
@@ -7747,78 +7004,14 @@ const posterUrlInflight = new Map();
 const posterLoadQueue = [];
 let posterLoadsInFlight = 0;
 let posterObserver;
-let hostedSessionToken = "";
-
 /** Records from data/movies.json, kept apart so hydrateMovies stays the only
  * path into movieById and its onRecord contract still holds. */
 const localMovieById = new Map();
 let localPosterSizes = [];
 let localDataGeneratedAt = null;
 
-/* --- Credential --- */
-
-function loadCredential() {
-  try {
-    tmdbCredential = localStorage.getItem(appUserState.TMDB_AUTH_KEY) || "";
-  } catch (_) {
-    tmdbCredential = "";
-  }
-  return tmdbCredential;
-}
-
-function saveCredential(value) {
-  tmdbCredential = String(value || "").trim();
-  try {
-    if (tmdbCredential) {
-      localStorage.setItem(appUserState.TMDB_AUTH_KEY, tmdbCredential);
-    } else {
-      localStorage.removeItem(appUserState.TMDB_AUTH_KEY);
-    }
-  } catch (_) {
-    /* Private browsing can refuse writes; the in-memory value still works. */
-  }
-  return tmdbCredential;
-}
-
-function hasCredential() {
-  return appTmdb.isReadAccessToken(tmdbCredential);
-}
-
-/* --- Hosted session (Netlify proxy) --- */
-
-function loadHostedSession() {
-  try {
-    hostedSessionToken = localStorage.getItem(appUserState.HOSTED_SESSION_KEY) || "";
-  } catch (_) {
-    hostedSessionToken = "";
-  }
-  return hostedSessionToken;
-}
-
-function saveHostedSession(token) {
-  hostedSessionToken = String(token || "").trim();
-  try {
-    if (hostedSessionToken) {
-      localStorage.setItem(appUserState.HOSTED_SESSION_KEY, hostedSessionToken);
-    } else {
-      localStorage.removeItem(appUserState.HOSTED_SESSION_KEY);
-    }
-  } catch (_) {
-    /* Same private-browsing caveat as the TMDB credential. */
-  }
-  return hostedSessionToken;
-}
-
-function clearHostedSession() {
-  return saveHostedSession("");
-}
-
-function hasHostedAccess() {
-  return Boolean(hostedSessionToken);
-}
-
 function hasTmdbAccess() {
-  return hasHostedAccess() || hasCredential();
+  return accountSyncEnabled();
 }
 
 function tmdbUrlToProxyRequest(url) {
@@ -7852,36 +7045,15 @@ function tmdbUrlToProxyRequest(url) {
 }
 
 function buildProxyUrl(path, searchParams) {
-  const url = new URL("/api/tmdb", window.location.origin);
+  const base = appAccountSync.resolveTmdbApiBase(window.location.hostname);
+  const url = base.startsWith("http")
+    ? new URL(base)
+    : new URL(base, window.location.origin);
   url.searchParams.set("path", path);
   for (const [key, value] of Object.entries(searchParams || {})) {
     url.searchParams.set(key, value);
   }
   return url.toString();
-}
-
-async function unlockHostedAccess(password) {
-  const response = await fetch("/api/auth", {
-    method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json" },
-    body: JSON.stringify({ password: String(password || "") }),
-  });
-  if (response.status === 503) {
-    throw new Error("Hosted access is not available on this host.");
-  }
-  if (!response.ok) {
-    throw new Error("Incorrect password.");
-  }
-  const body = await response.json();
-  if (!body?.token) {
-    throw new Error("Hosted access did not return a session.");
-  }
-  saveHostedSession(body.token);
-  await verifyCredential();
-}
-
-function lockHostedAccess() {
-  clearHostedSession();
 }
 
 /* --- Committed snapshot --- */
@@ -8212,7 +7384,7 @@ function bindPosterImages(root) {
 
 async function fetchTmdb(url, options = {}) {
   if (!hasTmdbAccess()) {
-    throw new Error("No TMDB credential");
+    throw new Error("Sign in to search TMDB");
   }
 
   const controller = new AbortController();
@@ -8229,21 +7401,18 @@ async function fetchTmdb(url, options = {}) {
   }
 
   try {
-    let requestUrl = url;
-    let init = { signal: controller.signal, headers: { accept: "application/json" } };
-
-    if (hasHostedAccess()) {
-      const { path, searchParams } = tmdbUrlToProxyRequest(url);
-      requestUrl = buildProxyUrl(path, searchParams);
-      init.headers.authorization = `Bearer ${hostedSessionToken}`;
-    } else {
-      init = appTmdb.buildRequestInit(tmdbCredential, { signal: controller.signal });
-    }
-
-    const response = await fetch(requestUrl, init);
+    const { path, searchParams } = tmdbUrlToProxyRequest(url);
+    const requestUrl = buildProxyUrl(path, searchParams);
+    const response = await fetch(requestUrl, {
+      signal: controller.signal,
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${accountConfig?.token || ""}`,
+      },
+    });
     if (!response.ok) {
-      if (hasHostedAccess() && response.status === 401) {
-        clearHostedSession();
+      if (response.status === 401) {
+        saveAccountConfig(null);
       }
       throw new Error(`TMDB request failed (${response.status})`);
     }
@@ -8328,19 +7497,6 @@ async function getMovie(movieId, options = {}) {
   }
 
   return fetchAndCacheMovie(id, cacheKey, cache);
-}
-
-/**
- * Cheapest authenticated call TMDB offers, so a bad credential is caught before
- * it fans out into one failing request per movie.
- */
-async function verifyCredential() {
-  const response = await fetchTmdb(appTmdb.buildConfigurationUrl());
-  const body = await response.json();
-  if (!body?.images?.secure_base_url) {
-    throw new Error("TMDB returned an unexpected configuration payload");
-  }
-  return true;
 }
 
 async function searchMovies(query, options = {}) {
@@ -8778,7 +7934,7 @@ function onSearchInput() {
   }
 
   if (!hasTmdbAccess()) {
-    showSuggestMessage("Add a TMDB credential in Settings to search.");
+    showSuggestMessage(ACCOUNT_LOGIN_HINT);
     return;
   }
 
@@ -8798,7 +7954,7 @@ function updateAddMovieHint() {
     return;
   }
   if (!hasTmdbAccess()) {
-    addMovieHint.textContent = "Add a TMDB credential in Settings to search.";
+    addMovieHint.textContent = ACCOUNT_LOGIN_HINT;
     return;
   }
   addMovieHint.textContent = searchDirectorMode
@@ -9069,6 +8225,10 @@ function syncAddMovieFromWatchedSection() {
 }
 
 function openAddMovieDialog() {
+  if (!accountSyncEnabled()) {
+    openSettings();
+    return;
+  }
   setSearchDirectorMode(false);
   showAddSearchStep();
   clearSearch();
@@ -9778,6 +8938,18 @@ function syncHeaderViewTitle() {
   headerTitleEl.textContent = isCustomListIndexActive() ? "Lists" : "CineQueue";
 }
 
+function syncAccountLoginGate() {
+  const loggedIn = accountSyncEnabled();
+  document.body.classList.toggle("account-login-required", !loggedIn);
+  if (searchInput) {
+    searchInput.disabled = !loggedIn;
+  }
+  if (addMovieFab) {
+    addMovieFab.disabled = !loggedIn;
+  }
+  updateAddMovieHint();
+}
+
 function updateListHeader() {
   syncHeaderViewTitle();
   const count = isDiscoverActive() ? discoverDisplayIds().length : activeMovieIds().length;
@@ -9803,7 +8975,7 @@ function updateListHeader() {
     return;
   }
   if (count && !hasMovieData()) {
-    listSubtitleEl.textContent = "Add a TMDB credential in Settings to load details";
+    listSubtitleEl.textContent = "Sign in to load movie details from TMDB";
   } else if (count) {
     if (reorderModeActive) {
       listSubtitleEl.textContent = "+ Add a movie · drag to reorder";
@@ -9818,7 +8990,7 @@ function updateListHeader() {
   } else {
     listSubtitleEl.textContent = hasTmdbAccess()
       ? "Search TMDB to add your first movie"
-      : "Add a TMDB credential in Settings to get started";
+      : "Sign in via Settings → Account to get started";
   }
 }
 
@@ -9854,7 +9026,7 @@ function renderEmptyState(count) {
   emptyState.hidden = false;
   if (isCustomListDetailActive()) {
     if (!hasTmdbAccess()) {
-      emptyState.innerHTML = `<strong>Add your TMDB token</strong>Open Settings and paste your TMDB API Read Access Token to search and load movies.`;
+      emptyState.innerHTML = `<strong>Sign in to use CineQueue</strong><p class="empty-state-hint">Open Settings → Account to log in or create an account.</p>`;
       return;
     }
     emptyState.innerHTML = `<strong>This list is empty</strong>
@@ -9876,7 +9048,7 @@ function renderEmptyState(count) {
     return;
   }
   if (!hasTmdbAccess()) {
-    emptyState.innerHTML = `<strong>Add your TMDB token</strong>Open Settings and paste your TMDB API Read Access Token to search and load movies.`;
+    emptyState.innerHTML = `<strong>Sign in to use CineQueue</strong><p class="empty-state-hint">Open Settings → Account to log in or create an account.</p>`;
     return;
   }
   emptyState.innerHTML = `<strong>Nothing in ${appCardHtml.escapeHtml(listName)} yet</strong>
@@ -9898,6 +9070,7 @@ function onRemoteStateAdopted() {
 }
 
 function render() {
+  syncAccountLoginGate();
   if (isCustomListIndexActive()) {
     syncAppViewChrome();
     renderCustomListsIndex();
@@ -11959,120 +11132,6 @@ function syncDetailFromLocation() {
 
 /* --- Settings --- */
 
-let pendingBackupRestoreFilename = null;
-
-function formatSnapshotLabel(iso) {
-  const time = Date.parse(iso || "");
-  if (!Number.isFinite(time)) {
-    return iso || "Unknown time";
-  }
-  return new Date(time).toLocaleString([], {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-async function refreshGistBackupList() {
-  if (!gistBackupSection || !gistBackupList) {
-    return;
-  }
-  if (!gistSyncEnabled()) {
-    gistBackupSection.hidden = true;
-    gistBackupList.innerHTML = "";
-    setStatus(gistBackupStatus, "", null);
-    return;
-  }
-  gistBackupSection.hidden = false;
-  gistBackupList.innerHTML =
-    '<li class="gist-backup-empty">Loading snapshots…</li>';
-  try {
-    const snapshots = await listGistSnapshots();
-    if (!snapshots.length) {
-      gistBackupList.innerHTML =
-        '<li class="gist-backup-empty">No snapshots yet. The first one is written on load when sync is active.</li>';
-      setStatus(gistBackupStatus, "", null);
-      return;
-    }
-    gistBackupList.innerHTML = snapshots
-      .slice()
-      .reverse()
-      .map((entry) => {
-        const label = formatSnapshotLabel(entry.at);
-        const safeLabel = appCardHtml.escapeHtml(label);
-        return `<li class="gist-backup-item"><button type="button" class="gist-backup-restore-btn" data-backup-at="${entry.at}" data-backup-label="${safeLabel}">Restore ${safeLabel}</button></li>`;
-      })
-      .join("");
-    setStatus(
-      gistBackupStatus,
-      `${snapshots.length} snapshot${snapshots.length === 1 ? "" : "s"} stored (max ${appGistBackup.MAX_SNAPSHOTS}).`,
-      "ok",
-    );
-  } catch (_) {
-    gistBackupList.innerHTML =
-      '<li class="gist-backup-empty">Could not load snapshots.</li>';
-    setStatus(gistBackupStatus, "Could not reach the backup Gist.", "error");
-  }
-}
-
-function openBackupRestoreConfirm(at, label) {
-  pendingBackupRestoreFilename = at;
-  backupRestoreMessage.textContent = `Restore your lists from the snapshot taken ${label}? Your current lists will be replaced and synced to GitHub.`;
-  backupRestoreDialog.hidden = false;
-}
-
-function closeBackupRestoreConfirm() {
-  pendingBackupRestoreFilename = null;
-  backupRestoreDialog.hidden = true;
-}
-
-async function onConfirmBackupRestore() {
-  const at = pendingBackupRestoreFilename;
-  closeBackupRestoreConfirm();
-  if (!at) {
-    return;
-  }
-  setStatus(gistBackupStatus, "Restoring snapshot…", null);
-  backupRestoreOk.disabled = true;
-  try {
-    const result = await restoreGistSnapshot(at);
-    if (!result.ok) {
-      setStatus(gistBackupStatus, result.error, "error");
-      return;
-    }
-    closeSettings();
-    refreshViewModeForActiveList();
-    render();
-    hydrateActiveList();
-  } finally {
-    backupRestoreOk.disabled = false;
-  }
-}
-
-function onGistBackupListClick(event) {
-  const button = event.target.closest("[data-backup-at]");
-  if (!button) {
-    return;
-  }
-  openBackupRestoreConfirm(
-    button.dataset.backupAt,
-    button.dataset.backupLabel || "at that time",
-  );
-}
-
-function setStorageTab(mode) {
-  const tabs = [
-    { mode: "local", tab: storageTabLocal, panel: storagePanelLocal },
-    { mode: "gist", tab: storageTabGist, panel: gistFields },
-    { mode: "account", tab: storageTabAccount, panel: accountFields },
-  ];
-  for (const entry of tabs) {
-    const selected = entry.mode === mode;
-    entry.tab.setAttribute("aria-selected", selected ? "true" : "false");
-    entry.tab.tabIndex = selected ? 0 : -1;
-    entry.panel.hidden = !selected;
-  }
-}
-
 function accountDisplayInitial(config) {
   const source = String(config?.displayName || config?.email || "?").trim();
   return source.charAt(0).toUpperCase() || "?";
@@ -12092,7 +11151,9 @@ function setAccountAuthMode(mode) {
     loginSelected ? "account-auth-tab-login" : "account-auth-tab-signup",
   );
   accountSubmitBtn.textContent = loginSelected ? "Log in" : "Create account";
-  accountAuthTitle.textContent = loginSelected ? "Sign in to sync" : "Create an account";
+  accountAuthTitle.textContent = loginSelected
+    ? "Sign in to use CineQueue"
+    : "Create an account";
   accountPasswordInput.placeholder = loginSelected ? "Your password" : "At least 8 characters";
   accountPasswordInput.autocomplete = loginSelected ? "current-password" : "new-password";
   if (accountInviteField) {
@@ -12101,85 +11162,25 @@ function setAccountAuthMode(mode) {
 }
 
 function refreshSettings() {
-  tmdbKeyInput.value = "";
-  setStatus(
-    tmdbKeyStatus,
-    hasCredential() ? "Read access token saved." : "No token saved.",
-    hasCredential() ? "ok" : null,
-  );
-
-  const mode =
-    userState.storageMode === "gist"
-      ? "gist"
-      : userState.storageMode === "account"
-        ? "account"
-        : "local";
-  setStorageTab(mode);
-  if (mode === "account") {
-    refreshAccountSection();
-  } else {
-    setStatus(accountSyncStatus, "", null);
-  }
-  gistTokenInput.value = "";
-  setStatus(
-    gistStatus,
-    appGistSync.isConnectedGistConfig(gistConfig)
-      ? `Connected to Gist ${gistConfig.gistId.slice(0, 8)}…`
-      : "Not connected.",
-    appGistSync.isConnectedGistConfig(gistConfig) ? "ok" : null,
-  );
+  refreshAccountSection();
   setStatus(cacheStatus, "");
   refreshCollectionTransferStatus();
 }
 
 function openSettings() {
   refreshSettings();
-  refreshGistBackupList();
   settingsDialog.hidden = false;
   settingsBtn.setAttribute("aria-expanded", "true");
-  tmdbKeyInput.focus({ preventScroll: true });
+  if (accountSyncEnabled()) {
+    settingsClose.focus({ preventScroll: true });
+  } else {
+    accountEmailInput.focus({ preventScroll: true });
+  }
 }
 
 function closeSettings() {
   settingsDialog.hidden = true;
   settingsBtn.setAttribute("aria-expanded", "false");
-}
-
-async function onSaveCredential() {
-  const value = tmdbKeyInput.value.trim();
-
-  // Reject the wrong credential shape before storing it, so a mistyped or v3
-  // value never becomes the reason every later request fails.
-  const problem = appTmdb.describeCredentialProblem(value);
-  if (problem) {
-    setStatus(tmdbKeyStatus, problem, "error");
-    return;
-  }
-
-  saveCredential(value);
-  refreshSettings();
-  render();
-  setStatus(tmdbKeyStatus, "Checking with TMDB…", null);
-  tmdbKeySave.disabled = true;
-
-  try {
-    await verifyCredential();
-    refreshSettings();
-    hydrateActiveList();
-  } catch (error) {
-    // The credential stays saved so it can be corrected rather than retyped.
-    setStatus(tmdbKeyStatus, `Saved, but TMDB rejected it. ${error.message}`, "error");
-  } finally {
-    tmdbKeySave.disabled = false;
-  }
-}
-
-function onClearCredential() {
-  saveCredential("");
-  movieById.clear();
-  movieErrors.clear();
-  refreshSettings();
-  render();
 }
 
 async function onClearCache() {
@@ -12244,59 +11245,6 @@ async function onExportCsv() {
   } finally {
     exportCsvBtn.disabled = false;
   }
-}
-
-function onStorageModeChange(mode) {
-  if (mode === "gist") {
-    userState = { ...userState, storageMode: "gist" };
-    persistUserState({ sync: false });
-    refreshSettings();
-    return;
-  }
-  if (mode === "account") {
-    userState = { ...userState, storageMode: "account" };
-    persistUserState({ sync: false });
-    refreshSettings();
-    if (accountSyncEnabled()) {
-      queueAccountSync();
-    }
-    return;
-  }
-  disconnectGist();
-  refreshSettings();
-}
-
-async function onConnectGist() {
-  const token = gistTokenInput.value.trim();
-  setStatus(gistStatus, "Connecting to GitHub…", null);
-  gistConnectBtn.disabled = true;
-  try {
-    const result = await connectGist(token);
-    if (!result.ok) {
-      setStatus(gistStatus, result.error, "error");
-      return;
-    }
-    setStatus(
-      gistStatus,
-      result.action === "adopt"
-        ? "Connected. Loaded the lists already in your Gist."
-        : "Connected. Created a new private Gist for your lists.",
-      "ok",
-    );
-    gistTokenInput.value = "";
-    refreshViewModeForActiveList();
-    render();
-    hydrateActiveList();
-    refreshGistBackupList();
-  } finally {
-    gistConnectBtn.disabled = false;
-  }
-}
-
-function onDisconnectGist() {
-  disconnectGist();
-  refreshSettings();
-  refreshGistBackupList();
 }
 
 /* --- Account & friends --- */
@@ -12378,6 +11326,9 @@ async function onAccountAuth() {
 function onAccountLogout() {
   disconnectAccount();
   refreshSettings();
+  refreshViewModeForActiveList();
+  render();
+  hydrateActiveList();
 }
 
 function openAccountDeleteConfirm() {
@@ -12598,52 +11549,6 @@ function openAbout() {
 function closeAbout() {
   aboutDialog.hidden = true;
   aboutBtn.setAttribute("aria-expanded", "false");
-}
-
-/* --- Hosted unlock (hidden) --- */
-
-function openHostedUnlockDialog() {
-  hostedUnlockInput.value = "";
-  setStatus(hostedUnlockStatus, "");
-  hostedUnlockDialog.hidden = false;
-  hostedUnlockInput.focus({ preventScroll: true });
-}
-
-function closeHostedUnlockDialog() {
-  hostedUnlockDialog.hidden = true;
-  hostedUnlockInput.value = "";
-  setStatus(hostedUnlockStatus, "");
-}
-
-async function submitHostedUnlock() {
-  const password = hostedUnlockInput.value;
-  setStatus(hostedUnlockStatus, "Checking…", null);
-  hostedUnlockSubmit.disabled = true;
-  try {
-    await unlockHostedAccess(password);
-    closeHostedUnlockDialog();
-    render();
-    hydrateActiveList();
-  } catch (error) {
-    setStatus(hostedUnlockStatus, error.message, "error");
-  } finally {
-    hostedUnlockSubmit.disabled = false;
-  }
-}
-
-function openHostedLockDialog() {
-  hostedLockDialog.hidden = false;
-  hostedLockCancel.focus({ preventScroll: true });
-}
-
-function closeHostedLockDialog() {
-  hostedLockDialog.hidden = true;
-}
-
-function confirmHostedLock() {
-  lockHostedAccess();
-  closeHostedLockDialog();
-  render();
 }
 
 /* ===== Drag reorder for list rows and grid cards ===== */
@@ -14361,7 +13266,7 @@ function renderDiscoverEmptyState(count) {
   }
   emptyState.hidden = false;
   if (!hasTmdbAccess()) {
-    emptyState.innerHTML = `<strong>Add your TMDB token</strong>Open Settings and paste your TMDB API Read Access Token to use Discover.`;
+    emptyState.innerHTML = `<strong>Sign in to use Discover</strong><p class="empty-state-hint">Open Settings → Account to log in or create an account.</p>`;
     return;
   }
   if (discoverLoading) {
@@ -14369,7 +13274,7 @@ function renderDiscoverEmptyState(count) {
     return;
   }
   if (discoverLoadError) {
-    emptyState.innerHTML = `<strong>Could not load releases</strong><p class="empty-state-hint">Check your credential and connection, then try again.</p>`;
+    emptyState.innerHTML = `<strong>Could not load releases</strong><p class="empty-state-hint">Check your connection, then try again.</p>`;
     return;
   }
   emptyState.innerHTML = `<strong>No releases to show</strong>`;
@@ -14511,6 +13416,10 @@ function onDiscoverTabClick(event) {
 }
 
 function openDiscover() {
+  if (!accountSyncEnabled()) {
+    openSettings();
+    return;
+  }
   navigateToDiscover(appDiscover.DEFAULT_DISCOVER_TAB);
 }
 
@@ -15059,14 +13968,6 @@ viewingRemoveConfirmDialog.addEventListener("click", (event) => {
   }
 });
 
-backupRestoreCancel?.addEventListener("click", () => closeBackupRestoreConfirm());
-backupRestoreOk?.addEventListener("click", () => onConfirmBackupRestore());
-backupRestoreDialog?.addEventListener("click", (event) => {
-  if (event.target.hasAttribute("data-close-backup-restore")) {
-    closeBackupRestoreConfirm();
-  }
-});
-
 let lastLocationNavigationKey = null;
 let ignoreHashChange = false;
 
@@ -15164,14 +14065,6 @@ settingsDialog.addEventListener("click", (event) => {
     closeSettings();
   }
 });
-tmdbKeySave.addEventListener("click", onSaveCredential);
-tmdbKeyInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    onSaveCredential();
-  }
-});
-tmdbKeyClear.addEventListener("click", onClearCredential);
 cacheClearBtn.addEventListener("click", onClearCache);
 exportCsvBtn.addEventListener("click", onExportCsv);
 collectionImportRead?.addEventListener("click", onReviewCollectionImport);
@@ -15181,12 +14074,6 @@ collectionImportCancel?.addEventListener("click", closeCollectionImportConfirm);
 collectionImportDialog?.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-collection-import")) closeCollectionImportConfirm();
 });
-storageTabLocal.addEventListener("click", () => onStorageModeChange("local"));
-storageTabGist.addEventListener("click", () => onStorageModeChange("gist"));
-storageTabAccount.addEventListener("click", () => onStorageModeChange("account"));
-gistConnectBtn.addEventListener("click", onConnectGist);
-gistClearBtn.addEventListener("click", onDisconnectGist);
-gistBackupList?.addEventListener("click", onGistBackupListClick);
 accountAuthTabLogin.addEventListener("click", () => setAccountAuthMode("login"));
 accountAuthTabSignup.addEventListener("click", () => setAccountAuthMode("signup"));
 accountSubmitBtn.addEventListener("click", onAccountAuth);
@@ -15226,58 +14113,10 @@ aboutDialog.addEventListener("click", (event) => {
   }
 });
 
-/* --- Logo: single click home (delayed); triple-click hosted unlock --- */
-
-let logoClickCount = 0;
-let logoClickTimer = null;
-const LOGO_CLICK_WINDOW_MS = 600;
+/* --- Logo: single click home --- */
 
 headerLogo.addEventListener("click", () => {
-  logoClickCount += 1;
-  if (logoClickTimer) {
-    clearTimeout(logoClickTimer);
-  }
-
-  if (logoClickCount >= 3) {
-    logoClickCount = 0;
-    logoClickTimer = null;
-    if (hasHostedAccess()) {
-      openHostedLockDialog();
-    } else {
-      openHostedUnlockDialog();
-    }
-    return;
-  }
-
-  logoClickTimer = setTimeout(() => {
-    if (logoClickCount === 1) {
-      navigateHomeToWatched();
-    }
-    logoClickCount = 0;
-    logoClickTimer = null;
-  }, LOGO_CLICK_WINDOW_MS);
-});
-
-hostedUnlockCancel.addEventListener("click", () => closeHostedUnlockDialog());
-hostedUnlockSubmit.addEventListener("click", () => submitHostedUnlock());
-hostedUnlockInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    submitHostedUnlock();
-  }
-});
-hostedUnlockDialog.addEventListener("click", (event) => {
-  if (event.target.hasAttribute("data-close-hosted-unlock")) {
-    closeHostedUnlockDialog();
-  }
-});
-
-hostedLockCancel.addEventListener("click", () => closeHostedLockDialog());
-hostedLockOk.addEventListener("click", () => confirmHostedLock());
-hostedLockDialog.addEventListener("click", (event) => {
-  if (event.target.hasAttribute("data-close-hosted-lock")) {
-    closeHostedLockDialog();
-  }
+  navigateHomeToWatched();
 });
 
 /* --- Global keys --- */
@@ -15286,18 +14125,6 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     if (!collectionImportDialog.hidden) {
       closeCollectionImportConfirm();
-      return;
-    }
-    if (!hostedUnlockDialog.hidden) {
-      closeHostedUnlockDialog();
-      return;
-    }
-    if (!hostedLockDialog.hidden) {
-      closeHostedLockDialog();
-      return;
-    }
-    if (!backupRestoreDialog.hidden) {
-      closeBackupRestoreConfirm();
       return;
     }
     if (!customListDeleteDialog.hidden) {
@@ -15385,14 +14212,12 @@ document.addEventListener("keydown", (event) => {
 /* --- Startup --- */
 
 async function startApp() {
-  loadCredential();
-  loadHostedSession();
-  loadGistConfig();
   loadAccountConfig();
   loadUserState();
   syncCustomListIndexSortFromState();
   refreshViewModeForActiveList();
   updateSearchClearVisibility();
+  syncAccountLoginGate();
 
   // One static file, read before the first paint. When it covers the list that
   // paint shows real cards instead of skeletons, which is the whole point.
@@ -15407,13 +14232,13 @@ async function startApp() {
   syncViewFromLocation();
   lastLocationNavigationKey = window.location.href;
 
-  // Reconcile rather than pull: startup is also when this tab is most likely to
-  // be holding something the Gist has not seen yet.
-  if (gistSyncEnabled()) {
-    queueGistSync();
-  }
+  // Reconcile on startup when logged in so this tab picks up remote changes.
   if (accountSyncEnabled()) {
     queueAccountSync();
+  }
+
+  if (!accountSyncEnabled()) {
+    openSettings();
   }
 }
 

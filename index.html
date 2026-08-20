@@ -786,163 +786,19 @@
           </button>
         </div>
         <div class="sheet-scroll">
-          <section class="sheet-section">
-            <h3>TMDB API Read Access Token</h3>
-            <p class="sheet-note">
-              From
-              <a
-                href="https://www.themoviedb.org/settings/api"
-                target="_blank"
-                rel="noopener noreferrer"
-                >your TMDB API settings</a
-              >, copy the long <strong>API Read Access Token</strong> — not the
-              shorter API Key, which this app does not use. Stored in this browser
-              only, sent only to TMDB, and never included in Gist sync.
-            </p>
-            <div class="field-row">
-              <input
-                type="password"
-                id="tmdb-key-input"
-                placeholder="Paste from themoviedb.org/settings/api"
-                aria-label="TMDB API Read Access Token"
-                autocomplete="off"
-                spellcheck="false"
-              />
-              <button type="button" id="tmdb-key-save" class="primary-btn">
-                Save
-              </button>
-            </div>
-            <div class="field-row">
-              <button type="button" id="tmdb-key-clear" class="ghost-btn">
-                Clear token
-              </button>
-              <span class="status-text" id="tmdb-key-status"></span>
-            </div>
-          </section>
-
           <section class="sheet-section sheet-section--storage">
-            <h3>Collection storage</h3>
-            <div
-              class="storage-tabs"
-              role="tablist"
-              aria-label="Collection storage"
-            >
-              <button
-                type="button"
-                class="storage-tab"
-                id="storage-tab-local"
-                role="tab"
-                aria-selected="true"
-                aria-controls="storage-panel-local"
-              >
-                This device
-              </button>
-              <button
-                type="button"
-                class="storage-tab"
-                id="storage-tab-gist"
-                role="tab"
-                aria-selected="false"
-                aria-controls="gist-fields"
-                tabindex="-1"
-              >
-                GitHub Gist
-              </button>
-              <button
-                type="button"
-                class="storage-tab"
-                id="storage-tab-account"
-                role="tab"
-                aria-selected="false"
-                aria-controls="account-fields"
-                tabindex="-1"
-              >
-                Account
-              </button>
-            </div>
-
-            <div
-              id="storage-panel-local"
-              class="storage-panel"
-              role="tabpanel"
-              aria-labelledby="storage-tab-local"
-            >
-              <div class="storage-panel-card storage-panel-card--local">
-                <p class="storage-panel-lead">Lists stay on this device.</p>
-                <p class="sheet-note">
-                  Nothing is sent to a server. Choose Account or GitHub Gist when
-                  you want the same lists on another phone or laptop.
-                </p>
-              </div>
-            </div>
-
-            <div
-              id="gist-fields"
-              class="storage-panel"
-              role="tabpanel"
-              aria-labelledby="storage-tab-gist"
-              hidden
-            >
-              <div class="storage-panel-card storage-panel-card--gist">
-                <p class="sheet-note">
-                  Use a throwaway GitHub account with a fine-grained token limited to
-                  gist read/write. The token stays in this browser and is never written
-                  into the Gist.
-                </p>
-                <div class="sheet-form">
-                  <label class="sheet-field" for="gist-token-input">
-                    <span class="sheet-field-label">Personal access token</span>
-                    <input
-                      type="password"
-                      class="sheet-field-input"
-                      id="gist-token-input"
-                      placeholder="ghp_… or github_pat_…"
-                      autocomplete="off"
-                      spellcheck="false"
-                    />
-                  </label>
-                </div>
-                <div class="storage-panel-actions">
-                  <button type="button" id="gist-connect" class="primary-btn">
-                    Connect
-                  </button>
-                  <button type="button" id="gist-clear" class="ghost-btn">
-                    Disconnect
-                  </button>
-                </div>
-                <span class="status-text" id="gist-status"></span>
-              </div>
-              <div id="gist-backup-section" class="gist-backup-section" hidden>
-                <h4 class="gist-backup-heading">Automatic backups</h4>
-                <p class="sheet-note">
-                  A separate private Gist stores up to five snapshots in one file,
-                  <code>moviecollector-backups.json</code>. A new snapshot is appended on
-                  load when the latest is more than 20 minutes old. Restoring replaces
-                  your current lists with the chosen snapshot and syncs that state back
-                  to GitHub.
-                </p>
-                <ul
-                  id="gist-backup-list"
-                  class="gist-backup-list"
-                  aria-label="Gist snapshots"
-                ></ul>
-                <span class="status-text" id="gist-backup-status"></span>
-              </div>
-            </div>
-
-            <div
-              id="account-fields"
-              class="storage-panel"
-              role="tabpanel"
-              aria-labelledby="storage-tab-account"
-              hidden
-            >
+            <h3>Account</h3>
+            <p class="sheet-note">
+              Sign in to search TMDB and sync your lists across devices. Only list
+              data is stored on the server — never passwords in your lists export.
+            </p>
+            <div id="account-fields" class="storage-panel">
               <div id="account-auth-fields" class="account-auth-card">
                 <div class="account-auth-intro">
-                  <h4 class="account-card-title" id="account-auth-title">Sign in to sync</h4>
+                  <h4 class="account-card-title" id="account-auth-title">Sign in to use CineQueue</h4>
                   <p class="sheet-note">
                     An account syncs your lists across devices and lets friends browse
-                    them. Only list data is stored — never your TMDB or GitHub tokens.
+                    them when you both agree.
                   </p>
                 </div>
                 <div class="account-auth-tabs" role="tablist" aria-label="Account action">
@@ -1653,33 +1509,6 @@
       </div>
     </div>
 
-    <!-- Backup restore confirmation -->
-    <div id="backup-restore-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
-      <div class="sheet-backdrop" data-close-backup-restore></div>
-      <div
-        class="sheet-panel confirm-panel"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="backup-restore-title"
-        aria-describedby="backup-restore-message"
-      >
-        <div class="sheet-toolbar">
-          <h2 id="backup-restore-title">Restore snapshot</h2>
-        </div>
-        <div class="sheet-scroll">
-          <p id="backup-restore-message" class="confirm-message"></p>
-        </div>
-        <div class="confirm-actions">
-          <button type="button" id="backup-restore-cancel" class="ghost-btn">
-            Cancel
-          </button>
-          <button type="button" id="backup-restore-ok" class="primary-btn">
-            Restore
-          </button>
-        </div>
-      </div>
-    </div>
-
     <div id="account-delete-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
       <div class="sheet-backdrop" data-close-account-delete></div>
       <div
@@ -1714,70 +1543,6 @@
           </button>
           <button type="button" id="account-delete-ok" class="primary-btn confirm-danger">
             Delete account
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Hidden hosted unlock (triple-click logo) -->
-    <div id="hosted-unlock-dialog" class="sheet-dialog" hidden>
-      <div class="sheet-backdrop" data-close-hosted-unlock></div>
-      <div
-        class="sheet-panel confirm-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="hosted-unlock-title"
-      >
-        <div class="sheet-toolbar">
-          <h2 id="hosted-unlock-title">Unlock</h2>
-        </div>
-        <div class="sheet-scroll">
-          <div class="field-row">
-            <input
-              type="password"
-              id="hosted-unlock-input"
-              placeholder="Password"
-              aria-label="Password"
-              autocomplete="off"
-              spellcheck="false"
-            />
-          </div>
-          <span class="status-text" id="hosted-unlock-status"></span>
-        </div>
-        <div class="confirm-actions">
-          <button type="button" id="hosted-unlock-cancel" class="ghost-btn">
-            Cancel
-          </button>
-          <button type="button" id="hosted-unlock-submit" class="primary-btn">
-            Unlock
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div id="hosted-lock-dialog" class="sheet-dialog" hidden>
-      <div class="sheet-backdrop" data-close-hosted-lock></div>
-      <div
-        class="sheet-panel confirm-panel"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="hosted-lock-title"
-        aria-describedby="hosted-lock-message"
-      >
-        <div class="sheet-toolbar">
-          <h2 id="hosted-lock-title">Lock access</h2>
-        </div>
-        <div class="sheet-scroll">
-          <p id="hosted-lock-message" class="confirm-message">
-            Lock hosted TMDB access on this browser?
-          </p>
-        </div>
-        <div class="confirm-actions">
-          <button type="button" id="hosted-lock-cancel" class="ghost-btn">
-            Cancel
-          </button>
-          <button type="button" id="hosted-lock-ok" class="primary-btn confirm-danger">
-            Lock
           </button>
         </div>
       </div>

@@ -1,19 +1,9 @@
 /**
- * User state runtime: localStorage persistence plus optional GitHub Gist sync.
+ * User state runtime: localStorage persistence plus optional account sync.
  *
- * Only the list payload is ever synced. The Gist token and TMDB credential
- * live under their own keys and are never part of the serialized state.
+ * Only the list payload is ever synced. The account session token lives under
+ * its own key and is never part of the serialized state.
  */
-
-const GIST_TIMEOUT_MS = 15000;
-
-let gistConfig = null;
-
-/** `updatedAt` of the Gist payload this tab last saw, for staleness reporting. */
-let lastRemoteUpdatedAt = null;
-
-/** Serializes every Gist read/write pair; see queueGistSync(). */
-let gistSyncChain = Promise.resolve();
 
 function readStorage(key) {
   try {
@@ -74,19 +64,9 @@ function backupUserState(state) {
   );
 }
 
-function gistSyncEnabled() {
-  return (
-    userState.storageMode === "gist" &&
-    appGistSync.isConnectedGistConfig(gistConfig)
-  );
-}
-
 function persistUserState(options = {}) {
   userState = appUserState.touchUserState(userState);
   writeUserStateToStorage();
-  if (options.sync !== false && gistSyncEnabled()) {
-    queueGistSync({ push: true });
-  }
   if (options.sync !== false && accountSyncEnabled()) {
     queueAccountSync({ push: true });
   }
@@ -231,61 +211,6 @@ function setViewMode(mode) {
   syncViewModeButton();
 }
 
-/* --- Gist sync --- */
-
-function loadGistConfig() {
-  gistConfig = appGistSync.parseGistSyncConfig(
-    readStorage(appUserState.GIST_SYNC_KEY),
-  );
-  return gistConfig;
-}
-
-function saveGistConfig(config) {
-  gistConfig = config;
-  if (config) {
-    writeStorage(
-      appUserState.GIST_SYNC_KEY,
-      appGistSync.serializeGistSyncConfig(config),
-    );
-  } else {
-    removeStorage(appUserState.GIST_SYNC_KEY);
-  }
-}
-
-async function gistRequest(pathname, options = {}) {
-  const { method = "GET", token, body } = options;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), GIST_TIMEOUT_MS);
-  try {
-    const headers = {
-      accept: "application/vnd.github+json",
-      authorization: `Bearer ${token}`,
-    };
-    if (body) {
-      headers["content-type"] = "application/json";
-    }
-    const response = await fetch(`${appGistSync.GITHUB_API}${pathname}`, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      const error = new Error(`GitHub request failed (${response.status})`);
-      error.status = response.status;
-      throw error;
-    }
-    return await response.json();
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function remoteStateFromGistBody(body) {
-  const json = appGistSync.extractStateJsonFromGistResponse(body);
-  return json ? appUserState.parseUserState(json) : null;
-}
-
 /** Adopts a merged payload locally, keeping the previous one as a backup. */
 function adoptMergedState(merged) {
   backupUserState(userState);
@@ -300,53 +225,6 @@ function mergeIntoUserState(incoming) {
   );
 }
 
-/**
- * Reads the Gist, merges, and only then writes. The read is the whole point: a
- * blind PATCH from a tab that has been open a while replaces whatever another
- * tab has since added, and because the stale copy carries a fresh `updatedAt`,
- * every later pull believes it. Merging first means a stale tab contributes its
- * change instead of overwriting the payload.
- */
-async function reconcileWithGist(options = {}) {
-  if (!appGistSync.isConnectedGistConfig(gistConfig)) {
-    return { ok: false, reason: "disconnected" };
-  }
-
-  const body = await gistRequest(`/gists/${gistConfig.gistId}`, {
-    token: gistConfig.token,
-  });
-  const remoteState = remoteStateFromGistBody(body);
-
-  const localSignature = appUserState.userStateSignature(userState);
-  const merged = mergeIntoUserState(remoteState);
-  const mergedSignature = appUserState.userStateSignature(merged);
-  const remoteSignature = remoteState
-    ? appUserState.userStateSignature(remoteState)
-    : null;
-
-  const localChanged = mergedSignature !== localSignature;
-  if (localChanged) {
-    adoptMergedState(merged);
-  }
-
-  lastRemoteUpdatedAt = remoteState?.updatedAt || null;
-
-  if (options.push || mergedSignature !== remoteSignature) {
-    userState = appUserState.touchUserState(userState);
-    writeUserStateToStorage();
-    await gistRequest(`/gists/${gistConfig.gistId}`, {
-      method: "PATCH",
-      token: gistConfig.token,
-      body: appGistSync.buildGistUpdatePayload(
-        appUserState.serializeUserState(userState),
-      ),
-    });
-    lastRemoteUpdatedAt = userState.updatedAt;
-  }
-
-  return { ok: true, localChanged };
-}
-
 function formatSyncTime(value) {
   const time = Date.parse(value || "");
   if (!Number.isFinite(time)) {
@@ -356,44 +234,6 @@ function formatSyncTime(value) {
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-/**
- * Every sync runs through one chain. Two overlapping GET/PATCH pairs would let
- * the second PATCH carry a payload built before the first one landed, which is
- * the same lost update the read-before-write is there to prevent.
- */
-function queueGistSync(options = {}) {
-  gistSyncChain = gistSyncChain
-    .then(() => reconcileWithGist(options))
-    .then(async (result) => {
-      if (!result?.ok) {
-        return;
-      }
-      if (result.localChanged) {
-        onRemoteStateAdopted();
-      }
-      setStatus(
-        gistStatus,
-        `Synced with GitHub at ${formatSyncTime(userState.updatedAt)}.`,
-        "ok",
-      );
-      try {
-        await maybeCreateGistSnapshot();
-      } catch (_) {
-        /* Backup failures must not block live sync or overwrite snapshots. */
-      }
-    })
-    .catch(() => {
-      // Never fall back to a blind write: keeping the change local and retrying
-      // later is always safer than overwriting a payload we could not read.
-      setStatus(
-        gistStatus,
-        "Could not reach GitHub. Changes are saved on this device and will sync later.",
-        "error",
-      );
-    });
-  return gistSyncChain;
 }
 
 /**
@@ -424,263 +264,9 @@ function onVisibilityRefresh() {
   if (document.visibilityState !== "visible") {
     return;
   }
-  if (gistSyncEnabled()) {
-    queueGistSync();
-  }
   if (accountSyncEnabled()) {
     queueAccountSync();
   }
-}
-
-/**
- * Connecting looks for an existing sync Gist on the account and adopts it, so
- * a second device picks up lists already there instead of overwriting them.
- */
-async function connectGist(token) {
-  const trimmed = String(token || "").trim();
-  if (!trimmed) {
-    return { ok: false, error: "Paste a GitHub token first." };
-  }
-
-  try {
-    const gists = await gistRequest("/gists", { token: trimmed });
-    const gistId = appGistSync.findCollectorGistId(gists);
-    let remoteState = null;
-
-    if (gistId) {
-      const body = await gistRequest(`/gists/${gistId}`, { token: trimmed });
-      remoteState = remoteStateFromGistBody(body);
-    }
-
-    const resolved = appGistSync.resolveGistConnectState({
-      gistId,
-      remoteState,
-      localState: userState,
-    });
-    if (!resolved.ok) {
-      return resolved;
-    }
-
-    let nextGistId = resolved.gistId;
-    if (resolved.action === "create") {
-      const created = await gistRequest("/gists", {
-        method: "POST",
-        token: trimmed,
-        body: appGistSync.buildGistCreatePayload(
-          appUserState.serializeUserState(userState),
-        ),
-      });
-      nextGistId = created?.id || "";
-      if (!nextGistId) {
-        return { ok: false, error: "GitHub did not return a Gist id." };
-      }
-    }
-
-    const backupGistId = appGistBackup.findBackupGistId(gists, nextGistId) || "";
-    saveGistConfig({ token: trimmed, gistId: nextGistId, backupGistId });
-    backupUserState(userState);
-    userState = {
-      ...appUserState.normalizeUserState(resolved.nextState),
-      storageMode: "gist",
-    };
-    gridViewMode = userState.preferences.viewMode;
-    writeUserStateToStorage();
-    queueGistSync();
-    return { ok: true, action: resolved.action };
-  } catch (error) {
-    return { ok: false, error: `Could not reach GitHub. ${error.message}` };
-  }
-}
-
-function disconnectGist() {
-  saveGistConfig(null);
-  userState = { ...userState, storageMode: "local" };
-  writeUserStateToStorage();
-}
-
-/* --- Gist snapshot backups (write-only, separate gist) --- */
-
-let backupSnapshotChain = Promise.resolve();
-
-function clearStoredBackupGistId() {
-  if (!gistConfig?.backupGistId) {
-    return;
-  }
-  saveGistConfig({ ...gistConfig, backupGistId: "" });
-}
-
-async function resolveBackupGistId() {
-  if (!gistConfig?.token) {
-    return null;
-  }
-  if (gistConfig.backupGistId) {
-    return gistConfig.backupGistId;
-  }
-  const gists = await gistRequest("/gists", { token: gistConfig.token });
-  const backupGistId = appGistBackup.findBackupGistId(gists, gistConfig.gistId);
-  if (backupGistId) {
-    saveGistConfig({ ...gistConfig, backupGistId });
-  }
-  return backupGistId || null;
-}
-
-async function fetchBackupGistBody(backupGistId) {
-  try {
-    return await gistRequest(`/gists/${backupGistId}`, {
-      token: gistConfig.token,
-    });
-  } catch (error) {
-    if (error?.status === 404) {
-      clearStoredBackupGistId();
-      return null;
-    }
-    throw error;
-  }
-}
-
-async function readBackupPayload(backupGistId) {
-  const body = await fetchBackupGistBody(backupGistId);
-  if (!body) {
-    return appGistBackup.emptyBackupPayload();
-  }
-  const content = appGistBackup.extractBackupContent(body);
-  return content
-    ? appGistBackup.parseBackupPayload(content)
-    : appGistBackup.emptyBackupPayload();
-}
-
-async function writeBackupPayload(backupGistId, payload) {
-  const contentJson = appGistBackup.serializeBackupPayload(payload);
-  try {
-    await gistRequest(`/gists/${backupGistId}`, {
-      method: "PATCH",
-      token: gistConfig.token,
-      body: appGistBackup.buildBackupGistUpdatePayload(contentJson),
-    });
-  } catch (error) {
-    if (error?.status === 404) {
-      clearStoredBackupGistId();
-      await createBackupGist(payload);
-      return;
-    }
-    throw error;
-  }
-}
-
-async function createBackupGist(payload) {
-  const contentJson = appGistBackup.serializeBackupPayload(payload);
-  const created = await gistRequest("/gists", {
-    method: "POST",
-    token: gistConfig.token,
-    body: appGistBackup.buildBackupGistCreatePayload(contentJson),
-  });
-  const backupGistId = created?.id || "";
-  if (!backupGistId) {
-    throw new Error("GitHub did not return a backup Gist id.");
-  }
-  saveGistConfig({ ...gistConfig, backupGistId });
-  return backupGistId;
-}
-
-async function createGistSnapshotNow() {
-  const now = Date.now();
-  const atIso = new Date(now).toISOString();
-  const stateObject = appUserState.parseUserState(
-    appUserState.serializeUserState(userState),
-  );
-  if (!stateObject) {
-    return { ok: false, reason: "state" };
-  }
-
-  let backupGistId = await resolveBackupGistId();
-  let payload = appGistBackup.emptyBackupPayload();
-
-  if (backupGistId) {
-    const body = await fetchBackupGistBody(backupGistId);
-    if (!body) {
-      backupGistId = null;
-    } else {
-      payload = appGistBackup.parseBackupPayload(
-        appGistBackup.extractBackupContent(body) || "",
-      );
-      if (!appGistBackup.shouldCreateSnapshot(payload.snapshots, now)) {
-        return { ok: true, skipped: true };
-      }
-    }
-  }
-
-  if (!backupGistId && !appGistBackup.shouldCreateSnapshot([], now)) {
-    return { ok: true, skipped: true };
-  }
-
-  const nextPayload = appGistBackup.appendSnapshot(payload, stateObject, atIso);
-
-  if (!backupGistId) {
-    await createBackupGist(nextPayload);
-    return { ok: true, created: true };
-  }
-
-  await writeBackupPayload(backupGistId, nextPayload);
-  return { ok: true, created: true };
-}
-
-/**
- * Adds an immutable snapshot when the latest one is at least 20 minutes old.
- * All snapshots live in one backup gist file and are only appended or purged.
- */
-async function maybeCreateGistSnapshot() {
-  if (!gistSyncEnabled()) {
-    return { ok: false, reason: "disabled" };
-  }
-  backupSnapshotChain = backupSnapshotChain.then(() => createGistSnapshotNow());
-  return backupSnapshotChain;
-}
-
-async function listGistSnapshots() {
-  if (!gistSyncEnabled()) {
-    return [];
-  }
-  const backupGistId = await resolveBackupGistId();
-  if (!backupGistId) {
-    return [];
-  }
-  const payload = await readBackupPayload(backupGistId);
-  return appGistBackup.snapshotListEntries(payload);
-}
-
-async function restoreGistSnapshot(at) {
-  if (!gistSyncEnabled()) {
-    return { ok: false, error: "Gist sync is not connected." };
-  }
-  if (!Date.parse(String(at || ""))) {
-    return { ok: false, error: "That snapshot is not valid." };
-  }
-
-  const backupGistId = await resolveBackupGistId();
-  if (!backupGistId) {
-    return { ok: false, error: "No backup Gist found." };
-  }
-
-  const payload = await readBackupPayload(backupGistId);
-  const entry = appGistBackup.findSnapshotByAt(payload, at);
-  if (!entry) {
-    return { ok: false, error: "Could not find that snapshot." };
-  }
-  const parsed = appUserState.parseUserState(entry.state);
-  if (!parsed) {
-    return { ok: false, error: "Could not read that snapshot." };
-  }
-
-  backupUserState(userState);
-  userState = {
-    ...parsed,
-    storageMode: "gist",
-  };
-  gridViewMode = userState.preferences.viewMode;
-  writeUserStateToStorage();
-  queueGistSync({ push: true });
-  onRemoteStateAdopted();
-  return { ok: true };
 }
 
 /* --- Account sync (CineQueue backend: Cloudflare Worker + D1) --- */
@@ -787,7 +373,7 @@ async function reconcileWithAccount(options = {}) {
     adoptMergedState(merged);
   }
 
-  if (options.push || mergedSignature !== remoteSignature) {
+  if (options.push && mergedSignature !== remoteSignature) {
     userState = appUserState.touchUserState(userState);
     writeUserStateToStorage();
     await accountRequest("/data", {
@@ -829,9 +415,8 @@ function queueAccountSync(options = {}) {
 }
 
 /**
- * Signup and login share a shape: get a session, switch to account mode, then
- * reconcile so lists already on the account and lists already on this device
- * merge instead of one clobbering the other.
+ * Signup and login share a shape: get a session, then pull remote lists only.
+ * Local data is not pushed on connect — export/import CSV to migrate old lists.
  */
 async function connectAccount(mode, email, password, inviteCode) {
   try {
@@ -862,7 +447,7 @@ async function connectAccount(mode, email, password, inviteCode) {
     backupUserState(userState);
     userState = { ...userState, storageMode: "account" };
     writeUserStateToStorage();
-    await queueAccountSync({ push: true });
+    await queueAccountSync({ push: false });
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error.message };
@@ -871,7 +456,7 @@ async function connectAccount(mode, email, password, inviteCode) {
 
 function disconnectAccount() {
   saveAccountConfig(null);
-  userState = { ...userState, storageMode: "local" };
+  userState = { ...userState, storageMode: "account" };
   writeUserStateToStorage();
 }
 

@@ -1,6 +1,6 @@
 # CineQueue
 
-Search [TMDB](https://www.themoviedb.org/), add movies to ordered lists, and browse them as a cover grid or a detail-style layout. No account required — your lists live in the browser by default, with optional sync to a private GitHub Gist or a **CineQueue account** (Cloudflare Worker + D1).
+Search [TMDB](https://www.themoviedb.org/), add movies to ordered lists, and browse them as a cover grid or a detail-style layout. **Sign in with a CineQueue account** to search TMDB, sync lists across devices, and use Discover. Lists are cached in the browser and synced to the Cloudflare Worker + D1 backend when logged in.
 
 ## How it works
 
@@ -8,7 +8,7 @@ The only thing this site stores is **which TMDB ids are in which list, and in wh
 
 1. **`data/movies.json`** when the committed snapshot covers that id (no API call; snapshot rows are not revalidated in the browser)
 2. **Browser Cache API** for TMDB movie JSON and poster blobs (revalidated at most once every 30 days)
-3. **TMDB** for anything still missing (when you have a credential)
+3. **TMDB** via the account-gated Worker proxy (`GET /api/tmdb`) for anything still missing when you are logged in
 
 That keeps the precious data tiny (a few hundred bytes of ids), and everything else is disposable by construction — a cleared cache costs you one slow reload, never a lost list.
 
@@ -19,19 +19,13 @@ npm install
 npm run serve    # http://localhost:8743
 ```
 
-Copy [`.env.example`](.env.example) to `.env` if you need `npm run scrape`, `npm run letterboxd-import`, or `netlify dev` (all read `TMDB_READ_TOKEN` from the environment).
+Copy [`.env.example`](.env.example) to `.env` if you need `npm run scrape` or `npm run letterboxd-import` (both read `TMDB_READ_TOKEN` from the environment).
 
-Open **Settings** (footer, bottom left) and paste your TMDB **API Read Access Token**. Without one, movies covered by the committed [`data/`](#bundled-movie-data) snapshot still render; anything else stays a skeleton card and the add-movie search returns nothing.
+Open **Settings → Account** and sign up or log in. Without a session, movies covered by the committed [`data/`](#bundled-movie-data) snapshot still render; search, Discover, and adding new movies require login. TMDB traffic uses the server read token on the Worker — you never paste a personal TMDB token in Settings.
 
-### Getting a TMDB credential
+### Migrating from local-only or Gist data
 
-1. Create an account at [themoviedb.org/signup](https://www.themoviedb.org/signup)
-2. Go to [Settings → API](https://www.themoviedb.org/settings/api) and request a **Developer** key (approval is instant for personal projects)
-3. Copy the **API Read Access Token** — the long JWT, not the shorter API Key above it — and paste it into Settings
-
-Only the v4 read access token is accepted. It is sent as `Authorization: Bearer` and never appears in a URL. Settings validates the shape before saving and verifies the token against TMDB so a bad value fails once instead of once per movie.
-
-The token is stored in `localStorage` under `moviecollector-tmdb-auth`. It is never committed, never sent anywhere except TMDB, and never included in Gist sync.
+The app does **not** auto-merge old local or Gist lists when you create an account. Export via **Settings → Import & export → Export**, sign in, then **Import** the CSV if you want those lists on your account.
 
 ## Using the site
 
@@ -61,7 +55,7 @@ On the collection view, the sparkle button beside **Lists** opens **Discover** (
 
 On **Watched** (and custom lists), the **Sort** dropdown offers My Rating, Fan Rating, Release Year, Title, Date Added, and Date Watched (using the latest viewing), plus a reverse button for direction. Default is My Rating, highest first. Sort never rewrites stored order.
 
-Click any card to open the detail overlay — poster, year, runtime, genres, fan rating, your rating, director, cast, and overview. Edit **My rating** and list membership in the overlay (desktop inline; mobile via a lists sheet). **Share** beside the title copies a `#movie/{id}` link; anyone using this site with a TMDB credential can open that movie. If it is not in their collection, the overlay shows the overview plus the add-movie controls (Watched / Watchlist, optional rating and viewing date, custom lists). Arrow keys move between movies; Escape closes. Overlays deep-link as `#movie/{id}`.
+Click any card to open the detail overlay — poster, year, runtime, genres, fan rating, your rating, director, cast, and overview. Edit **My rating** and list membership in the overlay (desktop inline; mobile via a lists sheet). **Share** beside the title copies a `#movie/{id}` link; anyone signed in can open that movie. If it is not in their collection, the overlay shows the overview plus the add-movie controls (Watched / Watchlist, optional rating and viewing date, custom lists). Arrow keys move between movies; Escape closes. Overlays deep-link as `#movie/{id}`.
 
 **Watchlist** cards show **Watch** (moves to Watched) and **Remove**. **Remove movie** in the detail overlay on a preset list drops the film from your entire preset collection. On a custom list, remove takes the movie off that list only.
 
@@ -99,25 +93,21 @@ A movie can be on any combination of Watched, Watchlist, and custom lists. Custo
 
 ### Footer
 
-**Settings** (bottom left): TMDB token, collection storage (this device / GitHub Gist / Account), import/export CSV, clear cached movie/poster data, hosted-access lock (Netlify only).
+**Settings** (bottom left): Account (sign in, friends, delete account), import/export CSV, clear cached movie/poster data.
 
 **About** (bottom right): short description and TMDB attribution.
 
 ### Settings details
 
-**Clear cached data** wipes the browser Cache API (TMDB JSON + poster blobs). Your lists in `localStorage` / Gist are untouched.
+**Clear cached data** wipes the browser Cache API (TMDB JSON + poster blobs). Your lists in `localStorage` and on the account server are untouched.
 
-**Import & export** (Settings): see [Collection backup CSV](#collection-backup-csv). Import shows a confirmation with row counts before replacing your collection. Use this after running the local [Letterboxd import tool](#letterboxd-import-local-tool).
+**Import & export** (Settings): see [Collection backup CSV](#collection-backup-csv). Import shows a confirmation with row counts before replacing your collection. Use this to migrate lists when moving to account-only storage or after running the local [Letterboxd import tool](#letterboxd-import-local-tool).
 
-**Gist sync:** connect with a fine-grained PAT limited to gist read/write. The sync Gist is private, titled **Movie collector sync**, file `moviecollector-state.json`. Neither the PAT nor the TMDB token is written into synced files.
-
-**Automatic backups** (when Gist sync is connected): a separate private gist holds up to five immutable snapshots in `moviecollector-backups.json`. A new snapshot is appended on load when the latest is older than 20 minutes. Restore replaces local state and re-syncs.
-
-**Account sync:** Settings → Collection storage → **Account**. Sign up or log in with email and password; new signups also need the invite code you were given. Lists sync through the CineQueue backend (see [Account backend](#account-backend-cloudflare-worker--d1)). Friends can browse each other's lists once both sides accept a request. The session token stays in this browser and is never part of the synced payload — same rule as the Gist PAT and TMDB token.
+**Account:** Settings → **Account**. Sign up or log in with email and password; new signups also need the invite code you were given. Lists sync through the CineQueue backend (see [Account backend](#account-backend-cloudflare-worker--d1)). Friends can browse each other's lists once both sides accept a request. The session token stays in this browser and is never part of the synced payload. Connecting pulls remote lists only — local lists are not pushed on signup/login; use CSV export/import to migrate.
 
 ## User state (what gets saved)
 
-Stored under `moviecollector-user-state` (and optionally synced to Gist or a CineQueue account). Movie records from TMDB are **not** part of this payload.
+Stored under `moviecollector-user-state` and synced to your CineQueue account when logged in. Movie records from TMDB are **not** part of this payload.
 
 | Field | Role |
 |-------|------|
@@ -130,7 +120,7 @@ Stored under `moviecollector-user-state` (and optionally synced to Gist or a Cin
 | `viewingHistory` | `{ movieId → viewing[] }` — optional dated viewings; opt in when adding to Watched or marking watched from the watchlist, or add later from the detail overlay |
 | `preferences` | `{ viewMode: "cards"\|"detail", sort: "<mode>" }` |
 | `activeListId` | Which preset tab was last active |
-| `storageMode` | `"local"`, `"gist"`, or `"account"` |
+| `storageMode` | Always `"account"` (legacy `"local"` / `"gist"` values normalize to `"account"`) |
 | `updatedAt` | Payload touch time; **not** used for per-movie merge |
 
 ### Browser storage keys
@@ -139,44 +129,41 @@ Stored under `moviecollector-user-state` (and optionally synced to Gist or a Cin
 |-----|----------|
 | `moviecollector-user-state` | Payload above |
 | `moviecollector-user-state-backup` | Payload from just before the last merge |
-| `moviecollector-tmdb-auth` | TMDB read access token |
-| `moviecollector-hosted-session` | Opaque hosted-access session (Netlify only) |
-| `moviecollector-gist-sync` | `{ token, gistId, backupGistId }` when Gist sync is connected |
-| `moviecollector-account` | `{ token, email, userId, displayName }` when Account sync is connected |
+| `moviecollector-account` | `{ token, email, userId, displayName }` when logged in |
 
 ### How sync avoids losing movies
 
 A tab left open holds its own copy of your lists, so a naive "newest payload wins" push lets a stale tab overwrite everything another tab added. Sync is built to make that impossible:
 
-- **Read before write.** Every save fetches the Gist, merges, then writes. A payload that cannot be read is never overwritten.
+- **Read before write.** Every save fetches the remote doc, merges, then writes. A payload that cannot be read is never overwritten.
 - **One request at a time.** All syncs run through a single promise chain.
 - **Per-movie timestamps, not per-payload.** Each movie carries a status stamped with when it last changed. Merging compares those stamps. Acting in a stale tab bumps `updatedAt` but not movie stamps — which is why this works.
 - **Removal is recorded, not inferred.** Deleting writes a `removed` status record. Re-adding outranks an older removal.
 - **Ties keep the movie.**
 - **Tabs self-heal.** Background tabs merge on focus.
 
-Recovery: every push creates a Gist revision; `moviecollector-user-state-backup` holds pre-merge state; automatic backups hold periodic snapshots.
+Recovery: `moviecollector-user-state-backup` holds pre-merge state on this device.
 
-Account sync uses the same merge rules as Gist (read before write, per-movie stamps, serialized promise chain) against `GET`/`PUT /api/data` on the Worker.
+Account sync uses these merge rules (read before write, per-movie stamps, serialized promise chain) against `GET`/`PUT /api/data` on the Worker.
 
 ## Account backend (Cloudflare Worker + D1)
 
-The optional account feature is a small [Cloudflare Worker](https://developers.cloudflare.com/workers/) with a [D1](https://developers.cloudflare.com/d1/) SQLite database. It stores:
+The account feature is a small [Cloudflare Worker](https://developers.cloudflare.com/workers/) with a [D1](https://developers.cloudflare.com/d1/) SQLite database. It stores:
 
 - **Accounts** — email, PBKDF2 password hash, display name
-- **User data** — one JSON doc per user (same shape as Gist sync)
+- **User data** — one JSON doc per user
 - **Friends** — pending/accepted relationships; accepted friends can `GET` each other's docs
 
-Movie metadata still comes from the committed `data/` snapshot and TMDB. The Worker never sees your TMDB or GitHub tokens.
+Movie metadata comes from the committed `data/` snapshot and TMDB (via the account-gated proxy). The Worker holds the shared TMDB read token as `TMDB_READ_TOKEN`; users never send a personal TMDB token from the browser.
 
 ### How the site reaches the Worker
 
-| Environment | API base | Notes |
-|-------------|----------|-------|
-| **Production** (`cinequeue.org`) | `/api/backend/…` | Netlify proxies to the Worker (see [`netlify.toml`](netlify.toml)) |
-| **Local dev** (`localhost:8743`) | Worker URL directly | CORS allowlist includes `http://localhost:8743` and `http://127.0.0.1:8743` |
+| Environment | Account API | TMDB proxy | Notes |
+|-------------|-------------|------------|-------|
+| **Production** (`cinequeue.org`) | `/api/backend/…` | `/api/tmdb` | Netlify proxies both to the Worker (see [`netlify.toml`](netlify.toml)) |
+| **Local dev** (`localhost:8743`) | Worker URL directly | Worker URL directly | CORS allowlist includes `http://localhost:8743` and `http://127.0.0.1:8743` |
 
-Configured in [`scripts/lib/account-sync.js`](scripts/lib/account-sync.js) (`ACCOUNT_API_DIRECT` for local dev, `ACCOUNT_API_PROXIED` for production). After changing the Worker URL, update that file and the Netlify redirect, then `npm run bundle`.
+Configured in [`scripts/lib/account-sync.js`](scripts/lib/account-sync.js). After changing the Worker URL, update that file and the Netlify redirects, then `npm run bundle`.
 
 ### API surface
 
@@ -194,6 +181,7 @@ All paths are under `/api`. Authenticated routes expect `Authorization: Bearer <
 | `POST` | `/friends/{id}/accept` | Yes | Accept an incoming request |
 | `DELETE` | `/friends/{id}` | Yes | Remove friend or cancel outgoing pending request |
 | `DELETE` | `/account` | Yes | Delete account (body: `{ password }`; removes server data only) |
+| `GET` | `/tmdb` | Yes | TMDB proxy (allowlisted paths; server `TMDB_READ_TOKEN`) |
 | `GET` | `/friends/{id}/data` | Yes | Read an accepted friend's list doc |
 
 Implementation: [`worker/src/index.js`](worker/src/index.js). Schema: [`worker/schema.sql`](worker/schema.sql).
@@ -236,6 +224,9 @@ openssl rand -base64 32 | wrangler secret put SESSION_SECRET
 
 # Shared invite password — required before anyone can create an account
 wrangler secret put SIGNUP_INVITE_CODE
+
+# v4 TMDB read token — same value as npm run scrape uses locally
+wrangler secret put TMDB_READ_TOKEN
 ```
 
 When prompted for `SIGNUP_INVITE_CODE`, enter the password you will share privately with people allowed to register (not the same as anyone’s login password). Signups are **blocked** until this secret exists on the Worker.
@@ -284,6 +275,7 @@ Secrets and vars (set in Cloudflare, not committed):
 |------|----------|---------|
 | `SESSION_SECRET` | **Yes** | HMAC key for bearer session tokens (30-day lifetime) |
 | `SIGNUP_INVITE_CODE` | **Yes** | Shared invite password checked on `POST /api/signup` only |
+| `TMDB_READ_TOKEN` | **Yes** | v4 TMDB API Read Access Token for `GET /api/tmdb` |
 | `ALLOWED_ORIGINS` | No | Comma-separated extra CORS origins merged with the default allowlist |
 
 Default CORS origins (hardcoded): `https://cinequeue.org`, `http://localhost:8743`, `http://127.0.0.1:8743`.
@@ -404,33 +396,28 @@ Build details:
 - `npm run build` runs `npm run bundle` internally, then copies assets into `build/`
 - Production HTML links one CSS file and `js/app-bundle.js?v=<hash>` (12-char SHA-256 of file contents) for cache busting
 - [`netlify.toml`](netlify.toml) sets `Cache-Control: no-cache` on `index.html` and `must-revalidate` on `/js/*`
-- `/api/backend/*` is proxied to the Cloudflare Worker (account signup, login, sync, friends)
+- `/api/tmdb` and `/api/backend/*` are proxied to the Cloudflare Worker (TMDB proxy + account API)
 
-Point any static host at `build/` if you are not using Netlify Functions or the account proxy — Gist-only deploys still work; Account mode needs the Worker reachable from the browser (direct URL or your own reverse proxy).
+Point any static host at `build/` only if you also reverse-proxy `/api/tmdb` and `/api/backend/*` to the Worker (or set `ACCOUNT_API_DIRECT` in [`scripts/lib/account-sync.js`](scripts/lib/account-sync.js) to the Worker URL and `npm run bundle`).
 
-### Netlify (optional hosted TMDB access)
+### Netlify (production static site)
 
-For a personal deploy you can keep your TMDB read token on the server so casual visitors never see it. Set in **Site configuration → Environment variables**:
+[`netlify.toml`](netlify.toml) redirects:
 
-| Variable | Purpose |
-|----------|---------|
-| `TMDB_READ_TOKEN` | v4 TMDB API Read Access Token (same as `npm run scrape` and `npm run letterboxd-import`) |
-| `HOSTED_SITE_PASSWORD` | Password for the hidden unlock flow |
+| Path | Target |
+|------|--------|
+| `/api/tmdb` | Worker `GET /api/tmdb` |
+| `/api/backend/*` | Worker `/api/*` |
 
-Build command: `npm run build`. Publish directory: `build`. Functions: [`netlify/functions/`](netlify/functions/).
+Build command: `npm run build`. Publish directory: `build`. **No Netlify Functions** — TMDB and account traffic go to the Worker. Set `TMDB_READ_TOKEN` on the Worker (`wrangler secret put TMDB_READ_TOKEN`), not on Netlify. Remove legacy Netlify env vars `HOSTED_SITE_PASSWORD` and `TMDB_READ_TOKEN` if they are still present.
 
-**Hidden unlock:** triple-click the projector logo, enter the site password. The browser stores an opaque session token (not the password). TMDB calls then go through `/api/tmdb`; posters still load from TMDB directly. Triple-click again to lock. This path is intentionally undocumented in the UI.
-
-Casual visitors see the normal site — snapshot movies render without a credential. Threat model: obscurity for casual users, not anti-brute-force.
-
-### Local development with functions
+### Local development
 
 | Command | Use |
 |---------|-----|
-| `npm run serve` | Static site on port 8743; TMDB token in Settings; Account mode hits the deployed Worker directly |
-| `netlify dev` | Static site **and** `/api/auth` + `/api/tmdb` + `/api/backend` proxy ([Netlify CLI](https://docs.netlify.com/cli/get-started/)); env from Netlify or `.env` |
-| `cd worker && wrangler dev` | Run the account API locally (see [Account backend](#account-backend-cloudflare-worker--d1)) |
-| `cd worker && npm test` | Worker auth, CORS, and rate-limit unit tests |
+| `npm run serve` | Static site on port 8743; sign in via Settings → Account; TMDB + account API hit the deployed Worker directly |
+| `cd worker && wrangler dev` | Run the account API + TMDB proxy locally (see [Account backend](#account-backend-cloudflare-worker--d1)) |
+| `cd worker && npm test` | Worker auth, CORS, TMDB proxy, and rate-limit unit tests |
 
 ## Development
 
@@ -504,7 +491,7 @@ These are deliberate design decisions — see also [`.cursor/rules/moviecollecto
 | `server.js` | Read-only static server (`npm run serve`) |
 | `build.js` | Static deploy output (`npm run build`) |
 | `netlify.toml` | Netlify build, redirects, cache headers |
-| `netlify/functions/` | Hosted auth + TMDB proxy |
+| `netlify.toml` | Static deploy redirects (`/api/tmdb`, `/api/backend/*` → Worker) |
 | `worker/` | Cloudflare Worker account API (`wrangler deploy`) |
 | `worker/wrangler.toml` | Worker name, D1 binding, compatibility date |
 | `worker/schema.sql` | D1 base schema |

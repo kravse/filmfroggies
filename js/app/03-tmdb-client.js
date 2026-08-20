@@ -11,8 +11,8 @@
  * covers is served from the repo and never requested, so the API is only
  * consulted for ids added since the last `npm run scrape`.
  *
- * On Netlify, an optional hosted session routes API calls through /api/tmdb so
- * the read token stays server-side. Personal tokens in Settings still work.
+ * When logged in, all TMDB traffic goes through the account-gated Worker proxy
+ * at /api/tmdb (Netlify redirect in production, direct Worker URL on localhost).
  */
 
 const TMDB_CACHE_NAME = "moviecollector-tmdb-v1";
@@ -65,78 +65,14 @@ const posterUrlInflight = new Map();
 const posterLoadQueue = [];
 let posterLoadsInFlight = 0;
 let posterObserver;
-let hostedSessionToken = "";
-
 /** Records from data/movies.json, kept apart so hydrateMovies stays the only
  * path into movieById and its onRecord contract still holds. */
 const localMovieById = new Map();
 let localPosterSizes = [];
 let localDataGeneratedAt = null;
 
-/* --- Credential --- */
-
-function loadCredential() {
-  try {
-    tmdbCredential = localStorage.getItem(appUserState.TMDB_AUTH_KEY) || "";
-  } catch (_) {
-    tmdbCredential = "";
-  }
-  return tmdbCredential;
-}
-
-function saveCredential(value) {
-  tmdbCredential = String(value || "").trim();
-  try {
-    if (tmdbCredential) {
-      localStorage.setItem(appUserState.TMDB_AUTH_KEY, tmdbCredential);
-    } else {
-      localStorage.removeItem(appUserState.TMDB_AUTH_KEY);
-    }
-  } catch (_) {
-    /* Private browsing can refuse writes; the in-memory value still works. */
-  }
-  return tmdbCredential;
-}
-
-function hasCredential() {
-  return appTmdb.isReadAccessToken(tmdbCredential);
-}
-
-/* --- Hosted session (Netlify proxy) --- */
-
-function loadHostedSession() {
-  try {
-    hostedSessionToken = localStorage.getItem(appUserState.HOSTED_SESSION_KEY) || "";
-  } catch (_) {
-    hostedSessionToken = "";
-  }
-  return hostedSessionToken;
-}
-
-function saveHostedSession(token) {
-  hostedSessionToken = String(token || "").trim();
-  try {
-    if (hostedSessionToken) {
-      localStorage.setItem(appUserState.HOSTED_SESSION_KEY, hostedSessionToken);
-    } else {
-      localStorage.removeItem(appUserState.HOSTED_SESSION_KEY);
-    }
-  } catch (_) {
-    /* Same private-browsing caveat as the TMDB credential. */
-  }
-  return hostedSessionToken;
-}
-
-function clearHostedSession() {
-  return saveHostedSession("");
-}
-
-function hasHostedAccess() {
-  return Boolean(hostedSessionToken);
-}
-
 function hasTmdbAccess() {
-  return hasHostedAccess() || hasCredential();
+  return accountSyncEnabled();
 }
 
 function tmdbUrlToProxyRequest(url) {
@@ -170,36 +106,15 @@ function tmdbUrlToProxyRequest(url) {
 }
 
 function buildProxyUrl(path, searchParams) {
-  const url = new URL("/api/tmdb", window.location.origin);
+  const base = appAccountSync.resolveTmdbApiBase(window.location.hostname);
+  const url = base.startsWith("http")
+    ? new URL(base)
+    : new URL(base, window.location.origin);
   url.searchParams.set("path", path);
   for (const [key, value] of Object.entries(searchParams || {})) {
     url.searchParams.set(key, value);
   }
   return url.toString();
-}
-
-async function unlockHostedAccess(password) {
-  const response = await fetch("/api/auth", {
-    method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json" },
-    body: JSON.stringify({ password: String(password || "") }),
-  });
-  if (response.status === 503) {
-    throw new Error("Hosted access is not available on this host.");
-  }
-  if (!response.ok) {
-    throw new Error("Incorrect password.");
-  }
-  const body = await response.json();
-  if (!body?.token) {
-    throw new Error("Hosted access did not return a session.");
-  }
-  saveHostedSession(body.token);
-  await verifyCredential();
-}
-
-function lockHostedAccess() {
-  clearHostedSession();
 }
 
 /* --- Committed snapshot --- */
@@ -530,7 +445,7 @@ function bindPosterImages(root) {
 
 async function fetchTmdb(url, options = {}) {
   if (!hasTmdbAccess()) {
-    throw new Error("No TMDB credential");
+    throw new Error("Sign in to search TMDB");
   }
 
   const controller = new AbortController();
@@ -547,21 +462,18 @@ async function fetchTmdb(url, options = {}) {
   }
 
   try {
-    let requestUrl = url;
-    let init = { signal: controller.signal, headers: { accept: "application/json" } };
-
-    if (hasHostedAccess()) {
-      const { path, searchParams } = tmdbUrlToProxyRequest(url);
-      requestUrl = buildProxyUrl(path, searchParams);
-      init.headers.authorization = `Bearer ${hostedSessionToken}`;
-    } else {
-      init = appTmdb.buildRequestInit(tmdbCredential, { signal: controller.signal });
-    }
-
-    const response = await fetch(requestUrl, init);
+    const { path, searchParams } = tmdbUrlToProxyRequest(url);
+    const requestUrl = buildProxyUrl(path, searchParams);
+    const response = await fetch(requestUrl, {
+      signal: controller.signal,
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${accountConfig?.token || ""}`,
+      },
+    });
     if (!response.ok) {
-      if (hasHostedAccess() && response.status === 401) {
-        clearHostedSession();
+      if (response.status === 401) {
+        saveAccountConfig(null);
       }
       throw new Error(`TMDB request failed (${response.status})`);
     }
@@ -646,19 +558,6 @@ async function getMovie(movieId, options = {}) {
   }
 
   return fetchAndCacheMovie(id, cacheKey, cache);
-}
-
-/**
- * Cheapest authenticated call TMDB offers, so a bad credential is caught before
- * it fans out into one failing request per movie.
- */
-async function verifyCredential() {
-  const response = await fetchTmdb(appTmdb.buildConfigurationUrl());
-  const body = await response.json();
-  if (!body?.images?.secure_base_url) {
-    throw new Error("TMDB returned an unexpected configuration payload");
-  }
-  return true;
 }
 
 async function searchMovies(query, options = {}) {

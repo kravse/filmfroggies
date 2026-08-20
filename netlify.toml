@@ -1,17 +1,12 @@
 [build]
   command = "npm run build"
   publish = "build"
-  functions = "netlify/functions"
-
-[[redirects]]
-  from = "/api/auth"
-  to = "/.netlify/functions/auth"
-  status = 200
 
 [[redirects]]
   from = "/api/tmdb"
-  to = "/.netlify/functions/tmdb"
+  to = "https://cinequeue-api.cinequeue.workers.dev/api/tmdb"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/api/backend/*"
