@@ -328,20 +328,24 @@ body.view-friends-index .empty-state {
 
 .friend-view-stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.55rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.35rem;
   margin: 0;
 }
 
 .friend-view-stat {
-  padding: 0.55rem 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.65rem;
   background: var(--bg);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
 }
 
 .friend-view-stat dt {
-  margin: 0 0 0.2rem;
+  margin: 0;
   font-size: 0.68rem;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -350,7 +354,7 @@ body.view-friends-index .empty-state {
 
 .friend-view-stat dd {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
@@ -468,6 +472,19 @@ body.view-friend .card.card--friend.is-seen-by-you:hover {
   background: var(--bg);
 }
 
+body.view-friend .friend-view-list-card {
+  width: calc(100% + 2 * var(--layout-gutter));
+  margin-inline: calc(-1 * var(--layout-gutter));
+  border-left: none;
+  border-right: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+body.view-friend .friend-view-list-body {
+  background: var(--panel);
+}
+
 .friend-view-list-bar {
   display: flex;
   align-items: stretch;
@@ -518,6 +535,10 @@ body.view-friend .card.card--friend.is-seen-by-you:hover {
   text-align: left;
   cursor: pointer;
   transition: background 0.15s ease;
+}
+
+body.view-friend .friend-view-list-toggle {
+  padding-inline: var(--layout-gutter);
 }
 
 .friend-view-list-toggle:hover {
@@ -576,8 +597,12 @@ body.view-friend .card.card--friend.is-seen-by-you:hover {
 
 .friend-view-grid {
   margin: 0;
-  padding: 0.65rem 0.7rem 0.75rem;
+  padding: 0.5rem 0 0.6rem;
   box-sizing: border-box;
+}
+
+body.view-friend .friend-view-grid {
+  padding: 0.5rem var(--layout-gutter) 0.65rem;
 }
 
 body.view-friend.view-mode-cards .card-footer--friend {
@@ -605,11 +630,23 @@ body.view-friend.view-mode-detail .card-body-ratings {
 }
 
 body.view-friend .rating-chit--sort {
-  display: none;
+  display: inline-flex;
 }
 
 body.view-friend .rating-chit--all {
+  display: none;
+}
+
+body.view-friend.view-mode-detail .rating-chit--sort {
+  display: none;
+}
+
+body.view-friend.view-mode-detail .rating-chit--all {
   display: inline-flex;
+}
+
+body.view-friend.view-mode-cards .card-footer--friend:has(.rating-chit--all):not(:has(.rating-chit--sort)) {
+  display: none;
 }
 
 .friend-detail-note {
@@ -637,18 +674,6 @@ body.view-friend .empty-state {
 }
 
 @media (max-width: 640px) {
-  body.view-friend .rating-chit--all {
-    display: none;
-  }
-
-  body.view-friend .rating-chit--sort {
-    display: inline-flex;
-  }
-
-  body.view-friend .card-footer--friend:has(.rating-chit--all):not(:has(.rating-chit--sort)) {
-    display: none;
-  }
-
   .friends-dock-invite {
     flex-wrap: wrap;
   }
@@ -663,10 +688,6 @@ body.view-friend .empty-state {
 
   .friends-dock-roster-wrap {
     max-height: 6.5rem;
-  }
-
-  .friend-view-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .friend-view-rating-legend-row {
