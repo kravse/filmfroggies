@@ -1446,9 +1446,12 @@ const appViewportHydration = (function () {
   /**
    * Viewport-scoped list hydration helpers. Movie rows hydrate when they enter
    * (or neared) the viewport instead of fetching the entire list upfront.
+   *
+   * rootMargin expands the observer root so the first batch covers visible rows
+   * plus a short prefetch band (e.g. ~20 on screen → ~25–35 in one POST).
    */
 
-  const ROW_HYDRATE_ROOT_MARGIN = "240px 0px";
+  const ROW_HYDRATE_ROOT_MARGIN = "320px 0px";
 
   function movieIdFromRowElement(element) {
     if (!element || typeof element !== "object") {
@@ -7099,7 +7102,7 @@ const REQUEST_TIMEOUT_MS = 12000;
 const HYDRATE_CONCURRENCY = 6;
 const BATCH_REQUEST_TIMEOUT_MS = 20000;
 const POSTER_LOAD_CONCURRENCY = 6;
-const POSTER_LAZY_ROOT_MARGIN = "240px 0px";
+const POSTER_LAZY_ROOT_MARGIN = "320px 0px";
 
 function isLocalhostHost() {
   const host = window.location.hostname;
@@ -9241,6 +9244,7 @@ function render() {
   syncAppViewChrome();
   renderEmptyState(ids.length);
   syncAddMovieFabVisibility(ids.length);
+  hydrateActiveList();
 }
 
 /** Patches one row after hydration so the rest of the grid stays untouched. */
@@ -9410,21 +9414,23 @@ function hydrateActiveList() {
   if (isCustomListIndexActive() || isDiscoverActive()) {
     return Promise.resolve();
   }
-  const ids = renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
   if (needsResortAfterHydration()) {
     reorderGridRows();
   }
-  if (typeof IntersectionObserver !== "undefined") {
-    bindRowHydrateObserver();
+  if (typeof IntersectionObserver === "undefined") {
+    const ids = renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
+    return hydrateMovies(ids, {
+      onRecord: applyHydratedRecord,
+      onUpdate: applyHydratedRecord,
+    }).then((result) => {
+      if (result?.hydratedFromNetwork && needsResortAfterHydration()) {
+        reorderGridRows();
+      }
+    });
   }
-  return hydrateMovies(ids, {
-    onRecord: applyHydratedRecord,
-    onUpdate: applyHydratedRecord,
-  }).then((result) => {
-    if (result?.hydratedFromNetwork && needsResortAfterHydration()) {
-      reorderGridRows();
-    }
-  });
+  // Visible rows (+ rootMargin prefetch) debounce into one POST /api/movies/batch.
+  bindRowHydrateObserver();
+  return Promise.resolve();
 }
 
 /** A broken poster URL should degrade to the title placeholder, not a torn card. */

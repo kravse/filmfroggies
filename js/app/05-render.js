@@ -745,6 +745,7 @@ function render() {
   syncAppViewChrome();
   renderEmptyState(ids.length);
   syncAddMovieFabVisibility(ids.length);
+  hydrateActiveList();
 }
 
 /** Patches one row after hydration so the rest of the grid stays untouched. */
@@ -914,21 +915,23 @@ function hydrateActiveList() {
   if (isCustomListIndexActive() || isDiscoverActive()) {
     return Promise.resolve();
   }
-  const ids = renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
   if (needsResortAfterHydration()) {
     reorderGridRows();
   }
-  if (typeof IntersectionObserver !== "undefined") {
-    bindRowHydrateObserver();
+  if (typeof IntersectionObserver === "undefined") {
+    const ids = renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
+    return hydrateMovies(ids, {
+      onRecord: applyHydratedRecord,
+      onUpdate: applyHydratedRecord,
+    }).then((result) => {
+      if (result?.hydratedFromNetwork && needsResortAfterHydration()) {
+        reorderGridRows();
+      }
+    });
   }
-  return hydrateMovies(ids, {
-    onRecord: applyHydratedRecord,
-    onUpdate: applyHydratedRecord,
-  }).then((result) => {
-    if (result?.hydratedFromNetwork && needsResortAfterHydration()) {
-      reorderGridRows();
-    }
-  });
+  // Visible rows (+ rootMargin prefetch) debounce into one POST /api/movies/batch.
+  bindRowHydrateObserver();
+  return Promise.resolve();
 }
 
 /** A broken poster URL should degrade to the title placeholder, not a torn card. */
