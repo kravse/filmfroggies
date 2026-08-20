@@ -172,6 +172,10 @@
   margin-bottom: 0.85rem;
 }
 
+.settings-tabs.storage-tabs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .settings-panel[hidden] {
   display: none;
 }
@@ -484,7 +488,7 @@
   }
 
   .settings-tabs.storage-tabs {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .account-session-profile {

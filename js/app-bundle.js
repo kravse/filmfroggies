@@ -54,6 +54,7 @@ const searchClearBtn = document.getElementById("search-clear");
 const searchSpinner = document.getElementById("search-spinner");
 const searchDirectorToggle = document.getElementById("search-director-toggle");
 const discoverEntryBtn = document.getElementById("discover-entry-btn");
+const friendsEntryBtn = document.getElementById("friends-entry-btn");
 
 const discoverTabs = document.getElementById("discover-tabs");
 const discoverPagination = document.getElementById("discover-pagination");
@@ -109,12 +110,12 @@ const aboutBtn = document.getElementById("about-btn");
 const settingsDialog = document.getElementById("settings-dialog");
 const settingsClose = document.getElementById("settings-close");
 const settingsTabAccount = document.getElementById("settings-tab-account");
-const settingsTabFriends = document.getElementById("settings-tab-friends");
 const settingsTabConfig = document.getElementById("settings-tab-config");
 const settingsPanelAccount = document.getElementById("settings-panel-account");
-const settingsPanelFriends = document.getElementById("settings-panel-friends");
 const settingsPanelConfig = document.getElementById("settings-panel-config");
 const settingsFriendsSignin = document.getElementById("settings-friends-signin");
+const friendsDialog = document.getElementById("friends-dialog");
+const friendsClose = document.getElementById("friends-close");
 
 const accountFields = document.getElementById("account-fields");
 const accountAuthFields = document.getElementById("account-auth-fields");
@@ -11539,20 +11540,16 @@ let accountAuthMode = "login";
 let settingsTab = "account";
 
 function setSettingsTab(tab) {
-  settingsTab = tab === "friends" || tab === "config" ? tab : "account";
+  settingsTab = tab === "config" ? tab : "account";
   const accountSelected = settingsTab === "account";
-  const friendsSelected = settingsTab === "friends";
   const configSelected = settingsTab === "config";
 
   settingsTabAccount.setAttribute("aria-selected", accountSelected ? "true" : "false");
   settingsTabAccount.tabIndex = accountSelected ? 0 : -1;
-  settingsTabFriends.setAttribute("aria-selected", friendsSelected ? "true" : "false");
-  settingsTabFriends.tabIndex = friendsSelected ? 0 : -1;
   settingsTabConfig.setAttribute("aria-selected", configSelected ? "true" : "false");
   settingsTabConfig.tabIndex = configSelected ? 0 : -1;
 
   settingsPanelAccount.hidden = !accountSelected;
-  settingsPanelFriends.hidden = !friendsSelected;
   settingsPanelConfig.hidden = !configSelected;
 }
 
@@ -11599,6 +11596,22 @@ function openSettings() {
 function closeSettings() {
   settingsDialog.hidden = true;
   settingsBtn.setAttribute("aria-expanded", "false");
+}
+
+function openFriends() {
+  refreshAccountSection();
+  friendsDialog.hidden = false;
+  friendsEntryBtn?.setAttribute("aria-expanded", "true");
+  if (accountSyncEnabled()) {
+    friendEmailInput?.focus({ preventScroll: true });
+  } else {
+    friendsClose?.focus({ preventScroll: true });
+  }
+}
+
+function closeFriends() {
+  friendsDialog.hidden = true;
+  friendsEntryBtn?.setAttribute("aria-expanded", "false");
 }
 
 async function onClearCache() {
@@ -12628,6 +12641,9 @@ function syncAppViewChrome() {
   }
   if (discoverEntryBtn) {
     discoverEntryBtn.hidden = isCustomListView() || isDiscoverActive() || isFriendViewActive();
+  }
+  if (friendsEntryBtn) {
+    friendsEntryBtn.hidden = isCustomListView() || isDiscoverActive() || isFriendViewActive();
   }
   if (listsNavBtn) {
     listsNavBtn.hidden = isCustomListView() || isDiscoverActive() || isFriendViewActive();
@@ -14085,10 +14101,6 @@ function friendRatingLegendHtml() {
 
 function friendOverviewHtml(stats, name) {
   const safeName = appCardHtml.escapeHtml(name || "Friend");
-  const overlap =
-    stats.overlapWatched > 0
-      ? `<p class="friend-view-overlap">${stats.overlapWatched} in common with your Watched</p>`
-      : "";
   return `<div class="friend-view-hero">
     <h2 class="friend-view-name">${safeName}'s collection</h2>
     <p class="friend-view-lead">${stats.totalMovies} ${stats.totalMovies === 1 ? "movie" : "movies"} across ${stats.sectionCount} ${stats.sectionCount === 1 ? "list" : "lists"}</p>
@@ -14099,17 +14111,26 @@ function friendOverviewHtml(stats, name) {
     <div class="friend-view-stat"><dt>Custom lists</dt><dd>${stats.customListCount}</dd></div>
     <div class="friend-view-stat"><dt>Rated</dt><dd>${stats.ratedCount}</dd></div>
   </dl>
-  ${overlap}
   ${friendRatingLegendHtml()}`;
 }
 
-function friendSectionHtml(section) {
+function friendWatchedOverlapHtml(stats) {
+  if (!stats || stats.overlapWatched <= 0) {
+    return "";
+  }
+  return `<span class="friend-view-list-overlap">${stats.overlapWatched} in common with your Watched</span>`;
+}
+
+function friendSectionHtml(section, stats) {
+  const isWatched = section.id === appLists.WATCHED_ID;
+  const overlapHtml = isWatched ? friendWatchedOverlapHtml(stats) : "";
+  const barClass = overlapHtml ? " friend-view-list-bar--has-overlap" : "";
   const collapsed = friendViewCollapsedSections.has(section.id);
   const bodyId = `friend-section-body-${section.id}`;
   const rows = section.movieIds.map((id) => friendMovieRowHtml(id)).join("");
   return `<section class="friend-view-section" id="friend-section-${appCardHtml.escapeHtml(section.id)}" data-friend-section-id="${appCardHtml.escapeHtml(section.id)}">
     <div class="friend-view-list-card${collapsed ? " is-collapsed" : ""}">
-      <div class="friend-view-list-bar">
+      <div class="friend-view-list-bar${barClass}">
         <button
           type="button"
           class="friend-view-list-toggle"
@@ -14124,6 +14145,7 @@ function friendSectionHtml(section) {
           <span class="friend-view-list-title">${appCardHtml.escapeHtml(section.name)}</span>
           <span class="friend-view-list-count">${section.movieIds.length}</span>
         </button>
+        ${overlapHtml}
       </div>
       <div class="friend-view-list-body" id="${appCardHtml.escapeHtml(bodyId)}">
         <div class="grid friend-view-grid">${rows}</div>
@@ -14175,6 +14197,9 @@ function navigateToFriendView(userId, name, options = {}) {
   closeDetail({ popHistory: false });
   if (typeof closeSettings === "function" && !settingsDialog.hidden) {
     closeSettings();
+  }
+  if (typeof closeFriends === "function" && !friendsDialog.hidden) {
+    closeFriends();
   }
   appView = "friend";
   activeCustomListId = null;
@@ -14289,7 +14314,9 @@ function renderFriendView() {
   }
   const stats = appFriendView.friendOverviewStats(friendViewState, userState);
   friendViewOverview.innerHTML = friendOverviewHtml(stats, friendViewName);
-  friendViewSectionsEl.innerHTML = friendViewSections.map((section) => friendSectionHtml(section)).join("");
+  friendViewSectionsEl.innerHTML = friendViewSections
+    .map((section) => friendSectionHtml(section, stats))
+    .join("");
   bindPosterImages(friendViewSectionsEl);
 }
 
@@ -14387,6 +14414,13 @@ addMovieDialog.addEventListener("click", (event) => {
 });
 
 discoverEntryBtn?.addEventListener("click", openDiscover);
+friendsEntryBtn?.addEventListener("click", openFriends);
+friendsClose?.addEventListener("click", closeFriends);
+friendsDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-friends")) {
+    closeFriends();
+  }
+});
 
 discoverTabs?.addEventListener("click", onDiscoverTabClick);
 discoverPrevBtn?.addEventListener("click", onDiscoverPrevClick);
@@ -14858,7 +14892,6 @@ document.addEventListener("visibilitychange", onVisibilityRefresh);
 settingsBtn.addEventListener("click", openSettings);
 settingsClose.addEventListener("click", closeSettings);
 settingsTabAccount.addEventListener("click", () => setSettingsTab("account"));
-settingsTabFriends.addEventListener("click", () => setSettingsTab("friends"));
 settingsTabConfig.addEventListener("click", () => setSettingsTab("config"));
 settingsDialog.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-settings")) {

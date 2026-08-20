@@ -135,6 +135,9 @@ function syncAppViewChrome() {
   if (discoverEntryBtn) {
     discoverEntryBtn.hidden = isCustomListView() || isDiscoverActive() || isFriendViewActive();
   }
+  if (friendsEntryBtn) {
+    friendsEntryBtn.hidden = isCustomListView() || isDiscoverActive() || isFriendViewActive();
+  }
   if (listsNavBtn) {
     listsNavBtn.hidden = isCustomListView() || isDiscoverActive() || isFriendViewActive();
   }

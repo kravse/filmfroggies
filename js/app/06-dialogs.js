@@ -1707,20 +1707,16 @@ let accountAuthMode = "login";
 let settingsTab = "account";
 
 function setSettingsTab(tab) {
-  settingsTab = tab === "friends" || tab === "config" ? tab : "account";
+  settingsTab = tab === "config" ? tab : "account";
   const accountSelected = settingsTab === "account";
-  const friendsSelected = settingsTab === "friends";
   const configSelected = settingsTab === "config";
 
   settingsTabAccount.setAttribute("aria-selected", accountSelected ? "true" : "false");
   settingsTabAccount.tabIndex = accountSelected ? 0 : -1;
-  settingsTabFriends.setAttribute("aria-selected", friendsSelected ? "true" : "false");
-  settingsTabFriends.tabIndex = friendsSelected ? 0 : -1;
   settingsTabConfig.setAttribute("aria-selected", configSelected ? "true" : "false");
   settingsTabConfig.tabIndex = configSelected ? 0 : -1;
 
   settingsPanelAccount.hidden = !accountSelected;
-  settingsPanelFriends.hidden = !friendsSelected;
   settingsPanelConfig.hidden = !configSelected;
 }
 
@@ -1767,6 +1763,22 @@ function openSettings() {
 function closeSettings() {
   settingsDialog.hidden = true;
   settingsBtn.setAttribute("aria-expanded", "false");
+}
+
+function openFriends() {
+  refreshAccountSection();
+  friendsDialog.hidden = false;
+  friendsEntryBtn?.setAttribute("aria-expanded", "true");
+  if (accountSyncEnabled()) {
+    friendEmailInput?.focus({ preventScroll: true });
+  } else {
+    friendsClose?.focus({ preventScroll: true });
+  }
+}
+
+function closeFriends() {
+  friendsDialog.hidden = true;
+  friendsEntryBtn?.setAttribute("aria-expanded", "false");
 }
 
 async function onClearCache() {

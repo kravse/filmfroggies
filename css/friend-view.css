@@ -1,3 +1,20 @@
+/* Friend list page chrome */
+
+body.view-friend #list-tabs,
+body.view-friend #list-search-row,
+body.view-friend #discover-entry-btn,
+body.view-friend #friends-entry-btn,
+body.view-friend #add-movie-fab,
+body.view-friend #sort-control,
+body.view-friend #sort-reverse,
+body.view-friend #reorder-mode-control {
+  display: none !important;
+}
+
+body.view-friend .toolbar-left {
+  display: flex;
+}
+
 .friend-view {
   display: flex;
   flex-direction: column;
@@ -54,12 +71,6 @@
   font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-}
-
-.friend-view-overlap {
-  margin: 0.75rem 0 0;
-  color: var(--list-chip-text);
-  font-size: 0.82rem;
 }
 
 .friend-view-rating-legend {
@@ -178,6 +189,27 @@ body.view-friend .card.card--friend.is-seen-by-you:hover {
   gap: 0.35rem;
   background: var(--panel-raised);
   border-bottom: 1px solid var(--border);
+}
+
+.friend-view-list-bar--has-overlap {
+  position: relative;
+}
+
+.friend-view-list-overlap {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: calc(100% - 8rem);
+  padding: 0 0.35rem;
+  color: var(--list-chip-text);
+  font-size: 0.72rem;
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 .friend-view-list-card.is-collapsed .friend-view-list-bar {

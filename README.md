@@ -95,7 +95,7 @@ A movie can be on any combination of Watched, Watchlist, and custom lists. Custo
 
 ### Footer
 
-**Settings** (bottom left): **Account**, **Friends**, and **Config** tabs — sign in and delete account; browse a friend's lists at `#friend/{userId}`; import/export CSV and clear cached movie/poster data.
+**Settings** (bottom left): **Account** and **Config** tabs — sign in and delete account; import/export CSV and clear cached movie/poster data. **Friends** (header icon beside Lists and Discover) opens the friends overlay to add people and browse shared lists at `#friend/{userId}`.
 
 **About** (bottom right): short description and TMDB attribution.
 
@@ -105,7 +105,7 @@ A movie can be on any combination of Watched, Watchlist, and custom lists. Custo
 
 **Import & export** (Settings): see [Collection backup CSV](#collection-backup-csv). Import shows a confirmation with row counts before replacing your collection. Use this to migrate lists when moving to account-only storage or after running the local [Letterboxd import tool](#letterboxd-import-local-tool).
 
-**Account:** Settings → **Account**. Sign up or log in with email and password; new signups also need the invite code you were given. Lists sync through the CineQueue backend (see [Account backend](#account-backend-cloudflare-worker--d1)). Friends can browse each other's lists at `#friend/{userId}` (Settings → **Friends** → View lists) once both sides accept a request. The session token stays in this browser and is never part of the synced payload. Connecting pulls remote lists only — local lists are not pushed on signup/login; use CSV export/import to migrate.
+**Account:** Settings → **Account**. Sign up or log in with email and password; new signups also need the invite code you were given. Lists sync through the CineQueue backend (see [Account backend](#account-backend-cloudflare-worker--d1)). Friends can browse each other's lists at `#friend/{userId}` (header **Friends** icon → View lists) once both sides accept a request. The session token stays in this browser and is never part of the synced payload. Connecting pulls remote lists only — local lists are not pushed on signup/login; use CSV export/import to migrate.
 
 ## User state (what gets saved)
 

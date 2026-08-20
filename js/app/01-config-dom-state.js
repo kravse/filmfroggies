@@ -52,6 +52,7 @@ const searchClearBtn = document.getElementById("search-clear");
 const searchSpinner = document.getElementById("search-spinner");
 const searchDirectorToggle = document.getElementById("search-director-toggle");
 const discoverEntryBtn = document.getElementById("discover-entry-btn");
+const friendsEntryBtn = document.getElementById("friends-entry-btn");
 
 const discoverTabs = document.getElementById("discover-tabs");
 const discoverPagination = document.getElementById("discover-pagination");
@@ -107,12 +108,12 @@ const aboutBtn = document.getElementById("about-btn");
 const settingsDialog = document.getElementById("settings-dialog");
 const settingsClose = document.getElementById("settings-close");
 const settingsTabAccount = document.getElementById("settings-tab-account");
-const settingsTabFriends = document.getElementById("settings-tab-friends");
 const settingsTabConfig = document.getElementById("settings-tab-config");
 const settingsPanelAccount = document.getElementById("settings-panel-account");
-const settingsPanelFriends = document.getElementById("settings-panel-friends");
 const settingsPanelConfig = document.getElementById("settings-panel-config");
 const settingsFriendsSignin = document.getElementById("settings-friends-signin");
+const friendsDialog = document.getElementById("friends-dialog");
+const friendsClose = document.getElementById("friends-close");
 
 const accountFields = document.getElementById("account-fields");
 const accountAuthFields = document.getElementById("account-auth-fields");

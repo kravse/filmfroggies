@@ -36,6 +36,13 @@ addMovieDialog.addEventListener("click", (event) => {
 });
 
 discoverEntryBtn?.addEventListener("click", openDiscover);
+friendsEntryBtn?.addEventListener("click", openFriends);
+friendsClose?.addEventListener("click", closeFriends);
+friendsDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-friends")) {
+    closeFriends();
+  }
+});
 
 discoverTabs?.addEventListener("click", onDiscoverTabClick);
 discoverPrevBtn?.addEventListener("click", onDiscoverPrevClick);
@@ -507,7 +514,6 @@ document.addEventListener("visibilitychange", onVisibilityRefresh);
 settingsBtn.addEventListener("click", openSettings);
 settingsClose.addEventListener("click", closeSettings);
 settingsTabAccount.addEventListener("click", () => setSettingsTab("account"));
-settingsTabFriends.addEventListener("click", () => setSettingsTab("friends"));
 settingsTabConfig.addEventListener("click", () => setSettingsTab("config"));
 settingsDialog.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-settings")) {
