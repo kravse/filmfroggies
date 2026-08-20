@@ -230,6 +230,15 @@ detailDialog.addEventListener("click", (event) => {
     setDetailBodyTab(detailBodyTabBtn.dataset.detailBodyTab);
     return;
   }
+  const remapResult = event.target.closest("[data-detail-remap-result-id]");
+  if (remapResult) {
+    selectDetailRemapCandidate(remapResult.dataset.detailRemapResultId);
+    return;
+  }
+  if (event.target.closest("#detail-remap-confirm")) {
+    confirmDetailRemap();
+    return;
+  }
   if (event.target.closest("#detail-viewing-add")) {
     addDetailViewing();
     return;
@@ -257,6 +266,7 @@ detailDialog.addEventListener("click", (event) => {
     toggleDetailListPickerChip(listToggleChip.dataset.detailListToggleId);
   }
 });
+detailDialog.addEventListener("input", onDetailRemapQueryInput);
 delegateRangeSliderLiveInput(detailDialog, "detail-rating-slider", onDetailRatingSliderInput);
 detailDialog.addEventListener("change", (event) => {
   if (event.target.id === "detail-rating-slider") {

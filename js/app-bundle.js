@@ -208,8 +208,11 @@ let detailRatingEditorSnapshot = null;
 let detailListPickerOpen = false;
 /** Staged custom-list membership while the detail list editor is open. */
 let detailListPickerSelectedIds = new Set();
-/** "overview" | "viewing-history" */
+/** "overview" | "viewing-history" | "config" */
 let detailBodyTab = "overview";
+let detailRemapCandidateId = null;
+let detailRemapQuery = "";
+let detailRemapResults = [];
 let pendingRemoveMovieId = null;
 let pendingViewingRemoveEntryId = null;
 let pendingWatchMovieId = null;
@@ -582,6 +585,191 @@ const appCardHtml = (function () {
     discoverPresetButtonInnerHtml,
     viewingDateIconHtml,
     viewingDatePickerHtml,
+  };
+})();
+
+/* ===== Shared movie search picker (generated from scripts/lib/movie-search-picker.js) ===== */
+
+/* Generated from scripts/lib/movie-search-picker.js — run npm run bundle */
+
+const appMovieSearchPicker = (function () {
+  /** Shared debounced, abortable search state for movie picker UIs. */
+
+  function createMovieSearchPicker(options = {}) {
+    if (typeof options.search !== "function") {
+      throw new Error("Movie search picker requires a search function.");
+    }
+    const debounceMs = Number.isFinite(options.debounceMs) ? options.debounceMs : 300;
+    let timer = null;
+    let controller = null;
+    let requestToken = 0;
+    let results = [];
+
+    function cancel() {
+      if (timer) clearTimeout(timer);
+      timer = null;
+      requestToken += 1;
+      controller?.abort();
+      controller = null;
+      options.onBusy?.(false);
+    }
+
+    function clear() {
+      cancel();
+      results = [];
+      options.onClear?.();
+    }
+
+    async function run(query, searchOptions = {}) {
+      cancel();
+      const token = ++requestToken;
+      controller = new AbortController();
+      options.onBusy?.(true);
+      try {
+        const next = await options.search(query, { ...searchOptions, signal: controller.signal });
+        if (token !== requestToken) return [];
+        results = Array.isArray(next) ? next : [];
+        options.onResults?.(results, query, searchOptions);
+        return results;
+      } catch (error) {
+        if (error?.name !== "AbortError" && token === requestToken) {
+          options.onError?.(error, query, searchOptions);
+        }
+        return [];
+      } finally {
+        if (token === requestToken) {
+          controller = null;
+          options.onBusy?.(false);
+        }
+      }
+    }
+
+    function schedule(query, searchOptions = {}) {
+      cancel();
+      timer = setTimeout(() => {
+        timer = null;
+        run(query, searchOptions);
+      }, debounceMs);
+    }
+
+    function select(index) {
+      const result = results[Number(index)] || null;
+      if (result) options.onSelect?.(result, Number(index));
+      return result;
+    }
+
+    return { run, schedule, cancel, clear, select, getResults: () => [...results] };
+  }
+
+  function movieSearchPosterHtml(result, options = {}) {
+    const escapeHtml = options.escapeHtml || String;
+    const url = options.posterUrl?.(result) || "";
+    return url
+      ? `<img class="search-suggest-poster" data-poster-src="${escapeHtml(url)}" alt="" loading="lazy">`
+      : `<span class="search-suggest-poster search-suggest-poster--empty"></span>`;
+  }
+
+  function movieSearchResultsHtml(results, options = {}) {
+    const escapeHtml = options.escapeHtml || String;
+    return (Array.isArray(results) ? results : []).map((result, index) => {
+      const active = index === options.activeIndex ? " active" : "";
+      const dataName = options.dataName || "suggest-index";
+      const dataValue = options.dataValue?.(result, index) ?? index;
+      const meta = options.meta?.(result) || "";
+      const badge = options.badge?.(result) || "";
+      return `<li class="search-suggest-item${active}" role="option" data-${dataName}="${escapeHtml(dataValue)}" aria-selected="${index === options.activeIndex}">
+    ${movieSearchPosterHtml(result, options)}
+    <span class="search-suggest-text">
+      <span class="search-suggest-title">${escapeHtml(result.title)}</span>
+      <span class="search-suggest-meta">${escapeHtml(meta)}</span>
+    </span>
+    ${badge}
+  </li>`;
+    }).join("");
+  }
+
+  return {
+    createMovieSearchPicker,
+    movieSearchPosterHtml,
+    movieSearchResultsHtml,
+  };
+})();
+
+/* ===== Movie link remapping (generated from scripts/lib/movie-remap.js) ===== */
+
+/* Generated from scripts/lib/movie-remap.js — run npm run bundle */
+
+const appMovieRemap = (function () {
+  /** Atomically move all collection metadata from one TMDB movie id to another. */
+
+  function validId(value) {
+    const id = Number(value);
+    return Number.isInteger(id) && id > 0 ? id : null;
+  }
+
+  function replaceId(ids, fromId, toId) {
+    const out = [];
+    for (const raw of Array.isArray(ids) ? ids : []) {
+      const id = Number(raw) === fromId ? toId : Number(raw);
+      if (Number.isInteger(id) && id > 0 && !out.includes(id)) out.push(id);
+    }
+    return out;
+  }
+
+  function moveKey(map, fromId, toId) {
+    const source = map && typeof map === "object" && !Array.isArray(map) ? map : {};
+    const out = { ...source };
+    if (Object.prototype.hasOwnProperty.call(out, String(fromId))) {
+      out[String(toId)] = out[String(fromId)];
+      delete out[String(fromId)];
+    }
+    return out;
+  }
+
+  function remapMovieState(state, fromValue, toValue, now = new Date()) {
+    const fromId = validId(fromValue);
+    const toId = validId(toValue);
+    if (!state || !fromId || !toId || fromId === toId) {
+      throw new Error("Choose a different valid TMDB movie.");
+    }
+    const alreadyPresent = (state.lists || []).some((list) => list.movieIds?.includes(toId)) ||
+      (state.customLists || []).some((list) => list.movieIds?.includes(toId));
+    if (alreadyPresent) {
+      throw new Error("That TMDB movie is already in your collection.");
+    }
+    const sourceList = (state.lists || []).find((list) => list.movieIds?.includes(fromId));
+    if (!sourceList && !(state.customLists || []).some((list) => list.movieIds?.includes(fromId))) {
+      throw new Error("The original movie is no longer in your collection.");
+    }
+    const stamp = now.toISOString();
+    const lists = (state.lists || []).map((list) => ({
+      ...list,
+      movieIds: replaceId(list.movieIds, fromId, toId),
+    }));
+    const customLists = (state.customLists || []).map((list) => {
+      if (!list.movieIds?.includes(fromId)) return list;
+      return { ...list, movieIds: replaceId(list.movieIds, fromId, toId), updatedAt: stamp };
+    });
+    const statuses = {
+      ...(state.statuses && typeof state.statuses === "object" ? state.statuses : {}),
+      [String(fromId)]: { status: "removed", updatedAt: stamp },
+    };
+    if (sourceList) {
+      statuses[String(toId)] = { status: sourceList.id, updatedAt: stamp };
+    }
+    return {
+      ...state,
+      lists,
+      customLists,
+      ratings: moveKey(state.ratings, fromId, toId),
+      viewingHistory: moveKey(state.viewingHistory, fromId, toId),
+      addedAt: moveKey(state.addedAt, fromId, toId),
+      statuses,
+    };
+  }
+
+  return {
+    remapMovieState,
   };
 })();
 
@@ -7271,12 +7459,8 @@ async function hydrateMovies(ids, handlers = {}) {
 
 const SEARCH_DEBOUNCE_MS = 300;
 
-let searchDebounceTimer = null;
-let searchController = null;
 let suggestResults = [];
 let suggestIndex = -1;
-/** Guards against a slow response overwriting a newer one. */
-let suggestRequestToken = 0;
 let pendingAddResult = null;
 let selectedAddListId = null;
 let addMovieWatchDateActive = false;
@@ -7284,6 +7468,32 @@ let addMoviePickTab = "add";
 let searchDirectorMode = false;
 
 const ADD_MOVIE_TMDB_URL = "https://www.themoviedb.org/movie/";
+
+const addMovieSearchPicker = appMovieSearchPicker.createMovieSearchPicker({
+  search: searchMovies,
+  debounceMs: SEARCH_DEBOUNCE_MS,
+  onBusy: setSearchBusy,
+  onResults(results, query, options) {
+    suggestResults = results;
+    suggestIndex = -1;
+    if (!results.length) {
+      const emptyMessage = options.mode === "director"
+        ? `No directed movies found for "${query}".`
+        : `No movies found for "${query}".`;
+      showSuggestMessage(emptyMessage);
+      return;
+    }
+    renderSuggest();
+  },
+  onError(error) {
+    showSuggestMessage(`Search failed. ${error.message}`);
+  },
+  onClear: hideSuggest,
+  onSelect(result) {
+    hideSuggest();
+    showAddPickStep(result);
+  },
+});
 
 const addMovieRatingController = appRatingFieldUi.createRatingFieldController(
   {
@@ -7430,107 +7640,57 @@ function showSuggestMessage(message) {
   searchInput.setAttribute("aria-expanded", "true");
 }
 
-function suggestPosterHtml(result) {
-  const url = appTmdb.buildImageUrl(result.posterPath, appTmdb.POSTER_SIZES.suggest);
-  if (!url) {
-    return `<span class="search-suggest-poster search-suggest-poster--empty"></span>`;
-  }
-  return `<img class="search-suggest-poster" data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy">`;
-}
-
 function renderSuggest() {
   if (!suggestResults.length) {
     hideSuggest();
     return;
   }
 
-  searchSuggest.innerHTML = suggestResults
-    .map((result, index) => {
+  searchSuggest.innerHTML = appMovieSearchPicker.movieSearchResultsHtml(
+    suggestResults,
+    {
+      activeIndex: suggestIndex,
+      escapeHtml: appCardHtml.escapeHtml,
+      posterUrl: (result) => appTmdb.buildImageUrl(
+        result.posterPath,
+        appTmdb.POSTER_SIZES.suggest,
+      ),
+      meta(result) {
       const year = appCardHtml.formatYear(result.releaseDate);
-      const active = index === suggestIndex ? " active" : "";
+        const metaParts = [];
+        if (year) metaParts.push(year);
+        else if (!result.directorHint) metaParts.push("Year unknown");
+        if (result.directorHint) metaParts.push(result.directorHint);
+        return metaParts.join(" · ");
+      },
+      badge(result) {
       const statusId = appLists.primaryListIdForMovie(userState.lists, result.id);
       const status = statusId
         ? appLists.findList(userState.lists, statusId)
         : null;
-      const added = status
+        return status
         ? `<span class="search-suggest-added">In ${appCardHtml.escapeHtml(status.name)}</span>`
         : "";
-      const metaParts = [];
-      if (year) {
-        metaParts.push(year);
-      } else if (!result.directorHint) {
-        metaParts.push("Year unknown");
-      }
-      if (result.directorHint) {
-        metaParts.push(result.directorHint);
-      }
-      const meta = metaParts.join(" · ");
-      return `<li class="search-suggest-item${active}" role="option" data-suggest-index="${index}" aria-selected="${index === suggestIndex}">
-  ${suggestPosterHtml(result)}
-  <span class="search-suggest-text">
-    <span class="search-suggest-title">${appCardHtml.escapeHtml(result.title)}</span>
-    <span class="search-suggest-meta">${appCardHtml.escapeHtml(meta)}</span>
-  </span>
-  ${added}
-</li>`;
-    })
-    .join("");
+      },
+    },
+  );
   searchSuggest.hidden = false;
   searchInput.setAttribute("aria-expanded", "true");
   bindPosterImages(searchSuggest);
 }
 
 async function runSearch(query) {
-  if (searchController) {
-    searchController.abort();
-  }
-  searchController = new AbortController();
-  const token = ++suggestRequestToken;
-
-  setSearchBusy(true);
-  try {
-    const results = await searchMovies(query, {
-      signal: searchController.signal,
-      mode: searchDirectorMode ? "director" : "movie",
-    });
-    if (token !== suggestRequestToken) {
-      return;
-    }
-    suggestResults = results;
-    suggestIndex = -1;
-    if (!results.length) {
-      const emptyMessage = searchDirectorMode
-        ? `No directed movies found for "${query}".`
-        : `No movies found for "${query}".`;
-      showSuggestMessage(emptyMessage);
-      return;
-    }
-    renderSuggest();
-  } catch (error) {
-    if (error.name === "AbortError" || token !== suggestRequestToken) {
-      return;
-    }
-    showSuggestMessage(`Search failed. ${error.message}`);
-  } finally {
-    if (token === suggestRequestToken) {
-      setSearchBusy(false);
-    }
-  }
+  return addMovieSearchPicker.run(query, {
+    mode: searchDirectorMode ? "director" : "movie",
+  });
 }
 
 function onSearchInput() {
   updateSearchClearVisibility();
   const query = searchInput.value.trim();
 
-  if (searchDebounceTimer) {
-    clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = null;
-  }
-
   if (!query) {
-    suggestRequestToken += 1;
-    setSearchBusy(false);
-    hideSuggest();
+    addMovieSearchPicker.clear();
     return;
   }
 
@@ -7539,18 +7699,15 @@ function onSearchInput() {
     return;
   }
 
-  searchDebounceTimer = setTimeout(() => {
-    searchDebounceTimer = null;
-    runSearch(query);
-  }, SEARCH_DEBOUNCE_MS);
+  addMovieSearchPicker.schedule(query, {
+    mode: searchDirectorMode ? "director" : "movie",
+  });
 }
 
 function clearSearch() {
   searchInput.value = "";
   updateSearchClearVisibility();
-  suggestRequestToken += 1;
-  setSearchBusy(false);
-  hideSuggest();
+  addMovieSearchPicker.clear();
 }
 
 function updateAddMovieHint() {
@@ -7892,12 +8049,7 @@ function addMovieToList(result, listId, rating) {
 }
 
 function pickSuggestion(index) {
-  const result = suggestResults[index];
-  if (!result) {
-    return;
-  }
-  hideSuggest();
-  showAddPickStep(result);
+  addMovieSearchPicker.select(index);
 }
 
 function moveSuggestSelection(delta) {
@@ -9471,6 +9623,47 @@ ${detailUserRatingBlockHtml(movieId)}
 ${detailListsBlockHtml(movieId)}`;
 }
 
+function detailConfigPanelHtml(movieId) {
+  const candidate = detailRemapCandidateId == null
+    ? null
+    : movieById.get(detailRemapCandidateId);
+  const candidateHtml = candidate
+    ? `<div class="detail-config-candidate">
+        <div><strong>${appCardHtml.escapeHtml(candidate.title)}</strong><span>${appCardHtml.escapeHtml(appCardHtml.formatYear(candidate.releaseDate) || "Year unknown")}</span></div>
+        <button type="button" id="detail-remap-confirm">Use this movie</button>
+      </div>`
+    : "";
+  const resultsHtml = !candidate && detailRemapResults.length
+    ? `<ul class="search-suggest detail-config-results" role="listbox" aria-label="TMDB movie results">
+        ${appMovieSearchPicker.movieSearchResultsHtml(detailRemapResults, {
+          escapeHtml: appCardHtml.escapeHtml,
+          dataName: "detail-remap-result-id",
+          dataValue: (result) => result.id,
+          posterUrl: (result) => appTmdb.buildImageUrl(result.posterPath, appTmdb.POSTER_SIZES.suggest),
+          meta: (result) => appCardHtml.formatYear(result.releaseDate) || "Year unknown",
+          badge(result) {
+            const statusId = appLists.primaryListIdForMovie(userState.lists, result.id);
+            const status = statusId ? appLists.findList(userState.lists, statusId) : null;
+            return status
+              ? `<span class="search-suggest-added">In ${appCardHtml.escapeHtml(status.name)}</span>`
+              : "";
+          },
+        })}
+      </ul>`
+    : "";
+  return `<section class="detail-config">
+    <h3>Linked movie</h3>
+    <p>Replace TMDB movie <strong>#${movieId}</strong> while keeping its lists, rating, and viewing history.</p>
+    <div class="detail-config-find">
+      <input id="detail-remap-query" type="search" value="${appCardHtml.escapeHtml(detailRemapQuery)}" placeholder="Search TMDB by title" aria-label="Replacement movie title" autocomplete="off">
+      <span class="search-spinner" id="detail-remap-spinner" hidden aria-hidden="true"></span>
+      ${resultsHtml}
+    </div>
+    <p class="detail-config-status" id="detail-remap-status" aria-live="polite"></p>
+    ${candidateHtml}
+  </section>`;
+}
+
 function detailBodyTabsHtml(movieId, record) {
   if (isDiscoverActive()) {
     return detailOverviewPanelHtml(movieId, record);
@@ -9488,6 +9681,7 @@ function detailBodyTabsHtml(movieId, record) {
       : "";
   const overviewSelected = detailBodyTab === "overview";
   const historySelected = detailBodyTab === "viewing-history";
+  const configSelected = detailBodyTab === "config";
   const historyTab = showHistory
     ? `<button type="button" class="detail-body-tab" role="tab" id="detail-tab-viewing-history" data-detail-body-tab="viewing-history" aria-selected="${historySelected ? "true" : "false"}" tabindex="${historySelected ? "0" : "-1"}">Viewing history${countBadge}</button>`
     : "";
@@ -9499,18 +9693,22 @@ ${detailViewingHistoryHtml(movieId)}
   return `<nav class="detail-body-tabs" role="tablist" aria-label="Movie detail sections">
   <button type="button" class="detail-body-tab" role="tab" id="detail-tab-overview" data-detail-body-tab="overview" aria-selected="${overviewSelected ? "true" : "false"}" tabindex="${overviewSelected ? "0" : "-1"}">Overview</button>
   ${historyTab}
+  <button type="button" class="detail-body-tab" role="tab" id="detail-tab-config" data-detail-body-tab="config" aria-selected="${configSelected ? "true" : "false"}" tabindex="${configSelected ? "0" : "-1"}">Config</button>
 </nav>
 <div class="detail-body-tabpanel" role="tabpanel" id="detail-panel-overview" aria-labelledby="detail-tab-overview"${overviewSelected ? "" : " hidden"}>
 ${detailOverviewPanelHtml(movieId, record)}
 </div>
-${historyPanel}`;
+${historyPanel}
+<div class="detail-body-tabpanel" role="tabpanel" id="detail-panel-config" aria-labelledby="detail-tab-config"${configSelected ? "" : " hidden"}>
+${detailConfigPanelHtml(movieId)}
+</div>`;
 }
 
 function setDetailBodyTab(tab) {
   if (isDiscoverActive()) {
     return;
   }
-  const next = tab === "viewing-history" ? "viewing-history" : "overview";
+  const next = tab === "viewing-history" || tab === "config" ? tab : "overview";
   if (
     next === "viewing-history" &&
     (detailMovieId == null || !appLists.isWatched(userState.lists, detailMovieId))
@@ -9524,7 +9722,101 @@ function setDetailBodyTab(tab) {
     cancelDetailRatingEditor();
   }
   detailBodyTab = next;
+  if (next !== "config") {
+    detailRemapCandidateId = null;
+  }
   renderDetail();
+}
+
+const detailRemapSearchPicker = appMovieSearchPicker.createMovieSearchPicker({
+  search: searchMovies,
+  debounceMs: SEARCH_DEBOUNCE_MS,
+  onBusy(busy) {
+    const spinner = document.getElementById("detail-remap-spinner");
+    if (spinner) spinner.hidden = !busy;
+    const status = document.getElementById("detail-remap-status");
+    if (status && busy) status.textContent = "Searching TMDB…";
+  },
+  onResults(results) {
+    if (detailMovieId == null) return;
+    detailRemapResults = results
+      .filter((result) => result.id !== detailMovieId)
+      .slice(0, 8);
+    renderDetail();
+    bindPosterImages(detailBody);
+    const nextStatus = document.getElementById("detail-remap-status");
+    if (nextStatus && !detailRemapResults.length) {
+      nextStatus.textContent = "No TMDB movies matched that title.";
+    }
+    const nextInput = document.getElementById("detail-remap-query");
+    nextInput?.focus({ preventScroll: true });
+    nextInput?.setSelectionRange(nextInput.value.length, nextInput.value.length);
+  },
+  onError() {
+    const status = document.getElementById("detail-remap-status");
+    if (status) status.textContent = "TMDB search failed. Try again.";
+  },
+});
+
+function onDetailRemapQueryInput(event) {
+  if (event.target.id !== "detail-remap-query") return;
+  const query = event.target.value.trim();
+  detailRemapQuery = event.target.value;
+  if (!query) {
+    detailRemapSearchPicker.clear();
+    detailRemapCandidateId = null;
+    detailRemapResults = [];
+    const status = document.getElementById("detail-remap-status");
+    if (status) status.textContent = "";
+    return;
+  }
+  if (!hasTmdbAccess()) {
+    const status = document.getElementById("detail-remap-status");
+    if (status) status.textContent = "Add a TMDB credential in Settings to search.";
+    return;
+  }
+  detailRemapSearchPicker.schedule(query);
+}
+
+function selectDetailRemapCandidate(movieId) {
+  const candidate = detailRemapResults.find((result) => result.id === Number(movieId));
+  if (!candidate) return;
+  detailRemapCandidateId = candidate.id;
+  if (!movieById.has(candidate.id)) {
+    movieById.set(candidate.id, candidate);
+  }
+  renderDetail();
+}
+
+function confirmDetailRemap() {
+  if (detailMovieId == null || detailRemapCandidateId == null) return;
+  const fromId = detailMovieId;
+  const toId = detailRemapCandidateId;
+  try {
+    backupUserState(userState);
+    userState = appMovieRemap.remapMovieState(userState, fromId, toId);
+    persistUserState();
+    detailMovieId = toId;
+    detailRemapCandidateId = null;
+    detailRemapQuery = "";
+    detailRemapResults = [];
+    detailRemapSearchPicker.clear();
+    renderedMovieIds = renderedMovieIds.map((id) => id === fromId ? toId : id);
+    history.replaceState(
+      { ...history.state, detailMovieId: toId },
+      "",
+      `#movie/${toId}`,
+    );
+    render();
+    renderDetail();
+    hydrateMovies([toId], {
+      onRecord: applyHydratedRecord,
+      onUpdate: applyHydratedRecord,
+    });
+  } catch (error) {
+    const status = document.getElementById("detail-remap-status");
+    if (status) status.textContent = error.message || "Could not replace the linked movie.";
+  }
 }
 
 function addDetailViewing() {
@@ -9809,6 +10101,10 @@ function openDetail(movieId, options = {}) {
 
   detailMovieId = id;
   detailBodyTab = "overview";
+  detailRemapCandidateId = null;
+  detailRemapQuery = "";
+  detailRemapResults = [];
+  detailRemapSearchPicker.clear();
   detailRatingEditorOpen = false;
   detailRatingEditorSnapshot = null;
   detailListPickerOpen = false;
@@ -9867,6 +10163,10 @@ function stepDetail(delta) {
   commitDetailRating();
   detailMovieId = ids[nextIndex];
   detailBodyTab = "overview";
+  detailRemapCandidateId = null;
+  detailRemapQuery = "";
+  detailRemapResults = [];
+  detailRemapSearchPicker.clear();
   detailRatingEditorOpen = false;
   detailRatingEditorSnapshot = null;
   detailListPickerOpen = false;
@@ -12355,6 +12655,15 @@ detailDialog.addEventListener("click", (event) => {
     setDetailBodyTab(detailBodyTabBtn.dataset.detailBodyTab);
     return;
   }
+  const remapResult = event.target.closest("[data-detail-remap-result-id]");
+  if (remapResult) {
+    selectDetailRemapCandidate(remapResult.dataset.detailRemapResultId);
+    return;
+  }
+  if (event.target.closest("#detail-remap-confirm")) {
+    confirmDetailRemap();
+    return;
+  }
   if (event.target.closest("#detail-viewing-add")) {
     addDetailViewing();
     return;
@@ -12382,6 +12691,7 @@ detailDialog.addEventListener("click", (event) => {
     toggleDetailListPickerChip(listToggleChip.dataset.detailListToggleId);
   }
 });
+detailDialog.addEventListener("input", onDetailRemapQueryInput);
 delegateRangeSliderLiveInput(detailDialog, "detail-rating-slider", onDetailRatingSliderInput);
 detailDialog.addEventListener("change", (event) => {
   if (event.target.id === "detail-rating-slider") {

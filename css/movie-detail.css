@@ -264,6 +264,18 @@
   display: none;
 }
 
+.detail-config h3 { margin: 0 0 0.4rem; font: 600 0.9rem var(--ui-font); }
+.detail-config > p { margin: 0 0 0.8rem; color: var(--muted); font: 0.8rem/1.5 var(--ui-font); }
+.detail-config-find { position: relative; display: flex; align-items: center; gap: 0.5rem; }
+.detail-config input { flex: 1; min-width: 0; padding: 0.55rem 0.65rem; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-sm); font: 0.8rem var(--ui-font); }
+.detail-config button { padding: 0.55rem 0.7rem; color: var(--accent); background: transparent; border: 1px solid var(--accent-border); border-radius: var(--radius-sm); font: 0.75rem var(--ui-font); cursor: pointer; }
+.detail-config-status { min-height: 1.2rem; margin: 0.45rem 0 !important; }
+.detail-config-results { top: calc(100% + 0.35rem); }
+.detail-config-candidate { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.7rem; background: var(--panel-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.detail-config-candidate div { display: grid; gap: 0.15rem; }
+.detail-config-candidate strong { font: 600 0.85rem var(--ui-font); }
+.detail-config-candidate span { color: var(--muted); font: 0.72rem var(--ui-font); }
+
 .detail-lists-block {
   margin: 0.85rem 0 0;
 }

@@ -526,6 +526,47 @@ ${detailUserRatingBlockHtml(movieId)}
 ${detailListsBlockHtml(movieId)}`;
 }
 
+function detailConfigPanelHtml(movieId) {
+  const candidate = detailRemapCandidateId == null
+    ? null
+    : movieById.get(detailRemapCandidateId);
+  const candidateHtml = candidate
+    ? `<div class="detail-config-candidate">
+        <div><strong>${appCardHtml.escapeHtml(candidate.title)}</strong><span>${appCardHtml.escapeHtml(appCardHtml.formatYear(candidate.releaseDate) || "Year unknown")}</span></div>
+        <button type="button" id="detail-remap-confirm">Use this movie</button>
+      </div>`
+    : "";
+  const resultsHtml = !candidate && detailRemapResults.length
+    ? `<ul class="search-suggest detail-config-results" role="listbox" aria-label="TMDB movie results">
+        ${appMovieSearchPicker.movieSearchResultsHtml(detailRemapResults, {
+          escapeHtml: appCardHtml.escapeHtml,
+          dataName: "detail-remap-result-id",
+          dataValue: (result) => result.id,
+          posterUrl: (result) => appTmdb.buildImageUrl(result.posterPath, appTmdb.POSTER_SIZES.suggest),
+          meta: (result) => appCardHtml.formatYear(result.releaseDate) || "Year unknown",
+          badge(result) {
+            const statusId = appLists.primaryListIdForMovie(userState.lists, result.id);
+            const status = statusId ? appLists.findList(userState.lists, statusId) : null;
+            return status
+              ? `<span class="search-suggest-added">In ${appCardHtml.escapeHtml(status.name)}</span>`
+              : "";
+          },
+        })}
+      </ul>`
+    : "";
+  return `<section class="detail-config">
+    <h3>Linked movie</h3>
+    <p>Replace TMDB movie <strong>#${movieId}</strong> while keeping its lists, rating, and viewing history.</p>
+    <div class="detail-config-find">
+      <input id="detail-remap-query" type="search" value="${appCardHtml.escapeHtml(detailRemapQuery)}" placeholder="Search TMDB by title" aria-label="Replacement movie title" autocomplete="off">
+      <span class="search-spinner" id="detail-remap-spinner" hidden aria-hidden="true"></span>
+      ${resultsHtml}
+    </div>
+    <p class="detail-config-status" id="detail-remap-status" aria-live="polite"></p>
+    ${candidateHtml}
+  </section>`;
+}
+
 function detailBodyTabsHtml(movieId, record) {
   if (isDiscoverActive()) {
     return detailOverviewPanelHtml(movieId, record);
@@ -543,6 +584,7 @@ function detailBodyTabsHtml(movieId, record) {
       : "";
   const overviewSelected = detailBodyTab === "overview";
   const historySelected = detailBodyTab === "viewing-history";
+  const configSelected = detailBodyTab === "config";
   const historyTab = showHistory
     ? `<button type="button" class="detail-body-tab" role="tab" id="detail-tab-viewing-history" data-detail-body-tab="viewing-history" aria-selected="${historySelected ? "true" : "false"}" tabindex="${historySelected ? "0" : "-1"}">Viewing history${countBadge}</button>`
     : "";
@@ -554,18 +596,22 @@ ${detailViewingHistoryHtml(movieId)}
   return `<nav class="detail-body-tabs" role="tablist" aria-label="Movie detail sections">
   <button type="button" class="detail-body-tab" role="tab" id="detail-tab-overview" data-detail-body-tab="overview" aria-selected="${overviewSelected ? "true" : "false"}" tabindex="${overviewSelected ? "0" : "-1"}">Overview</button>
   ${historyTab}
+  <button type="button" class="detail-body-tab" role="tab" id="detail-tab-config" data-detail-body-tab="config" aria-selected="${configSelected ? "true" : "false"}" tabindex="${configSelected ? "0" : "-1"}">Config</button>
 </nav>
 <div class="detail-body-tabpanel" role="tabpanel" id="detail-panel-overview" aria-labelledby="detail-tab-overview"${overviewSelected ? "" : " hidden"}>
 ${detailOverviewPanelHtml(movieId, record)}
 </div>
-${historyPanel}`;
+${historyPanel}
+<div class="detail-body-tabpanel" role="tabpanel" id="detail-panel-config" aria-labelledby="detail-tab-config"${configSelected ? "" : " hidden"}>
+${detailConfigPanelHtml(movieId)}
+</div>`;
 }
 
 function setDetailBodyTab(tab) {
   if (isDiscoverActive()) {
     return;
   }
-  const next = tab === "viewing-history" ? "viewing-history" : "overview";
+  const next = tab === "viewing-history" || tab === "config" ? tab : "overview";
   if (
     next === "viewing-history" &&
     (detailMovieId == null || !appLists.isWatched(userState.lists, detailMovieId))
@@ -579,7 +625,101 @@ function setDetailBodyTab(tab) {
     cancelDetailRatingEditor();
   }
   detailBodyTab = next;
+  if (next !== "config") {
+    detailRemapCandidateId = null;
+  }
   renderDetail();
+}
+
+const detailRemapSearchPicker = appMovieSearchPicker.createMovieSearchPicker({
+  search: searchMovies,
+  debounceMs: SEARCH_DEBOUNCE_MS,
+  onBusy(busy) {
+    const spinner = document.getElementById("detail-remap-spinner");
+    if (spinner) spinner.hidden = !busy;
+    const status = document.getElementById("detail-remap-status");
+    if (status && busy) status.textContent = "Searching TMDB…";
+  },
+  onResults(results) {
+    if (detailMovieId == null) return;
+    detailRemapResults = results
+      .filter((result) => result.id !== detailMovieId)
+      .slice(0, 8);
+    renderDetail();
+    bindPosterImages(detailBody);
+    const nextStatus = document.getElementById("detail-remap-status");
+    if (nextStatus && !detailRemapResults.length) {
+      nextStatus.textContent = "No TMDB movies matched that title.";
+    }
+    const nextInput = document.getElementById("detail-remap-query");
+    nextInput?.focus({ preventScroll: true });
+    nextInput?.setSelectionRange(nextInput.value.length, nextInput.value.length);
+  },
+  onError() {
+    const status = document.getElementById("detail-remap-status");
+    if (status) status.textContent = "TMDB search failed. Try again.";
+  },
+});
+
+function onDetailRemapQueryInput(event) {
+  if (event.target.id !== "detail-remap-query") return;
+  const query = event.target.value.trim();
+  detailRemapQuery = event.target.value;
+  if (!query) {
+    detailRemapSearchPicker.clear();
+    detailRemapCandidateId = null;
+    detailRemapResults = [];
+    const status = document.getElementById("detail-remap-status");
+    if (status) status.textContent = "";
+    return;
+  }
+  if (!hasTmdbAccess()) {
+    const status = document.getElementById("detail-remap-status");
+    if (status) status.textContent = "Add a TMDB credential in Settings to search.";
+    return;
+  }
+  detailRemapSearchPicker.schedule(query);
+}
+
+function selectDetailRemapCandidate(movieId) {
+  const candidate = detailRemapResults.find((result) => result.id === Number(movieId));
+  if (!candidate) return;
+  detailRemapCandidateId = candidate.id;
+  if (!movieById.has(candidate.id)) {
+    movieById.set(candidate.id, candidate);
+  }
+  renderDetail();
+}
+
+function confirmDetailRemap() {
+  if (detailMovieId == null || detailRemapCandidateId == null) return;
+  const fromId = detailMovieId;
+  const toId = detailRemapCandidateId;
+  try {
+    backupUserState(userState);
+    userState = appMovieRemap.remapMovieState(userState, fromId, toId);
+    persistUserState();
+    detailMovieId = toId;
+    detailRemapCandidateId = null;
+    detailRemapQuery = "";
+    detailRemapResults = [];
+    detailRemapSearchPicker.clear();
+    renderedMovieIds = renderedMovieIds.map((id) => id === fromId ? toId : id);
+    history.replaceState(
+      { ...history.state, detailMovieId: toId },
+      "",
+      `#movie/${toId}`,
+    );
+    render();
+    renderDetail();
+    hydrateMovies([toId], {
+      onRecord: applyHydratedRecord,
+      onUpdate: applyHydratedRecord,
+    });
+  } catch (error) {
+    const status = document.getElementById("detail-remap-status");
+    if (status) status.textContent = error.message || "Could not replace the linked movie.";
+  }
 }
 
 function addDetailViewing() {
@@ -864,6 +1004,10 @@ function openDetail(movieId, options = {}) {
 
   detailMovieId = id;
   detailBodyTab = "overview";
+  detailRemapCandidateId = null;
+  detailRemapQuery = "";
+  detailRemapResults = [];
+  detailRemapSearchPicker.clear();
   detailRatingEditorOpen = false;
   detailRatingEditorSnapshot = null;
   detailListPickerOpen = false;
@@ -922,6 +1066,10 @@ function stepDetail(delta) {
   commitDetailRating();
   detailMovieId = ids[nextIndex];
   detailBodyTab = "overview";
+  detailRemapCandidateId = null;
+  detailRemapQuery = "";
+  detailRemapResults = [];
+  detailRemapSearchPicker.clear();
   detailRatingEditorOpen = false;
   detailRatingEditorSnapshot = null;
   detailListPickerOpen = false;

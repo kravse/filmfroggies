@@ -206,8 +206,11 @@ let detailRatingEditorSnapshot = null;
 let detailListPickerOpen = false;
 /** Staged custom-list membership while the detail list editor is open. */
 let detailListPickerSelectedIds = new Set();
-/** "overview" | "viewing-history" */
+/** "overview" | "viewing-history" | "config" */
 let detailBodyTab = "overview";
+let detailRemapCandidateId = null;
+let detailRemapQuery = "";
+let detailRemapResults = [];
 let pendingRemoveMovieId = null;
 let pendingViewingRemoveEntryId = null;
 let pendingWatchMovieId = null;
