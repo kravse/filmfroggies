@@ -125,17 +125,16 @@ body.view-friend .toolbar-left {
 }
 
 .friends-dock-roster-wrap {
-  max-height: 5.35rem;
+  max-height: 11.5rem;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 0.62rem 0.85rem 0.55rem;
+  padding: 0.45rem 0.75rem 0.5rem;
 }
 
 .friends-roster {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
+  flex-direction: column;
+  gap: 0.32rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -143,47 +142,43 @@ body.view-friend .toolbar-left {
 
 .friends-roster-empty {
   margin: 0;
-  padding: 0.35rem 0.15rem;
+  padding: 0.25rem 0.1rem;
   color: var(--muted-dim);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   line-height: 1.4;
 }
 
 .friends-roster-item {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.18rem;
-  max-width: 100%;
+  justify-content: space-between;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: 2.15rem;
+  padding: 0.32rem 0.45rem 0.32rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--bg-rgb), 0.35);
 }
 
-.friends-roster-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.42rem;
-  min-width: 0;
-  max-width: 11.5rem;
-  height: 1.95rem;
-  padding: 0 0.55rem 0 0.22rem;
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-button.friends-roster-chip:hover {
-  border-color: var(--list-chip-border);
-  background: var(--list-chip-dim);
-  color: var(--list-chip-text);
-}
-
-.friends-roster-chip--pending {
-  cursor: default;
+.friends-roster-item--pending {
   border-style: dashed;
-  color: var(--muted);
   background: rgba(255, 255, 255, 0.02);
+}
+
+.friends-roster-main {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.friends-roster-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  min-width: 0;
 }
 
 .friends-roster-avatar {
@@ -191,12 +186,12 @@ button.friends-roster-chip:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.45rem;
-  height: 1.45rem;
-  border-radius: 999px;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: var(--radius-xs);
   background: var(--list-chip-dim);
   color: var(--list-chip-text);
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 700;
   line-height: 1;
 }
@@ -213,61 +208,68 @@ button.friends-roster-chip:hover {
   white-space: nowrap;
   font-size: 0.78rem;
   font-weight: 600;
+  line-height: 1.2;
 }
 
 .friends-roster-tag {
-  flex: none;
   font-size: 0.62rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--muted-dim);
+  line-height: 1.2;
 }
 
-.friends-roster-action {
-  flex: none;
-  height: 1.95rem;
-  padding: 0 0.55rem;
-  border: 1px solid var(--success-border);
-  border-radius: 999px;
-  background: var(--success-dim);
-  color: var(--success);
-  font-family: var(--ui-font);
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.friends-roster-action:hover {
-  filter: brightness(1.08);
-}
-
-.friends-roster-icon-btn {
-  display: inline-flex;
+.friends-roster-actions {
+  display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
+  gap: 0.28rem;
   flex: none;
-  width: 1.55rem;
-  height: 1.55rem;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 999px;
+}
+
+.friends-roster-btn {
+  flex: none;
+  min-height: 1.65rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xs);
   background: transparent;
   color: var(--muted);
   font-family: var(--ui-font);
-  font-size: 0.9rem;
-  line-height: 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  line-height: 1;
   cursor: pointer;
+  white-space: nowrap;
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
     color 0.15s ease;
 }
 
-.friends-roster-icon-btn:hover {
-  color: var(--danger);
-  border-color: var(--danger);
+.friends-roster-btn:hover {
+  color: var(--text);
+  border-color: var(--accent-border);
+}
+
+.friends-roster-btn--accept {
+  border-color: var(--success-border);
+  background: var(--success-dim);
+  color: var(--success);
+}
+
+.friends-roster-btn--accept:hover {
+  filter: brightness(1.08);
+  color: var(--success);
+  border-color: var(--success-border);
+}
+
+.friends-roster-btn--danger:hover {
+  color: var(--danger-text);
+  border-color: var(--danger-border);
   background: var(--danger-dim);
 }
 
@@ -694,7 +696,66 @@ body.view-friend .empty-state {
   }
 
   .friends-dock-roster-wrap {
-    max-height: 6.5rem;
+    max-height: min(42vh, 16rem);
+    padding-inline: 0.65rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .friends-roster {
+    gap: 0.35rem;
+  }
+
+  .friends-roster-item {
+    display: grid;
+    grid-template-columns: 1.35rem minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: 0.45rem;
+    row-gap: 0.32rem;
+    align-items: center;
+    padding: 0.4rem 0.5rem;
+  }
+
+  .friends-roster-main {
+    display: contents;
+  }
+
+  .friends-roster-avatar {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
+  }
+
+  .friends-roster-info {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .friends-roster-actions {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.32rem;
+    width: 100%;
+    padding-left: 0;
+  }
+
+  .friends-roster-actions:has(> .friends-roster-btn:only-child) {
+    grid-template-columns: 1fr;
+  }
+
+  .friends-roster-btn {
+    flex: none;
+    width: 100%;
+    min-height: 2.125rem;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.7rem;
+    touch-action: manipulation;
+  }
+
+  .friends-page-hint {
+    padding-inline: 0.15rem;
   }
 
   .friend-view-rating-legend-row {

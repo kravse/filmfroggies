@@ -1987,37 +1987,30 @@ function friendRosterItemHtml(friend) {
   const incoming = pending && friend.direction === "incoming";
   const outgoing = pending && friend.direction === "outgoing";
   const itemClass = pending ? " friends-roster-item--pending" : "";
-  const chipClass = pending ? " friends-roster-chip--pending" : "";
+  const tag = incoming ? "Incoming request" : outgoing ? "Pending" : "";
 
+  const main = `<div class="friends-roster-main">
+    <span class="friends-roster-avatar" aria-hidden="true">${initial}</span>
+    <div class="friends-roster-info">
+      <span class="friends-roster-name">${name}</span>
+      ${tag ? `<span class="friends-roster-tag">${tag}</span>` : ""}
+    </div>
+  </div>`;
+
+  let actions = "";
   if (incoming) {
-    return `<li class="friends-roster-item${itemClass}">
-  <span class="friends-roster-chip${chipClass}">
-    <span class="friends-roster-avatar" aria-hidden="true">${initial}</span>
-    <span class="friends-roster-name">${name}</span>
-    <span class="friends-roster-tag">Incoming</span>
-  </span>
-  <button type="button" class="friends-roster-action" data-friend-action="accept" data-friend-id="${friend.id}">Accept</button>
-  <button type="button" class="friends-roster-icon-btn" data-friend-action="remove" data-friend-id="${friend.id}" aria-label="Decline ${name}">×</button>
-</li>`;
+    actions = `<button type="button" class="friends-roster-btn friends-roster-btn--accept" data-friend-action="accept" data-friend-id="${friend.id}">Accept</button>
+  <button type="button" class="friends-roster-btn friends-roster-btn--danger" data-friend-action="remove" data-friend-id="${friend.id}">Decline</button>`;
+  } else if (outgoing) {
+    actions = `<button type="button" class="friends-roster-btn friends-roster-btn--danger" data-friend-action="remove" data-friend-id="${friend.id}">Cancel</button>`;
+  } else {
+    actions = `<button type="button" class="friends-roster-btn" data-friend-action="view" data-friend-id="${friend.id}" data-friend-name="${name}">View</button>
+  <button type="button" class="friends-roster-btn friends-roster-btn--danger" data-friend-action="remove" data-friend-id="${friend.id}" data-friend-name="${name}">Delete</button>`;
   }
 
-  if (outgoing) {
-    return `<li class="friends-roster-item${itemClass}">
-  <span class="friends-roster-chip${chipClass}">
-    <span class="friends-roster-avatar" aria-hidden="true">${initial}</span>
-    <span class="friends-roster-name">${name}</span>
-    <span class="friends-roster-tag">Pending</span>
-  </span>
-  <button type="button" class="friends-roster-icon-btn" data-friend-action="remove" data-friend-id="${friend.id}" aria-label="Cancel request for ${name}">×</button>
-</li>`;
-  }
-
-  return `<li class="friends-roster-item">
-  <button type="button" class="friends-roster-chip" data-friend-action="view" data-friend-id="${friend.id}" data-friend-name="${name}" aria-label="Open ${name}'s lists">
-    <span class="friends-roster-avatar" aria-hidden="true">${initial}</span>
-    <span class="friends-roster-name">${name}</span>
-  </button>
-  <button type="button" class="friends-roster-icon-btn" data-friend-action="remove" data-friend-id="${friend.id}" data-friend-name="${name}" aria-label="Remove ${name}">×</button>
+  return `<li class="friends-roster-item${itemClass}">
+  ${main}
+  <div class="friends-roster-actions">${actions}</div>
 </li>`;
 }
 
