@@ -723,6 +723,7 @@ function render() {
   }
   const ids = displayMovieIds();
   renderedMovieIds = [...ids];
+  disconnectRowHydrateObserver();
   grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
   bindPosterImages(grid);
   renderListTabs();
@@ -753,16 +754,118 @@ function needsResortAfterHydration() {
   return field === "title" || field === "year" || field === "rating";
 }
 
-function hydrateActiveList() {
-  const ids = renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
-  return hydrateMovies(ids, {
-    onRecord: applyHydratedRecord,
-    onUpdate: applyHydratedRecord,
-  }).then((result) => {
-    if (result?.hydratedFromNetwork && needsResortAfterHydration()) {
-      render();
+let rowHydrateObserver;
+const rowHydrateInflight = new Set();
+let rowHydrateResortTimer;
+
+function disconnectRowHydrateObserver() {
+  if (rowHydrateObserver) {
+    rowHydrateObserver.disconnect();
+    rowHydrateObserver = null;
+  }
+  rowHydrateInflight.clear();
+  if (rowHydrateResortTimer) {
+    clearTimeout(rowHydrateResortTimer);
+    rowHydrateResortTimer = 0;
+  }
+}
+
+function scheduleResortAfterHydration() {
+  if (!needsResortAfterHydration()) {
+    return;
+  }
+  if (rowHydrateResortTimer) {
+    clearTimeout(rowHydrateResortTimer);
+  }
+  rowHydrateResortTimer = setTimeout(() => {
+    rowHydrateResortTimer = 0;
+    render();
+    hydrateActiveList();
+  }, 300);
+}
+
+function ensureRowHydrateObserver() {
+  if (rowHydrateObserver || typeof IntersectionObserver === "undefined") {
+    return rowHydrateObserver;
+  }
+  rowHydrateObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) {
+          continue;
+        }
+        const row = entry.target;
+        const movieId = appViewportHydration.movieIdFromRowElement(row);
+        if (!movieId || appTmdb.isDetailedMovieRecord(movieById.get(movieId))) {
+          rowHydrateObserver.unobserve(row);
+          continue;
+        }
+        if (rowHydrateInflight.has(movieId)) {
+          continue;
+        }
+        rowHydrateInflight.add(movieId);
+        hydrateMovies([movieId], {
+          onRecord: applyHydratedRecord,
+          onUpdate: applyHydratedRecord,
+        })
+          .then((result) => {
+            if (result?.hydratedFromNetwork) {
+              scheduleResortAfterHydration();
+            }
+          })
+          .finally(() => {
+            rowHydrateInflight.delete(movieId);
+            if (rowHydrateObserver && row.isConnected) {
+              rowHydrateObserver.unobserve(row);
+            }
+          });
+      }
+    },
+    {
+      root: null,
+      rootMargin: appViewportHydration.ROW_HYDRATE_ROOT_MARGIN,
+      threshold: 0.01,
+    },
+  );
+  return rowHydrateObserver;
+}
+
+function bindRowHydrateObserver() {
+  if (isCustomListIndexActive() || isDiscoverActive() || !grid) {
+    return;
+  }
+  const observer = ensureRowHydrateObserver();
+  if (!observer) {
+    return;
+  }
+  for (const row of grid.querySelectorAll(".movie-row[data-movie-id]")) {
+    const movieId = appViewportHydration.movieIdFromRowElement(row);
+    if (!movieId || appTmdb.isDetailedMovieRecord(movieById.get(movieId))) {
+      continue;
     }
-  });
+    observer.observe(row);
+  }
+}
+
+function hydrateActiveList() {
+  if (isCustomListIndexActive() || isDiscoverActive()) {
+    return Promise.resolve();
+  }
+  const ids = renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
+  applyLocalMovieRecords(ids, { onRecord: applyHydratedRecord });
+  if (typeof IntersectionObserver === "undefined") {
+    return hydrateMovies(ids, {
+      onRecord: applyHydratedRecord,
+      onUpdate: applyHydratedRecord,
+    }).then((result) => {
+      if (result?.hydratedFromNetwork && needsResortAfterHydration()) {
+        render();
+        hydrateActiveList();
+      }
+    });
+  }
+  bindRowHydrateObserver();
+  return Promise.resolve();
 }
 
 /** A broken poster URL should degrade to the title placeholder, not a torn card. */

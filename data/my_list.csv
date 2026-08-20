@@ -1,64 +1,208 @@
-tmdb_id,title,list,my_rating,release_year
-1554,Down by Law,watched,8,1986
-670,Oldboy,watched,8,2003
-6396,SLC Punk,watched,7.4,1998
-141,Donnie Darko,watched,9.1,2001
-5925,The Great Escape,watched,10,1963
-14337,Primer,watched,7.5,2004
-8337,They Live,watched,8.3,1988
-8852,Prince of Darkness,watched,6.2,1987
-1946,eXistenZ,watched,5.9,1999
-9538,Scanners,watched,5.5,1981
-837,Videodrome,watched,6,1983
-59678,Attack the Block,watched,7.2,2011
-49049,Dredd,watched,7.1,2012
-8769,Christine,watched,6.7,1983
-4538,The Darjeeling Limited,watched,7.3,2007
-120467,The Grand Budapest Hotel,watched,8.4,2014
-9693,Children of Men,watched,7.7,2006
-2667,The Blair Witch Project,watched,7.1,1999
-16307,The Wicker Man,watched,7,1973
-389,12 Angry Men,watched,9,1957
-1325734,The Drama,watched,7.3,2026
-429200,Good Time,watched,7.9,2017
-10331,Night of the Living Dead,watched,7.5,1968
-278,The Shawshank Redemption,watched,9,1994
-7512,Idiocracy,watched,7,2006
-496243,Parasite,watched,8.6,2019
-1154538,Nirvanna the Band the Show the Movie,watched,8,2026
-2493,The Princess Bride,watched,7.7,1987
-913814,Brian and Charles,watched,6.9,2022
-339405,Christine,watched,5.8,2016
-938614,Late Night with the Devil,watched,7.1,2024
-680,Pulp Fiction,watched,8,1994
-273248,The Hateful Eight,watched,8.7,2015
-2649,The Game,watched,7.9,1997
-2322,Sneakers,watched,8,1992
-10428,Hackers,watched,7.7,1995
-1091,The Thing,watched,6.8,1982
-6978,Big Trouble in Little China,watched,5.5,1986
-110415,Snowpiercer,watched,7.8,2013
-11423,Memories of Murder,watched,9,2003
-68718,Django Unchained,watched,8,2012
-16869,Inglourious Basterds,watched,8.3,2009
-500,Reservoir Dogs,watched,7.6,1992
-300668,Annihilation,watched,7.1,2018
-30018,Mother,watched,7.9,2009
-376867,Moonlight,watched,7.9,2016
-238,The Godfather,watched,8.1,1972
-550,Fight Club,watched,8.8,1999
-264660,Ex Machina,watched,8.5,2015
-329865,Arrival,watched,8.4,2016
-242582,Nightcrawler,watched,7.9,2014
-74725,Kill List,watchlist,,2011
-410051,Stranger Than Paradise,watchlist,,1983
-1398,Stalker,watchlist,,1979
-10774,Network,watchlist,,1976
-11305,Mystery Train,watchlist,,1989
-592,The Conversation,watchlist,,1974
-157845,The Rover,watchlist,,2014
-549509,The Brutalist,watchlist,,2024
-838209,Exhuma,watchlist,,2024
-696506,Mickey 17,watchlist,,2025
-159770,The Dirties,watchlist,,2013
-922,Dead Man,watchlist,,1995
+tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates
+1554,Down by Law,watched,Watched,8.0,1986,2026-08-15
+670,Oldboy,watched,Watched,8.0,2003,2026-07-31
+6396,SLC Punk,watched,Watched,7.4,1998,
+141,Donnie Darko,watched,Watched,9.1,2001,
+5925,The Great Escape,watched,Watched,10,1963,
+14337,Primer,watched,Watched,7.5,2004,
+8337,They Live,watched,Watched,8.3,1988,
+8852,Prince of Darkness,watched,Watched,6.2,1987,
+1946,eXistenZ,watched,Watched,5.9,1999,
+9538,Scanners,watched,Watched,5.5,1981,
+837,Videodrome,watched,Watched,6.0,1983,
+59678,Attack the Block,watched,Watched,7.2,2011,
+49049,Dredd,watched,Watched,7.1,2012,
+8769,Christine,watched,Watched,6.7,1983,
+4538,The Darjeeling Limited,watched,Watched,7.3,2007,
+120467,The Grand Budapest Hotel,watched,Watched,8.4,2014,
+9693,Children of Men,watched,Watched,7.7,2006,
+2667,The Blair Witch Project,watched,Watched,7.1,1999,
+16307,The Wicker Man,watched,Watched,7.0,1973,
+389,12 Angry Men,watched,Watched,9.0,1957,
+1325734,The Drama,watched,Watched,7.3,2026,
+429200,Good Time,watched,Watched,7.9,2017,
+10331,Night of the Living Dead,watched,Watched,7.5,1968,
+278,The Shawshank Redemption,watched,Watched,9.0,1994,
+7512,Idiocracy,watched,Watched,7.0,2006,
+496243,Parasite,watched,Watched,8.6,2019,
+1154538,Nirvanna the Band the Show the Movie,watched,Watched,8.0,2026,
+2493,The Princess Bride,watched,Watched,7.7,1987,
+913814,Brian and Charles,watched,Watched,6.9,2022,
+339405,Christine,watched,Watched,5.8,2016,2026-08-17
+938614,Late Night with the Devil,watched,Watched,7.1,2024,
+680,Pulp Fiction,watched,Watched,8.0,1994,
+273248,The Hateful Eight,watched,Watched,8.7,2015,
+2649,The Game,watched,Watched,7.9,1997,
+2322,Sneakers,watched,Watched,8.0,1992,
+10428,Hackers,watched,Watched,7.7,1995,
+1091,The Thing,watched,Watched,6.8,1982,
+6978,Big Trouble in Little China,watched,Watched,5.5,1986,
+110415,Snowpiercer,watched,Watched,7.8,2013,
+11423,Memories of Murder,watched,Watched,9.0,2003,
+68718,Django Unchained,watched,Watched,8.0,2012,
+16869,Inglourious Basterds,watched,Watched,8.3,2009,
+500,Reservoir Dogs,watched,Watched,7.6,1992,
+300668,Annihilation,watched,Watched,7.1,2018,
+30018,Mother,watched,Watched,7.9,2009,
+376867,Moonlight,watched,Watched,7.9,2016,
+238,The Godfather,watched,Watched,8.1,1972,
+550,Fight Club,watched,Watched,8.8,1999,
+264660,Ex Machina,watched,Watched,8.5,2015,
+329865,Arrival,watched,Watched,8.4,2016,
+242582,Nightcrawler,watched,Watched,7.9,2014,
+9663,Starman,watched,Watched,5.2,1984,
+17473,The Room,watched,Watched,2.1,2003,
+13466,October Sky,watched,Watched,8.8,1999,
+443129,Reservoir Dogs,watched,Watched,6.7,1991,
+184,Jackie Brown,watched,Watched,5.8,1997,
+641,Requiem for a Dream,watched,Watched,8.6,2000,
+15067,"The Good, the Bad, the Weird",watched,Watched,6.8,2008,
+1422,The Departed,watched,Watched,9.1,2006,
+769,GoodFellas,watched,Watched,8.5,1990,
+592,The Conversation,watched,Watched,8.0,1974,
+281957,The Revenant,watched,Watched,6.4,2015,
+882569,Guy Ritchie's The Covenant,watched,Watched,8.6,2023,
+930564,Saltburn,watched,Watched,8.8,2023,
+170,28 Days Later,watched,Watched,8.6,2002,
+1562,28 Weeks Later,watched,Watched,6.2,2007,
+1100988,28 Years Later,watched,Watched,5.9,2025,
+1272837,28 Years Later: The Bone Temple,watched,Watched,6.7,2026,
+16614,Adventureland,watched,Watched,7.6,2009,
+73,American History X,watched,Watched,8.8,1998,
+10937,Barfly,watched,Watched,7.8,1987,
+45958,Biutiful,watched,Watched,9.0,2010,
+387,Das Boot,watched,Watched,9.2,1981,
+640,Catch Me If You Can,watched,Watched,9.0,2002,
+38,Eternal Sunshine of the Spotless Mind,watched,Watched,9.1,2004,
+11797,Fright Night,watched,Watched,7.4,1985,
+401,Garden State,watched,Watched,8.2,2004,
+1548,Ghost World,watched,Watched,6.0,2001,
+950396,The Gorge,watched,Watched,8.1,2025,
+245891,John Wick,watched,Watched,9.0,2014,
+324552,John Wick: Chapter 2,watched,Watched,8.9,2017,
+458156,John Wick: Chapter 3 - Parabellum,watched,Watched,7.9,2019,
+603692,John Wick: Chapter 4,watched,Watched,7.7,2023,
+100,"Lock, Stock and Two Smoking Barrels",watched,Watched,10,1998,
+107,Snatch,watched,Watched,8.0,2000,
+13809,RocknRolla,watched,Watched,7.0,2008,
+1700,Misery,watched,Watched,6.7,1990,
+8193,Napoleon Dynamite,watched,Watched,9.5,2004,
+21531,Barking Dogs Never Bite,watched,Watched,6.0,2000,
+42188,Never Let Me Go,watched,Watched,8.1,2010,
+1339713,Obsession,watched,Watched,7.3,2026,
+387426,Okja,watched,Watched,6.6,2017,
+378,Raising Arizona,watched,Watched,6.1,1987,
+10851,Revolver,watched,Watched,6.9,2005,
+694,The Shining,watched,Watched,7.7,1980,
+334517,The Siege of Jadotville,watched,Watched,8.1,2016,
+15121,The Sound of Music,watched,Watched,9.5,1965,
+12101,Soylent Green,watched,Watched,6.6,1973,
+129,Spirited Away,watched,Watched,7.9,2001,
+103663,The Hunt,watched,Watched,9.0,2012,
+7345,There Will Be Blood,watched,Watched,9.4,2007,
+752,V for Vendetta,watched,Watched,8.8,2006,
+13183,Watchmen,watched,Watched,6.7,2009,
+1903,Vanilla Sky,watched,Watched,7.9,2001,
+6947,The Village,watched,Watched,7.7,2004,
+1443,The Virgin Suicides,watched,Watched,8.8,2000,
+246741,What We Do in the Shadows,watched,Watched,9.0,2014,
+12163,The Wrestler,watched,Watched,9.1,2008,
+9426,The Fly,watched,Watched,5.3,1986,
+603,The Matrix,watched,Watched,10,1999,
+8363,Superbad,watched,Watched,9.0,2007,
+627,Trainspotting,watched,Watched,9.4,1996,
+1359,American Psycho,watched,Watched,9.8,2000,
+1954,The Butterfly Effect,watched,Watched,9.0,2004,
+6977,No Country for Old Men,watched,Watched,9.5,2007,
+273481,Sicario,watched,Watched,9.2,2015,
+15472,The Girl with the Dragon Tattoo,watched,Watched,8.7,2009,
+84892,The Perks of Being a Wallflower,watched,Watched,9.3,2012,
+9659,Mad Max,watched,Watched,6.5,1979,
+76341,Mad Max: Fury Road,watched,Watched,9.3,2015,
+786892,Furiosa: A Mad Max Saga,watched,Watched,7.8,2024,
+437586,mid90s,watched,Watched,7.0,2018,
+24016,The Sheltering Sky,watched,Watched,6.1,1990,
+17654,District 9,watched,Watched,8.0,2009,2025-08-05;2026-08-20
+4836,Layer Cake,watched,Watched,7.9,2004,
+7270,Matchstick Men,watched,Watched,8.0,2003,
+50839,Margin Call,watched,Watched,7.9,2011,
+181886,Enemy,watched,Watched,7.0,2014,
+23168,The Town,watched,Watched,9.4,2010,
+2501,The Bourne Identity,watched,Watched,10,2002,
+10074,Hot Rod,watched,Watched,8.0,2007,
+74725,Kill List,watched,Watched,5.9,2011,2026-08-19
+1398,Stalker,watchlist,Watchlist,,1979,
+1368337,The Odyssey,watchlist,Watchlist,,2026,
+696506,Mickey 17,watchlist,Watchlist,,2025,
+10774,Network,watchlist,Watchlist,,1976,
+410051,Stranger Than Paradise,watchlist,Watchlist,,1983,
+11305,Mystery Train,watchlist,Watchlist,,1989,
+157845,The Rover,watchlist,Watchlist,,2014,
+549509,The Brutalist,watchlist,Watchlist,,2024,
+838209,Exhuma,watchlist,Watchlist,,2024,
+159770,The Dirties,watchlist,Watchlist,,2013,
+922,Dead Man,watchlist,Watchlist,,1995,
+1083381,Backrooms,watchlist,Watchlist,,2026,
+1408208,Exit 8,watchlist,Watchlist,,2025,
+1554,Down by Law,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.0,1986,2026-08-15
+8337,They Live,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.3,1988,
+2322,Sneakers,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.0,1992,
+141,Donnie Darko,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.1,2001,
+14337,Primer,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,7.5,2004,
+59678,Attack the Block,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,7.2,2011,
+264660,Ex Machina,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.5,2015,
+5925,The Great Escape,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,10,1963,
+13466,October Sky,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.8,1999,
+641,Requiem for a Dream,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.6,2000,
+1422,The Departed,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.1,2006,
+930564,Saltburn,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.8,2023,
+16614,Adventureland,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,7.6,2009,
+10937,Barfly,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,7.8,1987,
+45958,Biutiful,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.0,2010,
+387,Das Boot,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.2,1981,
+640,Catch Me If You Can,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.0,2002,
+38,Eternal Sunshine of the Spotless Mind,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.1,2004,
+401,Garden State,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.2,2004,
+245891,John Wick,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.0,2014,
+100,"Lock, Stock and Two Smoking Barrels",custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,10,1998,
+107,Snatch,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.0,2000,
+8193,Napoleon Dynamite,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.5,2004,
+15121,The Sound of Music,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.5,1965,
+103663,The Hunt,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.0,2012,
+7345,There Will Be Blood,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.4,2007,
+752,V for Vendetta,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.8,2006,
+246741,What We Do in the Shadows,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.0,2014,
+12163,The Wrestler,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.1,2008,
+603,The Matrix,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,10,1999,
+627,Trainspotting,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.4,1996,
+1954,The Butterfly Effect,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.0,2004,
+6977,No Country for Old Men,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.5,2007,
+273481,Sicario,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.2,2015,
+15472,The Girl with the Dragon Tattoo,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.7,2009,
+84892,The Perks of Being a Wallflower,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.3,2012,
+7270,Matchstick Men,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.0,2003,
+23168,The Town,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.4,2010,
+2501,The Bourne Identity,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,10,2002,
+429200,Good Time,custom-24b4531f-38e0-4156-80b1-f904fb334ea0,to rewatch,7.9,2017,
+59678,Attack the Block,custom-24b4531f-38e0-4156-80b1-f904fb334ea0,to rewatch,7.2,2011,
+16869,Inglourious Basterds,custom-24b4531f-38e0-4156-80b1-f904fb334ea0,to rewatch,8.3,2009,
+242582,Nightcrawler,custom-24b4531f-38e0-4156-80b1-f904fb334ea0,to rewatch,7.9,2014,
+15067,"The Good, the Bad, the Weird",custom-24b4531f-38e0-4156-80b1-f904fb334ea0,to rewatch,6.8,2008,
+592,The Conversation,custom-24b4531f-38e0-4156-80b1-f904fb334ea0,to rewatch,8.0,1974,
+100,"Lock, Stock and Two Smoking Barrels",custom-24b4531f-38e0-4156-80b1-f904fb334ea0,to rewatch,10,1998,
+1443,The Virgin Suicides,custom-24b4531f-38e0-4156-80b1-f904fb334ea0,to rewatch,8.8,2000,
+7270,Matchstick Men,custom-24b4531f-38e0-4156-80b1-f904fb334ea0,to rewatch,8.0,2003,
+28070,Surf Nazis Must Die,custom-bff41a02-0092-463a-ad25-b70371422878,the best worst movies,,1987,
+1946,eXistenZ,custom-bff41a02-0092-463a-ad25-b70371422878,the best worst movies,5.9,1999,
+8852,Prince of Darkness,custom-bff41a02-0092-463a-ad25-b70371422878,the best worst movies,6.2,1987,
+17473,The Room,custom-bff41a02-0092-463a-ad25-b70371422878,the best worst movies,2.1,2003,
+8193,Napoleon Dynamite,custom-bff41a02-0092-463a-ad25-b70371422878,the best worst movies,9.5,2004,
+9426,The Fly,custom-bff41a02-0092-463a-ad25-b70371422878,the best worst movies,5.3,1986,
+1154538,Nirvanna the Band the Show the Movie,custom-6f310eb0-10e2-4b3c-ad40-7a2bcd10eec2,quality comedy,8.0,2026,
+913814,Brian and Charles,custom-6f310eb0-10e2-4b3c-ad40-7a2bcd10eec2,quality comedy,6.9,2022,
+7512,Idiocracy,custom-6f310eb0-10e2-4b3c-ad40-7a2bcd10eec2,quality comedy,7.0,2006,
+15067,"The Good, the Bad, the Weird",custom-6f310eb0-10e2-4b3c-ad40-7a2bcd10eec2,quality comedy,6.8,2008,
+8193,Napoleon Dynamite,custom-6f310eb0-10e2-4b3c-ad40-7a2bcd10eec2,quality comedy,9.5,2004,
+246741,What We Do in the Shadows,custom-6f310eb0-10e2-4b3c-ad40-7a2bcd10eec2,quality comedy,9.0,2014,
+8363,Superbad,custom-6f310eb0-10e2-4b3c-ad40-7a2bcd10eec2,quality comedy,9.0,2007,
+10074,Hot Rod,custom-6f310eb0-10e2-4b3c-ad40-7a2bcd10eec2,quality comedy,8.0,2007,

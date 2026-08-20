@@ -7,7 +7,7 @@ Search [TMDB](https://www.themoviedb.org/), add movies to ordered lists, and bro
 The only thing this site stores is **which TMDB ids are in which list, and in what order**, plus your ratings, viewing history, and a few preferences. Nothing about a movie is duplicated into your lists. Every page load rehydrates movie records by id:
 
 1. **`data/movies.json`** when the committed snapshot covers that id (no API call; snapshot rows are not revalidated in the browser)
-2. **Browser Cache API** for TMDB responses fetched earlier in the session
+2. **Browser Cache API** for TMDB responses fetched earlier in the session (revalidated at most once every 30 days)
 3. **TMDB** for anything still missing (when you have a credential)
 
 That keeps the precious data tiny (a few hundred bytes of ids), and everything else is disposable by construction — a cleared cache costs you one slow reload, never a lost list.
@@ -254,7 +254,7 @@ For a personal deploy you can keep your TMDB read token on the server so casual 
 
 Build command: `npm run build`. Publish directory: `build`. Functions: [`netlify/functions/`](netlify/functions/).
 
-**Hidden unlock:** triple-click the projector logo, enter the site password. The browser stores an opaque session token (not the password). TMDB calls then go through `/api/tmdb`; posters still load from TMDB directly. Cached movie records are not background-refreshed on hosted access. Triple-click again to lock. This path is intentionally undocumented in the UI.
+**Hidden unlock:** triple-click the projector logo, enter the site password. The browser stores an opaque session token (not the password). TMDB calls then go through `/api/tmdb`; posters still load from TMDB directly. Triple-click again to lock. This path is intentionally undocumented in the UI.
 
 Casual visitors see the normal site — snapshot movies render without a credential. Threat model: obscurity for casual users, not anti-brute-force.
 

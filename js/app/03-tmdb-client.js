@@ -1,9 +1,11 @@
 /**
- * TMDB access with a stale-while-revalidate Cache API layer.
+ * TMDB access with a Cache API layer for movie detail responses.
  *
  * Movie detail responses are cached under a synthetic key that omits the
  * credential, so the cache survives a credential change and never stores the
- * secret itself. Search is transient and only memoized for the session.
+ * secret itself. Cached movies are served immediately; TMDB is checked again
+ * only after appTmdbMovieCache.MOVIE_CACHE_REVALIDATE_MS (30 days). Search is
+ * transient and only memoized for the session.
  *
  * Ahead of all of that sits the snapshot committed under data/. Anything it
  * covers is served from the repo and never requested, so the API is only
@@ -585,15 +587,17 @@ function parseMovieText(text) {
 }
 
 /**
- * Background refresh after a cache hit. Failures are intentionally silent:
- * the caller already has a usable record and may simply be offline.
- * Hosted access skips this — cached and snapshot rows are served as-is.
+ * Background refresh when a cache entry is older than the revalidation interval.
+ * Failures are intentionally silent: the caller already has a usable record.
  */
 async function revalidateMovie(movieId, cacheKey, cache, cachedText, onUpdate) {
   try {
     const response = await fetchTmdb(appTmdb.buildMovieUrl(movieId));
     const text = await response.text();
     if (text === cachedText) {
+      if (cache) {
+        await cache.put(cacheKey, appTmdbMovieCache.buildCachedMovieResponse(text));
+      }
       return;
     }
     const record = parseMovieText(text);
@@ -601,7 +605,7 @@ async function revalidateMovie(movieId, cacheKey, cache, cachedText, onUpdate) {
       return;
     }
     if (cache) {
-      await cache.put(cacheKey, new Response(text, { headers: { "content-type": "application/json" } }));
+      await cache.put(cacheKey, appTmdbMovieCache.buildCachedMovieResponse(text));
     }
     movieById.set(movieId, record);
     if (typeof onUpdate === "function") {
@@ -620,10 +624,7 @@ async function fetchAndCacheMovie(movieId, cacheKey, cache) {
     throw new Error(`Unexpected TMDB payload for movie ${movieId}`);
   }
   if (cache) {
-    await cache.put(
-      cacheKey,
-      new Response(text, { headers: { "content-type": "application/json" } }),
-    );
+    await cache.put(cacheKey, appTmdbMovieCache.buildCachedMovieResponse(text));
   }
   return record;
 }
@@ -640,7 +641,7 @@ async function getMovie(movieId, options = {}) {
       const cachedText = await cached.text();
       const record = parseMovieText(cachedText);
       if (record) {
-        if (!hasHostedAccess()) {
+        if (appTmdbMovieCache.shouldRevalidateMovieCache(cached)) {
           revalidateMovie(id, cacheKey, cache, cachedText, options.onUpdate);
         }
         return record;
@@ -805,4 +806,48 @@ async function hydrateMovies(ids, handlers = {}) {
   const workerCount = Math.min(HYDRATE_CONCURRENCY, pending.length);
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
   return { hydratedFromNetwork: true };
+}
+
+/**
+ * Apply committed snapshot rows for many ids without touching the network.
+ * Used before viewport hydration so data/ covers the whole list synchronously.
+ */
+function applyLocalMovieRecords(ids, handlers = {}) {
+  let applied = false;
+  for (const id of ids) {
+    if (appTmdb.isDetailedMovieRecord(movieById.get(id))) {
+      continue;
+    }
+    const local = localMovieById.get(id);
+    if (!local) {
+      continue;
+    }
+    movieById.set(id, local);
+    movieErrors.delete(id);
+    handlers.onRecord?.(id, local);
+    applied = true;
+  }
+  return applied;
+}
+
+/**
+ * Apply committed snapshot rows for many ids without touching the network.
+ * Used before viewport hydration so data/ covers the whole list synchronously.
+ */
+function applyLocalMovieRecords(ids, handlers = {}) {
+  let applied = false;
+  for (const id of ids) {
+    if (appTmdb.isDetailedMovieRecord(movieById.get(id))) {
+      continue;
+    }
+    const local = localMovieById.get(id);
+    if (!local) {
+      continue;
+    }
+    movieById.set(id, local);
+    movieErrors.delete(id);
+    handlers.onRecord?.(id, local);
+    applied = true;
+  }
+  return applied;
 }

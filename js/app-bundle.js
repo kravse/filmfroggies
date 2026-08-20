@@ -1309,6 +1309,85 @@ const appTmdb = (function () {
   };
 })();
 
+/* ===== TMDB movie cache timestamps (generated from scripts/lib/tmdb-movie-cache.js) ===== */
+
+/* Generated from scripts/lib/tmdb-movie-cache.js — run npm run bundle */
+
+const appTmdbMovieCache = (function () {
+  /**
+   * Cache API timestamps for TMDB movie detail responses. Cached rows are served
+   * immediately; TMDB is consulted again only after the revalidation interval.
+   */
+
+  const MOVIE_CACHE_REVALIDATE_MS = 30 * 24 * 60 * 60 * 1000;
+  const MOVIE_CACHE_TIMESTAMP_HEADER = "x-moviecollector-cached-at";
+
+  function buildCachedMovieResponse(text, cachedAtMs = Date.now()) {
+    const at = Number(cachedAtMs);
+    const stamp = Number.isFinite(at) ? new Date(at).toISOString() : new Date().toISOString();
+    return new Response(String(text), {
+      headers: {
+        "content-type": "application/json",
+        [MOVIE_CACHE_TIMESTAMP_HEADER]: stamp,
+      },
+    });
+  }
+
+  function readMovieCacheTimestampMs(response) {
+    const raw = response?.headers?.get?.(MOVIE_CACHE_TIMESTAMP_HEADER);
+    if (!raw) {
+      return null;
+    }
+    const ms = Date.parse(raw);
+    return Number.isFinite(ms) ? ms : null;
+  }
+
+  function shouldRevalidateMovieCache(response, nowMs = Date.now()) {
+    const cachedAt = readMovieCacheTimestampMs(response);
+    if (cachedAt == null) {
+      return true;
+    }
+    return nowMs - cachedAt >= MOVIE_CACHE_REVALIDATE_MS;
+  }
+
+  return {
+    MOVIE_CACHE_REVALIDATE_MS,
+    MOVIE_CACHE_TIMESTAMP_HEADER,
+    buildCachedMovieResponse,
+    readMovieCacheTimestampMs,
+    shouldRevalidateMovieCache,
+  };
+})();
+
+/* ===== Viewport hydration helpers (generated from scripts/lib/viewport-hydration.js) ===== */
+
+/* Generated from scripts/lib/viewport-hydration.js — run npm run bundle */
+
+const appViewportHydration = (function () {
+  /**
+   * Viewport-scoped list hydration helpers. Movie rows hydrate when they enter
+   * (or neared) the viewport instead of fetching the entire list upfront.
+   */
+
+  const ROW_HYDRATE_ROOT_MARGIN = "240px 0px";
+
+  function movieIdFromRowElement(element) {
+    if (!element || typeof element !== "object") {
+      return null;
+    }
+    const raw =
+      element.dataset?.movieId ??
+      (typeof element.getAttribute === "function" ? element.getAttribute("data-movie-id") : null);
+    const id = Number(raw);
+    return Number.isInteger(id) && id > 0 ? id : null;
+  }
+
+  return {
+    ROW_HYDRATE_ROOT_MARGIN,
+    movieIdFromRowElement,
+  };
+})();
+
 /* ===== Discover browse helpers (generated from scripts/lib/discover.js) ===== */
 
 /* Generated from scripts/lib/discover.js — run npm run bundle */
@@ -7038,11 +7117,13 @@ async function restoreGistSnapshot(at) {
 /* ===== TMDB client: credential, Cache API wrapper, hydration pool ===== */
 
 /**
- * TMDB access with a stale-while-revalidate Cache API layer.
+ * TMDB access with a Cache API layer for movie detail responses.
  *
  * Movie detail responses are cached under a synthetic key that omits the
  * credential, so the cache survives a credential change and never stores the
- * secret itself. Search is transient and only memoized for the session.
+ * secret itself. Cached movies are served immediately; TMDB is checked again
+ * only after appTmdbMovieCache.MOVIE_CACHE_REVALIDATE_MS (30 days). Search is
+ * transient and only memoized for the session.
  *
  * Ahead of all of that sits the snapshot committed under data/. Anything it
  * covers is served from the repo and never requested, so the API is only
@@ -7624,15 +7705,17 @@ function parseMovieText(text) {
 }
 
 /**
- * Background refresh after a cache hit. Failures are intentionally silent:
- * the caller already has a usable record and may simply be offline.
- * Hosted access skips this — cached and snapshot rows are served as-is.
+ * Background refresh when a cache entry is older than the revalidation interval.
+ * Failures are intentionally silent: the caller already has a usable record.
  */
 async function revalidateMovie(movieId, cacheKey, cache, cachedText, onUpdate) {
   try {
     const response = await fetchTmdb(appTmdb.buildMovieUrl(movieId));
     const text = await response.text();
     if (text === cachedText) {
+      if (cache) {
+        await cache.put(cacheKey, appTmdbMovieCache.buildCachedMovieResponse(text));
+      }
       return;
     }
     const record = parseMovieText(text);
@@ -7640,7 +7723,7 @@ async function revalidateMovie(movieId, cacheKey, cache, cachedText, onUpdate) {
       return;
     }
     if (cache) {
-      await cache.put(cacheKey, new Response(text, { headers: { "content-type": "application/json" } }));
+      await cache.put(cacheKey, appTmdbMovieCache.buildCachedMovieResponse(text));
     }
     movieById.set(movieId, record);
     if (typeof onUpdate === "function") {
@@ -7659,10 +7742,7 @@ async function fetchAndCacheMovie(movieId, cacheKey, cache) {
     throw new Error(`Unexpected TMDB payload for movie ${movieId}`);
   }
   if (cache) {
-    await cache.put(
-      cacheKey,
-      new Response(text, { headers: { "content-type": "application/json" } }),
-    );
+    await cache.put(cacheKey, appTmdbMovieCache.buildCachedMovieResponse(text));
   }
   return record;
 }
@@ -7679,7 +7759,7 @@ async function getMovie(movieId, options = {}) {
       const cachedText = await cached.text();
       const record = parseMovieText(cachedText);
       if (record) {
-        if (!hasHostedAccess()) {
+        if (appTmdbMovieCache.shouldRevalidateMovieCache(cached)) {
           revalidateMovie(id, cacheKey, cache, cachedText, options.onUpdate);
         }
         return record;
@@ -7844,6 +7924,50 @@ async function hydrateMovies(ids, handlers = {}) {
   const workerCount = Math.min(HYDRATE_CONCURRENCY, pending.length);
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
   return { hydratedFromNetwork: true };
+}
+
+/**
+ * Apply committed snapshot rows for many ids without touching the network.
+ * Used before viewport hydration so data/ covers the whole list synchronously.
+ */
+function applyLocalMovieRecords(ids, handlers = {}) {
+  let applied = false;
+  for (const id of ids) {
+    if (appTmdb.isDetailedMovieRecord(movieById.get(id))) {
+      continue;
+    }
+    const local = localMovieById.get(id);
+    if (!local) {
+      continue;
+    }
+    movieById.set(id, local);
+    movieErrors.delete(id);
+    handlers.onRecord?.(id, local);
+    applied = true;
+  }
+  return applied;
+}
+
+/**
+ * Apply committed snapshot rows for many ids without touching the network.
+ * Used before viewport hydration so data/ covers the whole list synchronously.
+ */
+function applyLocalMovieRecords(ids, handlers = {}) {
+  let applied = false;
+  for (const id of ids) {
+    if (appTmdb.isDetailedMovieRecord(movieById.get(id))) {
+      continue;
+    }
+    const local = localMovieById.get(id);
+    if (!local) {
+      continue;
+    }
+    movieById.set(id, local);
+    movieErrors.delete(id);
+    handlers.onRecord?.(id, local);
+    applied = true;
+  }
+  return applied;
 }
 
 /* ===== Search box, TMDB autocomplete, and add-to-list ===== */
@@ -9223,6 +9347,7 @@ function render() {
   }
   const ids = displayMovieIds();
   renderedMovieIds = [...ids];
+  disconnectRowHydrateObserver();
   grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
   bindPosterImages(grid);
   renderListTabs();
@@ -9253,16 +9378,118 @@ function needsResortAfterHydration() {
   return field === "title" || field === "year" || field === "rating";
 }
 
-function hydrateActiveList() {
-  const ids = renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
-  return hydrateMovies(ids, {
-    onRecord: applyHydratedRecord,
-    onUpdate: applyHydratedRecord,
-  }).then((result) => {
-    if (result?.hydratedFromNetwork && needsResortAfterHydration()) {
-      render();
+let rowHydrateObserver;
+const rowHydrateInflight = new Set();
+let rowHydrateResortTimer;
+
+function disconnectRowHydrateObserver() {
+  if (rowHydrateObserver) {
+    rowHydrateObserver.disconnect();
+    rowHydrateObserver = null;
+  }
+  rowHydrateInflight.clear();
+  if (rowHydrateResortTimer) {
+    clearTimeout(rowHydrateResortTimer);
+    rowHydrateResortTimer = 0;
+  }
+}
+
+function scheduleResortAfterHydration() {
+  if (!needsResortAfterHydration()) {
+    return;
+  }
+  if (rowHydrateResortTimer) {
+    clearTimeout(rowHydrateResortTimer);
+  }
+  rowHydrateResortTimer = setTimeout(() => {
+    rowHydrateResortTimer = 0;
+    render();
+    hydrateActiveList();
+  }, 300);
+}
+
+function ensureRowHydrateObserver() {
+  if (rowHydrateObserver || typeof IntersectionObserver === "undefined") {
+    return rowHydrateObserver;
+  }
+  rowHydrateObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) {
+          continue;
+        }
+        const row = entry.target;
+        const movieId = appViewportHydration.movieIdFromRowElement(row);
+        if (!movieId || appTmdb.isDetailedMovieRecord(movieById.get(movieId))) {
+          rowHydrateObserver.unobserve(row);
+          continue;
+        }
+        if (rowHydrateInflight.has(movieId)) {
+          continue;
+        }
+        rowHydrateInflight.add(movieId);
+        hydrateMovies([movieId], {
+          onRecord: applyHydratedRecord,
+          onUpdate: applyHydratedRecord,
+        })
+          .then((result) => {
+            if (result?.hydratedFromNetwork) {
+              scheduleResortAfterHydration();
+            }
+          })
+          .finally(() => {
+            rowHydrateInflight.delete(movieId);
+            if (rowHydrateObserver && row.isConnected) {
+              rowHydrateObserver.unobserve(row);
+            }
+          });
+      }
+    },
+    {
+      root: null,
+      rootMargin: appViewportHydration.ROW_HYDRATE_ROOT_MARGIN,
+      threshold: 0.01,
+    },
+  );
+  return rowHydrateObserver;
+}
+
+function bindRowHydrateObserver() {
+  if (isCustomListIndexActive() || isDiscoverActive() || !grid) {
+    return;
+  }
+  const observer = ensureRowHydrateObserver();
+  if (!observer) {
+    return;
+  }
+  for (const row of grid.querySelectorAll(".movie-row[data-movie-id]")) {
+    const movieId = appViewportHydration.movieIdFromRowElement(row);
+    if (!movieId || appTmdb.isDetailedMovieRecord(movieById.get(movieId))) {
+      continue;
     }
-  });
+    observer.observe(row);
+  }
+}
+
+function hydrateActiveList() {
+  if (isCustomListIndexActive() || isDiscoverActive()) {
+    return Promise.resolve();
+  }
+  const ids = renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
+  applyLocalMovieRecords(ids, { onRecord: applyHydratedRecord });
+  if (typeof IntersectionObserver === "undefined") {
+    return hydrateMovies(ids, {
+      onRecord: applyHydratedRecord,
+      onUpdate: applyHydratedRecord,
+    }).then((result) => {
+      if (result?.hydratedFromNetwork && needsResortAfterHydration()) {
+        render();
+        hydrateActiveList();
+      }
+    });
+  }
+  bindRowHydrateObserver();
+  return Promise.resolve();
 }
 
 /** A broken poster URL should degrade to the title placeholder, not a torn card. */

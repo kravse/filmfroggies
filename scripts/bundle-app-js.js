@@ -44,6 +44,14 @@ const PARTS = [
     title: "TMDB request and response helpers (generated from scripts/lib/tmdb.js)",
   },
   {
+    file: "00-app-tmdb-movie-cache.js",
+    title: "TMDB movie cache timestamps (generated from scripts/lib/tmdb-movie-cache.js)",
+  },
+  {
+    file: "00-app-viewport-hydration.js",
+    title: "Viewport hydration helpers (generated from scripts/lib/viewport-hydration.js)",
+  },
+  {
     file: "00-app-discover.js",
     title: "Discover browse helpers (generated from scripts/lib/discover.js)",
   },

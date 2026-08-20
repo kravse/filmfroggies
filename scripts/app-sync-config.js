@@ -89,6 +89,26 @@ const APP_SYNC_ENTRIES = [
     ],
   },
   {
+    sources: [path.join(LIB, "tmdb-movie-cache.js")],
+    target: "00-app-tmdb-movie-cache.js",
+    globalName: "appTmdbMovieCache",
+    header: "Generated from scripts/lib/tmdb-movie-cache.js — run npm run bundle",
+    exports: [
+      "MOVIE_CACHE_REVALIDATE_MS",
+      "MOVIE_CACHE_TIMESTAMP_HEADER",
+      "buildCachedMovieResponse",
+      "readMovieCacheTimestampMs",
+      "shouldRevalidateMovieCache",
+    ],
+  },
+  {
+    sources: [path.join(LIB, "viewport-hydration.js")],
+    target: "00-app-viewport-hydration.js",
+    globalName: "appViewportHydration",
+    header: "Generated from scripts/lib/viewport-hydration.js — run npm run bundle",
+    exports: ["ROW_HYDRATE_ROOT_MARGIN", "movieIdFromRowElement"],
+  },
+  {
     sources: [path.join(LIB, "discover.js")],
     target: "00-app-discover.js",
     globalName: "appDiscover",
