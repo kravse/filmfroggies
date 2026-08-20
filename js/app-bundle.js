@@ -1315,26 +1315,39 @@ const appTmdb = (function () {
 
 const appTmdbMovieCache = (function () {
   /**
-   * Cache API timestamps for TMDB movie detail responses. Cached rows are served
-   * immediately; TMDB is consulted again only after the revalidation interval.
+   * Cache API timestamps for TMDB movie JSON and poster blobs. Cached entries are
+   * served immediately; upstream is consulted again only after the interval.
    */
 
-  const MOVIE_CACHE_REVALIDATE_MS = 30 * 24 * 60 * 60 * 1000;
-  const MOVIE_CACHE_TIMESTAMP_HEADER = "x-moviecollector-cached-at";
+  const CACHE_REVALIDATE_MS = 30 * 24 * 60 * 60 * 1000;
+  const CACHE_TIMESTAMP_HEADER = "x-moviecollector-cached-at";
 
-  function buildCachedMovieResponse(text, cachedAtMs = Date.now()) {
+  /** @deprecated use CACHE_REVALIDATE_MS */
+  const MOVIE_CACHE_REVALIDATE_MS = CACHE_REVALIDATE_MS;
+  /** @deprecated use CACHE_TIMESTAMP_HEADER */
+  const MOVIE_CACHE_TIMESTAMP_HEADER = CACHE_TIMESTAMP_HEADER;
+
+  function buildCachedResponse(body, contentType, cachedAtMs = Date.now()) {
     const at = Number(cachedAtMs);
     const stamp = Number.isFinite(at) ? new Date(at).toISOString() : new Date().toISOString();
-    return new Response(String(text), {
+    return new Response(body, {
       headers: {
-        "content-type": "application/json",
-        [MOVIE_CACHE_TIMESTAMP_HEADER]: stamp,
+        "content-type": contentType,
+        [CACHE_TIMESTAMP_HEADER]: stamp,
       },
     });
   }
 
-  function readMovieCacheTimestampMs(response) {
-    const raw = response?.headers?.get?.(MOVIE_CACHE_TIMESTAMP_HEADER);
+  function buildCachedMovieResponse(text, cachedAtMs = Date.now()) {
+    return buildCachedResponse(String(text), "application/json", cachedAtMs);
+  }
+
+  function buildCachedBlobResponse(blob, contentType, cachedAtMs = Date.now()) {
+    return buildCachedResponse(blob, contentType || "application/octet-stream", cachedAtMs);
+  }
+
+  function readCacheTimestampMs(response) {
+    const raw = response?.headers?.get?.(CACHE_TIMESTAMP_HEADER);
     if (!raw) {
       return null;
     }
@@ -1342,18 +1355,29 @@ const appTmdbMovieCache = (function () {
     return Number.isFinite(ms) ? ms : null;
   }
 
-  function shouldRevalidateMovieCache(response, nowMs = Date.now()) {
-    const cachedAt = readMovieCacheTimestampMs(response);
+  function shouldRevalidateCache(response, nowMs = Date.now()) {
+    const cachedAt = readCacheTimestampMs(response);
     if (cachedAt == null) {
       return true;
     }
-    return nowMs - cachedAt >= MOVIE_CACHE_REVALIDATE_MS;
+    return nowMs - cachedAt >= CACHE_REVALIDATE_MS;
   }
 
+  /** @deprecated use readCacheTimestampMs */
+  const readMovieCacheTimestampMs = readCacheTimestampMs;
+  /** @deprecated use shouldRevalidateCache */
+  const shouldRevalidateMovieCache = shouldRevalidateCache;
+
   return {
+    CACHE_REVALIDATE_MS,
+    CACHE_TIMESTAMP_HEADER,
     MOVIE_CACHE_REVALIDATE_MS,
     MOVIE_CACHE_TIMESTAMP_HEADER,
+    buildCachedResponse,
     buildCachedMovieResponse,
+    buildCachedBlobResponse,
+    readCacheTimestampMs,
+    shouldRevalidateCache,
     readMovieCacheTimestampMs,
     shouldRevalidateMovieCache,
   };
@@ -1385,6 +1409,48 @@ const appViewportHydration = (function () {
   return {
     ROW_HYDRATE_ROOT_MARGIN,
     movieIdFromRowElement,
+  };
+})();
+
+/* ===== Grid reorder helpers (generated from scripts/lib/grid-reorder.js) ===== */
+
+/* Generated from scripts/lib/grid-reorder.js — run npm run bundle */
+
+const appGridReorder = (function () {
+  /**
+   * Reorder existing DOM children to match an id sequence without rebuilding HTML.
+   */
+
+  function reorderElementsById(container, orderedIds, getElementId) {
+    if (!container || typeof container.appendChild !== "function" || !Array.isArray(orderedIds)) {
+      return false;
+    }
+    const readId = typeof getElementId === "function" ? getElementId : () => null;
+    const byId = new Map();
+    const children = Array.from(container.children || []);
+    for (const child of children) {
+      const id = readId(child);
+      if (id == null) {
+        continue;
+      }
+      byId.set(id, child);
+    }
+    for (const id of orderedIds) {
+      const element = byId.get(id);
+      if (!element) {
+        continue;
+      }
+      container.appendChild(element);
+      byId.delete(id);
+    }
+    for (const element of byId.values()) {
+      container.appendChild(element);
+    }
+    return true;
+  }
+
+  return {
+    reorderElementsById,
   };
 })();
 
@@ -7464,13 +7530,9 @@ async function revalidatePoster(url, cache) {
     if (cache) {
       await cache.put(
         url,
-        new Response(blob, {
-          headers: { "content-type": blob.type || "image/jpeg" },
-        }),
+        appTmdbMovieCache.buildCachedBlobResponse(blob, blob.type || "image/jpeg"),
       );
     }
-    // Keep the in-memory blob URL alive — imgs already display it and revoking
-    // here breaks posters on every refresh after a cache hit.
   } catch (_) {
     /* Cached poster stays on screen. */
   }
@@ -7492,7 +7554,9 @@ async function resolvePosterObjectUrl(url) {
       const blob = await cached.blob();
       const objectUrl = URL.createObjectURL(blob);
       posterBlobUrls.set(url, objectUrl);
-      revalidatePoster(url, cache);
+      if (appTmdbMovieCache.shouldRevalidateCache(cached)) {
+        revalidatePoster(url, cache);
+      }
       return objectUrl;
     }
   }
@@ -7502,9 +7566,7 @@ async function resolvePosterObjectUrl(url) {
   if (cache) {
     await cache.put(
       url,
-      new Response(blob, {
-        headers: { "content-type": blob.type || "image/jpeg" },
-      }),
+      appTmdbMovieCache.buildCachedBlobResponse(blob, blob.type || "image/jpeg"),
     );
   }
   const objectUrl = URL.createObjectURL(blob);
@@ -9378,6 +9440,20 @@ function needsResortAfterHydration() {
   return field === "title" || field === "year" || field === "rating";
 }
 
+/** Re-sort visible rows after hydration without rebuilding the grid HTML. */
+function reorderGridRows() {
+  if (!grid || isCustomListIndexActive() || isDiscoverActive()) {
+    return false;
+  }
+  const ids = displayMovieIds();
+  renderedMovieIds = [...ids];
+  return appGridReorder.reorderElementsById(
+    grid,
+    ids,
+    appViewportHydration.movieIdFromRowElement,
+  );
+}
+
 let rowHydrateObserver;
 const rowHydrateInflight = new Set();
 let rowHydrateResortTimer;
@@ -9403,8 +9479,7 @@ function scheduleResortAfterHydration() {
   }
   rowHydrateResortTimer = setTimeout(() => {
     rowHydrateResortTimer = 0;
-    render();
-    hydrateActiveList();
+    reorderGridRows();
   }, 300);
 }
 
@@ -9477,14 +9552,16 @@ function hydrateActiveList() {
   }
   const ids = renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
   applyLocalMovieRecords(ids, { onRecord: applyHydratedRecord });
+  if (needsResortAfterHydration()) {
+    reorderGridRows();
+  }
   if (typeof IntersectionObserver === "undefined") {
     return hydrateMovies(ids, {
       onRecord: applyHydratedRecord,
       onUpdate: applyHydratedRecord,
     }).then((result) => {
       if (result?.hydratedFromNetwork && needsResortAfterHydration()) {
-        render();
-        hydrateActiveList();
+        reorderGridRows();
       }
     });
   }
@@ -9645,14 +9722,10 @@ function removeMovieFromCollection(movieId) {
 }
 
 function refreshMovieRating(movieId) {
-  if (usesWatchedStyleDisplay()) {
-    render();
-    if (detailMovieId === movieId) {
-      renderDetail();
-    }
-    return;
-  }
   applyHydratedRecord(movieId, { skipDetail: true });
+  if (isUserRatingSortMode()) {
+    reorderGridRows();
+  }
   if (detailMovieId === movieId) {
     syncDetailRatingDisplay(appRatings.getRating(userState.ratings, movieId));
   }

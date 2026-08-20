@@ -7,7 +7,7 @@ Search [TMDB](https://www.themoviedb.org/), add movies to ordered lists, and bro
 The only thing this site stores is **which TMDB ids are in which list, and in what order**, plus your ratings, viewing history, and a few preferences. Nothing about a movie is duplicated into your lists. Every page load rehydrates movie records by id:
 
 1. **`data/movies.json`** when the committed snapshot covers that id (no API call; snapshot rows are not revalidated in the browser)
-2. **Browser Cache API** for TMDB responses fetched earlier in the session (revalidated at most once every 30 days)
+2. **Browser Cache API** for TMDB movie JSON and poster blobs (revalidated at most once every 30 days)
 3. **TMDB** for anything still missing (when you have a credential)
 
 That keeps the precious data tiny (a few hundred bytes of ids), and everything else is disposable by construction — a cleared cache costs you one slow reload, never a lost list.

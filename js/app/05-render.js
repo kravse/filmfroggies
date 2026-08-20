@@ -754,6 +754,20 @@ function needsResortAfterHydration() {
   return field === "title" || field === "year" || field === "rating";
 }
 
+/** Re-sort visible rows after hydration without rebuilding the grid HTML. */
+function reorderGridRows() {
+  if (!grid || isCustomListIndexActive() || isDiscoverActive()) {
+    return false;
+  }
+  const ids = displayMovieIds();
+  renderedMovieIds = [...ids];
+  return appGridReorder.reorderElementsById(
+    grid,
+    ids,
+    appViewportHydration.movieIdFromRowElement,
+  );
+}
+
 let rowHydrateObserver;
 const rowHydrateInflight = new Set();
 let rowHydrateResortTimer;
@@ -779,8 +793,7 @@ function scheduleResortAfterHydration() {
   }
   rowHydrateResortTimer = setTimeout(() => {
     rowHydrateResortTimer = 0;
-    render();
-    hydrateActiveList();
+    reorderGridRows();
   }, 300);
 }
 
@@ -853,14 +866,16 @@ function hydrateActiveList() {
   }
   const ids = renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
   applyLocalMovieRecords(ids, { onRecord: applyHydratedRecord });
+  if (needsResortAfterHydration()) {
+    reorderGridRows();
+  }
   if (typeof IntersectionObserver === "undefined") {
     return hydrateMovies(ids, {
       onRecord: applyHydratedRecord,
       onUpdate: applyHydratedRecord,
     }).then((result) => {
       if (result?.hydratedFromNetwork && needsResortAfterHydration()) {
-        render();
-        hydrateActiveList();
+        reorderGridRows();
       }
     });
   }
@@ -1021,14 +1036,10 @@ function removeMovieFromCollection(movieId) {
 }
 
 function refreshMovieRating(movieId) {
-  if (usesWatchedStyleDisplay()) {
-    render();
-    if (detailMovieId === movieId) {
-      renderDetail();
-    }
-    return;
-  }
   applyHydratedRecord(movieId, { skipDetail: true });
+  if (isUserRatingSortMode()) {
+    reorderGridRows();
+  }
   if (detailMovieId === movieId) {
     syncDetailRatingDisplay(appRatings.getRating(userState.ratings, movieId));
   }

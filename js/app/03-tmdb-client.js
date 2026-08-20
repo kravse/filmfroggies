@@ -346,13 +346,9 @@ async function revalidatePoster(url, cache) {
     if (cache) {
       await cache.put(
         url,
-        new Response(blob, {
-          headers: { "content-type": blob.type || "image/jpeg" },
-        }),
+        appTmdbMovieCache.buildCachedBlobResponse(blob, blob.type || "image/jpeg"),
       );
     }
-    // Keep the in-memory blob URL alive — imgs already display it and revoking
-    // here breaks posters on every refresh after a cache hit.
   } catch (_) {
     /* Cached poster stays on screen. */
   }
@@ -374,7 +370,9 @@ async function resolvePosterObjectUrl(url) {
       const blob = await cached.blob();
       const objectUrl = URL.createObjectURL(blob);
       posterBlobUrls.set(url, objectUrl);
-      revalidatePoster(url, cache);
+      if (appTmdbMovieCache.shouldRevalidateCache(cached)) {
+        revalidatePoster(url, cache);
+      }
       return objectUrl;
     }
   }
@@ -384,9 +382,7 @@ async function resolvePosterObjectUrl(url) {
   if (cache) {
     await cache.put(
       url,
-      new Response(blob, {
-        headers: { "content-type": blob.type || "image/jpeg" },
-      }),
+      appTmdbMovieCache.buildCachedBlobResponse(blob, blob.type || "image/jpeg"),
     );
   }
   const objectUrl = URL.createObjectURL(blob);

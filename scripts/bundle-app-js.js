@@ -52,6 +52,10 @@ const PARTS = [
     title: "Viewport hydration helpers (generated from scripts/lib/viewport-hydration.js)",
   },
   {
+    file: "00-app-grid-reorder.js",
+    title: "Grid reorder helpers (generated from scripts/lib/grid-reorder.js)",
+  },
+  {
     file: "00-app-discover.js",
     title: "Discover browse helpers (generated from scripts/lib/discover.js)",
   },
