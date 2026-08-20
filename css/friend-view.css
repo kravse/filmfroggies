@@ -473,11 +473,6 @@ body.view-friend .card.card--friend.is-seen-by-you:hover {
 }
 
 body.view-friend .friend-view-list-card {
-  width: calc(100% + 2 * var(--layout-gutter));
-  margin-inline: calc(-1 * var(--layout-gutter));
-  border-left: none;
-  border-right: none;
-  border-radius: 0;
   background: transparent;
 }
 
@@ -537,10 +532,6 @@ body.view-friend .friend-view-list-body {
   transition: background 0.15s ease;
 }
 
-body.view-friend .friend-view-list-toggle {
-  padding-inline: var(--layout-gutter);
-}
-
 .friend-view-list-toggle:hover {
   background: color-mix(in srgb, var(--panel-raised) 88%, var(--text));
 }
@@ -597,12 +588,8 @@ body.view-friend .friend-view-list-toggle {
 
 .friend-view-grid {
   margin: 0;
-  padding: 0.5rem 0 0.6rem;
+  padding: 0.65rem 0.7rem 0.75rem;
   box-sizing: border-box;
-}
-
-body.view-friend .friend-view-grid {
-  padding: 0.5rem var(--layout-gutter) 0.65rem;
 }
 
 body.view-friend.view-mode-cards .card-footer--friend {
@@ -674,6 +661,22 @@ body.view-friend .empty-state {
 }
 
 @media (max-width: 640px) {
+  body.view-friend .friend-view-list-card {
+    width: calc(100% + 2 * var(--layout-gutter));
+    margin-inline: calc(-1 * var(--layout-gutter));
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+  }
+
+  body.view-friend .friend-view-list-toggle {
+    padding-inline: var(--layout-gutter);
+  }
+
+  body.view-friend .friend-view-grid {
+    padding: 0.5rem var(--layout-gutter) 0.65rem;
+  }
+
   .friends-dock-invite {
     flex-wrap: wrap;
   }
