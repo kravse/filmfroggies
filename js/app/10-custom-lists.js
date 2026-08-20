@@ -121,11 +121,13 @@ function applyRestoredViewContext(restored) {
 }
 
 function syncHeaderNavUi() {
-  let activeNav = "lists";
+  let activeNav = null;
   if (isDiscoverActive()) {
     activeNav = "discover";
   } else if (isFriendsIndexActive() || isFriendViewActive()) {
     activeNav = "friends";
+  } else if (isCustomListView()) {
+    activeNav = "lists";
   }
 
   discoverEntryBtn?.classList.toggle("is-active", activeNav === "discover");
