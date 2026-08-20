@@ -47,6 +47,9 @@
   --search-field-actor-bg: rgba(56, 168, 138, 0.14);
   --search-field-actor-border: rgba(96, 196, 168, 0.34);
   --search-field-actor-text: rgba(176, 228, 210, 0.88);
+  --search-field-director-bg: rgba(126, 176, 212, 0.14);
+  --search-field-director-border: rgba(126, 176, 212, 0.34);
+  --search-field-director-text: rgba(196, 224, 244, 0.92);
   --search-field-year-bg: rgba(140, 100, 200, 0.14);
   --search-field-year-border: rgba(180, 140, 230, 0.34);
   --search-field-year-text: rgba(210, 190, 240, 0.88);

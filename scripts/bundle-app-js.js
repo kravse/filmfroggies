@@ -24,6 +24,14 @@ const PARTS = [
     title: "Card HTML helpers (generated from scripts/lib/card-html.js)",
   },
   {
+    file: "00-app-movie-search-picker.js",
+    title: "Shared movie search picker (generated from scripts/lib/movie-search-picker.js)",
+  },
+  {
+    file: "00-app-movie-remap.js",
+    title: "Movie link remapping (generated from scripts/lib/movie-remap.js)",
+  },
+  {
     file: "01b-viewing-date-picker-dom.js",
     title: "Shared viewing date picker mounts",
   },

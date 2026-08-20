@@ -230,6 +230,19 @@ detailDialog.addEventListener("click", (event) => {
     setDetailBodyTab(detailBodyTabBtn.dataset.detailBodyTab);
     return;
   }
+  if (event.target.closest("#detail-remap-open-search")) {
+    openDetailConfigSearch();
+    return;
+  }
+  const remapResult = event.target.closest("[data-detail-remap-result-id]");
+  if (remapResult) {
+    selectDetailRemapCandidate(remapResult.dataset.detailRemapResultId);
+    return;
+  }
+  if (event.target.closest("#detail-remap-confirm")) {
+    confirmDetailRemap();
+    return;
+  }
   if (event.target.closest("#detail-viewing-add")) {
     addDetailViewing();
     return;
@@ -255,6 +268,29 @@ detailDialog.addEventListener("click", (event) => {
   const listToggleChip = event.target.closest("[data-detail-list-toggle-id]");
   if (listToggleChip) {
     toggleDetailListPickerChip(listToggleChip.dataset.detailListToggleId);
+  }
+});
+detailDialog.addEventListener("input", onDetailRemapQueryInput);
+detailConfigSearchClose?.addEventListener("click", closeDetailConfigSearch);
+detailConfigSearchDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-detail-config-search")) {
+    closeDetailConfigSearch();
+    return;
+  }
+  const remapResult = event.target.closest("[data-detail-remap-result-id]");
+  if (remapResult) {
+    selectDetailRemapCandidate(remapResult.dataset.detailRemapResultId);
+  }
+});
+detailConfigSearchDialog?.addEventListener("input", onDetailRemapQueryInput);
+detailScroll?.addEventListener("scroll", positionDetailConfigResults, { passive: true });
+window.addEventListener("resize", positionDetailConfigResults);
+window.matchMedia("(max-width: 640px)").addEventListener("change", () => {
+  if (!detailConfigSearchUsesOverlay()) {
+    closeDetailConfigSearch();
+  }
+  if (detailMovieId != null && detailBodyTab === "config") {
+    renderDetail();
   }
 });
 delegateRangeSliderLiveInput(detailDialog, "detail-rating-slider", onDetailRatingSliderInput);
@@ -562,6 +598,10 @@ document.addEventListener("keydown", (event) => {
       }
       return;
     }
+    if (detailConfigSearchDialog && !detailConfigSearchDialog.hidden) {
+      closeDetailConfigSearch();
+      return;
+    }
     if (detailMovieId != null) {
       if (detailRatingEditorOpen) {
         cancelDetailRatingEditor();
@@ -572,7 +612,10 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
-  if (detailMovieId == null || event.target === searchInput) {
+  if (detailMovieId == null || event.target === searchInput || event.target === detailConfigSearchQuery) {
+    return;
+  }
+  if (isDetailConfigSearchOpen()) {
     return;
   }
   if (event.key === "ArrowLeft") {

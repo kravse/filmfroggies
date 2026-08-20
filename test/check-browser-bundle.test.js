@@ -41,3 +41,21 @@ test("custom-list browser module exports the collection import helper", () => {
   assert.ok(entry);
   assert.ok(entry.exports.includes("ensureCustomListsFromImport"));
 });
+
+test("movie remap helper is exported to the browser bundle", () => {
+  const { APP_SYNC_ENTRIES } = require("../scripts/app-sync-config");
+  const { PARTS } = require("../scripts/bundle-app-js");
+  const entry = APP_SYNC_ENTRIES.find((candidate) => candidate.target === "00-app-movie-remap.js");
+  assert.ok(entry);
+  assert.ok(entry.exports.includes("remapMovieState"));
+  assert.ok(PARTS.some((part) => part.file === entry.target));
+});
+
+test("movie search picker is exported and included in the browser bundle", () => {
+  const { APP_SYNC_ENTRIES } = require("../scripts/app-sync-config");
+  const { PARTS } = require("../scripts/bundle-app-js");
+  const entry = APP_SYNC_ENTRIES.find((candidate) => candidate.target === "00-app-movie-search-picker.js");
+  assert.ok(entry);
+  assert.ok(entry.exports.includes("createMovieSearchPicker"));
+  assert.ok(PARTS.some((part) => part.file === entry.target));
+});

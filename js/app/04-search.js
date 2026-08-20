@@ -5,12 +5,8 @@
 
 const SEARCH_DEBOUNCE_MS = 300;
 
-let searchDebounceTimer = null;
-let searchController = null;
 let suggestResults = [];
 let suggestIndex = -1;
-/** Guards against a slow response overwriting a newer one. */
-let suggestRequestToken = 0;
 let pendingAddResult = null;
 let selectedAddListId = null;
 let addMovieWatchDateActive = false;
@@ -18,6 +14,32 @@ let addMoviePickTab = "add";
 let searchDirectorMode = false;
 
 const ADD_MOVIE_TMDB_URL = "https://www.themoviedb.org/movie/";
+
+const addMovieSearchPicker = appMovieSearchPicker.createMovieSearchPicker({
+  search: searchMovies,
+  debounceMs: SEARCH_DEBOUNCE_MS,
+  onBusy: setSearchBusy,
+  onResults(results, query, options) {
+    suggestResults = results;
+    suggestIndex = -1;
+    if (!results.length) {
+      const emptyMessage = options.mode === "director"
+        ? `No directed movies found for "${query}".`
+        : `No movies found for "${query}".`;
+      showSuggestMessage(emptyMessage);
+      return;
+    }
+    renderSuggest();
+  },
+  onError(error) {
+    showSuggestMessage(`Search failed. ${error.message}`);
+  },
+  onClear: hideSuggest,
+  onSelect(result) {
+    hideSuggest();
+    showAddPickStep(result);
+  },
+});
 
 const addMovieRatingController = appRatingFieldUi.createRatingFieldController(
   {
@@ -164,107 +186,57 @@ function showSuggestMessage(message) {
   searchInput.setAttribute("aria-expanded", "true");
 }
 
-function suggestPosterHtml(result) {
-  const url = appTmdb.buildImageUrl(result.posterPath, appTmdb.POSTER_SIZES.suggest);
-  if (!url) {
-    return `<span class="search-suggest-poster search-suggest-poster--empty"></span>`;
-  }
-  return `<img class="search-suggest-poster" data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy">`;
-}
-
 function renderSuggest() {
   if (!suggestResults.length) {
     hideSuggest();
     return;
   }
 
-  searchSuggest.innerHTML = suggestResults
-    .map((result, index) => {
+  searchSuggest.innerHTML = appMovieSearchPicker.movieSearchResultsHtml(
+    suggestResults,
+    {
+      activeIndex: suggestIndex,
+      escapeHtml: appCardHtml.escapeHtml,
+      posterUrl: (result) => appTmdb.buildImageUrl(
+        result.posterPath,
+        appTmdb.POSTER_SIZES.suggest,
+      ),
+      meta(result) {
       const year = appCardHtml.formatYear(result.releaseDate);
-      const active = index === suggestIndex ? " active" : "";
+        const metaParts = [];
+        if (year) metaParts.push(year);
+        else if (!result.directorHint) metaParts.push("Year unknown");
+        if (result.directorHint) metaParts.push(result.directorHint);
+        return metaParts.join(" · ");
+      },
+      badge(result) {
       const statusId = appLists.primaryListIdForMovie(userState.lists, result.id);
       const status = statusId
         ? appLists.findList(userState.lists, statusId)
         : null;
-      const added = status
+        return status
         ? `<span class="search-suggest-added">In ${appCardHtml.escapeHtml(status.name)}</span>`
         : "";
-      const metaParts = [];
-      if (year) {
-        metaParts.push(year);
-      } else if (!result.directorHint) {
-        metaParts.push("Year unknown");
-      }
-      if (result.directorHint) {
-        metaParts.push(result.directorHint);
-      }
-      const meta = metaParts.join(" · ");
-      return `<li class="search-suggest-item${active}" role="option" data-suggest-index="${index}" aria-selected="${index === suggestIndex}">
-  ${suggestPosterHtml(result)}
-  <span class="search-suggest-text">
-    <span class="search-suggest-title">${appCardHtml.escapeHtml(result.title)}</span>
-    <span class="search-suggest-meta">${appCardHtml.escapeHtml(meta)}</span>
-  </span>
-  ${added}
-</li>`;
-    })
-    .join("");
+      },
+    },
+  );
   searchSuggest.hidden = false;
   searchInput.setAttribute("aria-expanded", "true");
   bindPosterImages(searchSuggest);
 }
 
 async function runSearch(query) {
-  if (searchController) {
-    searchController.abort();
-  }
-  searchController = new AbortController();
-  const token = ++suggestRequestToken;
-
-  setSearchBusy(true);
-  try {
-    const results = await searchMovies(query, {
-      signal: searchController.signal,
-      mode: searchDirectorMode ? "director" : "movie",
-    });
-    if (token !== suggestRequestToken) {
-      return;
-    }
-    suggestResults = results;
-    suggestIndex = -1;
-    if (!results.length) {
-      const emptyMessage = searchDirectorMode
-        ? `No directed movies found for "${query}".`
-        : `No movies found for "${query}".`;
-      showSuggestMessage(emptyMessage);
-      return;
-    }
-    renderSuggest();
-  } catch (error) {
-    if (error.name === "AbortError" || token !== suggestRequestToken) {
-      return;
-    }
-    showSuggestMessage(`Search failed. ${error.message}`);
-  } finally {
-    if (token === suggestRequestToken) {
-      setSearchBusy(false);
-    }
-  }
+  return addMovieSearchPicker.run(query, {
+    mode: searchDirectorMode ? "director" : "movie",
+  });
 }
 
 function onSearchInput() {
   updateSearchClearVisibility();
   const query = searchInput.value.trim();
 
-  if (searchDebounceTimer) {
-    clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = null;
-  }
-
   if (!query) {
-    suggestRequestToken += 1;
-    setSearchBusy(false);
-    hideSuggest();
+    addMovieSearchPicker.clear();
     return;
   }
 
@@ -273,18 +245,15 @@ function onSearchInput() {
     return;
   }
 
-  searchDebounceTimer = setTimeout(() => {
-    searchDebounceTimer = null;
-    runSearch(query);
-  }, SEARCH_DEBOUNCE_MS);
+  addMovieSearchPicker.schedule(query, {
+    mode: searchDirectorMode ? "director" : "movie",
+  });
 }
 
 function clearSearch() {
   searchInput.value = "";
   updateSearchClearVisibility();
-  suggestRequestToken += 1;
-  setSearchBusy(false);
-  hideSuggest();
+  addMovieSearchPicker.clear();
 }
 
 function updateAddMovieHint() {
@@ -626,12 +595,7 @@ function addMovieToList(result, listId, rating) {
 }
 
 function pickSuggestion(index) {
-  const result = suggestResults[index];
-  if (!result) {
-    return;
-  }
-  hideSuggest();
-  showAddPickStep(result);
+  addMovieSearchPicker.select(index);
 }
 
 function moveSuggestSelection(delta) {

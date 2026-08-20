@@ -11,6 +11,20 @@ const LIB = path.join(__dirname, "lib");
 
 const APP_SYNC_ENTRIES = [
   {
+    sources: [path.join(LIB, "movie-search-picker.js")],
+    target: "00-app-movie-search-picker.js",
+    globalName: "appMovieSearchPicker",
+    header: "Generated from scripts/lib/movie-search-picker.js — run npm run bundle",
+    exports: ["createMovieSearchPicker", "movieSearchPosterHtml", "movieSearchResultsHtml"],
+  },
+  {
+    sources: [path.join(LIB, "movie-remap.js")],
+    target: "00-app-movie-remap.js",
+    globalName: "appMovieRemap",
+    header: "Generated from scripts/lib/movie-remap.js — run npm run bundle",
+    exports: ["remapMovieState"],
+  },
+  {
     sources: [path.join(LIB, "card-html.js")],
     target: "00-app-card-html.js",
     globalName: "appCardHtml",
