@@ -25,4 +25,9 @@ test("createRatingFieldController tracks optional ratings", () => {
   assert.equal(controller.getValue(), 7);
   controller.clear();
   assert.equal(controller.getValue(), null);
+  controller.setValue(8.5);
+  assert.equal(controller.getValue(), 8.5);
+  assert.equal(state.slider.value, "75");
+  controller.setValue(null);
+  assert.equal(controller.getValue(), null);
 });

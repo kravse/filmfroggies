@@ -202,6 +202,14 @@ detailListsDialog?.addEventListener("click", (event) => {
 });
 
 detailCloseBtn.addEventListener("click", () => closeDetail());
+movieShareCloseBtn?.addEventListener("click", closeMovieShareDialog);
+movieShareCopyBtn?.addEventListener("click", () => copyMovieShareUrl());
+movieShareDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-movie-share")) {
+    closeMovieShareDialog();
+  }
+});
+movieShareUrlInput?.addEventListener("focus", () => movieShareUrlInput.select());
 detailPrevBtn.addEventListener("click", () => stepDetail(-1));
 detailNextBtn.addEventListener("click", () => stepDetail(1));
 detailDialog.addEventListener("click", (event) => {
@@ -260,6 +268,36 @@ detailDialog.addEventListener("click", (event) => {
     saveDetailListPicker();
     return;
   }
+  if (event.target.closest("#detail-add-submit")) {
+    confirmDetailAddMovie();
+    return;
+  }
+  const addListOption = event.target.closest("[data-detail-add-list-id]");
+  if (addListOption) {
+    onDetailAddListOptionClick(addListOption.dataset.detailAddListId);
+    return;
+  }
+  const addCustomListChip = event.target.closest("[data-detail-add-custom-list-id]");
+  if (addCustomListChip) {
+    onDetailAddCustomListClick(addCustomListChip.dataset.detailAddCustomListId);
+    return;
+  }
+  if (event.target.closest("#detail-add-watch-date-toggle")) {
+    onDetailAddWatchDateToggleClick();
+    return;
+  }
+  if (event.target.closest("#detail-add-watch-date-clear")) {
+    clearDetailAddWatchDate();
+    return;
+  }
+  if (event.target.closest("#detail-add-rating-clear")) {
+    clearDetailAddRating();
+    return;
+  }
+  if (event.target.closest("#movie-detail-share")) {
+    openMovieShareDialog();
+    return;
+  }
   const listNavChip = event.target.closest("[data-detail-list-nav-id]");
   if (listNavChip) {
     navigateToCustomList(listNavChip.dataset.detailListNavId);
@@ -271,6 +309,11 @@ detailDialog.addEventListener("click", (event) => {
   }
 });
 detailDialog.addEventListener("input", onDetailRemapQueryInput);
+detailDialog.addEventListener("input", (event) => {
+  if (event.target.id === "detail-add-watch-date") {
+    detailAddWatchDate = event.target.value;
+  }
+});
 detailConfigSearchClose?.addEventListener("click", closeDetailConfigSearch);
 detailConfigSearchDialog?.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-detail-config-search")) {
@@ -294,6 +337,7 @@ window.matchMedia("(max-width: 640px)").addEventListener("change", () => {
   }
 });
 delegateRangeSliderLiveInput(detailDialog, "detail-rating-slider", onDetailRatingSliderInput);
+delegateRangeSliderLiveInput(detailDialog, "detail-add-rating-slider", onDetailAddRatingSliderInput);
 detailDialog.addEventListener("change", (event) => {
   if (event.target.id === "detail-rating-slider") {
     commitDetailRating();
@@ -302,6 +346,14 @@ detailDialog.addEventListener("change", (event) => {
   if (event.target.id === "detail-rating-select") {
     onDetailRatingSelectChange(event);
     commitDetailRating();
+    return;
+  }
+  if (event.target.id === "detail-add-rating-select") {
+    onDetailAddRatingSelectChange();
+    return;
+  }
+  if (event.target.id === "detail-add-watch-date") {
+    detailAddWatchDate = event.target.value;
   }
 });
 detailActions.addEventListener("click", (event) => {
@@ -369,16 +421,32 @@ backupRestoreDialog?.addEventListener("click", (event) => {
 });
 
 let lastLocationNavigationKey = null;
-function onLocationNavigation() {
-  // A hash-changing history traversal emits both popstate and hashchange,
-  // and iOS can attach a stale history.state to the first event. Route from
-  // the URL only so that pair is one navigation.
-  const key = window.location.href;
-  if (key === lastLocationNavigationKey) {
+let ignoreHashChange = false;
+
+function markProgrammaticLocation() {
+  lastLocationNavigationKey = window.location.href;
+  ignoreHashChange = true;
+  window.setTimeout(() => {
+    ignoreHashChange = false;
+  }, 50);
+}
+
+function onLocationNavigation(event) {
+  if (event?.type === "hashchange" && ignoreHashChange) {
+    lastLocationNavigationKey = window.location.href;
     return;
   }
-  lastLocationNavigationKey = key;
-  syncViewFromLocation();
+  const fromPopState = event?.type === "popstate";
+  if (fromPopState) {
+    ignoreHashChange = true;
+    window.setTimeout(() => {
+      ignoreHashChange = false;
+    }, 50);
+  } else if (window.location.href === lastLocationNavigationKey) {
+    return;
+  }
+  lastLocationNavigationKey = window.location.href;
+  syncViewFromLocation({ fromPopState });
 }
 
 window.addEventListener("popstate", onLocationNavigation);
@@ -603,6 +671,10 @@ document.addEventListener("keydown", (event) => {
       closeDetailConfigSearch();
       return;
     }
+    if (movieShareDialog && !movieShareDialog.hidden) {
+      closeMovieShareDialog();
+      return;
+    }
     if (detailMovieId != null) {
       if (detailRatingEditorOpen) {
         cancelDetailRatingEditor();
@@ -617,6 +689,12 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   if (isDetailConfigSearchOpen()) {
+    return;
+  }
+  if (movieShareDialog && !movieShareDialog.hidden) {
+    return;
+  }
+  if (event.target.closest("#detail-add-block")) {
     return;
   }
   if (event.key === "ArrowLeft") {

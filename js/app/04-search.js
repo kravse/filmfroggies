@@ -128,7 +128,10 @@ function syncAddMoviePickStep() {
 }
 
 function hasAddMovieDestinations() {
-  return selectedAddListId != null || selectedAddCustomListIds.size > 0;
+  return appAddMovie.hasAddMovieDestinations(
+    selectedAddListId,
+    [...selectedAddCustomListIds],
+  );
 }
 
 function syncAddMovieDialogChrome() {
@@ -494,47 +497,21 @@ function confirmAddMovie() {
   if (!pendingAddResult) {
     return;
   }
-  if (!hasAddMovieDestinations()) {
-    return;
-  }
 
   const movieId = pendingAddResult.id;
-  let changed = false;
-
-  if (selectedAddListId != null) {
-    const nextLists = appLists.assignMovieToList(userState.lists, selectedAddListId, movieId);
-    if (updateLists(nextLists)) {
-      changed = true;
-      recordAddedAt(movieId);
-      recordMovieStatus(movieId, selectedAddListId);
-    }
-  }
-
-  let nextCustomLists = userState.customLists;
-  for (const listId of selectedAddCustomListIds) {
-    const updated = appCustomLists.addMovieToCustomList(nextCustomLists, listId, movieId);
-    if (updated !== nextCustomLists) {
-      nextCustomLists = updated;
-      changed = true;
-    }
-  }
-  if (nextCustomLists !== userState.customLists) {
-    userState = { ...userState, customLists: nextCustomLists };
-  }
-
-  if (showAddMovieRatingAndWatchDate()) {
-    const rating = addMovieRatingController.getValue();
-    if (rating != null && updateRatings(appRatings.setRating(userState.ratings, movieId, rating))) {
-      changed = true;
-    }
-    if (addMovieWatchDateActive && addMovieWatchDate?.value) {
-      if (addMovieViewing(movieId, addMovieWatchDate.value)) changed = true;
-    }
-  }
-
-  if (!changed) {
+  const includeExtras = showAddMovieRatingAndWatchDate();
+  const next = appAddMovie.applyAddMovie(userState, {
+    movieId,
+    presetListId: selectedAddListId,
+    customListIds: [...selectedAddCustomListIds],
+    rating: includeExtras ? addMovieRatingController.getValue() : null,
+    watchedOn:
+      includeExtras && addMovieWatchDateActive ? addMovieWatchDate?.value : null,
+  });
+  if (next === userState) {
     return;
   }
+  userState = next;
   persistUserState();
   closeAddMovieDialog();
   if (isCustomListIndexActive()) {

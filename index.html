@@ -1136,6 +1136,55 @@
       </div>
     </div>
 
+    <!-- Share movie link -->
+    <div id="movie-share-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
+      <div class="sheet-backdrop" data-close-movie-share></div>
+      <div
+        class="sheet-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="movie-share-title"
+        aria-describedby="movie-share-message"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="movie-share-title">Share</h2>
+          <button
+            type="button"
+            id="movie-share-close"
+            class="icon-btn"
+            aria-label="Close"
+          >
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none">
+              <path
+                d="M6 6l8 8M14 6l-8 8"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+        <div class="sheet-scroll">
+          <p id="movie-share-message" class="confirm-message">
+            Anyone with this site and a TMDB credential can open this movie.
+          </p>
+          <label class="movie-share-url-label" for="movie-share-url">Link</label>
+          <input
+            id="movie-share-url"
+            class="movie-share-url"
+            type="text"
+            readonly
+            spellcheck="false"
+            aria-label="Shareable movie link"
+          />
+          <p class="movie-share-status" id="movie-share-status" aria-live="polite"></p>
+        </div>
+        <div class="confirm-actions">
+          <button type="button" id="movie-share-copy" class="primary-btn">Copy link</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Detail lists editor (mobile overlay) -->
     <div id="detail-lists-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
       <div class="sheet-backdrop" data-close-detail-lists></div>

@@ -141,6 +141,17 @@ function createRatingFieldController(refs, ratingsLib = getRatings()) {
     return touched ? pending : null;
   }
 
+  function setValue(rating) {
+    const normalized = ratingsLib.normalizeRating(rating);
+    if (normalized == null) {
+      reset();
+      return;
+    }
+    touched = true;
+    pending = normalized;
+    syncDisplay();
+  }
+
   return {
     reset,
     syncDisplay,
@@ -148,6 +159,7 @@ function createRatingFieldController(refs, ratingsLib = getRatings()) {
     onSelectChange,
     initSelect,
     getValue,
+    setValue,
     clear: reset,
   };
 }

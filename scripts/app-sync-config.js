@@ -459,6 +459,20 @@ const APP_SYNC_ENTRIES = [
       "formatFieldSearchQuery",
     ],
   },
+  {
+    sources: [path.join(LIB, "add-movie.js")],
+    target: "00-app-add-movie.js",
+    globalName: "appAddMovie",
+    header: "Generated from scripts/lib/add-movie.js — run npm run bundle",
+    exports: ["hasAddMovieDestinations", "applyAddMovie"],
+  },
+  {
+    sources: [path.join(LIB, "movie-share.js")],
+    target: "00-app-movie-share.js",
+    globalName: "appMovieShare",
+    header: "Generated from scripts/lib/movie-share.js — run npm run bundle",
+    exports: ["movieShareUrl", "isMovieOwned"],
+  },
 ];
 
 module.exports = { APP_SYNC_ENTRIES };

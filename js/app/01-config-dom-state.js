@@ -143,6 +143,11 @@ const detailPrevBtn = document.getElementById("movie-detail-prev");
 const detailNextBtn = document.getElementById("movie-detail-next");
 const detailEyebrow = document.getElementById("movie-detail-eyebrow");
 const detailCloseBtn = document.getElementById("movie-detail-close");
+const movieShareDialog = document.getElementById("movie-share-dialog");
+const movieShareUrlInput = document.getElementById("movie-share-url");
+const movieShareCopyBtn = document.getElementById("movie-share-copy");
+const movieShareCloseBtn = document.getElementById("movie-share-close");
+const movieShareStatus = document.getElementById("movie-share-status");
 const detailPoster = document.getElementById("movie-detail-poster");
 const detailBody = document.getElementById("movie-detail-body");
 const detailActions = document.getElementById("movie-detail-actions");
@@ -207,6 +212,8 @@ let gridViewMode = "cards";
 let reorderModeActive = false;
 let detailMovieId = null;
 let detailCloseNavigationPending = false;
+/** Movie id being closed, so a duplicate `#movie/{id}` history entry can be skipped. */
+let detailClosedMovieId = null;
 /** Scroll offset of the grid/list under the detail overlay. */
 let underlayScrollY = 0;
 let renderedMovieIds = [];
@@ -218,6 +225,11 @@ let detailListPickerOpen = false;
 let detailListPickerSelectedIds = new Set();
 /** "overview" | "viewing-history" | "config" */
 let detailBodyTab = "overview";
+let detailAddListId = null;
+let detailAddCustomListIds = new Set();
+let detailAddRating = null;
+let detailAddWatchDateActive = false;
+let detailAddWatchDate = "";
 let detailRemapCandidateId = null;
 let detailRemapQuery = "";
 let detailRemapResults = [];
