@@ -1720,6 +1720,25 @@ function onGistBackupListClick(event) {
   );
 }
 
+function setStorageTab(mode) {
+  const tabs = [
+    { mode: "local", tab: storageTabLocal, panel: storagePanelLocal },
+    { mode: "gist", tab: storageTabGist, panel: gistFields },
+    { mode: "account", tab: storageTabAccount, panel: accountFields },
+  ];
+  for (const entry of tabs) {
+    const selected = entry.mode === mode;
+    entry.tab.setAttribute("aria-selected", selected ? "true" : "false");
+    entry.tab.tabIndex = selected ? 0 : -1;
+    entry.panel.hidden = !selected;
+  }
+}
+
+function accountDisplayInitial(config) {
+  const source = String(config?.displayName || config?.email || "?").trim();
+  return source.charAt(0).toUpperCase() || "?";
+}
+
 function refreshSettings() {
   tmdbKeyInput.value = "";
   setStatus(
@@ -1728,15 +1747,17 @@ function refreshSettings() {
     hasCredential() ? "ok" : null,
   );
 
-  const usingGist = userState.storageMode === "gist";
-  const usingAccount = userState.storageMode === "account";
-  storageModeLocal.checked = !usingGist && !usingAccount;
-  storageModeGist.checked = usingGist;
-  storageModeAccount.checked = usingAccount;
-  gistFields.hidden = !usingGist;
-  accountFields.hidden = !usingAccount;
-  if (usingAccount) {
+  const mode =
+    userState.storageMode === "gist"
+      ? "gist"
+      : userState.storageMode === "account"
+        ? "account"
+        : "local";
+  setStorageTab(mode);
+  if (mode === "account") {
     refreshAccountSection();
+  } else {
+    setStatus(accountSyncStatus, "", null);
   }
   gistTokenInput.value = "";
   setStatus(
@@ -1922,17 +1943,19 @@ function onDisconnectGist() {
 function refreshAccountSection() {
   const connected = appAccountSync.isConnectedAccountConfig(accountConfig);
   accountAuthFields.hidden = connected;
-  accountLogoutBtn.hidden = !connected;
+  accountSessionCard.hidden = !connected;
   accountFriendsSection.hidden = !connected;
   if (connected) {
-    setStatus(
-      accountStatus,
-      `Signed in as ${accountConfig.email || accountConfig.displayName}.`,
-      "ok",
-    );
+    const displayName =
+      accountConfig.displayName || accountConfig.email.split("@")[0] || "Account";
+    accountAvatar.textContent = accountDisplayInitial(accountConfig);
+    accountSessionName.textContent = displayName;
+    accountSessionEmail.textContent = accountConfig.email || "";
+    setStatus(accountStatus, "", null);
     refreshFriendsList();
   } else {
     setStatus(accountStatus, "Not signed in.", null);
+    setStatus(accountSyncStatus, "", null);
     friendsList.innerHTML = "";
   }
 }

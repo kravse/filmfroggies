@@ -810,7 +810,7 @@ function queueAccountSync(options = {}) {
         onRemoteStateAdopted();
       }
       setStatus(
-        accountStatus,
+        accountSyncStatus,
         `Synced at ${formatSyncTime(userState.updatedAt)}.`,
         "ok",
       );
@@ -818,7 +818,7 @@ function queueAccountSync(options = {}) {
     .catch((error) => {
       // Same rule as Gist sync: never blind-write after a failed read.
       setStatus(
-        accountStatus,
+        accountSyncStatus,
         error?.status === 401
           ? "Session expired. Log in again to keep syncing."
           : "Could not reach the sync server. Changes are saved on this device and will sync later.",

@@ -534,9 +534,9 @@ collectionImportCancel?.addEventListener("click", closeCollectionImportConfirm);
 collectionImportDialog?.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-collection-import")) closeCollectionImportConfirm();
 });
-storageModeLocal.addEventListener("change", () => onStorageModeChange("local"));
-storageModeGist.addEventListener("change", () => onStorageModeChange("gist"));
-storageModeAccount.addEventListener("change", () => onStorageModeChange("account"));
+storageTabLocal.addEventListener("click", () => onStorageModeChange("local"));
+storageTabGist.addEventListener("click", () => onStorageModeChange("gist"));
+storageTabAccount.addEventListener("click", () => onStorageModeChange("account"));
 gistConnectBtn.addEventListener("click", onConnectGist);
 gistClearBtn.addEventListener("click", onDisconnectGist);
 gistBackupList?.addEventListener("click", onGistBackupListClick);

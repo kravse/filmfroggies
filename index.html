@@ -820,124 +820,96 @@
             </div>
           </section>
 
-          <section class="sheet-section">
+          <section class="sheet-section sheet-section--storage">
             <h3>Collection storage</h3>
-            <div class="radio-row">
-              <label>
-                <input
-                  type="radio"
-                  name="storage-mode"
-                  value="local"
-                  id="storage-mode-local"
-                />
-                This device only
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="storage-mode"
-                  value="gist"
-                  id="storage-mode-gist"
-                />
-                Sync with GitHub Gist
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="storage-mode"
-                  value="account"
-                  id="storage-mode-account"
-                />
-                Sync with account
-              </label>
+            <div
+              class="storage-tabs"
+              role="tablist"
+              aria-label="Collection storage"
+            >
+              <button
+                type="button"
+                class="storage-tab"
+                id="storage-tab-local"
+                role="tab"
+                aria-selected="true"
+                aria-controls="storage-panel-local"
+              >
+                This device
+              </button>
+              <button
+                type="button"
+                class="storage-tab"
+                id="storage-tab-gist"
+                role="tab"
+                aria-selected="false"
+                aria-controls="gist-fields"
+                tabindex="-1"
+              >
+                GitHub Gist
+              </button>
+              <button
+                type="button"
+                class="storage-tab"
+                id="storage-tab-account"
+                role="tab"
+                aria-selected="false"
+                aria-controls="account-fields"
+                tabindex="-1"
+              >
+                Account
+              </button>
             </div>
-            <div id="account-fields" hidden>
-              <div id="account-auth-fields">
+
+            <div
+              id="storage-panel-local"
+              class="storage-panel"
+              role="tabpanel"
+              aria-labelledby="storage-tab-local"
+            >
+              <div class="storage-panel-card storage-panel-card--local">
+                <p class="storage-panel-lead">Lists stay on this device.</p>
                 <p class="sheet-note">
-                  An account syncs your lists across devices and lets friends see
-                  them. Only your list data is stored, never your TMDB or GitHub
-                  tokens.
+                  Nothing is sent to a server. Choose Account or GitHub Gist when
+                  you want the same lists on another phone or laptop.
                 </p>
-                <div class="field-row">
-                  <input
-                    type="email"
-                    id="account-email-input"
-                    placeholder="Email"
-                    aria-label="Account email"
-                    autocomplete="email"
-                    spellcheck="false"
-                  />
-                </div>
-                <div class="field-row">
-                  <input
-                    type="password"
-                    id="account-password-input"
-                    placeholder="Password (8+ characters)"
-                    aria-label="Account password"
-                    autocomplete="current-password"
-                  />
-                </div>
-                <div class="field-row">
-                  <button type="button" id="account-login" class="primary-btn">
-                    Log in
-                  </button>
-                  <button type="button" id="account-signup" class="ghost-btn">
-                    Sign up
-                  </button>
-                </div>
-              </div>
-              <div class="field-row">
-                <button type="button" id="account-logout" class="ghost-btn" hidden>
-                  Log out
-                </button>
-                <span class="status-text" id="account-status"></span>
-              </div>
-              <div id="account-friends-section" hidden>
-                <h4 class="gist-backup-heading">Friends</h4>
-                <p class="sheet-note">
-                  Friends can browse each other's lists once both sides agree.
-                  Add a friend by the email they signed up with.
-                </p>
-                <div class="field-row">
-                  <input
-                    type="email"
-                    id="friend-email-input"
-                    placeholder="friend@example.com"
-                    aria-label="Friend's account email"
-                    autocomplete="off"
-                    spellcheck="false"
-                  />
-                  <button type="button" id="friend-add" class="primary-btn">
-                    Add friend
-                  </button>
-                </div>
-                <ul id="friends-list" class="friends-list" aria-label="Friends"></ul>
-                <span class="status-text" id="friends-status"></span>
               </div>
             </div>
-            <div id="gist-fields" hidden>
-              <p class="sheet-note">
-                Use a throwaway GitHub account with a fine-grained token limited to
-                gist read/write. The token stays in this browser and is never written
-                into the Gist.
-              </p>
-              <div class="field-row">
-                <input
-                  type="password"
-                  id="gist-token-input"
-                  placeholder="GitHub personal access token"
-                  aria-label="GitHub personal access token"
-                  autocomplete="off"
-                  spellcheck="false"
-                />
-                <button type="button" id="gist-connect" class="primary-btn">
-                  Connect
-                </button>
-              </div>
-              <div class="field-row">
-                <button type="button" id="gist-clear" class="ghost-btn">
-                  Disconnect
-                </button>
+
+            <div
+              id="gist-fields"
+              class="storage-panel"
+              role="tabpanel"
+              aria-labelledby="storage-tab-gist"
+              hidden
+            >
+              <div class="storage-panel-card storage-panel-card--gist">
+                <p class="sheet-note">
+                  Use a throwaway GitHub account with a fine-grained token limited to
+                  gist read/write. The token stays in this browser and is never written
+                  into the Gist.
+                </p>
+                <div class="sheet-form">
+                  <label class="sheet-field" for="gist-token-input">
+                    <span class="sheet-field-label">Personal access token</span>
+                    <input
+                      type="password"
+                      class="sheet-field-input"
+                      id="gist-token-input"
+                      placeholder="ghp_… or github_pat_…"
+                      autocomplete="off"
+                      spellcheck="false"
+                    />
+                  </label>
+                </div>
+                <div class="storage-panel-actions">
+                  <button type="button" id="gist-connect" class="primary-btn">
+                    Connect
+                  </button>
+                  <button type="button" id="gist-clear" class="ghost-btn">
+                    Disconnect
+                  </button>
+                </div>
                 <span class="status-text" id="gist-status"></span>
               </div>
               <div id="gist-backup-section" class="gist-backup-section" hidden>
@@ -955,6 +927,102 @@
                   aria-label="Gist snapshots"
                 ></ul>
                 <span class="status-text" id="gist-backup-status"></span>
+              </div>
+            </div>
+
+            <div
+              id="account-fields"
+              class="storage-panel"
+              role="tabpanel"
+              aria-labelledby="storage-tab-account"
+              hidden
+            >
+              <div id="account-auth-fields" class="account-auth-card">
+                <div class="account-auth-intro">
+                  <h4 class="account-card-title">Sign in to sync</h4>
+                  <p class="sheet-note">
+                    An account syncs your lists across devices and lets friends browse
+                    them. Only list data is stored — never your TMDB or GitHub tokens.
+                  </p>
+                </div>
+                <div class="sheet-form">
+                  <label class="sheet-field" for="account-email-input">
+                    <span class="sheet-field-label">Email</span>
+                    <input
+                      type="email"
+                      class="sheet-field-input"
+                      id="account-email-input"
+                      placeholder="you@example.com"
+                      autocomplete="email"
+                      spellcheck="false"
+                    />
+                  </label>
+                  <label class="sheet-field" for="account-password-input">
+                    <span class="sheet-field-label">Password</span>
+                    <input
+                      type="password"
+                      class="sheet-field-input"
+                      id="account-password-input"
+                      placeholder="At least 8 characters"
+                      autocomplete="current-password"
+                    />
+                  </label>
+                </div>
+                <div class="storage-panel-actions account-auth-actions">
+                  <button type="button" id="account-login" class="primary-btn">
+                    Log in
+                  </button>
+                  <button type="button" id="account-signup" class="ghost-btn">
+                    Create account
+                  </button>
+                </div>
+                <span class="status-text" id="account-status"></span>
+              </div>
+
+              <div id="account-session-card" class="account-session-card" hidden>
+                <div class="account-session-profile">
+                  <div class="account-avatar" id="account-avatar" aria-hidden="true">
+                    ?
+                  </div>
+                  <div class="account-session-identity">
+                    <span class="account-session-name" id="account-session-name"></span>
+                    <span class="account-session-email" id="account-session-email"></span>
+                  </div>
+                  <button
+                    type="button"
+                    id="account-logout"
+                    class="ghost-btn account-logout-btn"
+                  >
+                    Log out
+                  </button>
+                </div>
+                <span class="status-text" id="account-sync-status"></span>
+              </div>
+
+              <div id="account-friends-section" class="account-friends-section" hidden>
+                <h4 class="gist-backup-heading">Friends</h4>
+                <p class="sheet-note">
+                  Friends can browse each other's lists once both sides agree. Add
+                  someone by the email they signed up with.
+                </p>
+                <div class="sheet-form sheet-form--inline">
+                  <label class="sheet-field sheet-field--grow" for="friend-email-input">
+                    <span class="sheet-field-label">Friend's email</span>
+                    <input
+                      type="email"
+                      class="sheet-field-input"
+                      id="friend-email-input"
+                      placeholder="friend@example.com"
+                      autocomplete="off"
+                      spellcheck="false"
+                    />
+                  </label>
+                  <button type="button" id="friend-add" class="primary-btn friend-add-btn">
+                    Add friend
+                  </button>
+                </div>
+                <ul id="friends-list" class="friends-list" aria-label="Friends"></ul>
+                <span class="status-text" id="friends-status"></span>
               </div>
             </div>
           </section>

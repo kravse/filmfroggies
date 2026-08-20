@@ -109,8 +109,10 @@ const tmdbKeyInput = document.getElementById("tmdb-key-input");
 const tmdbKeySave = document.getElementById("tmdb-key-save");
 const tmdbKeyClear = document.getElementById("tmdb-key-clear");
 const tmdbKeyStatus = document.getElementById("tmdb-key-status");
-const storageModeLocal = document.getElementById("storage-mode-local");
-const storageModeGist = document.getElementById("storage-mode-gist");
+const storageTabLocal = document.getElementById("storage-tab-local");
+const storageTabGist = document.getElementById("storage-tab-gist");
+const storageTabAccount = document.getElementById("storage-tab-account");
+const storagePanelLocal = document.getElementById("storage-panel-local");
 const gistFields = document.getElementById("gist-fields");
 const gistTokenInput = document.getElementById("gist-token-input");
 const gistConnectBtn = document.getElementById("gist-connect");
@@ -120,15 +122,19 @@ const gistBackupSection = document.getElementById("gist-backup-section");
 const gistBackupList = document.getElementById("gist-backup-list");
 const gistBackupStatus = document.getElementById("gist-backup-status");
 
-const storageModeAccount = document.getElementById("storage-mode-account");
 const accountFields = document.getElementById("account-fields");
 const accountAuthFields = document.getElementById("account-auth-fields");
+const accountSessionCard = document.getElementById("account-session-card");
+const accountAvatar = document.getElementById("account-avatar");
+const accountSessionName = document.getElementById("account-session-name");
+const accountSessionEmail = document.getElementById("account-session-email");
 const accountEmailInput = document.getElementById("account-email-input");
 const accountPasswordInput = document.getElementById("account-password-input");
 const accountLoginBtn = document.getElementById("account-login");
 const accountSignupBtn = document.getElementById("account-signup");
 const accountLogoutBtn = document.getElementById("account-logout");
 const accountStatus = document.getElementById("account-status");
+const accountSyncStatus = document.getElementById("account-sync-status");
 const accountFriendsSection = document.getElementById("account-friends-section");
 const friendEmailInput = document.getElementById("friend-email-input");
 const friendAddBtn = document.getElementById("friend-add");
@@ -7249,7 +7255,7 @@ function queueAccountSync(options = {}) {
         onRemoteStateAdopted();
       }
       setStatus(
-        accountStatus,
+        accountSyncStatus,
         `Synced at ${formatSyncTime(userState.updatedAt)}.`,
         "ok",
       );
@@ -7257,7 +7263,7 @@ function queueAccountSync(options = {}) {
     .catch((error) => {
       // Same rule as Gist sync: never blind-write after a failed read.
       setStatus(
-        accountStatus,
+        accountSyncStatus,
         error?.status === 401
           ? "Session expired. Log in again to keep syncing."
           : "Could not reach the sync server. Changes are saved on this device and will sync later.",
@@ -11478,6 +11484,25 @@ function onGistBackupListClick(event) {
   );
 }
 
+function setStorageTab(mode) {
+  const tabs = [
+    { mode: "local", tab: storageTabLocal, panel: storagePanelLocal },
+    { mode: "gist", tab: storageTabGist, panel: gistFields },
+    { mode: "account", tab: storageTabAccount, panel: accountFields },
+  ];
+  for (const entry of tabs) {
+    const selected = entry.mode === mode;
+    entry.tab.setAttribute("aria-selected", selected ? "true" : "false");
+    entry.tab.tabIndex = selected ? 0 : -1;
+    entry.panel.hidden = !selected;
+  }
+}
+
+function accountDisplayInitial(config) {
+  const source = String(config?.displayName || config?.email || "?").trim();
+  return source.charAt(0).toUpperCase() || "?";
+}
+
 function refreshSettings() {
   tmdbKeyInput.value = "";
   setStatus(
@@ -11486,15 +11511,17 @@ function refreshSettings() {
     hasCredential() ? "ok" : null,
   );
 
-  const usingGist = userState.storageMode === "gist";
-  const usingAccount = userState.storageMode === "account";
-  storageModeLocal.checked = !usingGist && !usingAccount;
-  storageModeGist.checked = usingGist;
-  storageModeAccount.checked = usingAccount;
-  gistFields.hidden = !usingGist;
-  accountFields.hidden = !usingAccount;
-  if (usingAccount) {
+  const mode =
+    userState.storageMode === "gist"
+      ? "gist"
+      : userState.storageMode === "account"
+        ? "account"
+        : "local";
+  setStorageTab(mode);
+  if (mode === "account") {
     refreshAccountSection();
+  } else {
+    setStatus(accountSyncStatus, "", null);
   }
   gistTokenInput.value = "";
   setStatus(
@@ -11680,17 +11707,19 @@ function onDisconnectGist() {
 function refreshAccountSection() {
   const connected = appAccountSync.isConnectedAccountConfig(accountConfig);
   accountAuthFields.hidden = connected;
-  accountLogoutBtn.hidden = !connected;
+  accountSessionCard.hidden = !connected;
   accountFriendsSection.hidden = !connected;
   if (connected) {
-    setStatus(
-      accountStatus,
-      `Signed in as ${accountConfig.email || accountConfig.displayName}.`,
-      "ok",
-    );
+    const displayName =
+      accountConfig.displayName || accountConfig.email.split("@")[0] || "Account";
+    accountAvatar.textContent = accountDisplayInitial(accountConfig);
+    accountSessionName.textContent = displayName;
+    accountSessionEmail.textContent = accountConfig.email || "";
+    setStatus(accountStatus, "", null);
     refreshFriendsList();
   } else {
     setStatus(accountStatus, "Not signed in.", null);
+    setStatus(accountSyncStatus, "", null);
     friendsList.innerHTML = "";
   }
 }
@@ -14432,9 +14461,9 @@ collectionImportCancel?.addEventListener("click", closeCollectionImportConfirm);
 collectionImportDialog?.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-collection-import")) closeCollectionImportConfirm();
 });
-storageModeLocal.addEventListener("change", () => onStorageModeChange("local"));
-storageModeGist.addEventListener("change", () => onStorageModeChange("gist"));
-storageModeAccount.addEventListener("change", () => onStorageModeChange("account"));
+storageTabLocal.addEventListener("click", () => onStorageModeChange("local"));
+storageTabGist.addEventListener("click", () => onStorageModeChange("gist"));
+storageTabAccount.addEventListener("click", () => onStorageModeChange("account"));
 gistConnectBtn.addEventListener("click", onConnectGist);
 gistClearBtn.addEventListener("click", onDisconnectGist);
 gistBackupList?.addEventListener("click", onGistBackupListClick);
