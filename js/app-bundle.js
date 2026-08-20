@@ -14384,7 +14384,18 @@ function friendRatingSegmentHtml(kind, text, empty) {
   return ratingSegmentHtml(kind, text, empty);
 }
 
-function friendRatingChitHtml(movieId) {
+function friendRatingChitClassHtml(inner, ariaLabel, extraClass) {
+  const html = ratingChitHtml(inner, ariaLabel);
+  if (!html || !extraClass) {
+    return html;
+  }
+  return html.replace(
+    'class="rating-chit card-body-ratings"',
+    `class="rating-chit card-body-ratings ${extraClass}"`,
+  );
+}
+
+function friendRatingValues(movieId) {
   const record = movieById.get(movieId) ?? localMovieRecord(movieId);
   const friendRating = friendViewState?.ratings
     ? appRatings.getRating(friendViewState.ratings, movieId)
@@ -14392,17 +14403,66 @@ function friendRatingChitHtml(movieId) {
   const themText = friendRating != null ? appRatings.formatUserRating(friendRating) : "-";
   const myRating = appRatings.getRating(userState.ratings, movieId);
   const mineText = myRating != null ? appRatings.formatUserRating(myRating) : "-";
-  const showFan = friendViewShowsFanRatings();
   const fanLabel = record ? appCardHtml.formatRating(record.voteAverage) : "";
   const fanText = fanLabel || "-";
+  return { friendRating, themText, mineText, fanLabel, fanText };
+}
+
+function friendActiveRatingSegmentKind() {
+  const field = appSort.getSortField(userState.preferences.sort);
+  if (field === "user-rating") {
+    return "mine";
+  }
+  if (field === "friend-rating") {
+    return "them";
+  }
+  if (field === "rating") {
+    return "fan";
+  }
+  return null;
+}
+
+function friendRatingChitFullHtml(movieId) {
+  const { friendRating, themText, mineText, fanLabel, fanText } = friendRatingValues(movieId);
+  const showFan = friendViewShowsFanRatings();
   const ariaLabel = showFan
     ? `Ratings friend ${themText}, yours ${mineText}, fan ${fanText}`
     : `Ratings friend ${themText}, yours ${mineText}`;
   const fanSegment = showFan ? friendRatingSegmentHtml("fan", fanText, !fanLabel) : "";
-  return ratingChitHtml(
+  return friendRatingChitClassHtml(
     `${friendRatingSegmentHtml("them", themText, friendRating == null)}${friendRatingSegmentHtml("mine", mineText, false)}${fanSegment}`,
     ariaLabel,
+    "rating-chit--all",
   );
+}
+
+function friendRatingChitSortHtml(movieId) {
+  const kind = friendActiveRatingSegmentKind();
+  if (!kind || (kind === "fan" && !friendViewShowsFanRatings())) {
+    return "";
+  }
+  const { friendRating, themText, mineText, fanLabel, fanText } = friendRatingValues(movieId);
+  const labels = {
+    them: "Friend rating",
+    mine: "Your rating",
+    fan: "Fan rating",
+  };
+  let segment = "";
+  if (kind === "them") {
+    segment = friendRatingSegmentHtml("them", themText, friendRating == null);
+  } else if (kind === "mine") {
+    segment = friendRatingSegmentHtml("mine", mineText, false);
+  } else {
+    segment = friendRatingSegmentHtml("fan", fanText, !fanLabel);
+  }
+  const value = kind === "them" ? themText : kind === "mine" ? mineText : fanText;
+  return friendRatingChitClassHtml(segment, `${labels[kind]} ${value}`, "rating-chit--sort");
+}
+
+function friendRatingChitHtml(movieId) {
+  const sortChit = friendRatingChitSortHtml(movieId);
+  const fullChit = friendRatingChitFullHtml(movieId);
+  return `${sortChit}${fullChit}`;
 }
 
 function friendIsRatingSortField(field) {

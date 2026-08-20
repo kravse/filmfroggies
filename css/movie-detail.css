@@ -569,6 +569,8 @@
 button.detail-rating-chip {
   cursor: pointer;
   touch-action: manipulation;
+  font-size: 0.68rem;
+  padding: 0.14rem 0.48rem;
 }
 
 #detail-rating-summary-value {

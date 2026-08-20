@@ -602,6 +602,14 @@ body.view-friend.view-mode-detail .card-body-ratings {
   flex: none;
 }
 
+body.view-friend .rating-chit--sort {
+  display: none;
+}
+
+body.view-friend .rating-chit--all {
+  display: inline-flex;
+}
+
 .friend-detail-note {
   display: flex;
   align-items: center;
@@ -627,6 +635,18 @@ body.view-friend .empty-state {
 }
 
 @media (max-width: 640px) {
+  body.view-friend .rating-chit--all {
+    display: none;
+  }
+
+  body.view-friend .rating-chit--sort {
+    display: inline-flex;
+  }
+
+  body.view-friend .card-footer--friend:has(.rating-chit--all):not(:has(.rating-chit--sort)) {
+    display: none;
+  }
+
   .friends-dock-invite {
     flex-wrap: wrap;
   }
