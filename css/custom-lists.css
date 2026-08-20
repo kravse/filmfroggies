@@ -26,11 +26,29 @@
 }
 
 .header-nav-btn--icon {
+  position: relative;
   width: 1.75rem;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.header-nav-badge {
+  position: absolute;
+  top: 0.18rem;
+  right: 0.18rem;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 1px solid var(--panel);
+  box-shadow: 0 0 0 1px rgba(var(--bg-rgb), 0.35);
+  pointer-events: none;
+}
+
+.header-nav-btn.is-active .header-nav-badge {
+  border-color: var(--accent-dim);
 }
 
 .header-nav-btn.is-active {

@@ -124,6 +124,11 @@ function renderAdminUserRow(user) {
   email.className = "admin-user-email";
   email.textContent = user.email;
 
+  const movies = document.createElement("span");
+  movies.className = "admin-user-movies";
+  const movieCount = Number(user.movieCount) || 0;
+  movies.textContent = movieCount === 1 ? "1 movie" : `${movieCount} movies`;
+
   meta.append(name, email);
 
   const deleteBtn = document.createElement("button");
@@ -134,7 +139,7 @@ function renderAdminUserRow(user) {
     onAdminDeleteUser(user);
   });
 
-  li.append(meta, deleteBtn);
+  li.append(meta, movies, deleteBtn);
   return li;
 }
 

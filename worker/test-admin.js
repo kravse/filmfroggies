@@ -11,6 +11,10 @@ import {
   MAX_ADMIN_INVITE_BATCH,
 } from "./src/admin.js";
 import { createInviteCodes } from "./src/invite-codes.js";
+import {
+  countCollectionMovies,
+  countCollectionMoviesFromJson,
+} from "./src/user-doc-stats.js";
 
 test("admin session token roundtrip and rejects user tokens", async () => {
   const exp = Date.now() + 1000;
@@ -201,6 +205,25 @@ test("admin invite batch validates count", async () => {
     makeDeps(),
   );
   assert.equal(bad.status, 400);
+});
+
+test("countCollectionMovies counts unique ids across preset and custom lists", () => {
+  assert.equal(countCollectionMovies(null), 0);
+  assert.equal(
+    countCollectionMovies({
+      lists: [
+        { id: "watched", movieIds: [1, 2] },
+        { id: "watchlist", movieIds: [2, 3] },
+      ],
+      customLists: [{ id: "a", movieIds: [3, 4] }],
+    }),
+    4,
+  );
+  assert.equal(
+    countCollectionMoviesFromJson(JSON.stringify({ lists: [{ id: "watched", movieIds: [10] }] })),
+    1,
+  );
+  assert.equal(countCollectionMoviesFromJson("{not json"), 0);
 });
 
 test("admin session token cannot be verified with user session secret", async () => {

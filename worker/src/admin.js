@@ -5,6 +5,7 @@
 
 import { createInviteCodes } from "./invite-codes.js";
 import { rateLimit, rateLimitBlocked } from "./rate-limit.js";
+import { countCollectionMoviesFromJson } from "./user-doc-stats.js";
 
 export const ADMIN_SESSION_LIFETIME_MS = 60 * 60 * 1000;
 /** Failed login attempts only — successful login does not consume quota. */
@@ -97,6 +98,7 @@ function publicAdminUser(row) {
     email: row.email,
     displayName: row.display_name,
     createdAt: row.created_at,
+    movieCount: countCollectionMoviesFromJson(row.doc),
   };
 }
 
@@ -156,7 +158,10 @@ export async function handleAdminRoutes(request, env, path, res, deps) {
 
   if (path === "/api/admin/users" && request.method === "GET") {
     const result = await env.DB.prepare(
-      "SELECT id, email, display_name, created_at FROM users ORDER BY created_at DESC",
+      `SELECT u.id, u.email, u.display_name, u.created_at, d.doc
+       FROM users u
+       LEFT JOIN user_data d ON d.user_id = u.id
+       ORDER BY u.created_at DESC`,
     ).all();
     const users = (result.results || []).map(publicAdminUser);
     return res.json(200, { users });

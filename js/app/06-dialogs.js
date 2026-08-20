@@ -1868,6 +1868,7 @@ function refreshAccountSection() {
     setStatus(accountStatus, "", null);
     setStatus(accountSyncStatus, "", null);
     friendsList.innerHTML = "";
+    setFriendsNavData([]);
   }
 }
 
@@ -2028,6 +2029,7 @@ async function refreshFriendsList() {
     friendsList.innerHTML = friends.length
       ? friends.map(friendRosterItemHtml).join("")
       : '<li class="friends-roster-empty">No friends yet. Add someone by email above.</li>';
+    setFriendsNavData(friends);
     setStatus(friendsStatus, "", null);
   } catch (error) {
     friendsList.innerHTML = "";

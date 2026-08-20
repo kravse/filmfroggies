@@ -71,6 +71,7 @@ const searchSpinner = document.getElementById("search-spinner");
 const searchDirectorToggle = document.getElementById("search-director-toggle");
 const discoverEntryBtn = document.getElementById("discover-entry-btn");
 const friendsEntryBtn = document.getElementById("friends-entry-btn");
+const friendsNavBadge = document.getElementById("friends-nav-badge");
 
 const discoverTabs = document.getElementById("discover-tabs");
 const discoverPagination = document.getElementById("discover-pagination");

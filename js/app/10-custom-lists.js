@@ -140,6 +140,7 @@ function syncHeaderNavUi() {
   discoverEntryBtn?.setAttribute("aria-current", activeNav === "discover" ? "page" : "false");
   friendsEntryBtn?.setAttribute("aria-current", activeNav === "friends" ? "page" : "false");
   listsNavBtn?.setAttribute("aria-current", activeNav === "lists" ? "page" : "false");
+  refreshFriendsNavFromCache();
 }
 
 function syncAppViewChrome() {

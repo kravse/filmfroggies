@@ -73,6 +73,7 @@ const searchSpinner = document.getElementById("search-spinner");
 const searchDirectorToggle = document.getElementById("search-director-toggle");
 const discoverEntryBtn = document.getElementById("discover-entry-btn");
 const friendsEntryBtn = document.getElementById("friends-entry-btn");
+const friendsNavBadge = document.getElementById("friends-nav-badge");
 
 const discoverTabs = document.getElementById("discover-tabs");
 const discoverPagination = document.getElementById("discover-pagination");
@@ -12008,6 +12009,7 @@ function refreshAccountSection() {
     setStatus(accountStatus, "", null);
     setStatus(accountSyncStatus, "", null);
     friendsList.innerHTML = "";
+    setFriendsNavData([]);
   }
 }
 
@@ -12168,6 +12170,7 @@ async function refreshFriendsList() {
     friendsList.innerHTML = friends.length
       ? friends.map(friendRosterItemHtml).join("")
       : '<li class="friends-roster-empty">No friends yet. Add someone by email above.</li>';
+    setFriendsNavData(friends);
     setStatus(friendsStatus, "", null);
   } catch (error) {
     friendsList.innerHTML = "";
@@ -13011,6 +13014,7 @@ function syncHeaderNavUi() {
   discoverEntryBtn?.setAttribute("aria-current", activeNav === "discover" ? "page" : "false");
   friendsEntryBtn?.setAttribute("aria-current", activeNav === "friends" ? "page" : "false");
   listsNavBtn?.setAttribute("aria-current", activeNav === "lists" ? "page" : "false");
+  refreshFriendsNavFromCache();
 }
 
 function syncAppViewChrome() {
@@ -15035,6 +15039,57 @@ function onFriendViewSectionsKeydown(event) {
  * Friends index page (#friends): compact roster and add-friend form.
  */
 
+function countIncomingFriendRequests(friends) {
+  return (friends || []).filter(
+    (friend) => friend.status === "pending" && friend.direction === "incoming",
+  ).length;
+}
+
+function syncFriendsNavBadge(friends) {
+  if (!friendsEntryBtn) {
+    return;
+  }
+  const count = countIncomingFriendRequests(friends);
+  const show = count > 0 && accountSyncEnabled() && !isFriendsIndexActive();
+  if (friendsNavBadge) {
+    friendsNavBadge.hidden = !show;
+  }
+  const label =
+    count === 1
+      ? "Friends, 1 pending request"
+      : `Friends, ${count} pending requests`;
+  friendsEntryBtn.setAttribute("aria-label", show ? label : "Friends");
+  friendsEntryBtn.title = show
+    ? count === 1
+      ? "1 pending friend request"
+      : `${count} pending friend requests`
+    : "Friends";
+}
+
+let lastFriendsList = [];
+
+function setFriendsNavData(friends) {
+  lastFriendsList = friends || [];
+  syncFriendsNavBadge(lastFriendsList);
+}
+
+function refreshFriendsNavFromCache() {
+  syncFriendsNavBadge(lastFriendsList);
+}
+
+async function refreshFriendsNavBadge() {
+  if (!accountSyncEnabled()) {
+    setFriendsNavData([]);
+    return;
+  }
+  try {
+    const body = await fetchFriends();
+    setFriendsNavData(body?.friends || []);
+  } catch (_) {
+    setFriendsNavData([]);
+  }
+}
+
 function renderFriendsIndex() {
   if (!isFriendsIndexActive()) {
     return;
@@ -15199,6 +15254,11 @@ function renderAdminUserRow(user) {
   email.className = "admin-user-email";
   email.textContent = user.email;
 
+  const movies = document.createElement("span");
+  movies.className = "admin-user-movies";
+  const movieCount = Number(user.movieCount) || 0;
+  movies.textContent = movieCount === 1 ? "1 movie" : `${movieCount} movies`;
+
   meta.append(name, email);
 
   const deleteBtn = document.createElement("button");
@@ -15209,7 +15269,7 @@ function renderAdminUserRow(user) {
     onAdminDeleteUser(user);
   });
 
-  li.append(meta, deleteBtn);
+  li.append(meta, movies, deleteBtn);
   return li;
 }
 
@@ -16133,6 +16193,7 @@ async function startApp() {
   // Reconcile on startup when logged in so this tab picks up remote changes.
   if (accountSyncEnabled()) {
     queueAccountSync();
+    refreshFriendsNavBadge();
   }
 
   if (!accountSyncEnabled()) {

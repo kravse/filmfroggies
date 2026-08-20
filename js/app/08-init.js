@@ -697,6 +697,7 @@ async function startApp() {
   // Reconcile on startup when logged in so this tab picks up remote changes.
   if (accountSyncEnabled()) {
     queueAccountSync();
+    refreshFriendsNavBadge();
   }
 
   if (!accountSyncEnabled()) {
