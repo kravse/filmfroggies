@@ -254,7 +254,7 @@ For a personal deploy you can keep your TMDB read token on the server so casual 
 
 Build command: `npm run build`. Publish directory: `build`. Functions: [`netlify/functions/`](netlify/functions/).
 
-**Hidden unlock:** triple-click the projector logo, enter the site password. The browser stores an opaque session token (not the password). TMDB calls then go through `/api/tmdb`; posters still load from TMDB directly. Triple-click again to lock. This path is intentionally undocumented in the UI.
+**Hidden unlock:** triple-click the projector logo, enter the site password. The browser stores an opaque session token (not the password). TMDB calls then go through `/api/tmdb`; posters still load from TMDB directly. Cached movie records are not background-refreshed on hosted access. Triple-click again to lock. This path is intentionally undocumented in the UI.
 
 Casual visitors see the normal site — snapshot movies render without a credential. Threat model: obscurity for casual users, not anti-brute-force.
 

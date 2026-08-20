@@ -7626,6 +7626,7 @@ function parseMovieText(text) {
 /**
  * Background refresh after a cache hit. Failures are intentionally silent:
  * the caller already has a usable record and may simply be offline.
+ * Hosted access skips this — cached and snapshot rows are served as-is.
  */
 async function revalidateMovie(movieId, cacheKey, cache, cachedText, onUpdate) {
   try {
@@ -7678,7 +7679,9 @@ async function getMovie(movieId, options = {}) {
       const cachedText = await cached.text();
       const record = parseMovieText(cachedText);
       if (record) {
-        revalidateMovie(id, cacheKey, cache, cachedText, options.onUpdate);
+        if (!hasHostedAccess()) {
+          revalidateMovie(id, cacheKey, cache, cachedText, options.onUpdate);
+        }
         return record;
       }
     }
