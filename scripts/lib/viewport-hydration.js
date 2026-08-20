@@ -1,9 +1,12 @@
 /**
  * Viewport-scoped list hydration helpers. Movie rows hydrate when they enter
  * (or neared) the viewport instead of fetching the entire list upfront.
+ *
+ * rootMargin expands the observer root so the first batch covers visible rows
+ * plus a short prefetch band (e.g. ~20 on screen → ~25–35 in one POST).
  */
 
-const ROW_HYDRATE_ROOT_MARGIN = "240px 0px";
+const ROW_HYDRATE_ROOT_MARGIN = "320px 0px";
 
 function movieIdFromRowElement(element) {
   if (!element || typeof element !== "object") {

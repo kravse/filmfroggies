@@ -21,7 +21,7 @@ const REQUEST_TIMEOUT_MS = 12000;
 const HYDRATE_CONCURRENCY = 6;
 const BATCH_REQUEST_TIMEOUT_MS = 20000;
 const POSTER_LOAD_CONCURRENCY = 6;
-const POSTER_LAZY_ROOT_MARGIN = "240px 0px";
+const POSTER_LAZY_ROOT_MARGIN = "320px 0px";
 
 function isLocalhostHost() {
   const host = window.location.hostname;

@@ -6,7 +6,7 @@ Search [TMDB](https://www.themoviedb.org/), add movies to ordered lists, and bro
 
 The only thing this site stores is **which TMDB ids are in which list, and in what order**, plus your ratings, viewing history, and a few preferences. Nothing about a movie is duplicated into your lists. Every page load rehydrates movie records by id:
 
-1. **Account D1 batch cache** (`POST /api/movies/batch`) when logged in — typically one request per grid load (more if the list exceeds 100 ids)
+1. **Account D1 batch cache** (`POST /api/movies/batch`) when logged in — one request per **visible viewport batch** (not the full list), with a short prefetch band below the fold
 2. **Browser Cache API** for TMDB movie JSON and poster blobs (revalidated at most once every 30 days)
 3. **Per-id TMDB** via the account-gated Worker proxy for anything still missing
 

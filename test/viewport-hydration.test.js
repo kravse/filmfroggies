@@ -17,5 +17,5 @@ test("movieIdFromRowElement reads data-movie-id", () => {
 });
 
 test("ROW_HYDRATE_ROOT_MARGIN matches poster lazy margin", () => {
-  assert.equal(ROW_HYDRATE_ROOT_MARGIN, "240px 0px");
+  assert.equal(ROW_HYDRATE_ROOT_MARGIN, "320px 0px");
 });
