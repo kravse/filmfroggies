@@ -4,7 +4,7 @@
  *
  * Routing is hash-only, so there is nothing to configure on the host: no
  * rewrite rules, no SPA fallback, no 404 page. The output is index.html, one
- * concatenated stylesheet, the JS bundle, the committed movie snapshot, and a
+ * concatenated stylesheet, the JS bundle, committed poster files, and a
  * noindex robots.txt.
  */
 const fs = require("fs");
@@ -103,16 +103,16 @@ function copyBundle() {
 }
 
 /**
- * Ships the committed movie snapshot so the deployed site resolves those movies
- * without an API call. my_list.csv is scraper input and stays out of the build.
+ * Ships committed poster files for faster, stable grid images. my_list.csv is
+ * scraper input and stays out of the build.
  */
 function copyData() {
   const src = path.join(ROOT, "data");
   const dest = path.join(BUILD_DIR, "data");
-  const movies = path.join(src, "movies.json");
-  if (fs.existsSync(movies)) {
+  const postersManifest = path.join(src, "posters.json");
+  if (fs.existsSync(postersManifest)) {
     fs.mkdirSync(dest, { recursive: true });
-    fs.copyFileSync(movies, path.join(dest, "movies.json"));
+    fs.copyFileSync(postersManifest, path.join(dest, "posters.json"));
   }
   const posters = path.join(src, "posters");
   if (fs.existsSync(posters)) {

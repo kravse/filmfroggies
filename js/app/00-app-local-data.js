@@ -2,24 +2,19 @@
 
 const appLocalData = (function () {
   /**
-   * The committed movie snapshot under data/.
+   * Committed poster assets under data/.
    *
-   * `npm run scrape` writes TMDB's own output for every id in data/my_list.csv,
-   * and the app reads it before it considers a network call. That makes load time
-   * one static file instead of one request per movie, and it means the collection
-   * still renders if the API changes, costs money, or is simply unreachable.
+   * `npm run scrape` downloads poster files for ids in data/my_list.csv and writes
+   * data/posters.json so the app can serve them from the repo. Movie metadata
+   * comes from the account D1 batch cache, not from data/.
    *
-   * The snapshot is a cache, not an edit layer: every field in it came from TMDB
-   * and is replaced wholesale on the next scrape. Nothing here is authored.
-   *
-   * Records are stored in the shape `normalizeMovie` already produces, so the
-   * validation below re-checks that shape rather than parsing raw TMDB fields.
-   * The file ships with the site, but it still arrives over the network, so it is
-   * validated on read like any other payload.
+   * Legacy data/movies.json helpers remain for tests and one-time scraper migration.
    */
 
   const LOCAL_DATA_VERSION = 1;
   const LOCAL_DATA_URL = "data/movies.json";
+  const LOCAL_POSTERS_VERSION = 1;
+  const LOCAL_POSTERS_URL = "data/posters.json";
   const LOCAL_POSTER_DIR = "data/posters";
   /** Ascending. Card and suggest requests scale down from the smallest stored. */
   const LOCAL_POSTER_SIZES = ["w342", "w500"];
@@ -183,9 +178,54 @@ const appLocalData = (function () {
     };
   }
 
+  function normalizePostersManifest(raw) {
+    const empty = { generatedAt: null, posterSizes: [], posters: {} };
+    if (!raw || typeof raw !== "object" || Number(raw.version) !== LOCAL_POSTERS_VERSION) {
+      return empty;
+    }
+    const postersRaw = raw.posters;
+    if (!postersRaw || typeof postersRaw !== "object") {
+      return empty;
+    }
+    const posters = {};
+    for (const [key, value] of Object.entries(postersRaw)) {
+      const id = Number(key);
+      if (!Number.isInteger(id) || id <= 0 || !isPosterFile(value)) {
+        continue;
+      }
+      posters[id] = String(value);
+    }
+    return {
+      generatedAt: cleanText(raw.generatedAt),
+      posterSizes: normalizePosterSizes(raw.posterSizes),
+      posters,
+    };
+  }
+
+  function serializePostersManifest(postersById, options = {}) {
+    const posters = {};
+    for (const id of Object.keys(postersById)
+      .map(Number)
+      .filter((value) => Number.isInteger(value) && value > 0)
+      .sort((a, b) => a - b)) {
+      const file = postersById[id];
+      if (isPosterFile(file)) {
+        posters[id] = String(file);
+      }
+    }
+    return {
+      version: LOCAL_POSTERS_VERSION,
+      generatedAt: cleanText(options.generatedAt) || new Date().toISOString(),
+      posterSizes: normalizePosterSizes(options.posterSizes || LOCAL_POSTER_SIZES),
+      posters,
+    };
+  }
+
   return {
     LOCAL_DATA_VERSION,
     LOCAL_DATA_URL,
+    LOCAL_POSTERS_VERSION,
+    LOCAL_POSTERS_URL,
     LOCAL_POSTER_DIR,
     LOCAL_POSTER_SIZES,
     posterSizeWidth,
@@ -196,5 +236,6 @@ const appLocalData = (function () {
     normalizeLocalRecord,
     normalizeLocalData,
     serializeLocalData,
+    normalizePostersManifest,
   };
 })();

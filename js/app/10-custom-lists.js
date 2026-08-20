@@ -455,7 +455,6 @@ function renderCustomListsIndex(options = {}) {
     customListsEmpty.hidden = lists.length > 0;
   }
   const coverIds = customListIndexCoverIds(lists);
-  primeMovieRecords(coverIds);
   customListsRows.innerHTML = lists
     .map((list) => {
       const renaming = pendingCustomListRenameId === list.id;
@@ -719,19 +718,6 @@ function syncAddMovieSubmitState() {
   }
 }
 
-function primeMovieRecords(ids) {
-  for (const id of ids) {
-    if (movieById.has(id)) {
-      continue;
-    }
-    const local = localMovieById.get(id);
-    if (local) {
-      movieById.set(id, local);
-      movieErrors.delete(id);
-    }
-  }
-}
-
 function customListIndexCoverHtml(movieId) {
   const record = movieById.get(movieId) ?? localMovieRecord(movieId);
   const inner = record
@@ -863,7 +849,6 @@ function openWatchedPicker(options = {}) {
       [],
   );
   watchedPickerAvailableIds = watchedIds.filter((id) => !inList.has(id));
-  primeMovieRecords(watchedPickerAvailableIds);
   renderWatchedPickerList();
   syncWatchedPickerSubmit();
   watchlistPickerDialog.hidden = false;

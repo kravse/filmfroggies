@@ -665,7 +665,7 @@ async function startApp() {
 
   // One static file, read before the first paint. When it covers the list that
   // paint shows real cards instead of skeletons, which is the whole point.
-  await loadLocalMovieData();
+  await loadLocalPosterData();
 
   try {
     history.scrollRestoration = "manual";

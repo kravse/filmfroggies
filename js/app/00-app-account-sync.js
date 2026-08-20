@@ -13,6 +13,7 @@ const appAccountSync = (function () {
   const ACCOUNT_API_DIRECT = "https://cinequeue-api.cinequeue.workers.dev/api";
   const ACCOUNT_API_PROXIED = "/api/backend";
   const TMDB_API_PROXIED = "/api/tmdb";
+  const MOVIES_BATCH_PATH = "/movies/batch";
 
   function resolveAccountApiBase(hostname) {
     const host = String(hostname || "");
@@ -69,6 +70,7 @@ const appAccountSync = (function () {
     ACCOUNT_API_DIRECT,
     ACCOUNT_API_PROXIED,
     TMDB_API_PROXIED,
+    MOVIES_BATCH_PATH,
     resolveAccountApiBase,
     resolveTmdbApiBase,
     parseAccountConfig,

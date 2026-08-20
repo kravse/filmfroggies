@@ -1,20 +1,15 @@
 #!/usr/bin/env node
 /**
- * Writes the committed movie snapshot under data/.
+ * Downloads committed poster files under data/posters/ for ids in data/my_list.csv.
  *
- * Reads the ids in data/my_list.csv — exported from Settings on the running
- * site — fetches each one from TMDB, and stores the normalized record plus its
- * posters in the repo. The site then renders those movies without a single API
- * call, which is both faster and immune to the API changing under it.
+ * Writes data/posters.json so the deployed site knows which ids have local poster
+ * files. Movie metadata comes from the account D1 batch cache, not this script.
  *
- * This is the one script that talks to TMDB from a shell, so it is the one place
- * that needs a token outside the browser. It reads TMDB_READ_TOKEN from the
- * environment or from .env, which is gitignored.
+ * Reads TMDB_READ_TOKEN from the environment or from .env (gitignored).
  *
- * Incremental by default: ids already in the snapshot are left alone and posters
- * already on disk are not re-downloaded. Pass --force to refetch everything.
- * Records for ids missing from the CSV are kept unless --prune is passed, so an
- * export taken from a half-synced device cannot quietly delete the snapshot.
+ * Incremental by default: only ids missing from the manifest or with incomplete
+ * files on disk are fetched from TMDB. Pass --force to re-download every poster.
+ * Manifest entries for ids missing from the CSV are kept unless --prune is passed.
  */
 const fs = require("fs");
 const path = require("path");
@@ -28,26 +23,25 @@ const {
 } = require("./lib/tmdb");
 const {
   LOCAL_POSTER_SIZES,
+  LOCAL_POSTERS_URL,
   posterFileFromPath,
   normalizeLocalData,
-  normalizeLocalRecord,
-  serializeLocalData,
+  normalizePostersManifest,
+  serializePostersManifest,
 } = require("./lib/local-data");
 const { CSV_FILENAME, parseListCsv } = require("./lib/list-csv");
 
 const ROOT = path.join(__dirname, "..");
 const DATA_DIR = path.join(ROOT, "data");
-const MOVIES_FILE = path.join(DATA_DIR, "movies.json");
 const POSTER_DIR = path.join(DATA_DIR, "posters");
+const POSTERS_FILE = path.join(DATA_DIR, "posters.json");
+const MOVIES_FILE = path.join(DATA_DIR, "movies.json");
 const CSV_FILE = path.join(DATA_DIR, CSV_FILENAME);
 const ENV_FILE = path.join(ROOT, ".env");
 
 const REQUEST_TIMEOUT_MS = 12_000;
 const CONCURRENCY = 6;
 
-/* --- Token --- */
-
-/** Minimal KEY=value reader. Existing environment values always win. */
 function loadDotEnv() {
   if (!fs.existsSync(ENV_FILE)) {
     return;
@@ -76,8 +70,6 @@ function readToken() {
   return token;
 }
 
-/* --- Requests --- */
-
 async function fetchWithTimeout(url, init = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -92,20 +84,28 @@ async function fetchWithTimeout(url, init = {}) {
   }
 }
 
-async function fetchMovie(movieId, token) {
+async function fetchPosterPath(movieId, token) {
   const response = await fetchWithTimeout(buildMovieUrl(movieId), buildRequestInit(token));
   const record = normalizeMovie(await response.json());
-  if (!record) {
-    throw new Error("unexpected TMDB payload");
+  if (!record?.posterPath) {
+    throw new Error("movie has no poster");
   }
-  return record;
+  return record.posterPath;
 }
 
-/**
- * Downloads every stored size for one poster and returns the filename, or null
- * when any size is missing. All-or-nothing keeps the manifest honest: a `poster`
- * field always means every size the manifest advertises is on disk.
- */
+function posterFilesComplete(posterFile, { force }) {
+  if (!posterFile) {
+    return false;
+  }
+  for (const size of LOCAL_POSTER_SIZES) {
+    const target = path.join(POSTER_DIR, size, posterFile);
+    if (force || !fs.existsSync(target) || fs.statSync(target).size <= 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
 async function fetchPosters(posterPath, { force }) {
   const file = posterFileFromPath(posterPath);
   if (!file) {
@@ -136,18 +136,35 @@ async function fetchPosters(posterPath, { force }) {
   return file;
 }
 
-/* --- Snapshot --- */
-
-function readSnapshot() {
-  if (!fs.existsSync(MOVIES_FILE)) {
-    return { generatedAt: null, records: [] };
+function readPosterManifest() {
+  if (fs.existsSync(POSTERS_FILE)) {
+    try {
+      return normalizePostersManifest(JSON.parse(fs.readFileSync(POSTERS_FILE, "utf8")));
+    } catch (_) {
+      console.warn("data/posters.json could not be read; rebuilding it from scratch.");
+    }
   }
-  try {
-    return normalizeLocalData(JSON.parse(fs.readFileSync(MOVIES_FILE, "utf8")));
-  } catch (_) {
-    console.warn("data/movies.json could not be read; rebuilding it from scratch.");
-    return { generatedAt: null, records: [] };
+  if (fs.existsSync(MOVIES_FILE)) {
+    try {
+      const snapshot = normalizeLocalData(JSON.parse(fs.readFileSync(MOVIES_FILE, "utf8")));
+      const posters = {};
+      for (const record of snapshot.records) {
+        if (record.poster) {
+          posters[record.id] = record.poster;
+        }
+      }
+      if (Object.keys(posters).length) {
+        return {
+          generatedAt: snapshot.generatedAt,
+          posterSizes: snapshot.posterSizes.length ? snapshot.posterSizes : LOCAL_POSTER_SIZES,
+          posters,
+        };
+      }
+    } catch (_) {
+      /* fall through */
+    }
   }
+  return { generatedAt: null, posterSizes: LOCAL_POSTER_SIZES, posters: {} };
 }
 
 function readIds() {
@@ -163,9 +180,8 @@ function readIds() {
   return ids;
 }
 
-/** Deletes poster files no remaining record points at. */
-function prunePosters(records) {
-  const keep = new Set(records.map((record) => record.poster).filter(Boolean));
+function prunePosterFiles(postersById) {
+  const keep = new Set(Object.values(postersById).filter(Boolean));
   let removed = 0;
   for (const size of LOCAL_POSTER_SIZES) {
     const dir = path.join(POSTER_DIR, size);
@@ -183,24 +199,18 @@ function prunePosters(records) {
   return removed;
 }
 
-/**
- * Rewrites generatedAt only when a record actually changed, so a no-op scrape
- * leaves the file byte-identical and produces no commit.
- */
-function writeSnapshot(records, previousGeneratedAt) {
-  const file = serializeLocalData(records, { generatedAt: previousGeneratedAt });
-  const previous = fs.existsSync(MOVIES_FILE) ? fs.readFileSync(MOVIES_FILE, "utf8") : "";
+function writePosterManifest(postersById, previousGeneratedAt) {
+  const file = serializePostersManifest(postersById, { generatedAt: previousGeneratedAt });
+  const previous = fs.existsSync(POSTERS_FILE) ? fs.readFileSync(POSTERS_FILE, "utf8") : "";
   const unchanged = `${JSON.stringify(file, null, 2)}\n`;
   if (previous === unchanged) {
     return false;
   }
   const withStamp = { ...file, generatedAt: new Date().toISOString() };
   fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(MOVIES_FILE, `${JSON.stringify(withStamp, null, 2)}\n`);
+  fs.writeFileSync(POSTERS_FILE, `${JSON.stringify(withStamp, null, 2)}\n`);
   return true;
 }
-
-/* --- Run --- */
 
 async function runWorkers(pending, handle) {
   const workerCount = Math.min(CONCURRENCY, pending.length);
@@ -219,62 +229,71 @@ async function scrape(argv = []) {
 
   const token = readToken();
   const ids = readIds();
-  const snapshot = readSnapshot();
+  const manifest = readPosterManifest();
+  const postersById = { ...manifest.posters };
 
-  const byId = new Map(snapshot.records.map((record) => [record.id, record]));
-  const pending = ids.filter((id) => force || !byId.has(id));
-  const skipped = ids.length - pending.length;
+  const pendingFetch = [];
+  let skipped = 0;
+  for (const id of ids) {
+    const existing = postersById[id];
+    if (!force && posterFilesComplete(existing, { force: false })) {
+      skipped += 1;
+      continue;
+    }
+    pendingFetch.push(id);
+  }
+
   const failed = [];
   let fetched = 0;
 
-  if (pending.length) {
-    console.log(`Fetching ${pending.length} movies from TMDB…`);
+  if (pendingFetch.length) {
+    console.log(`Fetching posters for ${pendingFetch.length} movies from TMDB…`);
   }
-  await runWorkers([...pending], async (id) => {
+  await runWorkers([...pendingFetch], async (id) => {
     try {
-      const record = await fetchMovie(id, token);
-      const poster = await fetchPosters(record.posterPath, { force });
-      byId.set(id, normalizeLocalRecord({ ...record, poster }));
+      const posterPath = await fetchPosterPath(id, token);
+      const poster = await fetchPosters(posterPath, { force });
+      if (!poster) {
+        throw new Error("poster download failed");
+      }
+      postersById[id] = poster;
       fetched += 1;
     } catch (error) {
       failed.push({ id, message: error.message || String(error) });
     }
   });
 
-  // Posters can also be missing for ids that were already in the snapshot, for
-  // example after a --prune or a manual delete.
   await runWorkers(
-    [...byId.values()].filter((record) => record.posterPath && !record.poster),
-    async (record) => {
-      const poster = await fetchPosters(record.posterPath, { force: false });
+    ids.filter((id) => postersById[id] && !posterFilesComplete(postersById[id], { force: false })),
+    async (id) => {
+      const posterPath = `/${postersById[id]}`;
+      const poster = await fetchPosters(posterPath, { force: false });
       if (poster) {
-        byId.set(record.id, { ...record, poster });
+        postersById[id] = poster;
       }
     },
   );
 
-  // A run with failures is a run you will repeat, so it must not delete anything
-  // in the meantime: the ids it could not reach would come back empty-handed.
   const pruning = prune && !failed.length;
   if (pruning) {
     const wanted = new Set(ids);
-    for (const id of [...byId.keys()]) {
+    for (const id of Object.keys(postersById).map(Number)) {
       if (!wanted.has(id)) {
-        byId.delete(id);
+        delete postersById[id];
       }
     }
   }
 
-  const records = [...byId.values()];
-  const removedPosters = pruning ? prunePosters(records) : 0;
-  const changed = writeSnapshot(records, snapshot.generatedAt);
+  const posterCount = Object.keys(postersById).length;
+  const removedPosters = pruning ? prunePosterFiles(postersById) : 0;
+  const changed = writePosterManifest(postersById, manifest.generatedAt);
 
   console.log(
     [
-      `${records.length} movies in data/movies.json`,
+      `${posterCount} ids in data/posters.json`,
       `${fetched} fetched`,
       `${skipped} already stored`,
-      `${records.filter((record) => record.poster).length} with local posters`,
+      `${Object.values(postersById).filter(Boolean).length} with local poster files`,
       pruning ? `${removedPosters} poster files pruned` : null,
       changed ? "file updated" : "file unchanged",
     ]
@@ -283,15 +302,15 @@ async function scrape(argv = []) {
   );
 
   if (prune && !pruning) {
-    console.warn("Skipped --prune because some movies could not be fetched.");
+    console.warn("Skipped --prune because some posters could not be fetched.");
   }
 
   if (failed.length) {
-    console.error(`\n${failed.length} movies could not be fetched:`);
+    console.error(`\n${failed.length} posters could not be fetched:`);
     for (const entry of failed) {
       console.error(`  ${entry.id}: ${entry.message}`);
     }
-    console.error("The site falls back to the API for these ids.");
+    console.error("Those ids fall back to TMDB CDN posters in the app.");
   }
   return failed.length;
 }

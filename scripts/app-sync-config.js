@@ -172,6 +172,8 @@ const APP_SYNC_ENTRIES = [
     exports: [
       "LOCAL_DATA_VERSION",
       "LOCAL_DATA_URL",
+      "LOCAL_POSTERS_VERSION",
+      "LOCAL_POSTERS_URL",
       "LOCAL_POSTER_DIR",
       "LOCAL_POSTER_SIZES",
       "posterSizeWidth",
@@ -182,6 +184,7 @@ const APP_SYNC_ENTRIES = [
       "normalizeLocalRecord",
       "normalizeLocalData",
       "serializeLocalData",
+      "normalizePostersManifest",
     ],
   },
   {
@@ -403,6 +406,19 @@ const APP_SYNC_ENTRIES = [
     ],
   },
   {
+    sources: [path.join(LIB, "movie-cache.js")],
+    target: "00-app-movie-cache.js",
+    globalName: "appMovieCache",
+    header: "Generated from scripts/lib/movie-cache.js — run npm run bundle",
+    exports: [
+      "BATCH_MAX_IDS",
+      "normalizeBatchIds",
+      "chunkIds",
+      "parseBatchResponse",
+      "mergeBatchIntoMap",
+    ],
+  },
+  {
     sources: [path.join(LIB, "account-sync.js")],
     target: "00-app-account-sync.js",
     globalName: "appAccountSync",
@@ -411,6 +427,7 @@ const APP_SYNC_ENTRIES = [
       "ACCOUNT_API_DIRECT",
       "ACCOUNT_API_PROXIED",
       "TMDB_API_PROXIED",
+      "MOVIES_BATCH_PATH",
       "resolveAccountApiBase",
       "resolveTmdbApiBase",
       "parseAccountConfig",
