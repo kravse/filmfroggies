@@ -1754,9 +1754,8 @@ async function onClearCache() {
 }
 
 /**
- * Titles and release years are for reading the committed file; only the ids drive
- * the scrape. The snapshot is the second source because only the active list gets
- * hydrated.
+ * Titles and release years are for reading the export; hydrateMovies fills gaps
+ * from the account batch cache when a token is available.
  */
 function csvRecordFor(movieId) {
   const record = movieById.get(movieId) || localMovieRecord(movieId);

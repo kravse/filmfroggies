@@ -749,12 +749,13 @@ function render() {
 
 /** Patches one row after hydration so the rest of the grid stays untouched. */
 function applyHydratedRecord(movieId, options = {}) {
+  const opts = options && typeof options === "object" ? options : {};
   const row = grid.querySelector(`.movie-row[data-movie-id="${movieId}"]`);
   if (row) {
     row.innerHTML = rowInnerHtml(movieId);
     bindPosterImages(row);
   }
-  if (!options.skipDetail && detailMovieId === movieId) {
+  if (!opts.skipDetail && detailMovieId === movieId) {
     renderDetail();
   }
 }
@@ -783,7 +784,52 @@ function reorderGridRows() {
 
 let rowHydrateObserver;
 const rowHydrateInflight = new Set();
+const rowHydratePendingIds = new Set();
+const rowHydratePendingRows = new Map();
+let rowHydrateBatchTimer = 0;
 let rowHydrateResortTimer;
+
+function flushRowHydrateBatch() {
+  rowHydrateBatchTimer = 0;
+  if (!rowHydratePendingIds.size) {
+    return;
+  }
+  const ids = [...rowHydratePendingIds];
+  const rowsById = new Map(rowHydratePendingRows);
+  rowHydratePendingIds.clear();
+  rowHydratePendingRows.clear();
+  for (const id of ids) {
+    rowHydrateInflight.add(id);
+  }
+  hydrateMovies(ids, {
+    onRecord: applyHydratedRecord,
+    onUpdate: applyHydratedRecord,
+  })
+    .then((result) => {
+      if (result?.hydratedFromNetwork) {
+        scheduleResortAfterHydration();
+      }
+    })
+    .finally(() => {
+      for (const id of ids) {
+        rowHydrateInflight.delete(id);
+        const row = rowsById.get(id);
+        const hydrated = appTmdb.isDetailedMovieRecord(movieById.get(id)) || movieErrors.has(id);
+        if (rowHydrateObserver && row?.isConnected && hydrated) {
+          rowHydrateObserver.unobserve(row);
+        }
+      }
+    });
+}
+
+function scheduleRowHydrateBatch(movieId, row) {
+  rowHydratePendingIds.add(movieId);
+  rowHydratePendingRows.set(movieId, row);
+  if (rowHydrateBatchTimer) {
+    return;
+  }
+  rowHydrateBatchTimer = setTimeout(flushRowHydrateBatch, 50);
+}
 
 function disconnectRowHydrateObserver() {
   if (rowHydrateObserver) {
@@ -791,6 +837,12 @@ function disconnectRowHydrateObserver() {
     rowHydrateObserver = null;
   }
   rowHydrateInflight.clear();
+  rowHydratePendingIds.clear();
+  rowHydratePendingRows.clear();
+  if (rowHydrateBatchTimer) {
+    clearTimeout(rowHydrateBatchTimer);
+    rowHydrateBatchTimer = 0;
+  }
   if (rowHydrateResortTimer) {
     clearTimeout(rowHydrateResortTimer);
     rowHydrateResortTimer = 0;
@@ -826,25 +878,10 @@ function ensureRowHydrateObserver() {
           rowHydrateObserver.unobserve(row);
           continue;
         }
-        if (rowHydrateInflight.has(movieId)) {
+        if (rowHydrateInflight.has(movieId) || rowHydratePendingIds.has(movieId)) {
           continue;
         }
-        rowHydrateInflight.add(movieId);
-        hydrateMovies([movieId], {
-          onRecord: applyHydratedRecord,
-          onUpdate: applyHydratedRecord,
-        })
-          .then((result) => {
-            if (result?.hydratedFromNetwork) {
-              scheduleResortAfterHydration();
-            }
-          })
-          .finally(() => {
-            rowHydrateInflight.delete(movieId);
-            if (rowHydrateObserver && row.isConnected) {
-              rowHydrateObserver.unobserve(row);
-            }
-          });
+        scheduleRowHydrateBatch(movieId, row);
       }
     },
     {
@@ -878,22 +915,20 @@ function hydrateActiveList() {
     return Promise.resolve();
   }
   const ids = renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
-  applyLocalMovieRecords(ids, { onRecord: applyHydratedRecord });
   if (needsResortAfterHydration()) {
     reorderGridRows();
   }
-  if (typeof IntersectionObserver === "undefined") {
-    return hydrateMovies(ids, {
-      onRecord: applyHydratedRecord,
-      onUpdate: applyHydratedRecord,
-    }).then((result) => {
-      if (result?.hydratedFromNetwork && needsResortAfterHydration()) {
-        reorderGridRows();
-      }
-    });
+  if (typeof IntersectionObserver !== "undefined") {
+    bindRowHydrateObserver();
   }
-  bindRowHydrateObserver();
-  return Promise.resolve();
+  return hydrateMovies(ids, {
+    onRecord: applyHydratedRecord,
+    onUpdate: applyHydratedRecord,
+  }).then((result) => {
+    if (result?.hydratedFromNetwork && needsResortAfterHydration()) {
+      reorderGridRows();
+    }
+  });
 }
 
 /** A broken poster URL should degrade to the title placeholder, not a torn card. */

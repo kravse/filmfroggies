@@ -6,9 +6,11 @@ Search [TMDB](https://www.themoviedb.org/), add movies to ordered lists, and bro
 
 The only thing this site stores is **which TMDB ids are in which list, and in what order**, plus your ratings, viewing history, and a few preferences. Nothing about a movie is duplicated into your lists. Every page load rehydrates movie records by id:
 
-1. **`data/movies.json`** when the committed snapshot covers that id (no API call; snapshot rows are not revalidated in the browser)
+1. **Account D1 batch cache** (`POST /api/movies/batch`) when logged in — typically one request per grid load (more if the list exceeds 100 ids)
 2. **Browser Cache API** for TMDB movie JSON and poster blobs (revalidated at most once every 30 days)
-3. **TMDB** via the account-gated Worker proxy (`GET /api/tmdb`) for anything still missing when you are logged in
+3. **Per-id TMDB** via the account-gated Worker proxy for anything still missing
+
+Committed **`data/posters/`** files (see [Bundled poster files](#bundled-poster-files)) serve poster images from the repo when listed in `data/posters.json`; missing files fall back to TMDB's CDN.
 
 That keeps the precious data tiny (a few hundred bytes of ids), and everything else is disposable by construction — a cleared cache costs you one slow reload, never a lost list.
 
@@ -21,7 +23,7 @@ npm run serve    # http://localhost:8743
 
 Copy [`.env.example`](.env.example) to `.env` if you need `npm run scrape` or `npm run letterboxd-import` (both read `TMDB_READ_TOKEN` from the environment).
 
-Open **Settings → Account** and sign up or log in. Without a session, movies covered by the committed [`data/`](#bundled-movie-data) snapshot still render; search, Discover, and adding new movies require login. TMDB traffic uses the server read token on the Worker — you never paste a personal TMDB token in Settings.
+Open **Settings → Account** and sign up or log in. Search, Discover, metadata hydration, and adding movies require login. TMDB traffic uses the server read token on the Worker — you never paste a personal TMDB token in Settings.
 
 ### Migrating from local-only or Gist data
 
@@ -153,8 +155,9 @@ The account feature is a small [Cloudflare Worker](https://developers.cloudflare
 - **Accounts** — email, PBKDF2 password hash, display name
 - **User data** — one JSON doc per user
 - **Friends** — pending/accepted relationships; accepted friends can `GET` each other's docs
+- **Movies** — normalized TMDB metadata keyed by `tmdb_id` (batch cache for grid hydration)
 
-Movie metadata comes from the committed `data/` snapshot and TMDB (via the account-gated proxy). The Worker holds the shared TMDB read token as `TMDB_READ_TOKEN`; users never send a personal TMDB token from the browser.
+Movie metadata is served from the account-gated batch endpoint (`POST /api/movies/batch`), with D1 hits first and server-side TMDB fill for misses. Committed poster files under `data/posters/` are listed in `data/posters.json`. The Worker holds the shared TMDB read token as `TMDB_READ_TOKEN`; users never send a personal TMDB token from the browser.
 
 ### How the site reaches the Worker
 
@@ -182,6 +185,7 @@ All paths are under `/api`. Authenticated routes expect `Authorization: Bearer <
 | `DELETE` | `/friends/{id}` | Yes | Remove friend or cancel outgoing pending request |
 | `DELETE` | `/account` | Yes | Delete account (body: `{ password }`; removes server data only) |
 | `GET` | `/tmdb` | Yes | TMDB proxy (allowlisted paths; server `TMDB_READ_TOKEN`) |
+| `POST` | `/movies/batch` | Yes | Batch movie metadata (D1 cache + TMDB miss fill) |
 | `GET` | `/friends/{id}/data` | Yes | Read an accepted friend's list doc |
 
 Implementation: [`worker/src/index.js`](worker/src/index.js). Schema: [`worker/schema.sql`](worker/schema.sql).
@@ -204,7 +208,7 @@ wrangler d1 create cinequeue
 
 Copy the `database_id` from the output into [`worker/wrangler.toml`](worker/wrangler.toml) under `[[d1_databases]]`.
 
-**2. Apply schema** (creates `users`, `user_data`, `friends`, `rate_limits`):
+**2. Apply schema** (creates `users`, `user_data`, `friends`, `rate_limits`, `movies`):
 
 ```bash
 wrangler d1 execute cinequeue --remote --file=schema.sql
@@ -214,6 +218,7 @@ wrangler d1 execute cinequeue --remote --file=schema.sql
 
 ```bash
 wrangler d1 execute cinequeue --remote --file=migrations/001_rate_limits.sql
+wrangler d1 execute cinequeue --remote --file=migrations/002_movies.sql
 ```
 
 **4. Set secrets** (required):
@@ -275,7 +280,7 @@ Secrets and vars (set in Cloudflare, not committed):
 |------|----------|---------|
 | `SESSION_SECRET` | **Yes** | HMAC key for bearer session tokens (30-day lifetime) |
 | `SIGNUP_INVITE_CODE` | **Yes** | Shared invite password checked on `POST /api/signup` only |
-| `TMDB_READ_TOKEN` | **Yes** | v4 TMDB API Read Access Token for `GET /api/tmdb` |
+| `TMDB_READ_TOKEN` | **Yes** | v4 TMDB API Read Access Token for `GET /api/tmdb` and `POST /api/movies/batch` |
 | `ALLOWED_ORIGINS` | No | Comma-separated extra CORS origins merged with the default allowlist |
 
 Default CORS origins (hardcoded): `https://cinequeue.org`, `http://localhost:8743`, `http://127.0.0.1:8743`.
@@ -296,7 +301,7 @@ Logout today clears the browser session only; tokens remain valid until expiry u
 npm run serve    # http://localhost:8743
 ```
 
-Open **Settings → Collection storage → Account**. Localhost talks to the deployed Worker URL directly (CORS must allow your dev origin — the defaults cover port **8743**).
+Open **Settings → Account**. Localhost talks to the deployed Worker URL directly (CORS must allow your dev origin — the defaults cover port **8743**).
 
 To run the Worker itself locally against a local D1:
 
@@ -317,7 +322,7 @@ Export, import, Letterboxd CLI output, and optional `data/my_list.csv` all use t
 | Workflow | Where | What it does |
 |----------|-------|--------------|
 | **Backup / restore** | Settings → Import & export | **Export** downloads `my_list.csv`; **Import** replaces Watched, Watchlist, custom list memberships, ratings, and viewing history (custom lists in the file are recreated if missing). |
-| **Repo snapshot** | `data/my_list.csv` + `npm run scrape` | Scraper reads **unique `tmdb_id` values only** from the first column → `data/movies.json` + posters. List membership and ratings in the CSV are ignored. |
+| **Repo poster cache** | `data/my_list.csv` + `npm run scrape` | Scraper reads **unique `tmdb_id` values only** from the first column → `data/posters.json` + poster files under `data/posters/`. List membership and ratings in the CSV are ignored. |
 
 Header:
 
@@ -327,17 +332,15 @@ Header:
 
 Letterboxd conversion is local only — it produces this CSV; it never writes browser state directly. See [Letterboxd import](#letterboxd-import-local-only).
 
-## Bundled movie data
+## Bundled poster files
 
-Everything above still costs one TMDB request per movie on a cold load, and it stops working entirely if the API is unreachable or its terms change. So the repo can carry its own copy. Movies present in `data/` render from the repo and are **never** requested from the API; only ids added since the last scrape fall through to it.
+Movie metadata comes from the account D1 cache when you are logged in. The repo can still carry **poster image files** so your deployed site serves stable local images for ids you care about (developer workflow — faster grids, fewer CDN requests).
 
-The snapshot is a cache, not an edit layer. Every field in it came from TMDB and is replaced wholesale on the next scrape.
+Refreshing posters is three steps:
 
-Refreshing it is three steps:
-
-1. On the running site, open **Settings → Import & export** and click **Export** (or use a CSV from `npm run letterboxd-import`). It downloads `my_list.csv`. Export hydrates missing TMDB titles when a token is available.
+1. On the running site, open **Settings → Import & export** and click **Export** (or use a CSV from `npm run letterboxd-import`). It downloads `my_list.csv`.
 2. Commit it to the repo as `data/my_list.csv`.
-3. Run the scraper for **metadata and posters only**, then commit what it writes:
+3. Run the poster scraper, then commit what it writes:
 
 ```bash
 echo 'TMDB_READ_TOKEN=eyJ…' > .env    # gitignored; see .env.example
@@ -346,11 +349,13 @@ npm run scrape
 
 | Flag | Effect |
 |------|--------|
-| *(none)* | Incremental: only ids missing from the snapshot are fetched, only missing posters are downloaded |
-| `--force` | Refetch every id and re-download every poster |
-| `--prune` | Drop records and posters for ids no longer in the CSV |
+| *(none)* | Incremental: only ids missing from the manifest or with incomplete files on disk are fetched |
+| `--force` | Re-download every poster listed in the CSV |
+| `--prune` | Drop manifest entries and poster files for ids no longer in the CSV |
 
-Without `--prune` nothing is ever deleted, so an export from a half-synced device cannot quietly shrink the snapshot. `--prune` is also skipped automatically if any movie failed to fetch.
+Without `--prune` nothing is ever deleted, so an export from a half-synced device cannot quietly shrink the poster cache. `--prune` is also skipped automatically if any poster failed to fetch.
+
+On first run after upgrading from the old metadata scraper, the script seeds `posters.json` from an existing `data/movies.json` if present, so you do not need to re-download posters you already have.
 
 A no-op scrape rewrites nothing, so `git status` stays clean when there is nothing new.
 
@@ -359,15 +364,13 @@ A no-op scrape rewrites nothing, so `git status` stays clean when there is nothi
 | Path | Contents |
 |------|----------|
 | `data/my_list.csv` | Scraper input (unique ids from column 1); same backup CSV from Settings or Letterboxd CLI. Not published in the build |
-| `data/movies.json` | One record per movie, ascending id, same shape the app renders |
+| `data/posters.json` | Manifest of which ids have local poster files |
 | `data/posters/w342/` | Card and grid posters |
 | `data/posters/w500/` | Detail-overlay posters |
 
 Only two poster sizes are stored. Smaller requests use the `w342` file and scale down. Poster filenames are content hashes, so re-scraping an unchanged poster adds nothing to git history.
 
-Missing poster files fall back to TMDB's CDN. Missing `movies.json` records fall back to the API path.
-
-**Browsing without a token.** Once the snapshot covers your lists, the grid and detail overlay render with no credential. A token is still required to search and add movies.
+Missing poster files fall back to TMDB's CDN. Legacy `data/movies.json` is no longer written or deployed; you can delete it from the repo once `posters.json` exists.
 
 ## Letterboxd import (local tool)
 
@@ -389,7 +392,7 @@ The `tools/` directory is served locally only and is **not** copied into `build/
 npm run build    # bundles JS, writes build/
 ```
 
-`build/` is a plain static directory — `index.html`, bundled `css/app.css`, fingerprinted `js/app-bundle.js`, `images/`, the committed `data/` snapshot, and a `noindex` robots file. Routing is hash-only; no SPA fallback is needed beyond [`netlify.toml`](netlify.toml) redirects for Netlify Functions and the account API proxy.
+`build/` is a plain static directory — `index.html`, bundled `css/app.css`, fingerprinted `js/app-bundle.js`, `images/`, committed poster files under `data/`, and a `noindex` robots file. Routing is hash-only; no SPA fallback is needed beyond [`netlify.toml`](netlify.toml) redirects for Netlify Functions and the account API proxy.
 
 Build details:
 
@@ -417,7 +420,7 @@ Build command: `npm run build`. Publish directory: `build`. **No Netlify Functio
 |---------|-----|
 | `npm run serve` | Static site on port 8743; sign in via Settings → Account; TMDB + account API hit the deployed Worker directly |
 | `cd worker && wrangler dev` | Run the account API + TMDB proxy locally (see [Account backend](#account-backend-cloudflare-worker--d1)) |
-| `cd worker && npm test` | Worker auth, CORS, TMDB proxy, and rate-limit unit tests |
+| `cd worker && npm test` | Worker auth, CORS, TMDB proxy, movies batch cache, and rate-limit unit tests |
 
 ## Development
 
@@ -465,9 +468,9 @@ Adding a new `scripts/lib/` module: implement + test, add its exports to [`scrip
 These are deliberate design decisions — see also [`.cursor/rules/moviecollector-project.mdc`](.cursor/rules/moviecollector-project.mdc):
 
 - **No edit layer** for TMDB metadata; no overriding titles/posters in user state
-- **Browser-only writes** for lists, ratings, and preferences (`localStorage`, Gist, or Account API from the browser). `server.js` is read-only static files; only `npm run scrape` writes `data/`
-- **Only ids are persisted** in user state; movies are rehydrated by id
-- **Snapshot before API** for ids in `data/movies.json`; no background revalidation of snapshot hits
+- **Browser-only writes** for lists, ratings, and preferences (`localStorage` and Account API from the browser). `server.js` is read-only static files; only `npm run scrape` writes poster files under `data/`
+- **Only ids are persisted** in user state; movies are rehydrated by id via D1 batch cache, then TMDB
+- **D1 batch before per-id TMDB** when logged in; committed poster files when listed in `data/posters.json`
 - **Watchlist disjoint from Watched** — enforced on read and write
 - **Hash-only routing** — no path routes or SPA fallback
 - **Search is add-only** — the Watched filter is separate and display-only
@@ -482,16 +485,15 @@ These are deliberate design decisions — see also [`.cursor/rules/moviecollecto
 | `css/` | Stylesheets (12 files; bundled to `css/app.css` in deploy) |
 | `scripts/lib/` | Pure CommonJS domain logic, one concern per file |
 | `scripts/bundle-app-js.js` | Concatenates partials; runs lib sync |
-| `scripts/scrape-data.js` | Refills `data/` from TMDB (`npm run scrape`) |
+| `scripts/scrape-data.js` | Downloads poster files for CSV ids (`npm run scrape`) |
 | `scripts/letterboxd-import.js` | Opens the local Letterboxd tool in your browser |
 | `scripts/bundle-letterboxd-tool.js` | Builds `js/tools/letterboxd-tool-bundle.js` |
 | `tools/letterboxd.html` | Local Letterboxd import UI (not deployed) |
-| `data/` | Committed movie snapshot + scraper input CSV |
+| `data/` | Committed poster cache + scraper input CSV |
 | `test/` | Node tests (`npm test`) |
 | `server.js` | Read-only static server (`npm run serve`) |
 | `build.js` | Static deploy output (`npm run build`) |
-| `netlify.toml` | Netlify build, redirects, cache headers |
-| `netlify.toml` | Static deploy redirects (`/api/tmdb`, `/api/backend/*` → Worker) |
+| `netlify.toml` | Netlify build, redirects (`/api/tmdb`, `/api/backend/*` → Worker), cache headers |
 | `worker/` | Cloudflare Worker account API (`wrangler deploy`) |
 | `worker/wrangler.toml` | Worker name, D1 binding, compatibility date |
 | `worker/schema.sql` | D1 base schema |
@@ -505,7 +507,7 @@ These are deliberate design decisions — see also [`.cursor/rules/moviecollecto
 | `serve` | Local static server on port 8743 (`PORT` to override) |
 | `bundle` | Sync `js/app/00-*.js` from `scripts/lib/`, write `js/app-bundle.js`, verify no bare `require()` in the bundle |
 | `test` | Run Node tests in `test/` |
-| `scrape` | Refresh `data/` from `data/my_list.csv` (needs `TMDB_READ_TOKEN`) |
+| `scrape` | Download poster files for CSV ids → `data/posters.json` + `data/posters/` (needs `TMDB_READ_TOKEN`) |
 | `letterboxd-import` | Open local Letterboxd tool (`http://127.0.0.1:8744/tools/letterboxd.html`) |
 | `bundle:letterboxd` | Build the local Letterboxd tool bundle |
 | `build` | Bundle + write static site to `build/` |

@@ -124,6 +124,10 @@ const PARTS = [
     title: "Account sync helpers (generated from scripts/lib/account-sync.js)",
   },
   {
+    file: "00-app-movie-cache.js",
+    title: "Movie batch cache helpers (generated from scripts/lib/movie-cache.js)",
+  },
+  {
     file: "00-app-reorder.js",
     title: "Reorder and overlap math (generated from scripts/lib/reorder.js)",
   },

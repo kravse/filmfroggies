@@ -10,6 +10,10 @@ import {
   TMDB_REQUEST_TIMEOUT_MS,
   tmdbCacheControl,
 } from "./tmdb-proxy.js";
+import { rateLimit, rateLimitBlocked } from "./rate-limit.js";
+import { handleMoviesBatch } from "./movies-cache.js";
+
+export { rateLimit, rateLimitBlocked };
 
 const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 // ponytail: 100k PBKDF2 iterations fits the free plan's 10ms CPU budget in
@@ -209,53 +213,6 @@ export function clientIp(request) {
     return connecting.trim().slice(0, 64);
   }
   return "unknown";
-}
-
-/**
- * Increment a fixed-window counter and report whether this attempt is allowed.
- * A new window starts when none exists or the previous window expired.
- */
-export async function rateLimit(env, key, { limit, windowMs }, nowMs = Date.now()) {
-  const row = await env.DB.prepare(
-    "SELECT count, window_start FROM rate_limits WHERE key = ?1",
-  )
-    .bind(key)
-    .first();
-
-  if (!row || nowMs - row.window_start >= windowMs) {
-    await env.DB.prepare(
-      "INSERT INTO rate_limits (key, count, window_start) VALUES (?1, 1, ?2) ON CONFLICT (key) DO UPDATE SET count = 1, window_start = ?2",
-    )
-      .bind(key, nowMs)
-      .run();
-    return { allowed: true, retryAfterSec: 0 };
-  }
-
-  if (row.count >= limit) {
-    const retryAfterSec = Math.ceil((row.window_start + windowMs - nowMs) / 1000);
-    return { allowed: false, retryAfterSec: Math.max(retryAfterSec, 1) };
-  }
-
-  await env.DB.prepare("UPDATE rate_limits SET count = count + 1 WHERE key = ?1").bind(key).run();
-  return { allowed: true, retryAfterSec: 0 };
-}
-
-/** Check the counter without incrementing (used before login to honor prior failures). */
-export async function rateLimitBlocked(env, key, { limit, windowMs }, nowMs = Date.now()) {
-  const row = await env.DB.prepare(
-    "SELECT count, window_start FROM rate_limits WHERE key = ?1",
-  )
-    .bind(key)
-    .first();
-
-  if (!row || nowMs - row.window_start >= windowMs) {
-    return { blocked: false, retryAfterSec: 0 };
-  }
-  if (row.count < limit) {
-    return { blocked: false, retryAfterSec: 0 };
-  }
-  const retryAfterSec = Math.ceil((row.window_start + windowMs - nowMs) / 1000);
-  return { blocked: true, retryAfterSec: Math.max(retryAfterSec, 1) };
 }
 
 async function enforceRateLimit(env, key, config, res) {
@@ -544,7 +501,7 @@ async function handleTmdb(request, env, session, res) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const res = makeResponder(request, env);
     if (request.method === "OPTIONS") {
       return res.preflight();
@@ -614,6 +571,10 @@ export default {
 
     if (path === "/api/tmdb") {
       return handleTmdb(request, env, session, res);
+    }
+
+    if (path === "/api/movies/batch") {
+      return handleMoviesBatch(request, env, session, ctx, res, clientIp);
     }
 
     return res.json(404, { error: "Not found" });

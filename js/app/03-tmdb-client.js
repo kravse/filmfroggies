@@ -7,9 +7,9 @@
  * only after appTmdbMovieCache.MOVIE_CACHE_REVALIDATE_MS (30 days). Search is
  * transient and only memoized for the session.
  *
- * Ahead of all of that sits the snapshot committed under data/. Anything it
- * covers is served from the repo and never requested, so the API is only
- * consulted for ids added since the last `npm run scrape`.
+ * Ahead of network hydration, committed poster files under data/posters/ are
+ * served when data/posters.json lists the id. Movie metadata comes from the
+ * account D1 batch cache (POST /api/movies/batch), then per-id TMDB fallback.
  *
  * When logged in, all TMDB traffic goes through the account-gated Worker proxy
  * at /api/tmdb (Netlify redirect in production, direct Worker URL on localhost).
@@ -19,6 +19,7 @@ const TMDB_CACHE_NAME = "moviecollector-tmdb-v1";
 const CACHE_KEY_ORIGIN = "https://moviecollector.invalid/tmdb";
 const REQUEST_TIMEOUT_MS = 12000;
 const HYDRATE_CONCURRENCY = 6;
+const BATCH_REQUEST_TIMEOUT_MS = 20000;
 const POSTER_LOAD_CONCURRENCY = 6;
 const POSTER_LAZY_ROOT_MARGIN = "240px 0px";
 
@@ -65,11 +66,10 @@ const posterUrlInflight = new Map();
 const posterLoadQueue = [];
 let posterLoadsInFlight = 0;
 let posterObserver;
-/** Records from data/movies.json, kept apart so hydrateMovies stays the only
- * path into movieById and its onRecord contract still holds. */
-const localMovieById = new Map();
+/** Poster filenames from data/posters.json, keyed by TMDB id. */
+const localPosterById = new Map();
 let localPosterSizes = [];
-let localDataGeneratedAt = null;
+let localPosterGeneratedAt = null;
 
 function hasTmdbAccess() {
   return accountSyncEnabled();
@@ -117,67 +117,76 @@ function buildProxyUrl(path, searchParams) {
   return url.toString();
 }
 
-/* --- Committed snapshot --- */
+/* --- Committed poster files --- */
 
 /**
- * Read once at startup. A repo with no snapshot yet 404s here, which is not an
- * error condition: the app simply falls back to the API path it always used.
+ * Read once at startup. A repo with no manifest yet 404s here, which is not an
+ * error condition: posters simply fall back to TMDB's CDN.
  */
-async function loadLocalMovieData() {
+async function loadLocalPosterData() {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetch(appLocalData.LOCAL_DATA_URL, {
+    const response = await fetch(appLocalData.LOCAL_POSTERS_URL, {
       signal: controller.signal,
       headers: { accept: "application/json" },
     });
     if (!response.ok) {
       return false;
     }
-    const data = appLocalData.normalizeLocalData(await response.json());
-    localMovieById.clear();
-    for (const record of data.records) {
-      localMovieById.set(record.id, record);
+    const data = appLocalData.normalizePostersManifest(await response.json());
+    localPosterById.clear();
+    for (const [id, poster] of Object.entries(data.posters)) {
+      localPosterById.set(Number(id), poster);
     }
-    localPosterSizes = data.posterSizes;
-    localDataGeneratedAt = data.generatedAt;
-    return localMovieById.size > 0;
+    localPosterSizes = data.posterSizes.length
+      ? data.posterSizes
+      : appLocalData.LOCAL_POSTER_SIZES;
+    localPosterGeneratedAt = data.generatedAt;
+    return localPosterById.size > 0;
   } catch (_) {
-    /* No snapshot, or an unreadable one. Either way, use the API. */
     return false;
   } finally {
     clearTimeout(timer);
   }
 }
 
-function hasLocalMovieData() {
-  return localMovieById.size > 0;
+function hasLocalPosterData() {
+  return localPosterById.size > 0;
 }
 
-function localMovieCount() {
-  return localMovieById.size;
+function localPosterCount() {
+  return localPosterById.size;
 }
 
-function localMovieRecord(movieId) {
-  return localMovieById.get(Number(movieId)) || null;
+/** Legacy hook; metadata no longer lives in data/. */
+function localMovieRecord(_movieId) {
+  return null;
 }
 
-function localDataStamp() {
-  return localDataGeneratedAt;
+function localPosterStamp() {
+  return localPosterGeneratedAt;
 }
 
-/** True when something can render this collection, with or without a credential. */
+/** Metadata requires an account session; local posters only speed up images. */
 function hasMovieData() {
-  return hasTmdbAccess() || hasLocalMovieData();
+  return hasTmdbAccess();
 }
 
-/** Null whenever the snapshot cannot serve this poster, so callers fall back. */
+/** Null whenever the manifest cannot serve this poster, so callers fall back. */
 function localPosterUrlFor(record, size) {
-  const local = record ? localMovieById.get(record.id) : null;
-  if (!local) {
+  if (!record) {
     return null;
   }
-  return appLocalData.localPosterUrl(local.poster, size, localPosterSizes);
+  const posterFile = localPosterById.get(record.id);
+  if (!posterFile) {
+    return null;
+  }
+  const fromPath = appLocalData.posterFileFromPath(record.posterPath);
+  if (fromPath && fromPath !== posterFile) {
+    return null;
+  }
+  return appLocalData.localPosterUrl(posterFile, size, localPosterSizes);
 }
 
 /* --- Cache --- */
@@ -652,45 +661,91 @@ async function fetchDiscoverMovies(tab, options = {}) {
 }
 
 /**
- * Resolve many movies, snapshot first, then a bounded number of in-flight
- * requests for the rest. TMDB has no batch endpoint for arbitrary ids, so a
- * long list is many small requests — which is exactly what the snapshot avoids.
+ * Resolve many movies: committed snapshot, then one D1 batch request per chunk,
+ * then per-id TMDB fallback for anything still missing.
  */
-async function hydrateMovies(ids, handlers = {}) {
-  const queue = ids.filter((id) => !appTmdb.isDetailedMovieRecord(movieById.get(id)));
-  if (!queue.length) {
-    return { hydratedFromNetwork: false };
-  }
-
-  // The snapshot resolves synchronously, so anything it covers is on screen
-  // before a single request is considered.
-  const pending = [];
-  for (const id of queue) {
-    const local = localMovieById.get(id);
-    if (!local) {
-      pending.push(id);
+async function fetchMoviesBatch(ids) {
+  const chunks = appMovieCache.chunkIds(ids);
+  const merged = {};
+  for (const chunk of chunks) {
+    if (!chunk.length) {
       continue;
     }
-    movieById.set(id, local);
-    movieErrors.delete(id);
-    handlers.onRecord?.(id, local);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), BATCH_REQUEST_TIMEOUT_MS);
+    try {
+      const base = appAccountSync.resolveAccountApiBase(window.location.hostname);
+      const response = await fetch(`${base}${appAccountSync.MOVIES_BATCH_PATH}`, {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+          authorization: `Bearer ${accountConfig?.token || ""}`,
+        },
+        body: JSON.stringify({ ids: chunk }),
+        signal: controller.signal,
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        if (response.status === 401) {
+          saveAccountConfig(null);
+        }
+        throw new Error(payload?.error || `Movie batch failed (${response.status})`);
+      }
+      const parsed = appMovieCache.parseBatchResponse(payload);
+      Object.assign(merged, parsed.movies);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  return merged;
+}
+
+async function hydrateMovies(ids, handlers = {}) {
+  const pending = ids.filter((id) => !appTmdb.isDetailedMovieRecord(movieById.get(id)));
+  if (!pending.length) {
+    return { hydratedFromNetwork: false };
   }
 
-  // Without access every remaining request would fail, turning those cards into
-  // error cards. Leaving the skeletons up reads better and stays accurate.
-  if (!pending.length || !hasTmdbAccess()) {
+  if (!hasTmdbAccess()) {
     return { hydratedFromNetwork: false };
+  }
+
+  let hydratedFromNetwork = false;
+  let stillPending = pending;
+
+  try {
+    await devArtificialDelay();
+    const batchMovies = await fetchMoviesBatch(stillPending);
+    for (const id of Object.keys(batchMovies)) {
+      const record = batchMovies[id];
+      const movieId = Number(id);
+      movieById.set(movieId, record);
+      movieErrors.delete(movieId);
+      handlers.onRecord?.(movieId, record);
+      hydratedFromNetwork = true;
+    }
+    stillPending = stillPending.filter(
+      (id) => !appTmdb.isDetailedMovieRecord(movieById.get(id)),
+    );
+  } catch (_) {
+    /* Fall through to per-id TMDB for remaining ids. */
+  }
+
+  if (!stillPending.length) {
+    return { hydratedFromNetwork };
   }
 
   async function worker() {
-    while (pending.length) {
-      const id = pending.shift();
+    while (stillPending.length) {
+      const id = stillPending.shift();
       try {
         await devArtificialDelay();
         const record = await getMovie(id, { onUpdate: handlers.onUpdate });
         movieById.set(id, record);
         movieErrors.delete(id);
         handlers.onRecord?.(id, record);
+        hydratedFromNetwork = true;
       } catch (_) {
         movieErrors.add(id);
         handlers.onRecord?.(id, null);
@@ -698,51 +753,7 @@ async function hydrateMovies(ids, handlers = {}) {
     }
   }
 
-  const workerCount = Math.min(HYDRATE_CONCURRENCY, pending.length);
+  const workerCount = Math.min(HYDRATE_CONCURRENCY, stillPending.length);
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
-  return { hydratedFromNetwork: true };
-}
-
-/**
- * Apply committed snapshot rows for many ids without touching the network.
- * Used before viewport hydration so data/ covers the whole list synchronously.
- */
-function applyLocalMovieRecords(ids, handlers = {}) {
-  let applied = false;
-  for (const id of ids) {
-    if (appTmdb.isDetailedMovieRecord(movieById.get(id))) {
-      continue;
-    }
-    const local = localMovieById.get(id);
-    if (!local) {
-      continue;
-    }
-    movieById.set(id, local);
-    movieErrors.delete(id);
-    handlers.onRecord?.(id, local);
-    applied = true;
-  }
-  return applied;
-}
-
-/**
- * Apply committed snapshot rows for many ids without touching the network.
- * Used before viewport hydration so data/ covers the whole list synchronously.
- */
-function applyLocalMovieRecords(ids, handlers = {}) {
-  let applied = false;
-  for (const id of ids) {
-    if (appTmdb.isDetailedMovieRecord(movieById.get(id))) {
-      continue;
-    }
-    const local = localMovieById.get(id);
-    if (!local) {
-      continue;
-    }
-    movieById.set(id, local);
-    movieErrors.delete(id);
-    handlers.onRecord?.(id, local);
-    applied = true;
-  }
-  return applied;
+  return { hydratedFromNetwork };
 }

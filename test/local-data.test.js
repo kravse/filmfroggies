@@ -11,6 +11,8 @@ const {
   normalizeLocalRecord,
   normalizeLocalData,
   serializeLocalData,
+  normalizePostersManifest,
+  serializePostersManifest,
 } = require("../scripts/lib/local-data");
 
 const POSTER = "f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg";
@@ -181,4 +183,24 @@ test("serializeLocalData round-trips through normalizeLocalData", () => {
   const file = serializeLocalData([record(603)], { generatedAt: "2026-08-18T00:00:00.000Z" });
   const data = normalizeLocalData(JSON.parse(JSON.stringify(file)));
   assert.deepEqual(data.records, [record(603)]);
+});
+
+test("normalizePostersManifest reads a well formed poster index", () => {
+  const data = normalizePostersManifest({
+    version: 1,
+    generatedAt: "2026-08-18T00:00:00.000Z",
+    posterSizes: ["w342", "w500"],
+    posters: { 603: POSTER, bad: "../escape.jpg" },
+  });
+  assert.equal(data.generatedAt, "2026-08-18T00:00:00.000Z");
+  assert.deepEqual(data.posters, { 603: POSTER });
+});
+
+test("serializePostersManifest writes ids in ascending order", () => {
+  const file = serializePostersManifest(
+    { 604: POSTER, 603: POSTER },
+    { generatedAt: "2026-08-18T00:00:00.000Z" },
+  );
+  assert.equal(file.version, 1);
+  assert.deepEqual(Object.keys(file.posters), ["603", "604"]);
 });
