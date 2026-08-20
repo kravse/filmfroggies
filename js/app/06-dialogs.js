@@ -1387,8 +1387,13 @@ function renderDetail() {
 
   detailEyebrow.textContent =
     index >= 0 ? `${index + 1} of ${ids.length}` : "Not in this list";
-  detailPrevBtn.disabled = index <= 0;
-  detailNextBtn.disabled = index < 0 || index >= ids.length - 1;
+  const navigable = index >= 0;
+  detailPrevBtn.hidden = !navigable;
+  detailNextBtn.hidden = !navigable;
+  if (navigable) {
+    detailPrevBtn.disabled = index <= 0;
+    detailNextBtn.disabled = index >= ids.length - 1;
+  }
 
   if (!record) {
     let heading = "Loading…";
