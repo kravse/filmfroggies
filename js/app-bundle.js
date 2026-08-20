@@ -209,6 +209,8 @@ let gridViewMode = "cards";
 let reorderModeActive = false;
 let detailMovieId = null;
 let detailCloseNavigationPending = false;
+/** Scroll offset of the grid/list under the detail overlay. */
+let underlayScrollY = 0;
 let renderedMovieIds = [];
 let detailRatingEditorOpen = false;
 /** Rating saved when the editor opens; Cancel restores this value. */
@@ -9205,6 +9207,8 @@ function confirmRemoveMovie() {
  *
  * The overlay is the only routed surface: it deep-links as `#movie/{id}` and
  * is driven by history state, so back and forward behave as expected.
+ * Next/previous movie pushes a history entry; back returns to the previous
+ * movie, then to the list underneath.
  */
 
 const TMDB_MOVIE_URL = "https://www.themoviedb.org/movie/";
@@ -10315,10 +10319,35 @@ ${detailBodyTabsHtml(detailMovieId, record)}`;
   syncDetailConfigResults();
 }
 
+function captureUnderlayScroll() {
+  underlayScrollY = window.scrollY;
+}
+
+function restoreUnderlayScroll() {
+  const y = underlayScrollY;
+  window.scrollTo(0, y);
+  requestAnimationFrame(() => window.scrollTo(0, y));
+}
+
+function detailHistoryState(movieId) {
+  return {
+    detailMovieId: movieId,
+    appView,
+    activeCustomListId,
+    discoverTab: isDiscoverActive() ? discoverTab : null,
+    discoverPage: isDiscoverActive() ? discoverPage : null,
+  };
+}
+
 function openDetail(movieId, options = {}) {
   const id = Number(movieId);
   if (!Number.isInteger(id) || id <= 0) {
     return;
+  }
+
+  const openingOverUnderlay = detailDialog.hidden && options.pushHistory !== false;
+  if (openingOverUnderlay) {
+    captureUnderlayScroll();
   }
 
   detailMovieId = id;
@@ -10340,11 +10369,10 @@ function openDetail(movieId, options = {}) {
   detailCloseBtn.focus({ preventScroll: true });
 
   if (options.pushHistory !== false) {
-    history.pushState(
-      { detailMovieId: id, appView, activeCustomListId, discoverTab: isDiscoverActive() ? discoverTab : null },
-      "",
-      `#movie/${id}`,
-    );
+    history.pushState(detailHistoryState(id), "", `#movie/${id}`);
+  }
+  if (openingOverUnderlay) {
+    restoreUnderlayScroll();
   }
 
   if (!appTmdb.isDetailedMovieRecord(movieById.get(id))) {
@@ -10386,30 +10414,7 @@ function stepDetail(delta) {
     return;
   }
   commitDetailRating();
-  detailMovieId = ids[nextIndex];
-  detailBodyTab = "overview";
-  detailRemapCandidateId = null;
-  detailRemapQuery = "";
-  detailRemapResults = [];
-  detailRemapSearchPicker.clear();
-  detailRatingEditorOpen = false;
-  detailRatingEditorSnapshot = null;
-  detailListPickerOpen = false;
-  detailListPickerSelectedIds.clear();
-  closeDetailListsOverlay();
-  closeDetailConfigSearch();
-  history.replaceState(
-    { detailMovieId, appView, activeCustomListId, discoverTab: isDiscoverActive() ? discoverTab : null },
-    "",
-    `#movie/${detailMovieId}`,
-  );
-  renderDetail();
-  if (!appTmdb.isDetailedMovieRecord(movieById.get(detailMovieId))) {
-    hydrateMovies([detailMovieId], {
-      onRecord: applyHydratedRecord,
-      onUpdate: applyHydratedRecord,
-    });
-  }
+  openDetail(ids[nextIndex]);
 }
 
 function movieIdFromHash() {
@@ -11580,17 +11585,92 @@ function navigateToCustomList(listId, options = {}) {
   hydrateActiveList();
 }
 
-function syncViewFromLocation() {
-  const parsed = parseLocationHash();
-  if (detailCloseNavigationPending && parsed.kind !== "movie") {
-    // openDetail adds a history entry on top of the already-rendered view.
-    // Returning to that entry only needs to dismiss the overlay; rebuilding
-    // and rehydrating the unchanged grid makes closing feel like a page load.
-    detailCloseNavigationPending = false;
-    closeDetail({ popHistory: false });
+function appViewMatchesLocation(parsed) {
+  if (parsed.kind === "main") {
+    return appView === "main";
+  }
+  if (parsed.kind === "customIndex") {
+    return appView === "customIndex";
+  }
+  if (parsed.kind === "customDetail") {
+    return appView === "customDetail" && activeCustomListId === parsed.listId;
+  }
+  if (parsed.kind === "discover") {
+    return (
+      appView === "discover" &&
+      discoverTab === appDiscover.normalizeDiscoverTab(parsed.tab) &&
+      discoverPage === appDiscover.normalizeDiscoverPage(parsed.page)
+    );
+  }
+  return false;
+}
+
+function movieUnderlayMatchesHistoryState() {
+  const state = history.state;
+  if (!state?.appView) {
+    return appView === "main" || isCustomListView() || isDiscoverActive();
+  }
+  if (state.appView !== appView) {
+    return false;
+  }
+  if (state.appView === "customDetail") {
+    return activeCustomListId === (state.activeCustomListId ?? null);
+  }
+  if (state.appView === "discover") {
+    const tab = state.discoverTab
+      ? appDiscover.normalizeDiscoverTab(state.discoverTab)
+      : discoverTab;
+    const page =
+      state.discoverPage != null
+        ? appDiscover.normalizeDiscoverPage(state.discoverPage)
+        : discoverPage;
+    return tab === discoverTab && page === discoverPage;
+  }
+  return true;
+}
+
+function paintLocationUnderlay() {
+  syncAppViewChrome();
+  refreshViewModeForActiveList();
+  if (isCustomListIndexActive()) {
+    renderCustomListsIndex();
     return;
   }
-  if (parsed.kind === "movie") {
+  if (isDiscoverActive()) {
+    const needsLoad =
+      !discoverMovieIds.length && !discoverLoading && !discoverLoadError;
+    if (needsLoad) {
+      loadDiscoverTab(discoverTab, { page: discoverPage, pushHistory: false });
+    } else {
+      renderDiscover();
+    }
+    return;
+  }
+  render();
+  hydrateActiveList();
+}
+
+function syncViewFromLocation() {
+  const parsed = parseLocationHash();
+
+  if (parsed.kind !== "movie") {
+    const dismissOverlayOnly =
+      (detailMovieId != null || detailCloseNavigationPending) &&
+      appViewMatchesLocation(parsed);
+    detailCloseNavigationPending = false;
+    closeDetail({ popHistory: false });
+    if (dismissOverlayOnly) {
+      restoreUnderlayScroll();
+      return;
+    }
+  } else {
+    const keepUnderlay =
+      detailMovieId != null || detailCloseNavigationPending;
+    detailCloseNavigationPending = false;
+    if (keepUnderlay && movieUnderlayMatchesHistoryState()) {
+      syncDetailFromLocation();
+      return;
+    }
     const state = history.state;
     if (state?.appView) {
       appView = state.appView;
@@ -11598,7 +11678,7 @@ function syncViewFromLocation() {
       if (state.discoverTab) {
         discoverTab = appDiscover.normalizeDiscoverTab(state.discoverTab);
       }
-      if (state.discoverPage) {
+      if (state.discoverPage != null) {
         discoverPage = appDiscover.normalizeDiscoverPage(state.discoverPage);
       }
     } else if (!applyRestoredViewContext(readViewRestoreContext())) {
@@ -11607,30 +11687,10 @@ function syncViewFromLocation() {
         activeCustomListId = null;
       }
     }
-    syncAppViewChrome();
-    refreshViewModeForActiveList();
-    if (isCustomListIndexActive()) {
-      renderCustomListsIndex();
-    } else if (isDiscoverActive()) {
-      const needsLoad =
-        !discoverMovieIds.length && !discoverLoading && !discoverLoadError;
-      if (needsLoad) {
-        loadDiscoverTab(discoverTab, { page: discoverPage, pushHistory: false });
-      } else {
-        renderDiscover();
-      }
-    } else if (isCustomListDetailActive()) {
-      render();
-      hydrateActiveList();
-    } else {
-      render();
-      hydrateActiveList();
-    }
+    paintLocationUnderlay();
     syncDetailFromLocation();
     return;
   }
-
-  closeDetail({ popHistory: false });
 
   if (parsed.kind === "customIndex") {
     appView = "customIndex";
@@ -13021,9 +13081,10 @@ backupRestoreDialog?.addEventListener("click", (event) => {
 
 let lastLocationNavigationKey = null;
 function onLocationNavigation() {
-  // A hash-changing history traversal emits both events in some browsers.
-  // Treat that pair as one navigation so expensive views are not rendered twice.
-  const key = `${window.location.href}\n${JSON.stringify(history.state)}`;
+  // A hash-changing history traversal emits both popstate and hashchange,
+  // and iOS can attach a stale history.state to the first event. Route from
+  // the URL only so that pair is one navigation.
+  const key = window.location.href;
   if (key === lastLocationNavigationKey) {
     return;
   }
@@ -13290,7 +13351,14 @@ async function startApp() {
   // paint shows real cards instead of skeletons, which is the whole point.
   await loadLocalMovieData();
 
+  try {
+    history.scrollRestoration = "manual";
+  } catch (_) {
+    /* Older browsers may not expose scrollRestoration. */
+  }
+
   syncViewFromLocation();
+  lastLocationNavigationKey = window.location.href;
 
   // Reconcile rather than pull: startup is also when this tab is most likely to
   // be holding something the Gist has not seen yet.

@@ -212,17 +212,92 @@ function navigateToCustomList(listId, options = {}) {
   hydrateActiveList();
 }
 
-function syncViewFromLocation() {
-  const parsed = parseLocationHash();
-  if (detailCloseNavigationPending && parsed.kind !== "movie") {
-    // openDetail adds a history entry on top of the already-rendered view.
-    // Returning to that entry only needs to dismiss the overlay; rebuilding
-    // and rehydrating the unchanged grid makes closing feel like a page load.
-    detailCloseNavigationPending = false;
-    closeDetail({ popHistory: false });
+function appViewMatchesLocation(parsed) {
+  if (parsed.kind === "main") {
+    return appView === "main";
+  }
+  if (parsed.kind === "customIndex") {
+    return appView === "customIndex";
+  }
+  if (parsed.kind === "customDetail") {
+    return appView === "customDetail" && activeCustomListId === parsed.listId;
+  }
+  if (parsed.kind === "discover") {
+    return (
+      appView === "discover" &&
+      discoverTab === appDiscover.normalizeDiscoverTab(parsed.tab) &&
+      discoverPage === appDiscover.normalizeDiscoverPage(parsed.page)
+    );
+  }
+  return false;
+}
+
+function movieUnderlayMatchesHistoryState() {
+  const state = history.state;
+  if (!state?.appView) {
+    return appView === "main" || isCustomListView() || isDiscoverActive();
+  }
+  if (state.appView !== appView) {
+    return false;
+  }
+  if (state.appView === "customDetail") {
+    return activeCustomListId === (state.activeCustomListId ?? null);
+  }
+  if (state.appView === "discover") {
+    const tab = state.discoverTab
+      ? appDiscover.normalizeDiscoverTab(state.discoverTab)
+      : discoverTab;
+    const page =
+      state.discoverPage != null
+        ? appDiscover.normalizeDiscoverPage(state.discoverPage)
+        : discoverPage;
+    return tab === discoverTab && page === discoverPage;
+  }
+  return true;
+}
+
+function paintLocationUnderlay() {
+  syncAppViewChrome();
+  refreshViewModeForActiveList();
+  if (isCustomListIndexActive()) {
+    renderCustomListsIndex();
     return;
   }
-  if (parsed.kind === "movie") {
+  if (isDiscoverActive()) {
+    const needsLoad =
+      !discoverMovieIds.length && !discoverLoading && !discoverLoadError;
+    if (needsLoad) {
+      loadDiscoverTab(discoverTab, { page: discoverPage, pushHistory: false });
+    } else {
+      renderDiscover();
+    }
+    return;
+  }
+  render();
+  hydrateActiveList();
+}
+
+function syncViewFromLocation() {
+  const parsed = parseLocationHash();
+
+  if (parsed.kind !== "movie") {
+    const dismissOverlayOnly =
+      (detailMovieId != null || detailCloseNavigationPending) &&
+      appViewMatchesLocation(parsed);
+    detailCloseNavigationPending = false;
+    closeDetail({ popHistory: false });
+    if (dismissOverlayOnly) {
+      restoreUnderlayScroll();
+      return;
+    }
+  } else {
+    const keepUnderlay =
+      detailMovieId != null || detailCloseNavigationPending;
+    detailCloseNavigationPending = false;
+    if (keepUnderlay && movieUnderlayMatchesHistoryState()) {
+      syncDetailFromLocation();
+      return;
+    }
     const state = history.state;
     if (state?.appView) {
       appView = state.appView;
@@ -230,7 +305,7 @@ function syncViewFromLocation() {
       if (state.discoverTab) {
         discoverTab = appDiscover.normalizeDiscoverTab(state.discoverTab);
       }
-      if (state.discoverPage) {
+      if (state.discoverPage != null) {
         discoverPage = appDiscover.normalizeDiscoverPage(state.discoverPage);
       }
     } else if (!applyRestoredViewContext(readViewRestoreContext())) {
@@ -239,30 +314,10 @@ function syncViewFromLocation() {
         activeCustomListId = null;
       }
     }
-    syncAppViewChrome();
-    refreshViewModeForActiveList();
-    if (isCustomListIndexActive()) {
-      renderCustomListsIndex();
-    } else if (isDiscoverActive()) {
-      const needsLoad =
-        !discoverMovieIds.length && !discoverLoading && !discoverLoadError;
-      if (needsLoad) {
-        loadDiscoverTab(discoverTab, { page: discoverPage, pushHistory: false });
-      } else {
-        renderDiscover();
-      }
-    } else if (isCustomListDetailActive()) {
-      render();
-      hydrateActiveList();
-    } else {
-      render();
-      hydrateActiveList();
-    }
+    paintLocationUnderlay();
     syncDetailFromLocation();
     return;
   }
-
-  closeDetail({ popHistory: false });
 
   if (parsed.kind === "customIndex") {
     appView = "customIndex";

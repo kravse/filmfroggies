@@ -3,6 +3,8 @@
  *
  * The overlay is the only routed surface: it deep-links as `#movie/{id}` and
  * is driven by history state, so back and forward behave as expected.
+ * Next/previous movie pushes a history entry; back returns to the previous
+ * movie, then to the list underneath.
  */
 
 const TMDB_MOVIE_URL = "https://www.themoviedb.org/movie/";
@@ -1113,10 +1115,35 @@ ${detailBodyTabsHtml(detailMovieId, record)}`;
   syncDetailConfigResults();
 }
 
+function captureUnderlayScroll() {
+  underlayScrollY = window.scrollY;
+}
+
+function restoreUnderlayScroll() {
+  const y = underlayScrollY;
+  window.scrollTo(0, y);
+  requestAnimationFrame(() => window.scrollTo(0, y));
+}
+
+function detailHistoryState(movieId) {
+  return {
+    detailMovieId: movieId,
+    appView,
+    activeCustomListId,
+    discoverTab: isDiscoverActive() ? discoverTab : null,
+    discoverPage: isDiscoverActive() ? discoverPage : null,
+  };
+}
+
 function openDetail(movieId, options = {}) {
   const id = Number(movieId);
   if (!Number.isInteger(id) || id <= 0) {
     return;
+  }
+
+  const openingOverUnderlay = detailDialog.hidden && options.pushHistory !== false;
+  if (openingOverUnderlay) {
+    captureUnderlayScroll();
   }
 
   detailMovieId = id;
@@ -1138,11 +1165,10 @@ function openDetail(movieId, options = {}) {
   detailCloseBtn.focus({ preventScroll: true });
 
   if (options.pushHistory !== false) {
-    history.pushState(
-      { detailMovieId: id, appView, activeCustomListId, discoverTab: isDiscoverActive() ? discoverTab : null },
-      "",
-      `#movie/${id}`,
-    );
+    history.pushState(detailHistoryState(id), "", `#movie/${id}`);
+  }
+  if (openingOverUnderlay) {
+    restoreUnderlayScroll();
   }
 
   if (!appTmdb.isDetailedMovieRecord(movieById.get(id))) {
@@ -1184,30 +1210,7 @@ function stepDetail(delta) {
     return;
   }
   commitDetailRating();
-  detailMovieId = ids[nextIndex];
-  detailBodyTab = "overview";
-  detailRemapCandidateId = null;
-  detailRemapQuery = "";
-  detailRemapResults = [];
-  detailRemapSearchPicker.clear();
-  detailRatingEditorOpen = false;
-  detailRatingEditorSnapshot = null;
-  detailListPickerOpen = false;
-  detailListPickerSelectedIds.clear();
-  closeDetailListsOverlay();
-  closeDetailConfigSearch();
-  history.replaceState(
-    { detailMovieId, appView, activeCustomListId, discoverTab: isDiscoverActive() ? discoverTab : null },
-    "",
-    `#movie/${detailMovieId}`,
-  );
-  renderDetail();
-  if (!appTmdb.isDetailedMovieRecord(movieById.get(detailMovieId))) {
-    hydrateMovies([detailMovieId], {
-      onRecord: applyHydratedRecord,
-      onUpdate: applyHydratedRecord,
-    });
-  }
+  openDetail(ids[nextIndex]);
 }
 
 function movieIdFromHash() {
