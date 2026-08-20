@@ -7,7 +7,7 @@
  */
 
 /** Direct Worker URL for local dev; Netlify proxies /api/backend in production. */
-const ACCOUNT_API_DIRECT = "https://cinequeue-api.alexlaviolette.workers.dev/api";
+const ACCOUNT_API_DIRECT = "https://cinequeue-api.cinequeue.workers.dev/api";
 const ACCOUNT_API_PROXIED = "/api/backend";
 
 function resolveAccountApiBase(hostname) {

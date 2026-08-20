@@ -22,3 +22,10 @@ CREATE TABLE IF NOT EXISTS friends (
   created_at INTEGER NOT NULL,
   PRIMARY KEY (user_id, friend_id)
 );
+
+-- Fixed-window counters for auth rate limits (key → count since window_start).
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key TEXT PRIMARY KEY,
+  count INTEGER NOT NULL,
+  window_start INTEGER NOT NULL
+);

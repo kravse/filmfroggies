@@ -939,13 +939,41 @@
             >
               <div id="account-auth-fields" class="account-auth-card">
                 <div class="account-auth-intro">
-                  <h4 class="account-card-title">Sign in to sync</h4>
+                  <h4 class="account-card-title" id="account-auth-title">Sign in to sync</h4>
                   <p class="sheet-note">
                     An account syncs your lists across devices and lets friends browse
                     them. Only list data is stored — never your TMDB or GitHub tokens.
                   </p>
                 </div>
-                <div class="sheet-form">
+                <div class="account-auth-tabs" role="tablist" aria-label="Account action">
+                  <button
+                    type="button"
+                    class="storage-tab account-auth-tab"
+                    id="account-auth-tab-login"
+                    role="tab"
+                    aria-selected="true"
+                    aria-controls="account-auth-form"
+                  >
+                    Log in
+                  </button>
+                  <button
+                    type="button"
+                    class="storage-tab account-auth-tab"
+                    id="account-auth-tab-signup"
+                    role="tab"
+                    aria-selected="false"
+                    aria-controls="account-auth-form"
+                    tabindex="-1"
+                  >
+                    Create account
+                  </button>
+                </div>
+                <div
+                  id="account-auth-form"
+                  class="sheet-form account-auth-form"
+                  role="tabpanel"
+                  aria-labelledby="account-auth-tab-login"
+                >
                   <label class="sheet-field" for="account-email-input">
                     <span class="sheet-field-label">Email</span>
                     <input
@@ -953,7 +981,7 @@
                       class="sheet-field-input"
                       id="account-email-input"
                       placeholder="you@example.com"
-                      autocomplete="email"
+                      autocomplete="username"
                       spellcheck="false"
                     />
                   </label>
@@ -963,17 +991,14 @@
                       type="password"
                       class="sheet-field-input"
                       id="account-password-input"
-                      placeholder="At least 8 characters"
+                      placeholder="Your password"
                       autocomplete="current-password"
                     />
                   </label>
                 </div>
                 <div class="storage-panel-actions account-auth-actions">
-                  <button type="button" id="account-login" class="primary-btn">
+                  <button type="button" id="account-submit" class="primary-btn">
                     Log in
-                  </button>
-                  <button type="button" id="account-signup" class="ghost-btn">
-                    Create account
                   </button>
                 </div>
                 <span class="status-text" id="account-status"></span>
@@ -997,6 +1022,19 @@
                   </button>
                 </div>
                 <span class="status-text" id="account-sync-status"></span>
+                <div class="account-danger-zone">
+                  <p class="sheet-note">
+                    Delete your server account and cloud copy of your lists. Your lists
+                    on this device stay here; friends will no longer see your lists.
+                  </p>
+                  <button
+                    type="button"
+                    id="account-delete"
+                    class="ghost-btn account-delete-btn"
+                  >
+                    Delete account…
+                  </button>
+                </div>
               </div>
 
               <div id="account-friends-section" class="account-friends-section" hidden>
@@ -1621,6 +1659,45 @@
           </button>
           <button type="button" id="backup-restore-ok" class="primary-btn">
             Restore
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="account-delete-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
+      <div class="sheet-backdrop" data-close-account-delete></div>
+      <div
+        class="sheet-panel confirm-panel"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="account-delete-title"
+        aria-describedby="account-delete-message"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="account-delete-title">Delete account</h2>
+        </div>
+        <div class="sheet-scroll">
+          <p id="account-delete-message" class="confirm-message">
+            This permanently removes your login and the cloud copy of your lists.
+            Lists on this device are not deleted. Enter your password to confirm.
+          </p>
+          <label class="sheet-field" for="account-delete-password">
+            <span class="sheet-field-label">Password</span>
+            <input
+              type="password"
+              class="sheet-field-input"
+              id="account-delete-password"
+              autocomplete="current-password"
+            />
+          </label>
+          <span class="status-text" id="account-delete-status"></span>
+        </div>
+        <div class="confirm-actions">
+          <button type="button" id="account-delete-cancel" class="ghost-btn">
+            Cancel
+          </button>
+          <button type="button" id="account-delete-ok" class="primary-btn confirm-danger">
+            Delete account
           </button>
         </div>
       </div>

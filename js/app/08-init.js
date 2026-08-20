@@ -540,14 +540,28 @@ storageTabAccount.addEventListener("click", () => onStorageModeChange("account")
 gistConnectBtn.addEventListener("click", onConnectGist);
 gistClearBtn.addEventListener("click", onDisconnectGist);
 gistBackupList?.addEventListener("click", onGistBackupListClick);
-accountLoginBtn.addEventListener("click", () => onAccountAuth("login"));
-accountSignupBtn.addEventListener("click", () => onAccountAuth("signup"));
+accountAuthTabLogin.addEventListener("click", () => setAccountAuthMode("login"));
+accountAuthTabSignup.addEventListener("click", () => setAccountAuthMode("signup"));
+accountSubmitBtn.addEventListener("click", onAccountAuth);
 accountPasswordInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
-    onAccountAuth("login");
+    onAccountAuth();
   }
 });
 accountLogoutBtn.addEventListener("click", onAccountLogout);
+accountDeleteBtn.addEventListener("click", openAccountDeleteConfirm);
+accountDeleteCancel.addEventListener("click", closeAccountDeleteConfirm);
+accountDeleteOk.addEventListener("click", onAccountDeleteConfirm);
+accountDeleteDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-account-delete")) {
+    closeAccountDeleteConfirm();
+  }
+});
+accountDeletePassword.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    onAccountDeleteConfirm();
+  }
+});
 friendAddBtn.addEventListener("click", onAddFriend);
 friendsList.addEventListener("click", onFriendsListClick);
 friendViewClose.addEventListener("click", closeFriendView);

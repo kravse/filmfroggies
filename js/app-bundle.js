@@ -130,9 +130,18 @@ const accountSessionName = document.getElementById("account-session-name");
 const accountSessionEmail = document.getElementById("account-session-email");
 const accountEmailInput = document.getElementById("account-email-input");
 const accountPasswordInput = document.getElementById("account-password-input");
-const accountLoginBtn = document.getElementById("account-login");
-const accountSignupBtn = document.getElementById("account-signup");
+const accountAuthTitle = document.getElementById("account-auth-title");
+const accountAuthTabLogin = document.getElementById("account-auth-tab-login");
+const accountAuthTabSignup = document.getElementById("account-auth-tab-signup");
+const accountAuthForm = document.getElementById("account-auth-form");
+const accountSubmitBtn = document.getElementById("account-submit");
 const accountLogoutBtn = document.getElementById("account-logout");
+const accountDeleteBtn = document.getElementById("account-delete");
+const accountDeleteDialog = document.getElementById("account-delete-dialog");
+const accountDeletePassword = document.getElementById("account-delete-password");
+const accountDeleteStatus = document.getElementById("account-delete-status");
+const accountDeleteCancel = document.getElementById("account-delete-cancel");
+const accountDeleteOk = document.getElementById("account-delete-ok");
 const accountStatus = document.getElementById("account-status");
 const accountSyncStatus = document.getElementById("account-sync-status");
 const accountFriendsSection = document.getElementById("account-friends-section");
@@ -5431,7 +5440,7 @@ const appAccountSync = (function () {
    */
 
   /** Direct Worker URL for local dev; Netlify proxies /api/backend in production. */
-  const ACCOUNT_API_DIRECT = "https://cinequeue-api.alexlaviolette.workers.dev/api";
+  const ACCOUNT_API_DIRECT = "https://cinequeue-api.cinequeue.workers.dev/api";
   const ACCOUNT_API_PROXIED = "/api/backend";
 
   function resolveAccountApiBase(hostname) {
@@ -7285,6 +7294,15 @@ async function connectAccount(mode, email, password) {
       auth: false,
       body: { email, password },
     });
+    if (!body?.token || !body?.user?.id) {
+      return {
+        ok: false,
+        error:
+          mode === "signup"
+            ? "Could not create that account. Try logging in if you already have one."
+            : "Could not sign in. Check your email and password.",
+      };
+    }
     saveAccountConfig({
       token: body.token,
       email: body.user.email,
@@ -7305,6 +7323,13 @@ function disconnectAccount() {
   saveAccountConfig(null);
   userState = { ...userState, storageMode: "local" };
   writeUserStateToStorage();
+}
+
+async function deleteRemoteAccount(password) {
+  return accountRequest("/account", {
+    method: "DELETE",
+    body: { password },
+  });
 }
 
 /* Friends: thin wrappers, the dialog layer owns rendering and status text. */
@@ -11503,6 +11528,25 @@ function accountDisplayInitial(config) {
   return source.charAt(0).toUpperCase() || "?";
 }
 
+let accountAuthMode = "login";
+
+function setAccountAuthMode(mode) {
+  accountAuthMode = mode === "signup" ? "signup" : "login";
+  const loginSelected = accountAuthMode === "login";
+  accountAuthTabLogin.setAttribute("aria-selected", loginSelected ? "true" : "false");
+  accountAuthTabLogin.tabIndex = loginSelected ? 0 : -1;
+  accountAuthTabSignup.setAttribute("aria-selected", loginSelected ? "false" : "true");
+  accountAuthTabSignup.tabIndex = loginSelected ? -1 : 0;
+  accountAuthForm?.setAttribute(
+    "aria-labelledby",
+    loginSelected ? "account-auth-tab-login" : "account-auth-tab-signup",
+  );
+  accountSubmitBtn.textContent = loginSelected ? "Log in" : "Create account";
+  accountAuthTitle.textContent = loginSelected ? "Sign in to sync" : "Create an account";
+  accountPasswordInput.placeholder = loginSelected ? "Your password" : "At least 8 characters";
+  accountPasswordInput.autocomplete = loginSelected ? "current-password" : "new-password";
+}
+
 function refreshSettings() {
   tmdbKeyInput.value = "";
   setStatus(
@@ -11718,22 +11762,39 @@ function refreshAccountSection() {
     setStatus(accountStatus, "", null);
     refreshFriendsList();
   } else {
-    setStatus(accountStatus, "Not signed in.", null);
+    setAccountAuthMode("login");
+    setStatus(accountStatus, "", null);
     setStatus(accountSyncStatus, "", null);
     friendsList.innerHTML = "";
   }
 }
 
-async function onAccountAuth(mode) {
+async function onAccountAuth() {
+  const mode = accountAuthMode;
   const email = accountEmailInput.value.trim();
   const password = accountPasswordInput.value;
+  if (!email) {
+    setStatus(accountStatus, "Enter your email first.", "error");
+    accountEmailInput.focus({ preventScroll: true });
+    return;
+  }
+  if (!password) {
+    setStatus(accountStatus, "Enter your password first.", "error");
+    accountPasswordInput.focus({ preventScroll: true });
+    return;
+  }
   setStatus(accountStatus, mode === "signup" ? "Creating account…" : "Logging in…", null);
-  accountLoginBtn.disabled = true;
-  accountSignupBtn.disabled = true;
+  accountSubmitBtn.disabled = true;
+  accountAuthTabLogin.disabled = true;
+  accountAuthTabSignup.disabled = true;
   try {
     const result = await connectAccount(mode, email, password);
     if (!result.ok) {
-      setStatus(accountStatus, result.error, "error");
+      const message =
+        mode === "signup" && /already have one/i.test(result.error)
+          ? `${result.error} Switch to Log in above.`
+          : result.error;
+      setStatus(accountStatus, message, "error");
       return;
     }
     accountPasswordInput.value = "";
@@ -11742,14 +11803,53 @@ async function onAccountAuth(mode) {
     render();
     hydrateActiveList();
   } finally {
-    accountLoginBtn.disabled = false;
-    accountSignupBtn.disabled = false;
+    accountSubmitBtn.disabled = false;
+    accountAuthTabLogin.disabled = false;
+    accountAuthTabSignup.disabled = false;
   }
 }
 
 function onAccountLogout() {
   disconnectAccount();
   refreshSettings();
+}
+
+function openAccountDeleteConfirm() {
+  accountDeletePassword.value = "";
+  setStatus(accountDeleteStatus, "", null);
+  accountDeleteDialog.hidden = false;
+  accountDeletePassword.focus({ preventScroll: true });
+}
+
+function closeAccountDeleteConfirm() {
+  accountDeleteDialog.hidden = true;
+  accountDeletePassword.value = "";
+  setStatus(accountDeleteStatus, "", null);
+}
+
+async function onAccountDeleteConfirm() {
+  const password = accountDeletePassword.value;
+  if (!password) {
+    setStatus(accountDeleteStatus, "Enter your password to confirm.", "error");
+    accountDeletePassword.focus({ preventScroll: true });
+    return;
+  }
+  accountDeleteOk.disabled = true;
+  setStatus(accountDeleteStatus, "Deleting account…", null);
+  try {
+    await deleteRemoteAccount(password);
+    closeAccountDeleteConfirm();
+    disconnectAccount();
+    refreshSettings();
+    refreshViewModeForActiveList();
+    render();
+    hydrateActiveList();
+    setStatus(accountStatus, "Account deleted. Your lists are still on this device.", "ok");
+  } catch (error) {
+    setStatus(accountDeleteStatus, error.message, "error");
+  } finally {
+    accountDeleteOk.disabled = false;
+  }
 }
 
 function friendDisplayName(friend) {
@@ -11812,9 +11912,7 @@ async function onAddFriend() {
     friendEmailInput.value = "";
     setStatus(
       friendsStatus,
-      body?.status === "accepted"
-        ? "They had already added you. You are now friends."
-        : "Request sent. They can accept it from their settings.",
+      "Request sent. If they have an account, they can accept it from their settings.",
       "ok",
     );
     refreshFriendsList();
@@ -14467,14 +14565,28 @@ storageTabAccount.addEventListener("click", () => onStorageModeChange("account")
 gistConnectBtn.addEventListener("click", onConnectGist);
 gistClearBtn.addEventListener("click", onDisconnectGist);
 gistBackupList?.addEventListener("click", onGistBackupListClick);
-accountLoginBtn.addEventListener("click", () => onAccountAuth("login"));
-accountSignupBtn.addEventListener("click", () => onAccountAuth("signup"));
+accountAuthTabLogin.addEventListener("click", () => setAccountAuthMode("login"));
+accountAuthTabSignup.addEventListener("click", () => setAccountAuthMode("signup"));
+accountSubmitBtn.addEventListener("click", onAccountAuth);
 accountPasswordInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
-    onAccountAuth("login");
+    onAccountAuth();
   }
 });
 accountLogoutBtn.addEventListener("click", onAccountLogout);
+accountDeleteBtn.addEventListener("click", openAccountDeleteConfirm);
+accountDeleteCancel.addEventListener("click", closeAccountDeleteConfirm);
+accountDeleteOk.addEventListener("click", onAccountDeleteConfirm);
+accountDeleteDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-account-delete")) {
+    closeAccountDeleteConfirm();
+  }
+});
+accountDeletePassword.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    onAccountDeleteConfirm();
+  }
+});
 friendAddBtn.addEventListener("click", onAddFriend);
 friendsList.addEventListener("click", onFriendsListClick);
 friendViewClose.addEventListener("click", closeFriendView);

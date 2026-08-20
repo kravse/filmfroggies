@@ -1739,6 +1739,25 @@ function accountDisplayInitial(config) {
   return source.charAt(0).toUpperCase() || "?";
 }
 
+let accountAuthMode = "login";
+
+function setAccountAuthMode(mode) {
+  accountAuthMode = mode === "signup" ? "signup" : "login";
+  const loginSelected = accountAuthMode === "login";
+  accountAuthTabLogin.setAttribute("aria-selected", loginSelected ? "true" : "false");
+  accountAuthTabLogin.tabIndex = loginSelected ? 0 : -1;
+  accountAuthTabSignup.setAttribute("aria-selected", loginSelected ? "false" : "true");
+  accountAuthTabSignup.tabIndex = loginSelected ? -1 : 0;
+  accountAuthForm?.setAttribute(
+    "aria-labelledby",
+    loginSelected ? "account-auth-tab-login" : "account-auth-tab-signup",
+  );
+  accountSubmitBtn.textContent = loginSelected ? "Log in" : "Create account";
+  accountAuthTitle.textContent = loginSelected ? "Sign in to sync" : "Create an account";
+  accountPasswordInput.placeholder = loginSelected ? "Your password" : "At least 8 characters";
+  accountPasswordInput.autocomplete = loginSelected ? "current-password" : "new-password";
+}
+
 function refreshSettings() {
   tmdbKeyInput.value = "";
   setStatus(
@@ -1954,22 +1973,39 @@ function refreshAccountSection() {
     setStatus(accountStatus, "", null);
     refreshFriendsList();
   } else {
-    setStatus(accountStatus, "Not signed in.", null);
+    setAccountAuthMode("login");
+    setStatus(accountStatus, "", null);
     setStatus(accountSyncStatus, "", null);
     friendsList.innerHTML = "";
   }
 }
 
-async function onAccountAuth(mode) {
+async function onAccountAuth() {
+  const mode = accountAuthMode;
   const email = accountEmailInput.value.trim();
   const password = accountPasswordInput.value;
+  if (!email) {
+    setStatus(accountStatus, "Enter your email first.", "error");
+    accountEmailInput.focus({ preventScroll: true });
+    return;
+  }
+  if (!password) {
+    setStatus(accountStatus, "Enter your password first.", "error");
+    accountPasswordInput.focus({ preventScroll: true });
+    return;
+  }
   setStatus(accountStatus, mode === "signup" ? "Creating account…" : "Logging in…", null);
-  accountLoginBtn.disabled = true;
-  accountSignupBtn.disabled = true;
+  accountSubmitBtn.disabled = true;
+  accountAuthTabLogin.disabled = true;
+  accountAuthTabSignup.disabled = true;
   try {
     const result = await connectAccount(mode, email, password);
     if (!result.ok) {
-      setStatus(accountStatus, result.error, "error");
+      const message =
+        mode === "signup" && /already have one/i.test(result.error)
+          ? `${result.error} Switch to Log in above.`
+          : result.error;
+      setStatus(accountStatus, message, "error");
       return;
     }
     accountPasswordInput.value = "";
@@ -1978,14 +2014,53 @@ async function onAccountAuth(mode) {
     render();
     hydrateActiveList();
   } finally {
-    accountLoginBtn.disabled = false;
-    accountSignupBtn.disabled = false;
+    accountSubmitBtn.disabled = false;
+    accountAuthTabLogin.disabled = false;
+    accountAuthTabSignup.disabled = false;
   }
 }
 
 function onAccountLogout() {
   disconnectAccount();
   refreshSettings();
+}
+
+function openAccountDeleteConfirm() {
+  accountDeletePassword.value = "";
+  setStatus(accountDeleteStatus, "", null);
+  accountDeleteDialog.hidden = false;
+  accountDeletePassword.focus({ preventScroll: true });
+}
+
+function closeAccountDeleteConfirm() {
+  accountDeleteDialog.hidden = true;
+  accountDeletePassword.value = "";
+  setStatus(accountDeleteStatus, "", null);
+}
+
+async function onAccountDeleteConfirm() {
+  const password = accountDeletePassword.value;
+  if (!password) {
+    setStatus(accountDeleteStatus, "Enter your password to confirm.", "error");
+    accountDeletePassword.focus({ preventScroll: true });
+    return;
+  }
+  accountDeleteOk.disabled = true;
+  setStatus(accountDeleteStatus, "Deleting account…", null);
+  try {
+    await deleteRemoteAccount(password);
+    closeAccountDeleteConfirm();
+    disconnectAccount();
+    refreshSettings();
+    refreshViewModeForActiveList();
+    render();
+    hydrateActiveList();
+    setStatus(accountStatus, "Account deleted. Your lists are still on this device.", "ok");
+  } catch (error) {
+    setStatus(accountDeleteStatus, error.message, "error");
+  } finally {
+    accountDeleteOk.disabled = false;
+  }
 }
 
 function friendDisplayName(friend) {
@@ -2048,9 +2123,7 @@ async function onAddFriend() {
     friendEmailInput.value = "";
     setStatus(
       friendsStatus,
-      body?.status === "accepted"
-        ? "They had already added you. You are now friends."
-        : "Request sent. They can accept it from their settings.",
+      "Request sent. If they have an account, they can accept it from their settings.",
       "ok",
     );
     refreshFriendsList();

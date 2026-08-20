@@ -840,6 +840,15 @@ async function connectAccount(mode, email, password) {
       auth: false,
       body: { email, password },
     });
+    if (!body?.token || !body?.user?.id) {
+      return {
+        ok: false,
+        error:
+          mode === "signup"
+            ? "Could not create that account. Try logging in if you already have one."
+            : "Could not sign in. Check your email and password.",
+      };
+    }
     saveAccountConfig({
       token: body.token,
       email: body.user.email,
@@ -860,6 +869,13 @@ function disconnectAccount() {
   saveAccountConfig(null);
   userState = { ...userState, storageMode: "local" };
   writeUserStateToStorage();
+}
+
+async function deleteRemoteAccount(password) {
+  return accountRequest("/account", {
+    method: "DELETE",
+    body: { password },
+  });
 }
 
 /* Friends: thin wrappers, the dialog layer owns rendering and status text. */

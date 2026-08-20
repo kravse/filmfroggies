@@ -330,6 +330,22 @@
   margin-bottom: 0.15rem;
 }
 
+.account-auth-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.2rem;
+  padding: 0.25rem;
+  margin-top: 0.85rem;
+  margin-bottom: 0.25rem;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.account-auth-form {
+  margin-top: 0.65rem;
+}
+
 .account-card-title {
   margin: 0 0 0.35rem;
   font-family: var(--display-font);
@@ -411,6 +427,24 @@
 .account-logout-btn {
   flex: none;
   margin-left: auto;
+}
+
+.account-danger-zone {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.account-delete-btn {
+  margin-top: 0.65rem;
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border-strong));
+}
+
+.account-delete-btn:hover {
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger);
 }
 
 .account-sync-status {

@@ -5,4 +5,4 @@ compatibility_date = "2026-08-20"
 [[d1_databases]]
 binding = "DB"
 database_name = "cinequeue"
-database_id = "1e532bd4-e1dc-4cbb-94ac-e4c355536b3f"
+database_id = "e8fd9017-45e1-4abb-aa97-32e9db8ffbf1"

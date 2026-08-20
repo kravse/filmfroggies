@@ -15,7 +15,7 @@
 
 [[redirects]]
   from = "/api/backend/*"
-  to = "https://cinequeue-api.alexlaviolette.workers.dev/api/:splat"
+  to = "https://cinequeue-api.cinequeue.workers.dev/api/:splat"
   status = 200
 
 [[headers]]
