@@ -5,6 +5,7 @@
 
 const ACCOUNT_LOGIN_HINT =
   "Sign in via Settings → Account to search TMDB and sync your lists.";
+const SITE_BRAND_NAME = "filmfroggies";
 
 /* --- DOM --- */
 

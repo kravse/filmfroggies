@@ -107,7 +107,8 @@ body.view-mode-cards .card-footer-main {
 }
 
 body.view-mode-cards .card-footer-main.is-user-rating {
-  color: #ecc068;
+  color: var(--accent);
+  font-weight: 600;
 }
 
 body.view-mode-cards .card-footer-main.is-user-rating.is-empty {

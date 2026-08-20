@@ -327,10 +327,12 @@
 
 .add-movie-detail-title {
   margin: 0 0 0.2rem;
-  font-family: var(--display-font);
+  font-family: var(--page-title-font);
   font-size: 1.15rem;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.25;
+  color: var(--page-title-color);
+  text-shadow: var(--page-title-shadow);
 }
 
 .add-movie-detail-tagline {

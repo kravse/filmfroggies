@@ -616,7 +616,7 @@ function syncHeaderViewTitle() {
     return;
   }
   if (isFriendViewActive()) {
-    customListViewTitleEl.textContent = `${friendViewName}'s lists`;
+    customListViewTitleEl.textContent = "Friends";
     customListViewTitleEl.hidden = false;
     headerTitleEl.hidden = true;
     return;
@@ -639,7 +639,7 @@ function syncHeaderViewTitle() {
     headerTitleEl.textContent = "Discover";
     return;
   }
-  headerTitleEl.textContent = isCustomListIndexActive() ? "Lists" : "CineQueue";
+  headerTitleEl.textContent = isCustomListIndexActive() ? "Lists" : SITE_BRAND_NAME;
 }
 
 function syncAccountLoginGate() {
@@ -757,7 +757,7 @@ function renderEmptyState(count) {
   emptyState.hidden = false;
   if (isCustomListDetailActive()) {
     if (!hasTmdbAccess()) {
-      emptyState.innerHTML = `<strong>Sign in to use CineQueue</strong><p class="empty-state-hint">Open Settings → Account to log in or create an account.</p>`;
+      emptyState.innerHTML = `<strong>Sign in to use ${SITE_BRAND_NAME}</strong><p class="empty-state-hint">Open Settings → Account to log in or create an account.</p>`;
       return;
     }
     emptyState.innerHTML = `<strong>This list is empty</strong>
@@ -779,7 +779,7 @@ function renderEmptyState(count) {
     return;
   }
   if (!hasTmdbAccess()) {
-    emptyState.innerHTML = `<strong>Sign in to use CineQueue</strong><p class="empty-state-hint">Open Settings → Account to log in or create an account.</p>`;
+    emptyState.innerHTML = `<strong>Sign in to use ${SITE_BRAND_NAME}</strong><p class="empty-state-hint">Open Settings → Account to log in or create an account.</p>`;
     return;
   }
   emptyState.innerHTML = `<strong>Nothing in ${appCardHtml.escapeHtml(listName)} yet</strong>

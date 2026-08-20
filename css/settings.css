@@ -46,10 +46,12 @@
 
 .sheet-toolbar h2 {
   margin: 0;
-  font-family: var(--display-font);
+  font-family: var(--page-title-font);
   font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: 0.02em;
+  color: var(--page-title-color);
+  text-shadow: var(--page-title-shadow);
 }
 
 .sheet-toolbar--with-back {

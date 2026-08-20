@@ -6,8 +6,10 @@ import {
   corsHeaders,
 } from "./src/index.js";
 
-test("DEFAULT_ALLOWED_ORIGINS includes cinequeue.org and local dev", () => {
+test("DEFAULT_ALLOWED_ORIGINS includes production sites and local dev", () => {
   assert.ok(DEFAULT_ALLOWED_ORIGINS.includes("https://cinequeue.org"));
+  assert.ok(DEFAULT_ALLOWED_ORIGINS.includes("https://filmfroggies.com"));
+  assert.ok(DEFAULT_ALLOWED_ORIGINS.includes("https://www.filmfroggies.com"));
   assert.ok(DEFAULT_ALLOWED_ORIGINS.includes("http://localhost:8743"));
   assert.ok(DEFAULT_ALLOWED_ORIGINS.includes("http://127.0.0.1:8743"));
 });

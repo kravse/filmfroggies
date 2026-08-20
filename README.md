@@ -283,7 +283,7 @@ Secrets and vars (set in Cloudflare, not committed):
 | `TMDB_READ_TOKEN` | **Yes** | v4 TMDB API Read Access Token for `GET /api/tmdb` and `POST /api/movies/batch` |
 | `ALLOWED_ORIGINS` | No | Comma-separated extra CORS origins merged with the default allowlist |
 
-Default CORS origins (hardcoded): `https://cinequeue.org`, `http://localhost:8743`, `http://127.0.0.1:8743`.
+Default CORS origins (hardcoded): `https://cinequeue.org`, `https://filmfroggies.com`, `https://www.filmfroggies.com`, `http://localhost:8743`, `http://127.0.0.1:8743`.
 
 ### Auth and limits
 

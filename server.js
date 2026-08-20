@@ -32,5 +32,5 @@ app.use(
 );
 
 app.listen(PORT, () => {
-  console.log(`CineQueue running at http://localhost:${PORT}`);
+  console.log(`filmfroggies running at http://localhost:${PORT}`);
 });

@@ -729,6 +729,14 @@ function detailMovieAllowsConfig(movieId) {
   return appLists.isWatched(userState.lists, movieId);
 }
 
+function detailHistoryTabButtonHtml(selected, countBadge, entryCount) {
+  const countLabel = entryCount > 0 ? `, ${entryCount} entries` : "";
+  return `<button type="button" class="detail-body-tab" role="tab" id="detail-tab-viewing-history" data-detail-body-tab="viewing-history" aria-selected="${selected ? "true" : "false"}" tabindex="${selected ? "0" : "-1"}" aria-label="Viewing history${countLabel}">
+    <span class="detail-body-tab-label detail-body-tab-label--long">Viewing history</span>
+    <span class="detail-body-tab-label detail-body-tab-label--short">History</span>${countBadge}
+  </button>`;
+}
+
 function detailBodyTabsHtml(movieId, record) {
   if (isDiscoverActive()) {
     return detailOverviewPanelHtml(movieId, record);
@@ -750,7 +758,7 @@ function detailBodyTabsHtml(movieId, record) {
   const configSelected = detailBodyTab === "config";
   return `<nav class="detail-body-tabs" role="tablist" aria-label="Movie detail sections">
   <button type="button" class="detail-body-tab" role="tab" id="detail-tab-overview" data-detail-body-tab="overview" aria-selected="${overviewSelected ? "true" : "false"}" tabindex="${overviewSelected ? "0" : "-1"}">Overview</button>
-  <button type="button" class="detail-body-tab" role="tab" id="detail-tab-viewing-history" data-detail-body-tab="viewing-history" aria-selected="${historySelected ? "true" : "false"}" tabindex="${historySelected ? "0" : "-1"}">Viewing history${countBadge}</button>
+  ${detailHistoryTabButtonHtml(historySelected, countBadge, entries.length)}
   <button type="button" class="detail-body-tab" role="tab" id="detail-tab-config" data-detail-body-tab="config" aria-selected="${configSelected ? "true" : "false"}" tabindex="${configSelected ? "0" : "-1"}">Config</button>
 </nav>
 <div class="detail-body-tabpanel" role="tabpanel" id="detail-panel-overview" aria-labelledby="detail-tab-overview"${overviewSelected ? "" : " hidden"}>
@@ -1733,7 +1741,7 @@ function setAccountAuthMode(mode) {
   );
   accountSubmitBtn.textContent = loginSelected ? "Log in" : "Create account";
   accountAuthTitle.textContent = loginSelected
-    ? "Sign in to use CineQueue"
+    ? `Sign in to use ${SITE_BRAND_NAME}`
     : "Create an account";
   accountPasswordInput.placeholder = loginSelected ? "Your password" : "At least 8 characters";
   accountPasswordInput.autocomplete = loginSelected ? "current-password" : "new-password";

@@ -17,9 +17,10 @@
     height: 3.5rem;
   }
 
-  .header-title {
-    font-size: 1.45rem;
-    letter-spacing: 0.04em;
+  .header-title,
+  .custom-list-view-title {
+    font-size: 1.65rem;
+    letter-spacing: 0.015em;
   }
 
   .header-subtitle {

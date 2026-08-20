@@ -8,30 +8,56 @@
   --text: #e9ebef;
   --muted: #98a1b1;
   --muted-dim: #6c7686;
-  --accent: #d4a24c;
-  --accent-dim: rgba(212, 162, 76, 0.16);
-  --accent-border: rgba(212, 162, 76, 0.45);
-  --success: #59c381;
-  --success-dim: rgba(89, 195, 129, 0.13);
-  --success-border: rgba(89, 195, 129, 0.58);
+  --accent: #82e8a8;
+  --accent-dim: rgba(89, 195, 129, 0.28);
+  --accent-surface: rgba(130, 232, 168, 0.08);
+  --accent-surface-border: rgba(130, 232, 168, 0.22);
+  --accent-border: rgba(104, 214, 145, 0.72);
+  --accent-text: #f0fade;
+  --accent-hover: rgba(89, 195, 129, 0.38);
+  --success: #62d08a;
+  --success-dim: rgba(89, 195, 129, 0.2);
+  --success-border: rgba(104, 214, 145, 0.68);
   --list-chip: #7eb0d4;
   --list-chip-dim: rgba(126, 176, 212, 0.16);
   --list-chip-border: rgba(126, 176, 212, 0.48);
   --list-chip-text: rgba(196, 224, 244, 0.95);
+  --friend-them-text: #b8e4ff;
+  --friend-them-bg: rgba(56, 148, 220, 0.26);
+  --friend-them-border: rgba(96, 176, 228, 0.44);
+  --friend-them-empty-text: rgba(184, 228, 255, 0.48);
+  --friend-them-empty-bg: rgba(56, 148, 220, 0.1);
+  --friend-mine-text: var(--accent);
+  --friend-mine-bg: rgba(89, 195, 129, 0.22);
+  --friend-mine-border: rgba(130, 232, 168, 0.32);
+  --friend-mine-empty-text: rgba(130, 232, 168, 0.5);
+  --friend-mine-empty-bg: rgba(89, 195, 129, 0.1);
+  --friend-mine-empty-border: rgba(130, 232, 168, 0.2);
+  --friend-fan-text: #f5f0dc;
+  --friend-fan-bg: rgba(240, 232, 190, 0.18);
+  --friend-fan-border: rgba(245, 238, 210, 0.34);
+  --friend-fan-empty-text: rgba(245, 240, 220, 0.46);
+  --friend-fan-empty-bg: rgba(240, 232, 190, 0.08);
+  --friend-fan-empty-border: rgba(245, 238, 210, 0.16);
   --danger: #d76b6b;
   --placeholder: #20242d;
   --skeleton-base: #1b1f27;
   --skeleton-sheen: #262b36;
 
-  --drag-glow: rgba(212, 162, 76, 0.22);
-  --drop-border: rgba(212, 162, 76, 0.7);
+  --drag-glow: rgba(89, 195, 129, 0.38);
+  --drop-border: rgba(104, 214, 145, 0.82);
 
   --ui-font:
     "DM Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --display-font:
     "Outfit", var(--ui-font);
-  --brand-font: "Big Shoulders Display", "Arial Narrow", sans-serif;
+  --brand-font: "Fredoka", "Trebuchet MS", sans-serif;
+  --page-title-font: var(--brand-font);
+  --page-title-color: var(--accent);
+  --page-title-shadow:
+    0 0 18px rgba(89, 195, 129, 0.28),
+    0 1px 0 rgba(130, 232, 168, 0.35);
   --body-font: var(--ui-font);
 
   --radius: 12px;
@@ -41,9 +67,9 @@
   --header-gap: 0.75rem;
   --floating-action-bottom: calc(3.35rem + env(safe-area-inset-bottom, 0px));
 
-  --search-field-genre-bg: rgba(212, 162, 76, 0.14);
-  --search-field-genre-border: rgba(212, 162, 76, 0.34);
-  --search-field-genre-text: rgba(232, 205, 160, 0.92);
+  --search-field-genre-bg: rgba(89, 195, 129, 0.24);
+  --search-field-genre-border: rgba(104, 214, 145, 0.52);
+  --search-field-genre-text: rgba(240, 250, 222, 0.96);
   --search-field-actor-bg: rgba(56, 168, 138, 0.14);
   --search-field-actor-border: rgba(96, 196, 168, 0.34);
   --search-field-actor-text: rgba(176, 228, 210, 0.88);

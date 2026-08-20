@@ -311,10 +311,12 @@ body.view-friends-index .empty-state {
 
 .friend-view-name {
   margin: 0 0 0.35rem;
-  font-family: var(--display-font);
+  font-family: var(--page-title-font);
   font-size: 1.35rem;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.015em;
+  color: var(--page-title-color);
+  text-shadow: var(--page-title-shadow);
 }
 
 .friend-view-lead {
@@ -396,12 +398,12 @@ body.view-friends-index .empty-state {
 }
 
 .friend-fan-ratings-toggle .toggle-switch input:checked + .toggle-switch-track {
-  background: rgba(130, 90, 210, 0.22);
-  border-color: rgba(130, 90, 210, 0.45);
+  background: var(--friend-fan-bg);
+  border-color: var(--friend-fan-border);
 }
 
 .friend-fan-ratings-toggle .toggle-switch input:checked + .toggle-switch-track::after {
-  background: #c4a8f0;
+  background: var(--friend-fan-text);
 }
 
 .friend-view-rating-legend-label {
@@ -449,23 +451,27 @@ body.view-friends-index .empty-state {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   line-height: 1;
-  letter-spacing: 0;
+  letter-spacing: 0.01em;
   white-space: nowrap;
+  border: 1px solid transparent;
 }
 
 .friend-rating-segment--them {
-  color: #b8e4ff;
-  background: rgba(56, 148, 220, 0.52);
+  color: var(--friend-them-text);
+  background: var(--friend-them-bg);
+  border-color: var(--friend-them-border);
 }
 
 .friend-rating-segment--mine {
-  color: #ffe08a;
-  background: rgba(220, 155, 40, 0.55);
+  color: var(--friend-mine-text);
+  background: var(--friend-mine-bg);
+  border-color: var(--friend-mine-border);
 }
 
 .friend-rating-segment--fan {
-  color: #dcc8ff;
-  background: rgba(130, 90, 210, 0.5);
+  color: var(--friend-fan-text);
+  background: var(--friend-fan-bg);
+  border-color: var(--friend-fan-border);
 }
 
 .friend-rating-segment.is-empty {
@@ -473,13 +479,21 @@ body.view-friends-index .empty-state {
 }
 
 .friend-rating-segment--them.is-empty {
-  color: rgba(184, 228, 255, 0.5);
-  background: rgba(56, 148, 220, 0.22);
+  color: var(--friend-them-empty-text);
+  background: var(--friend-them-empty-bg);
+  border-color: rgba(96, 176, 228, 0.18);
+}
+
+.friend-rating-segment--mine.is-empty {
+  color: var(--friend-mine-empty-text);
+  background: var(--friend-mine-empty-bg);
+  border-color: var(--friend-mine-empty-border);
 }
 
 .friend-rating-segment--fan.is-empty {
-  color: rgba(220, 200, 255, 0.5);
-  background: rgba(130, 90, 210, 0.22);
+  color: var(--friend-fan-empty-text);
+  background: var(--friend-fan-empty-bg);
+  border-color: var(--friend-fan-empty-border);
 }
 
 body.view-friend .card.card--friend {
@@ -487,12 +501,12 @@ body.view-friend .card.card--friend {
 }
 
 body.view-friend .card.card--friend.is-seen-by-you {
-  border-color: rgba(236, 192, 104, 0.9);
-  background: color-mix(in srgb, rgba(236, 192, 104, 0.16) 55%, var(--panel));
+  border-color: var(--accent-surface-border);
+  background: color-mix(in srgb, var(--accent-surface) 72%, var(--panel));
 }
 
 body.view-friend .card.card--friend.is-seen-by-you:hover {
-  border-color: rgba(236, 192, 104, 1);
+  border-color: rgba(130, 232, 168, 0.38);
 }
 
 .friend-view-message {
@@ -696,15 +710,16 @@ body.view-friend.view-mode-detail .card-body-ratings--friend {
   gap: 0.75rem;
   margin: 0 0 0.85rem;
   padding: 0.45rem 0.65rem;
-  background: var(--list-chip-dim);
-  border: 1px solid var(--list-chip-border);
+  background: var(--friend-them-empty-bg);
+  border: 1px solid var(--friend-them-border);
   border-radius: var(--radius-sm);
 }
 
 .friend-detail-note-label {
   margin: 0;
-  color: var(--list-chip-text);
+  color: var(--friend-them-text);
   font-size: 0.82rem;
+  font-weight: 600;
   line-height: 1.45;
 }
 

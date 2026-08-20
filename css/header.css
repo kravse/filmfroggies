@@ -32,30 +32,26 @@ header {
   border-radius: 4px;
   object-fit: contain;
   cursor: pointer;
-  /* Dark silhouette asset — lift to a soft mark on the dark header. */
-  filter: brightness(0) invert(0.9);
 }
 
 .header-titles {
   min-width: 0;
 }
 
-.header-title {
+.header-title,
+.custom-list-view-title {
   margin: 0;
-  font-family: var(--brand-font);
-  font-size: clamp(1.65rem, 4.5vw, 2.35rem);
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  line-height: 0.95;
-  text-transform: uppercase;
+  font-family: var(--page-title-font);
+  font-size: clamp(1.85rem, 5vw, 2.55rem);
+  font-weight: 600;
+  letter-spacing: 0.015em;
+  line-height: 1;
+  color: var(--page-title-color);
+  text-shadow: var(--page-title-shadow);
 }
 
 .custom-list-view-title {
-  margin: 0;
-  font-family: var(--display-font);
   font-size: clamp(1.85rem, 5vw, 2.35rem);
-  font-weight: 700;
-  letter-spacing: 0.01em;
   line-height: 1.1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -689,10 +685,10 @@ body.view-custom-detail .toolbar-left {
 }
 
 .reorder-toggle .toggle-switch input:checked + .toggle-switch-track {
-  background: rgba(120, 200, 150, 0.1);
-  border-color: rgba(120, 200, 150, 0.32);
+  background: var(--accent-dim);
+  border-color: var(--accent-border);
 }
 
 .reorder-toggle .toggle-switch input:checked + .toggle-switch-track::after {
-  background: rgba(120, 200, 150, 0.82);
+  background: var(--accent);
 }
