@@ -60,7 +60,31 @@ function normalizeViewingHistory(raw) {
       const entry = normalizeEntry(rawEntry);
       if (entry) byId.set(entry.id, chooseEntry(byId.get(entry.id), entry));
     }
-    if (byId.size) out[String(movieId)] = [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+    // A viewing is identified to users by its movie and calendar date. Older
+    // imports created fresh random ids for the same date, so a Gist merge could
+    // display that viewing more than once. Keep the newest active entry for a
+    // date while retaining tombstones, which stop deleted entries from being
+    // resurrected by a stale client.
+    const activeByDate = new Map();
+    const tombstones = [];
+    for (const entry of byId.values()) {
+      if (entry.deletedAt) {
+        tombstones.push(entry);
+        continue;
+      }
+      const existing = activeByDate.get(entry.watchedOn);
+      if (
+        !existing ||
+        entry.updatedAt > existing.updatedAt ||
+        (entry.updatedAt === existing.updatedAt && entry.id > existing.id)
+      ) {
+        activeByDate.set(entry.watchedOn, entry);
+      }
+    }
+    const normalized = [...activeByDate.values(), ...tombstones];
+    if (normalized.length) {
+      out[String(movieId)] = normalized.sort((a, b) => a.id.localeCompare(b.id));
+    }
   }
   return out;
 }
@@ -114,7 +138,7 @@ function mergeViewingHistory(a, b) {
     }
     merged[movieId] = [...byId.values()].sort((x, y) => x.id.localeCompare(y.id));
   }
-  return merged;
+  return normalizeViewingHistory(merged);
 }
 
 module.exports = {

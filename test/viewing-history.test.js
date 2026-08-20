@@ -35,10 +35,40 @@ test("normalization drops malformed movies and entries", () => {
   assert.deepEqual(normalizeViewingHistory({ nope: [], 42: [{ id: "", watchedOn: "2026-01-01", updatedAt: T1.toISOString() }] }), {});
 });
 
+test("normalization collapses duplicate active dates but retains tombstones", () => {
+  const history = normalizeViewingHistory({
+    42: [
+      { id: "older", watchedOn: "2026-01-01", updatedAt: T1.toISOString() },
+      { id: "newer", watchedOn: "2026-01-01", updatedAt: T2.toISOString() },
+      {
+        id: "deleted",
+        watchedOn: "2026-01-01",
+        updatedAt: T2.toISOString(),
+        deletedAt: T2.toISOString(),
+      },
+    ],
+  });
+
+  assert.deepEqual(viewingEntries(history, 42).map((entry) => entry.id), ["newer"]);
+  assert.deepEqual(
+    viewingEntries(history, 42, { includeDeleted: true }).map((entry) => entry.id),
+    ["deleted", "newer"],
+  );
+});
+
 test("merge unions concurrent viewings", () => {
   const left = addViewing({}, 42, "2026-01-01", T1, "a");
   const right = addViewing({}, 42, "2026-02-02", T2, "b");
   assert.deepEqual(viewingEntries(mergeViewingHistory(left, right), 42).map((x) => x.id), ["b", "a"]);
+});
+
+test("merge collapses duplicate dates created with different ids", () => {
+  const left = addViewing({}, 42, "2026-01-01", T1, "older");
+  const right = addViewing({}, 42, "2026-01-01", T2, "newer");
+  assert.deepEqual(
+    viewingEntries(mergeViewingHistory(left, right), 42).map((entry) => entry.id),
+    ["newer"],
+  );
 });
 
 test("newer edits win and deletions win timestamp ties", () => {
