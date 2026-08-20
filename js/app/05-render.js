@@ -686,7 +686,7 @@ function renderEmptyState(count) {
     hasActiveListSearch()
   ) {
     emptyState.innerHTML = `<strong>No matches</strong>
-<p class="empty-state-hint">Try a different title, director, genre, actor, or year.</p>`;
+<p class="empty-state-hint">Try a different title, or director:, genre:, actor:, or year.</p>`;
     return;
   }
   if (!hasTmdbAccess()) {

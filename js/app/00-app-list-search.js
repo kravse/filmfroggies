@@ -12,7 +12,7 @@ const appListSearch = (function () {
   }
 
   function emptyFieldTerms() {
-    return { genre: [], actor: [], year: [] };
+    return { genre: [], actor: [], director: [], year: [] };
   }
 
   function emptySearchFilter() {
@@ -192,25 +192,45 @@ const appListSearch = (function () {
     return match ? parseInt(match[0], 10) : null;
   }
 
+  function tokenizeSearchText(text) {
+    return String(text || "")
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean);
+  }
+
   function ensureSearchHaystack(movie) {
-    if (!movie || movie._searchHaystack) {
+    if (!movie || movie._titleTokens) {
       return;
     }
     const year = movieReleaseYear(movie);
     const decade = year != null ? decadeFromYear(year) : "";
     movie._decadeLabel = decade;
-    movie._searchHaystack = [
-      movie.title,
-      ...(Array.isArray(movie.directors) ? movie.directors : []),
-      ...(Array.isArray(movie.cast) ? movie.cast : []),
-      ...(Array.isArray(movie.genres) ? movie.genres : []),
-      movie.releaseDate,
-      decade,
-      year != null ? String(year) : "",
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
+    movie._titleTokens = tokenizeSearchText(movie.title);
+  }
+
+  function movieMatchesTitleTerms(movie, terms) {
+    if (!terms || terms.length === 0) {
+      return true;
+    }
+    ensureSearchHaystack(movie);
+    const unused = (movie._titleTokens || []).slice();
+    let usedAToken = false;
+    for (const term of terms) {
+      const tokens = tokenizeSearchText(term);
+      if (!tokens.length) {
+        continue;
+      }
+      usedAToken = true;
+      for (const token of tokens) {
+        const index = unused.findIndex((word) => word.startsWith(token));
+        if (index === -1) {
+          return false;
+        }
+        unused.splice(index, 1);
+      }
+    }
+    return usedAToken;
   }
 
   const GENRE_FIELD = {
@@ -291,6 +311,51 @@ const appListSearch = (function () {
       const values = [];
       for (const movie of movies || []) {
         for (const label of Array.isArray(movie?.cast) ? movie.cast : []) {
+          const key = this.labelKey(label);
+          if (!key || seen.has(key)) {
+            continue;
+          }
+          seen.add(key);
+          values.push(String(label).trim());
+        }
+      }
+      return values.sort((a, b) => this.labelKey(a).localeCompare(this.labelKey(b)));
+    },
+  };
+
+  const DIRECTOR_FIELD = {
+    key: "director",
+    prefix: "director",
+    suppressTextOnLiteralPrefix: false,
+    chipAriaPrefix: "director",
+    labelKey: normalizePersonKey,
+    formatQuery(label) {
+      return formatFieldSearchQuery("director", label);
+    },
+    formatLabel(raw, knownValues) {
+      const needle = this.labelKey(raw);
+      if (!needle) {
+        return null;
+      }
+      for (const label of knownValues || []) {
+        if (this.labelKey(label) === needle) {
+          return String(label).trim();
+        }
+      }
+      return String(raw || "").trim() || null;
+    },
+    matchMovie(movie, term) {
+      if (!term) {
+        return true;
+      }
+      const directors = Array.isArray(movie?.directors) ? movie.directors : [];
+      return directors.some((name) => this.labelKey(name).includes(term));
+    },
+    collectValues(movies) {
+      const seen = new Set();
+      const values = [];
+      for (const movie of movies || []) {
+        for (const label of Array.isArray(movie?.directors) ? movie.directors : []) {
           const key = this.labelKey(label);
           if (!key || seen.has(key)) {
             continue;
@@ -451,7 +516,7 @@ const appListSearch = (function () {
     return false;
   }
 
-  const SEARCH_FIELD_TYPES = [GENRE_FIELD, ACTOR_FIELD, YEAR_FIELD];
+  const SEARCH_FIELD_TYPES = [GENRE_FIELD, ACTOR_FIELD, DIRECTOR_FIELD, YEAR_FIELD];
 
   function getActiveDraftField(draftQuery) {
     const text = String(draftQuery || "").trim();
@@ -525,6 +590,7 @@ const appListSearch = (function () {
     const seen = {
       genre: new Set(),
       actor: new Set(),
+      director: new Set(),
       year: new Set(),
     };
 
@@ -586,7 +652,7 @@ const appListSearch = (function () {
         return String(label).trim();
       }
     }
-    if (field.key === "year" || field.key === "actor") {
+    if (field.key === "year" || field.key === "actor" || field.key === "director") {
       const matches = (knownValues || []).filter((label) => {
         if (field.matchesSuggestion) {
           return field.matchesSuggestion.call(field, needle, label);
@@ -655,6 +721,7 @@ const appListSearch = (function () {
         fieldTerms: {
           genre: [...(filter.fieldTerms.genre || [])],
           actor: [...(filter.fieldTerms.actor || [])],
+          director: [...(filter.fieldTerms.director || [])],
           year: [...(filter.fieldTerms.year || [])],
         },
         textTerms: [...(filter.textTerms || [])],
@@ -697,14 +764,7 @@ const appListSearch = (function () {
       }
     }
 
-    ensureSearchHaystack(movie);
-    const haystack = movie._searchHaystack || "";
-    for (const term of yearDecadeCriteria.otherTextTerms) {
-      if (!haystack.includes(term)) {
-        return false;
-      }
-    }
-    return true;
+    return movieMatchesTitleTerms(movie, yearDecadeCriteria.otherTextTerms);
   }
 
   function filterMoviesMatchingFieldTerms(movies, fieldTermsPartial) {

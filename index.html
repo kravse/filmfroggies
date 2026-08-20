@@ -112,7 +112,7 @@
                 type="search"
                 id="list-search"
                 enterkeyhint="search"
-                placeholder="Filter watched — title, director, genre:horror, actor:name, 19…"
+                placeholder="Filter watched — title, director:name, genre:horror, actor:name, 19…"
                 autocomplete="off"
                 autocapitalize="off"
                 autocorrect="off"
@@ -1073,8 +1073,67 @@
         </div>
         <div class="movie-detail-actions" id="movie-detail-actions"></div>
       </div>
+      <ul
+        id="detail-config-results"
+        class="search-suggest detail-config-results"
+        hidden
+        role="listbox"
+        aria-label="TMDB movie results"
+      ></ul>
     </div>
 
+    </div>
+
+    <!-- Config movie search (mobile overlay) -->
+    <div id="detail-config-search-dialog" class="sheet-dialog sheet-dialog--stacked detail-config-search-dialog" hidden>
+      <div class="sheet-backdrop" data-close-detail-config-search></div>
+      <div
+        class="sheet-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="detail-config-search-title"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="detail-config-search-title">Search</h2>
+          <button
+            type="button"
+            id="detail-config-search-close"
+            class="icon-btn"
+            aria-label="Close search"
+          >
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none">
+              <path
+                d="M6 6l8 8M14 6l-8 8"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+        <div class="detail-config-search-bar">
+          <input
+            id="detail-config-search-query"
+            type="search"
+            placeholder="Search by movie title."
+            aria-label="Search by movie title."
+            autocomplete="off"
+            aria-controls="detail-config-search-results"
+            aria-expanded="false"
+          />
+          <span class="search-spinner" id="detail-config-search-spinner" hidden aria-hidden="true"></span>
+        </div>
+        <p class="detail-config-search-status" id="detail-config-search-status" aria-live="polite"></p>
+        <div class="sheet-scroll detail-config-search-scroll">
+          <ul
+            id="detail-config-search-results"
+            class="search-suggest detail-config-search-results"
+            hidden
+            role="listbox"
+            aria-label="TMDB movie results"
+          ></ul>
+        </div>
+      </div>
     </div>
 
     <!-- Detail lists editor (mobile overlay) -->

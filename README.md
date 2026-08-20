@@ -69,8 +69,8 @@ Click any card to open the detail overlay — poster, year, runtime, genres, fan
 
 When Watched has hydrated movies, a filter bar appears below the header. It is display-only and does not change stored order.
 
-- Plain words match title, director, cast, and genres
-- `genre:horror`, `actor:name`, `year:1980s` (or trailing `19…` while typing)
+- Plain words match title words (each query word needs its own title word)
+- `genre:horror`, `actor:name`, `director:name`, `year:1980s` (or trailing `19…` while typing)
 - Multiple chips combine as AND filters
 
 ### Custom lists

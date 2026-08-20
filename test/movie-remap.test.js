@@ -28,3 +28,17 @@ test("remapMovieState refuses collisions and invalid replacements", () => {
   assert.throws(() => remapMovieState(state, 1, 2, NOW), /already/);
   assert.throws(() => remapMovieState(state, 1, 1, NOW), /different/);
 });
+
+test("remapMovieState refuses movies that are not watched", () => {
+  const watchlistOnly = {
+    lists: [{ id: "watched", movieIds: [] }, { id: "watchlist", movieIds: [1] }],
+    customLists: [{ id: "custom-faves", name: "Faves", movieIds: [1], updatedAt: "2020-01-01T00:00:00.000Z" }],
+  };
+  assert.throws(() => remapMovieState(watchlistOnly, 1, 9, NOW), /watched/);
+
+  const customOnly = {
+    lists: [{ id: "watched", movieIds: [] }, { id: "watchlist", movieIds: [] }],
+    customLists: [{ id: "custom-faves", name: "Faves", movieIds: [1], updatedAt: "2020-01-01T00:00:00.000Z" }],
+  };
+  assert.throws(() => remapMovieState(customOnly, 1, 9, NOW), /watched/);
+});

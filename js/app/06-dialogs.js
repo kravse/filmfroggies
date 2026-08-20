@@ -526,6 +526,14 @@ ${detailUserRatingBlockHtml(movieId)}
 ${detailListsBlockHtml(movieId)}`;
 }
 
+function detailConfigSearchUsesOverlay() {
+  return window.matchMedia("(max-width: 640px)").matches;
+}
+
+function isDetailConfigSearchOpen() {
+  return Boolean(detailConfigSearchDialog && !detailConfigSearchDialog.hidden);
+}
+
 function detailConfigPanelHtml(movieId) {
   const candidate = detailRemapCandidateId == null
     ? null
@@ -536,48 +544,161 @@ function detailConfigPanelHtml(movieId) {
         <button type="button" id="detail-remap-confirm">Use this movie</button>
       </div>`
     : "";
-  const resultsHtml = !candidate && detailRemapResults.length
-    ? `<ul class="search-suggest detail-config-results" role="listbox" aria-label="TMDB movie results">
-        ${appMovieSearchPicker.movieSearchResultsHtml(detailRemapResults, {
-          escapeHtml: appCardHtml.escapeHtml,
-          dataName: "detail-remap-result-id",
-          dataValue: (result) => result.id,
-          posterUrl: (result) => appTmdb.buildImageUrl(result.posterPath, appTmdb.POSTER_SIZES.suggest),
-          meta: (result) => appCardHtml.formatYear(result.releaseDate) || "Year unknown",
-          badge(result) {
-            const statusId = appLists.primaryListIdForMovie(userState.lists, result.id);
-            const status = statusId ? appLists.findList(userState.lists, statusId) : null;
-            return status
-              ? `<span class="search-suggest-added">In ${appCardHtml.escapeHtml(status.name)}</span>`
-              : "";
-          },
-        })}
-      </ul>`
-    : "";
+  const findHtml = detailConfigSearchUsesOverlay()
+    ? `<button type="button" class="detail-config-search-open" id="detail-remap-open-search">${candidate ? "Search again" : "Search"}</button>`
+    : `<div class="detail-config-find">
+      <input id="detail-remap-query" type="search" value="${appCardHtml.escapeHtml(detailRemapQuery)}" placeholder="Search by movie title." aria-label="Search by movie title." autocomplete="off" aria-controls="detail-config-results" aria-expanded="false">
+      <span class="search-spinner" id="detail-remap-spinner" hidden aria-hidden="true"></span>
+    </div>`;
   return `<section class="detail-config">
     <h3>Linked movie</h3>
     <p>Replace TMDB movie <strong>#${movieId}</strong> while keeping its lists, rating, and viewing history.</p>
-    <div class="detail-config-find">
-      <input id="detail-remap-query" type="search" value="${appCardHtml.escapeHtml(detailRemapQuery)}" placeholder="Search TMDB by title" aria-label="Replacement movie title" autocomplete="off">
-      <span class="search-spinner" id="detail-remap-spinner" hidden aria-hidden="true"></span>
-      ${resultsHtml}
-    </div>
+    ${findHtml}
     <p class="detail-config-status" id="detail-remap-status" aria-live="polite"></p>
     ${candidateHtml}
   </section>`;
+}
+
+function detailConfigResultsHtml() {
+  return appMovieSearchPicker.movieSearchResultsHtml(detailRemapResults, {
+    escapeHtml: appCardHtml.escapeHtml,
+    dataName: "detail-remap-result-id",
+    dataValue: (result) => result.id,
+    posterUrl: (result) => appTmdb.buildImageUrl(result.posterPath, appTmdb.POSTER_SIZES.suggest),
+    meta: (result) => appCardHtml.formatYear(result.releaseDate) || "Year unknown",
+    badge(result) {
+      const statusId = appLists.primaryListIdForMovie(userState.lists, result.id);
+      const status = statusId ? appLists.findList(userState.lists, statusId) : null;
+      return status
+        ? `<span class="search-suggest-added">In ${appCardHtml.escapeHtml(status.name)}</span>`
+        : "";
+    },
+  });
+}
+
+function hideDetailConfigResults() {
+  if (detailConfigResultsEl) {
+    detailConfigResultsEl.hidden = true;
+    detailConfigResultsEl.innerHTML = "";
+  }
+  document.getElementById("detail-remap-query")?.setAttribute("aria-expanded", "false");
+}
+
+function hideDetailConfigSearchResults() {
+  if (!detailConfigSearchResults) return;
+  detailConfigSearchResults.hidden = true;
+  detailConfigSearchResults.innerHTML = "";
+  detailConfigSearchQuery?.setAttribute("aria-expanded", "false");
+}
+
+function positionDetailConfigResults() {
+  if (detailConfigSearchUsesOverlay()) return;
+  const list = detailConfigResultsEl;
+  const anchor = document.querySelector(".detail-config-find");
+  if (!list || list.hidden || !anchor) return;
+  const rect = anchor.getBoundingClientRect();
+  const gap = 6;
+  const spaceBelow = window.innerHeight - rect.bottom - 12;
+  const maxHeight = Math.min(360, Math.max(120, spaceBelow));
+  list.style.top = `${Math.round(rect.bottom + gap)}px`;
+  list.style.left = `${Math.round(rect.left)}px`;
+  list.style.width = `${Math.round(rect.width)}px`;
+  list.style.maxHeight = `${maxHeight}px`;
+}
+
+function fillDetailConfigResultList(list, input) {
+  if (!list) return;
+  const show =
+    detailMovieId != null &&
+    detailBodyTab === "config" &&
+    detailRemapCandidateId == null &&
+    detailRemapResults.length > 0 &&
+    detailMovieAllowsConfig(detailMovieId);
+  if (!show) {
+    list.hidden = true;
+    list.innerHTML = "";
+    input?.setAttribute("aria-expanded", "false");
+    return;
+  }
+  list.innerHTML = detailConfigResultsHtml();
+  list.hidden = false;
+  input?.setAttribute("aria-expanded", "true");
+  bindPosterImages(list);
+}
+
+function syncDetailConfigSearchOverlayResults() {
+  fillDetailConfigResultList(detailConfigSearchResults, detailConfigSearchQuery);
+}
+
+function syncDetailConfigResults() {
+  if (detailConfigSearchUsesOverlay()) {
+    hideDetailConfigResults();
+    if (isDetailConfigSearchOpen()) {
+      syncDetailConfigSearchOverlayResults();
+    }
+    return;
+  }
+  hideDetailConfigSearchResults();
+  if (!detailConfigResultsEl) return;
+  fillDetailConfigResultList(
+    detailConfigResultsEl,
+    document.getElementById("detail-remap-query"),
+  );
+  positionDetailConfigResults();
+}
+
+function setDetailConfigSearchStatus(message) {
+  if (detailConfigSearchStatus) {
+    detailConfigSearchStatus.textContent = message || "";
+  }
+  const inlineStatus = document.getElementById("detail-remap-status");
+  if (inlineStatus && !isDetailConfigSearchOpen()) {
+    inlineStatus.textContent = message || "";
+  }
+}
+
+function openDetailConfigSearch() {
+  if (
+    !detailConfigSearchUsesOverlay() ||
+    detailMovieId == null ||
+    !detailMovieAllowsConfig(detailMovieId) ||
+    !detailConfigSearchDialog
+  ) {
+    return;
+  }
+  if (detailConfigSearchQuery) {
+    detailConfigSearchQuery.value = detailRemapQuery;
+  }
+  detailConfigSearchDialog.hidden = false;
+  syncDetailConfigSearchOverlayResults();
+  detailConfigSearchQuery?.focus({ preventScroll: true });
+}
+
+function closeDetailConfigSearch() {
+  if (!detailConfigSearchDialog || detailConfigSearchDialog.hidden) {
+    return;
+  }
+  detailConfigSearchDialog.hidden = true;
+  hideDetailConfigSearchResults();
+  setDetailConfigSearchStatus("");
+}
+
+function detailMovieAllowsConfig(movieId) {
+  return appLists.isWatched(userState.lists, movieId);
 }
 
 function detailBodyTabsHtml(movieId, record) {
   if (isDiscoverActive()) {
     return detailOverviewPanelHtml(movieId, record);
   }
-  const showHistory = appLists.isWatched(userState.lists, movieId);
-  if (!showHistory && detailBodyTab === "viewing-history") {
+  const showExtraTabs = detailMovieAllowsConfig(movieId);
+  if (!showExtraTabs && (detailBodyTab === "viewing-history" || detailBodyTab === "config")) {
     detailBodyTab = "overview";
   }
-  const entries = showHistory
-    ? appViewingHistory.viewingEntries(userState.viewingHistory, movieId)
-    : [];
+  if (!showExtraTabs) {
+    return detailOverviewPanelHtml(movieId, record);
+  }
+  const entries = appViewingHistory.viewingEntries(userState.viewingHistory, movieId);
   const countBadge =
     entries.length > 0
       ? `<span class="detail-body-tab-count">${entries.length}</span>`
@@ -585,23 +706,17 @@ function detailBodyTabsHtml(movieId, record) {
   const overviewSelected = detailBodyTab === "overview";
   const historySelected = detailBodyTab === "viewing-history";
   const configSelected = detailBodyTab === "config";
-  const historyTab = showHistory
-    ? `<button type="button" class="detail-body-tab" role="tab" id="detail-tab-viewing-history" data-detail-body-tab="viewing-history" aria-selected="${historySelected ? "true" : "false"}" tabindex="${historySelected ? "0" : "-1"}">Viewing history${countBadge}</button>`
-    : "";
-  const historyPanel = showHistory
-    ? `<div class="detail-body-tabpanel" role="tabpanel" id="detail-panel-viewing-history" aria-labelledby="detail-tab-viewing-history"${historySelected ? "" : " hidden"}>
-${detailViewingHistoryHtml(movieId)}
-</div>`
-    : "";
   return `<nav class="detail-body-tabs" role="tablist" aria-label="Movie detail sections">
   <button type="button" class="detail-body-tab" role="tab" id="detail-tab-overview" data-detail-body-tab="overview" aria-selected="${overviewSelected ? "true" : "false"}" tabindex="${overviewSelected ? "0" : "-1"}">Overview</button>
-  ${historyTab}
+  <button type="button" class="detail-body-tab" role="tab" id="detail-tab-viewing-history" data-detail-body-tab="viewing-history" aria-selected="${historySelected ? "true" : "false"}" tabindex="${historySelected ? "0" : "-1"}">Viewing history${countBadge}</button>
   <button type="button" class="detail-body-tab" role="tab" id="detail-tab-config" data-detail-body-tab="config" aria-selected="${configSelected ? "true" : "false"}" tabindex="${configSelected ? "0" : "-1"}">Config</button>
 </nav>
 <div class="detail-body-tabpanel" role="tabpanel" id="detail-panel-overview" aria-labelledby="detail-tab-overview"${overviewSelected ? "" : " hidden"}>
 ${detailOverviewPanelHtml(movieId, record)}
 </div>
-${historyPanel}
+<div class="detail-body-tabpanel" role="tabpanel" id="detail-panel-viewing-history" aria-labelledby="detail-tab-viewing-history"${historySelected ? "" : " hidden"}>
+${detailViewingHistoryHtml(movieId)}
+</div>
 <div class="detail-body-tabpanel" role="tabpanel" id="detail-panel-config" aria-labelledby="detail-tab-config"${configSelected ? "" : " hidden"}>
 ${detailConfigPanelHtml(movieId)}
 </div>`;
@@ -613,8 +728,8 @@ function setDetailBodyTab(tab) {
   }
   const next = tab === "viewing-history" || tab === "config" ? tab : "overview";
   if (
-    next === "viewing-history" &&
-    (detailMovieId == null || !appLists.isWatched(userState.lists, detailMovieId))
+    (next === "viewing-history" || next === "config") &&
+    (detailMovieId == null || !detailMovieAllowsConfig(detailMovieId))
   ) {
     return;
   }
@@ -627,6 +742,7 @@ function setDetailBodyTab(tab) {
   detailBodyTab = next;
   if (next !== "config") {
     detailRemapCandidateId = null;
+    closeDetailConfigSearch();
   }
   renderDetail();
 }
@@ -635,64 +751,63 @@ const detailRemapSearchPicker = appMovieSearchPicker.createMovieSearchPicker({
   search: searchMovies,
   debounceMs: SEARCH_DEBOUNCE_MS,
   onBusy(busy) {
-    const spinner = document.getElementById("detail-remap-spinner");
-    if (spinner) spinner.hidden = !busy;
-    const status = document.getElementById("detail-remap-status");
-    if (status && busy) status.textContent = "Searching TMDB…";
+    const inlineSpinner = document.getElementById("detail-remap-spinner");
+    if (inlineSpinner) inlineSpinner.hidden = !busy;
+    if (detailConfigSearchSpinner) detailConfigSearchSpinner.hidden = !busy;
+    if (busy) setDetailConfigSearchStatus("Searching TMDB…");
   },
   onResults(results) {
     if (detailMovieId == null) return;
     detailRemapResults = results
       .filter((result) => result.id !== detailMovieId)
       .slice(0, 8);
-    renderDetail();
-    bindPosterImages(detailBody);
-    const nextStatus = document.getElementById("detail-remap-status");
-    if (nextStatus && !detailRemapResults.length) {
-      nextStatus.textContent = "No TMDB movies matched that title.";
-    }
-    const nextInput = document.getElementById("detail-remap-query");
-    nextInput?.focus({ preventScroll: true });
-    nextInput?.setSelectionRange(nextInput.value.length, nextInput.value.length);
+    syncDetailConfigResults();
+    setDetailConfigSearchStatus(
+      detailRemapResults.length ? "" : "No TMDB movies matched that title.",
+    );
   },
   onError() {
-    const status = document.getElementById("detail-remap-status");
-    if (status) status.textContent = "TMDB search failed. Try again.";
+    setDetailConfigSearchStatus("TMDB search failed. Try again.");
   },
 });
 
 function onDetailRemapQueryInput(event) {
-  if (event.target.id !== "detail-remap-query") return;
+  if (event.target.id !== "detail-remap-query" && event.target.id !== "detail-config-search-query") {
+    return;
+  }
+  if (detailMovieId == null || !detailMovieAllowsConfig(detailMovieId)) return;
   const query = event.target.value.trim();
   detailRemapQuery = event.target.value;
   if (!query) {
     detailRemapSearchPicker.clear();
-    detailRemapCandidateId = null;
     detailRemapResults = [];
-    const status = document.getElementById("detail-remap-status");
-    if (status) status.textContent = "";
+    hideDetailConfigResults();
+    hideDetailConfigSearchResults();
+    setDetailConfigSearchStatus("");
     return;
   }
   if (!hasTmdbAccess()) {
-    const status = document.getElementById("detail-remap-status");
-    if (status) status.textContent = "Add a TMDB credential in Settings to search.";
+    setDetailConfigSearchStatus("Add a TMDB credential in Settings to search.");
     return;
   }
   detailRemapSearchPicker.schedule(query);
 }
 
 function selectDetailRemapCandidate(movieId) {
+  if (detailMovieId == null || !detailMovieAllowsConfig(detailMovieId)) return;
   const candidate = detailRemapResults.find((result) => result.id === Number(movieId));
   if (!candidate) return;
   detailRemapCandidateId = candidate.id;
   if (!movieById.has(candidate.id)) {
     movieById.set(candidate.id, candidate);
   }
+  closeDetailConfigSearch();
   renderDetail();
 }
 
 function confirmDetailRemap() {
   if (detailMovieId == null || detailRemapCandidateId == null) return;
+  if (!detailMovieAllowsConfig(detailMovieId)) return;
   const fromId = detailMovieId;
   const toId = detailRemapCandidateId;
   try {
@@ -704,6 +819,7 @@ function confirmDetailRemap() {
     detailRemapQuery = "";
     detailRemapResults = [];
     detailRemapSearchPicker.clear();
+    closeDetailConfigSearch();
     renderedMovieIds = renderedMovieIds.map((id) => id === fromId ? toId : id);
     history.replaceState(
       { ...history.state, detailMovieId: toId },
@@ -979,7 +1095,7 @@ ${detailBodyTabsHtml(detailMovieId, record)}`;
     }
 
     if (inCollection) {
-      removeBtn = `<button type="button" class="action-btn detail-remove-btn" id="detail-remove">Remove movie</button>`;
+      removeBtn = `<button type="button" class="action-btn detail-remove-btn" id="detail-remove" aria-label="Remove movie"><span class="detail-remove-label-full">Remove movie</span><span class="detail-remove-label-short">Remove</span></button>`;
     }
   }
 
@@ -994,6 +1110,7 @@ ${detailBodyTabsHtml(detailMovieId, record)}`;
     syncDetailRatingDisplay(appRatings.getRating(userState.ratings, detailMovieId));
     syncDetailRatingEditorVisibility();
   }
+  syncDetailConfigResults();
 }
 
 function openDetail(movieId, options = {}) {
@@ -1013,6 +1130,7 @@ function openDetail(movieId, options = {}) {
   detailListPickerOpen = false;
   detailListPickerSelectedIds.clear();
   closeDetailListsOverlay();
+  closeDetailConfigSearch();
   detailDialog.hidden = false;
   document.body.classList.add("movie-detail-open");
   persistViewRestoreContext();
@@ -1047,6 +1165,8 @@ function closeDetail(options = {}) {
   detailListPickerOpen = false;
   detailListPickerSelectedIds.clear();
   closeDetailListsOverlay();
+  hideDetailConfigResults();
+  closeDetailConfigSearch();
   detailDialog.hidden = true;
   document.body.classList.remove("movie-detail-open");
 
@@ -1075,6 +1195,7 @@ function stepDetail(delta) {
   detailListPickerOpen = false;
   detailListPickerSelectedIds.clear();
   closeDetailListsOverlay();
+  closeDetailConfigSearch();
   history.replaceState(
     { detailMovieId, appView, activeCustomListId, discoverTab: isDiscoverActive() ? discoverTab : null },
     "",

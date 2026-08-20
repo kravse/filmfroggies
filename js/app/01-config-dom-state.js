@@ -146,6 +146,14 @@ const detailCloseBtn = document.getElementById("movie-detail-close");
 const detailPoster = document.getElementById("movie-detail-poster");
 const detailBody = document.getElementById("movie-detail-body");
 const detailActions = document.getElementById("movie-detail-actions");
+const detailScroll = document.getElementById("movie-detail-scroll");
+const detailConfigResultsEl = document.getElementById("detail-config-results");
+const detailConfigSearchDialog = document.getElementById("detail-config-search-dialog");
+const detailConfigSearchQuery = document.getElementById("detail-config-search-query");
+const detailConfigSearchSpinner = document.getElementById("detail-config-search-spinner");
+const detailConfigSearchStatus = document.getElementById("detail-config-search-status");
+const detailConfigSearchResults = document.getElementById("detail-config-search-results");
+const detailConfigSearchClose = document.getElementById("detail-config-search-close");
 
 const detailListsDialog = document.getElementById("detail-lists-dialog");
 const detailListsDialogBody = document.getElementById("detail-lists-dialog-body");

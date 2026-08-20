@@ -3,6 +3,16 @@
 const appMovieRemap = (function () {
   /** Atomically move all collection metadata from one TMDB movie id to another. */
 
+  function getLists() {
+    if (typeof appLists !== "undefined") {
+      return appLists;
+    }
+    if (typeof require === "function") {
+      return require("./lists");
+    }
+    throw new Error("appLists is not available");
+  }
+
   function validId(value) {
     const id = Number(value);
     return Number.isInteger(id) && id > 0 ? id : null;
@@ -32,6 +42,9 @@ const appMovieRemap = (function () {
     const toId = validId(toValue);
     if (!state || !fromId || !toId || fromId === toId) {
       throw new Error("Choose a different valid TMDB movie.");
+    }
+    if (!getLists().isWatched(state.lists, fromId)) {
+      throw new Error("Only watched movies can be remapped.");
     }
     const alreadyPresent = (state.lists || []).some((list) => list.movieIds?.includes(toId)) ||
       (state.customLists || []).some((list) => list.movieIds?.includes(toId));

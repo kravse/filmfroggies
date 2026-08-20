@@ -207,6 +207,16 @@ header {
   font-weight: 500;
 }
 
+.search-field-chip--director {
+  --search-field-bg: var(--search-field-director-bg);
+  --search-field-border: var(--search-field-director-border);
+  --search-field-text: var(--search-field-director-text);
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+
 .search-field-chip--year {
   --search-field-bg: var(--search-field-year-bg);
   --search-field-border: var(--search-field-year-border);
