@@ -427,19 +427,13 @@ body.view-friends-index .empty-state {
   font-weight: 500;
 }
 
-body.view-friend .card.card--friend {
-  border-width: 2px;
-}
-
 body.view-friend .card.card--friend.is-seen-by-you {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent-surface) 72%, var(--panel));
-  box-shadow: 0 0 0 1px rgba(130, 232, 168, 0.28);
 }
 
 body.view-friend .card.card--friend.is-seen-by-you:hover {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px rgba(130, 232, 168, 0.45);
 }
 
 .friend-view-message {

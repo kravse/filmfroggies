@@ -259,7 +259,7 @@ function friendWatchedOverlapHtml(stats) {
   if (!stats || stats.overlapWatched <= 0) {
     return "";
   }
-  return `<span class="friend-view-list-overlap">${stats.overlapWatched} in common with your Watched</span>`;
+  return `<span class="friend-view-list-overlap">${stats.overlapWatched} in common</span>`;
 }
 
 function friendSectionHtml(section, stats) {
@@ -463,6 +463,7 @@ function renderFriendView() {
     .map((section) => friendSectionHtml(section, stats))
     .join("");
   bindPosterImages(friendViewSectionsEl);
+  syncSortControlUi();
 }
 
 function friendDetailNoteHtml(movieId) {
