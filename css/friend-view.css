@@ -3,7 +3,6 @@
 body.view-friend #list-tabs,
 body.view-friend #list-search-row,
 body.view-friend #discover-entry-btn,
-body.view-friend #friends-entry-btn,
 body.view-friend #add-movie-fab,
 body.view-friend #sort-control,
 body.view-friend #sort-reverse,
@@ -143,10 +142,13 @@ body.view-friend .toolbar-left {
   border: 1px solid rgba(236, 192, 104, 0.55);
 }
 
+body.view-friend .card.card--friend {
+  border-width: 2px;
+}
+
 body.view-friend .card.card--friend.is-seen-by-you {
-  border: 2px solid rgba(236, 192, 104, 0.9);
+  border-color: rgba(236, 192, 104, 0.9);
   background: color-mix(in srgb, rgba(236, 192, 104, 0.16) 55%, var(--panel));
-  box-shadow: none;
 }
 
 body.view-friend .card.card--friend.is-seen-by-you:hover {
