@@ -106,6 +106,13 @@ const aboutBtn = document.getElementById("about-btn");
 
 const settingsDialog = document.getElementById("settings-dialog");
 const settingsClose = document.getElementById("settings-close");
+const settingsTabAccount = document.getElementById("settings-tab-account");
+const settingsTabFriends = document.getElementById("settings-tab-friends");
+const settingsTabConfig = document.getElementById("settings-tab-config");
+const settingsPanelAccount = document.getElementById("settings-panel-account");
+const settingsPanelFriends = document.getElementById("settings-panel-friends");
+const settingsPanelConfig = document.getElementById("settings-panel-config");
+const settingsFriendsSignin = document.getElementById("settings-friends-signin");
 
 const accountFields = document.getElementById("account-fields");
 const accountAuthFields = document.getElementById("account-auth-fields");
@@ -137,10 +144,9 @@ const friendAddBtn = document.getElementById("friend-add");
 const friendsList = document.getElementById("friends-list");
 const friendsStatus = document.getElementById("friends-status");
 
-const friendViewDialog = document.getElementById("friend-view-dialog");
-const friendViewTitle = document.getElementById("friend-view-title");
-const friendViewContent = document.getElementById("friend-view-content");
-const friendViewClose = document.getElementById("friend-view-close");
+const friendViewEl = document.getElementById("friend-view");
+const friendViewOverview = document.getElementById("friend-view-overview");
+const friendViewSectionsEl = document.getElementById("friend-view-sections");
 
 const cacheClearBtn = document.getElementById("cache-clear");
 const cacheStatus = document.getElementById("cache-status");
@@ -255,9 +261,17 @@ let pendingDiscoverAddListId = null;
 let pendingCustomListDeleteId = null;
 let tmdbCredential = "";
 
-/** "main" | "customIndex" | "customDetail" | "discover" */
+/** "main" | "customIndex" | "customDetail" | "discover" | "friend" */
 let appView = "main";
 let activeCustomListId = null;
+let activeFriendId = null;
+let friendViewName = "";
+let friendViewState = null;
+let friendViewSections = [];
+let friendViewLoadedId = null;
+let friendViewLoading = false;
+let friendViewError = null;
+const friendViewCollapsedSections = new Set();
 
 function isCustomListIndexActive() {
   return appView === "customIndex";
@@ -269,6 +283,10 @@ function isCustomListDetailActive() {
 
 function isCustomListView() {
   return isCustomListIndexActive() || isCustomListDetailActive();
+}
+
+function isFriendViewActive() {
+  return appView === "friend" && activeFriendId != null;
 }
 
 function usesWatchedStyleDisplay() {

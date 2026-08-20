@@ -12,6 +12,7 @@ const VIEWER_CSS_FILES = [
   "add-movie.css",
   "custom-lists.css",
   "discover.css",
+  "friend-view.css",
   "mobile.css",
 ];
 

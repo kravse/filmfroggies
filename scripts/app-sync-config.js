@@ -501,6 +501,21 @@ const APP_SYNC_ENTRIES = [
     header: "Generated from scripts/lib/movie-share.js — run npm run bundle",
     exports: ["movieShareUrl", "isMovieOwned"],
   },
+  {
+    sources: [path.join(LIB, "friend-view.js")],
+    target: "00-app-friend-view.js",
+    globalName: "appFriendView",
+    header: "Generated from scripts/lib/friend-view.js — run npm run bundle",
+    exports: [
+      "parseFriendHash",
+      "buildFriendHash",
+      "friendListSections",
+      "friendOverviewStats",
+      "friendSectionContainingMovie",
+      "friendNavigationIds",
+      "friendListNamesForMovie",
+    ],
+  },
 ];
 
 module.exports = { APP_SYNC_ENTRIES };

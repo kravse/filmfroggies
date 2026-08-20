@@ -112,6 +112,10 @@ const PARTS = [
     title: "Shareable movie URLs (generated from scripts/lib/movie-share.js)",
   },
   {
+    file: "00-app-friend-view.js",
+    title: "Friend list page helpers (generated from scripts/lib/friend-view.js)",
+  },
+  {
     file: "00-app-custom-list-merge.js",
     title: "Custom list Gist merge (generated from scripts/lib/custom-list-merge.js)",
   },
@@ -178,6 +182,10 @@ const PARTS = [
   {
     file: "12-data-import.js",
     title: "Collection backup CSV import",
+  },
+  {
+    file: "13-friend-view.js",
+    title: "Friend list page with overview",
   },
   {
     file: "08-init.js",

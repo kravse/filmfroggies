@@ -22,6 +22,9 @@ function detailNavigationIds() {
   if (isDiscoverActive()) {
     return discoverDisplayIds();
   }
+  if (isFriendViewActive()) {
+    return appFriendView.friendNavigationIds(friendViewSections, detailMovieId);
+  }
   return renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
 }
 

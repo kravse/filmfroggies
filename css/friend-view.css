@@ -1,0 +1,344 @@
+.friend-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+}
+
+.friend-view-overview {
+  padding: 0.15rem 0 0.35rem;
+}
+
+.friend-view-hero {
+  margin-bottom: 0.85rem;
+}
+
+.friend-view-name {
+  margin: 0 0 0.35rem;
+  font-family: var(--display-font);
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.friend-view-lead {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.friend-view-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.friend-view-stat {
+  padding: 0.55rem 0.65rem;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.friend-view-stat dt {
+  margin: 0 0 0.2rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.friend-view-stat dd {
+  margin: 0;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.friend-view-overlap {
+  margin: 0.75rem 0 0;
+  color: var(--list-chip-text);
+  font-size: 0.82rem;
+}
+
+.friend-view-rating-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 1rem;
+  margin-top: 0.85rem;
+  padding: 0.55rem 0.65rem;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.friend-view-rating-legend-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+  font-weight: 600;
+}
+
+.friend-view-rating-legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.friend-view-rating-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.friend-view-rating-legend-text {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.friend-view-rating-legend-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 2.75rem;
+  height: 1.15rem;
+  padding: 0 0.24rem;
+  border-radius: 2px;
+  font-family: var(--ui-font);
+  font-size: 0.58rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.friend-view-rating-legend-chip--friend {
+  color: var(--list-chip-text);
+  background: var(--list-chip-dim);
+  border: 1px solid var(--list-chip-border);
+}
+
+.friend-view-rating-legend-chip--mine {
+  color: #ecc068;
+  background: rgba(236, 192, 104, 0.24);
+  border: 1px solid rgba(236, 192, 104, 0.55);
+}
+
+body.view-friend .card.card--friend.is-seen-by-you {
+  border: 2px solid rgba(236, 192, 104, 0.9);
+  background: color-mix(in srgb, rgba(236, 192, 104, 0.16) 55%, var(--panel));
+  box-shadow: none;
+}
+
+body.view-friend .card.card--friend.is-seen-by-you:hover {
+  border-color: rgba(236, 192, 104, 1);
+}
+
+.friend-view-message {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.friend-view-message--error {
+  color: var(--danger);
+}
+
+.friend-view-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+}
+
+.friend-view-section {
+  scroll-margin-top: 5.5rem;
+}
+
+.friend-view-list-card {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.friend-view-list-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 0.35rem;
+  background: var(--panel-raised);
+  border-bottom: 1px solid var(--border);
+}
+
+.friend-view-list-card.is-collapsed .friend-view-list-bar {
+  border-bottom: none;
+}
+
+.friend-view-list-toggle {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.friend-view-list-toggle:hover {
+  background: color-mix(in srgb, var(--panel-raised) 88%, var(--text));
+}
+
+.friend-view-list-toggle:focus-visible {
+  outline: 2px solid var(--accent-border);
+  outline-offset: -2px;
+}
+
+.friend-view-list-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-dim);
+  transition: transform 0.15s ease;
+}
+
+.friend-view-list-card.is-collapsed .friend-view-list-chevron {
+  transform: rotate(-90deg);
+}
+
+.friend-view-list-title {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--ui-font);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.friend-view-list-body {
+  display: block;
+}
+
+.friend-view-list-card.is-collapsed .friend-view-list-body {
+  display: none;
+}
+
+.friend-view-list-count {
+  justify-self: end;
+  min-width: 1.65rem;
+  padding: 0.1rem 0.42rem;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.friend-view-grid {
+  margin: 0;
+  padding: 0.65rem 0.7rem 0.75rem;
+  box-sizing: border-box;
+}
+
+.card-friend-rating {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.card-footer--friend {
+  border-top: 1px solid var(--border);
+}
+
+body.view-friend.view-mode-cards .card-footer--friend .card-body-ratings {
+  width: 100%;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.18rem;
+  padding: 0.14rem 0.18rem 0.16rem;
+}
+
+body.view-friend.view-mode-detail .card-body-ratings--friend {
+  flex: none;
+  align-items: center;
+  gap: 0.18rem;
+}
+
+body.view-friend.view-mode-cards .card-footer--friend .card-friend-rating,
+body.view-friend.view-mode-cards .card-footer--friend .card-user-rating,
+body.view-friend.view-mode-detail .card-body-ratings--friend .card-friend-rating,
+body.view-friend.view-mode-detail .card-body-ratings--friend .card-user-rating {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex: none;
+  min-width: 2.75rem;
+  height: 1.15rem;
+  padding: 0 0.24rem;
+  border-radius: 2px;
+  font-family: var(--ui-font);
+  font-size: 0.58rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+body.view-friend.view-mode-cards .card-footer--friend .card-friend-rating,
+body.view-friend.view-mode-detail .card-body-ratings--friend .card-friend-rating {
+  color: var(--list-chip-text);
+  background: var(--list-chip-dim);
+  border: 1px solid var(--list-chip-border);
+}
+
+body.view-friend.view-mode-cards .card-footer--friend .card-user-rating,
+body.view-friend.view-mode-detail .card-body-ratings--friend .card-user-rating {
+  color: #ecc068;
+  background: rgba(236, 192, 104, 0.24);
+  border: 1px solid rgba(236, 192, 104, 0.55);
+}
+
+.friend-detail-note {
+  margin: 0 0 0.85rem;
+  padding: 0.45rem 0.65rem;
+  color: var(--list-chip-text);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  background: var(--list-chip-dim);
+  border: 1px solid var(--list-chip-border);
+  border-radius: var(--radius-sm);
+}
+
+body.view-friend .empty-state {
+  display: none !important;
+}
+
+@media (max-width: 640px) {
+  .friend-view-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

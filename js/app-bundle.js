@@ -108,6 +108,13 @@ const aboutBtn = document.getElementById("about-btn");
 
 const settingsDialog = document.getElementById("settings-dialog");
 const settingsClose = document.getElementById("settings-close");
+const settingsTabAccount = document.getElementById("settings-tab-account");
+const settingsTabFriends = document.getElementById("settings-tab-friends");
+const settingsTabConfig = document.getElementById("settings-tab-config");
+const settingsPanelAccount = document.getElementById("settings-panel-account");
+const settingsPanelFriends = document.getElementById("settings-panel-friends");
+const settingsPanelConfig = document.getElementById("settings-panel-config");
+const settingsFriendsSignin = document.getElementById("settings-friends-signin");
 
 const accountFields = document.getElementById("account-fields");
 const accountAuthFields = document.getElementById("account-auth-fields");
@@ -139,10 +146,9 @@ const friendAddBtn = document.getElementById("friend-add");
 const friendsList = document.getElementById("friends-list");
 const friendsStatus = document.getElementById("friends-status");
 
-const friendViewDialog = document.getElementById("friend-view-dialog");
-const friendViewTitle = document.getElementById("friend-view-title");
-const friendViewContent = document.getElementById("friend-view-content");
-const friendViewClose = document.getElementById("friend-view-close");
+const friendViewEl = document.getElementById("friend-view");
+const friendViewOverview = document.getElementById("friend-view-overview");
+const friendViewSectionsEl = document.getElementById("friend-view-sections");
 
 const cacheClearBtn = document.getElementById("cache-clear");
 const cacheStatus = document.getElementById("cache-status");
@@ -257,9 +263,17 @@ let pendingDiscoverAddListId = null;
 let pendingCustomListDeleteId = null;
 let tmdbCredential = "";
 
-/** "main" | "customIndex" | "customDetail" | "discover" */
+/** "main" | "customIndex" | "customDetail" | "discover" | "friend" */
 let appView = "main";
 let activeCustomListId = null;
+let activeFriendId = null;
+let friendViewName = "";
+let friendViewState = null;
+let friendViewSections = [];
+let friendViewLoadedId = null;
+let friendViewLoading = false;
+let friendViewError = null;
+const friendViewCollapsedSections = new Set();
 
 function isCustomListIndexActive() {
   return appView === "customIndex";
@@ -271,6 +285,10 @@ function isCustomListDetailActive() {
 
 function isCustomListView() {
   return isCustomListIndexActive() || isCustomListDetailActive();
+}
+
+function isFriendViewActive() {
+  return appView === "friend" && activeFriendId != null;
 }
 
 function usesWatchedStyleDisplay() {
@@ -5064,6 +5082,153 @@ const appMovieShare = (function () {
   };
 })();
 
+/* ===== Friend list page helpers (generated from scripts/lib/friend-view.js) ===== */
+
+/* Generated from scripts/lib/friend-view.js — run npm run bundle */
+
+const appFriendView = (function () {
+  /**
+   * Friend list page: hash routing helpers and overview stats.
+   */
+
+  const FRIEND_HASH_RE = /^#friend\/(\d+)$/;
+
+  function getLists() {
+    if (typeof appLists !== "undefined") {
+      return appLists;
+    }
+    if (typeof require === "function") {
+      return require("./lists");
+    }
+    throw new Error("appLists is not available");
+  }
+
+  function parseFriendHash(hash) {
+    const match = FRIEND_HASH_RE.exec(hash || "");
+    if (!match) {
+      return null;
+    }
+    const userId = Number(match[1]);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return null;
+    }
+    return { userId };
+  }
+
+  function buildFriendHash(userId) {
+    const id = Number(userId);
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new Error("Invalid friend user id");
+    }
+    return `#friend/${id}`;
+  }
+
+  function friendListSections(friendState) {
+    if (!friendState) {
+      return [];
+    }
+    const lists = getLists();
+    const sections = [];
+    for (const preset of lists.PRESET_LISTS) {
+      const list = lists.findList(friendState.lists, preset.id);
+      const movieIds = list?.movieIds || [];
+      if (movieIds.length) {
+        sections.push({ id: preset.id, name: preset.name, movieIds: [...movieIds] });
+      }
+    }
+    for (const custom of friendState.customLists || []) {
+      if (custom.movieIds?.length) {
+        sections.push({ id: custom.id, name: custom.name, movieIds: [...custom.movieIds] });
+      }
+    }
+    return sections;
+  }
+
+  function friendOverviewStats(friendState, viewerState) {
+    const lists = getLists();
+    const watched =
+      lists.findList(friendState?.lists, lists.WATCHED_ID)?.movieIds || [];
+    const watchlist =
+      lists.findList(friendState?.lists, lists.WATCHLIST_ID)?.movieIds || [];
+    const customLists = friendState?.customLists || [];
+    const customListCount = customLists.filter((list) => list.movieIds?.length).length;
+
+    let ratedCount = 0;
+    const ratings = friendState?.ratings || {};
+    for (const key of Object.keys(ratings)) {
+      if (ratings[key] != null) {
+        ratedCount += 1;
+      }
+    }
+
+    const yourWatched = new Set(
+      lists.findList(viewerState?.lists, lists.WATCHED_ID)?.movieIds || [],
+    );
+    let overlapWatched = 0;
+    for (const id of watched) {
+      if (yourWatched.has(id)) {
+        overlapWatched += 1;
+      }
+    }
+
+    const sections = friendListSections(friendState);
+    const totalMovies = new Set(sections.flatMap((section) => section.movieIds)).size;
+
+    return {
+      watchedCount: watched.length,
+      watchlistCount: watchlist.length,
+      customListCount,
+      ratedCount,
+      overlapWatched,
+      totalMovies,
+      sectionCount: sections.length,
+    };
+  }
+
+  function friendSectionContainingMovie(sections, movieId) {
+    const id = Number(movieId);
+    if (!Number.isInteger(id) || id <= 0) {
+      return null;
+    }
+    for (const section of sections) {
+      if (section.movieIds.includes(id)) {
+        return section;
+      }
+    }
+    return null;
+  }
+
+  function friendNavigationIds(sections, movieId) {
+    if (movieId != null) {
+      const section = friendSectionContainingMovie(sections, movieId);
+      if (section) {
+        return [...section.movieIds];
+      }
+    }
+    return sections.flatMap((section) => section.movieIds);
+  }
+
+  function friendListNamesForMovie(friendState, movieId) {
+    const id = Number(movieId);
+    if (!friendState || !Number.isInteger(id) || id <= 0) {
+      return [];
+    }
+    return friendListSections(friendState)
+      .filter((section) => section.movieIds.includes(id))
+      .map((section) => section.name);
+  }
+
+  return {
+    parseFriendHash,
+    buildFriendHash,
+    friendListSections,
+    friendOverviewStats,
+    friendSectionContainingMovie,
+    friendNavigationIds,
+    friendListNamesForMovie,
+  };
+})();
+
 /* ===== Custom list Gist merge (generated from scripts/lib/custom-list-merge.js) ===== */
 
 /* Generated from scripts/lib/custom-list-merge.js — run npm run bundle */
@@ -8888,6 +9053,7 @@ function syncSortSelectLabels() {
 function syncSortControlUi() {
   const show =
     !isDiscoverActive() &&
+    !isFriendViewActive() &&
     usesWatchedStyleDisplay() &&
     activeMovieIds().length > 0 &&
     hasMovieData();
@@ -9076,6 +9242,12 @@ function syncHeaderViewTitle() {
   if (!headerTitleEl || !customListViewTitleEl) {
     return;
   }
+  if (isFriendViewActive()) {
+    customListViewTitleEl.textContent = `${friendViewName}'s lists`;
+    customListViewTitleEl.hidden = false;
+    headerTitleEl.hidden = true;
+    return;
+  }
   if (isCustomListDetailActive()) {
     customListViewTitleEl.textContent = getActiveDisplayContext().listName;
     customListViewTitleEl.hidden = false;
@@ -9108,6 +9280,22 @@ function updateListHeader() {
   const count = isDiscoverActive() ? discoverDisplayIds().length : activeMovieIds().length;
   if (isCustomListIndexActive()) {
     listSubtitleEl.textContent = "Create and manage custom lists";
+    return;
+  }
+  if (isFriendViewActive()) {
+    if (friendViewLoading) {
+      listSubtitleEl.textContent = "Loading their lists…";
+      return;
+    }
+    if (friendViewError) {
+      listSubtitleEl.textContent = "Could not load their lists";
+      return;
+    }
+    if (friendViewSections.length) {
+      listSubtitleEl.textContent = "Tap a movie to open details and add to your lists";
+      return;
+    }
+    listSubtitleEl.textContent = "No shared lists yet";
     return;
   }
   if (isDiscoverActive()) {
@@ -9165,6 +9353,7 @@ function syncAddMovieFabVisibility(count) {
     addMovieFab.hidden =
       isCustomListIndexActive() ||
       isDiscoverActive() ||
+      isFriendViewActive() ||
       (count === 0 && !isCustomListDetailActive());
   }
 }
@@ -9224,6 +9413,11 @@ function onRemoteStateAdopted() {
 
 function render() {
   syncAccountLoginGate();
+  if (isFriendViewActive()) {
+    syncAppViewChrome();
+    renderFriendView();
+    return;
+  }
   if (isCustomListIndexActive()) {
     syncAppViewChrome();
     renderCustomListsIndex();
@@ -9250,6 +9444,10 @@ function render() {
 /** Patches one row after hydration so the rest of the grid stays untouched. */
 function applyHydratedRecord(movieId, options = {}) {
   const opts = options && typeof options === "object" ? options : {};
+  if (isFriendViewActive()) {
+    applyFriendHydratedRecord(movieId);
+    return;
+  }
   const row = grid.querySelector(`.movie-row[data-movie-id="${movieId}"]`);
   if (row) {
     row.innerHTML = rowInnerHtml(movieId);
@@ -11072,11 +11270,12 @@ function renderDetail() {
       ? detailAddBlockHtml()
       : "";
     detailBody.innerHTML = `${detailTitleRowHtml(heading)}
-<p class="movie-detail-overview">${note}</p>${addForm}`;
+<p class="movie-detail-overview">${note}</p>${friendDetailNoteHtml(detailMovieId)}${addForm}`;
   } else {
     detailPoster.innerHTML = detailPosterFrameHtml(record, appTmdb.POSTER_SIZES.detail);
     bindPosterImages(detailPoster);
     detailBody.innerHTML = `${detailTitleRowHtml(appCardHtml.escapeHtml(record.title))}
+${friendDetailNoteHtml(detailMovieId)}
 ${detailBodyTabsHtml(detailMovieId, record)}`;
   }
 
@@ -11134,6 +11333,8 @@ function detailHistoryState(movieId) {
     detailMovieId: movieId,
     appView,
     activeCustomListId,
+    activeFriendId: isFriendViewActive() ? activeFriendId : null,
+    friendViewName: isFriendViewActive() ? friendViewName : null,
     discoverTab: isDiscoverActive() ? discoverTab : null,
     discoverPage: isDiscoverActive() ? discoverPage : null,
   };
@@ -11191,6 +11392,12 @@ function underlayHistoryEntry() {
     return {
       state: { appView: "customDetail", activeCustomListId },
       url: path + hash,
+    };
+  }
+  if (isFriendViewActive() && activeFriendId) {
+    return {
+      state: { appView: "friend", activeFriendId, friendViewName },
+      url: path + appFriendView.buildFriendHash(activeFriendId),
     };
   }
   if (isCustomListIndexActive()) {
@@ -11329,6 +11536,25 @@ function accountDisplayInitial(config) {
 }
 
 let accountAuthMode = "login";
+let settingsTab = "account";
+
+function setSettingsTab(tab) {
+  settingsTab = tab === "friends" || tab === "config" ? tab : "account";
+  const accountSelected = settingsTab === "account";
+  const friendsSelected = settingsTab === "friends";
+  const configSelected = settingsTab === "config";
+
+  settingsTabAccount.setAttribute("aria-selected", accountSelected ? "true" : "false");
+  settingsTabAccount.tabIndex = accountSelected ? 0 : -1;
+  settingsTabFriends.setAttribute("aria-selected", friendsSelected ? "true" : "false");
+  settingsTabFriends.tabIndex = friendsSelected ? 0 : -1;
+  settingsTabConfig.setAttribute("aria-selected", configSelected ? "true" : "false");
+  settingsTabConfig.tabIndex = configSelected ? 0 : -1;
+
+  settingsPanelAccount.hidden = !accountSelected;
+  settingsPanelFriends.hidden = !friendsSelected;
+  settingsPanelConfig.hidden = !configSelected;
+}
 
 function setAccountAuthMode(mode) {
   accountAuthMode = mode === "signup" ? "signup" : "login";
@@ -11360,6 +11586,7 @@ function refreshSettings() {
 
 function openSettings() {
   refreshSettings();
+  setSettingsTab("account");
   settingsDialog.hidden = false;
   settingsBtn.setAttribute("aria-expanded", "true");
   if (accountSyncEnabled()) {
@@ -11444,6 +11671,7 @@ function refreshAccountSection() {
   accountAuthFields.hidden = connected;
   accountSessionCard.hidden = !connected;
   accountFriendsSection.hidden = !connected;
+  settingsFriendsSignin.hidden = connected;
   if (connected) {
     const displayName =
       accountConfig.displayName || accountConfig.email.split("@")[0] || "Account";
@@ -11619,7 +11847,7 @@ async function onAddFriend() {
     friendEmailInput.value = "";
     setStatus(
       friendsStatus,
-      "Request sent. If they have an account, they can accept it from their settings.",
+      "Request sent. If they have an account, they can accept it from Settings → Friends.",
       "ok",
     );
     refreshFriendsList();
@@ -11645,86 +11873,10 @@ async function onFriendsListClick(event) {
       await removeFriend(friendId);
       refreshFriendsList();
     } else if (action === "view") {
-      openFriendView(friendId, button.dataset.friendName || "Friend");
+      navigateToFriendView(friendId, button.dataset.friendName || "Friend");
     }
   } catch (error) {
     setStatus(friendsStatus, error.message, "error");
-  }
-}
-
-/* --- Friend list viewer (read-only) --- */
-
-function closeFriendView() {
-  friendViewDialog.hidden = true;
-  friendViewContent.innerHTML = "";
-}
-
-/** Resolves a movie title from cache/snapshot/TMDB; never blocks the dialog. */
-async function friendMovieLabel(movieId) {
-  try {
-    const record = await getMovie(movieId);
-    const year = appCardHtml.formatYear(record.release_date);
-    return `${record.title}${year ? ` (${year})` : ""}`;
-  } catch (_) {
-    return `TMDB #${movieId}`;
-  }
-}
-
-function friendViewListHtml(name, movieIds, labels, ratings) {
-  const items = movieIds
-    .map((id) => {
-      const rating = appRatings.getRating(ratings, id);
-      const ratingHtml =
-        rating == null
-          ? ""
-          : ` <span class="friend-view-rating">★ ${appRatings.formatUserRating(rating)}</span>`;
-      return `<li>${appCardHtml.escapeHtml(labels.get(id) || `TMDB #${id}`)}${ratingHtml}</li>`;
-    })
-    .join("");
-  return `<section class="friend-view-list"><h4>${appCardHtml.escapeHtml(name)} (${movieIds.length})</h4><ol>${items}</ol></section>`;
-}
-
-async function openFriendView(friendId, friendName) {
-  friendViewTitle.textContent = `${friendName}'s lists`;
-  friendViewContent.innerHTML = '<p class="sheet-note">Loading…</p>';
-  friendViewDialog.hidden = false;
-  try {
-    const state = await fetchFriendState(friendId);
-    if (!state) {
-      friendViewContent.innerHTML =
-        '<p class="sheet-note">They have not synced any lists yet.</p>';
-      return;
-    }
-    const sections = [
-      ...appLists.PRESET_LISTS.map((preset) => ({
-        name: preset.name,
-        movieIds: appLists.findList(state.lists, preset.id)?.movieIds || [],
-      })),
-      ...state.customLists.map((list) => ({
-        name: list.name,
-        movieIds: list.movieIds,
-      })),
-    ].filter((section) => section.movieIds.length);
-
-    if (!sections.length) {
-      friendViewContent.innerHTML =
-        '<p class="sheet-note">Their lists are empty so far.</p>';
-      return;
-    }
-
-    const uniqueIds = [...new Set(sections.flatMap((s) => s.movieIds))];
-    const labels = new Map(
-      await Promise.all(
-        uniqueIds.map(async (id) => [id, await friendMovieLabel(id)]),
-      ),
-    );
-    friendViewContent.innerHTML = sections
-      .map((section) =>
-        friendViewListHtml(section.name, section.movieIds, labels, state.ratings),
-      )
-      .join("");
-  } catch (error) {
-    friendViewContent.innerHTML = `<p class="sheet-note">Could not load their lists. ${appCardHtml.escapeHtml(error.message)}</p>`;
   }
 }
 
@@ -12368,6 +12520,10 @@ function parseLocationHash() {
   if (discoverMatch) {
     return { kind: "discover", tab: discoverMatch.tab, page: discoverMatch.page };
   }
+  const friendMatch = appFriendView.parseFriendHash(hash);
+  if (friendMatch) {
+    return { kind: "friend", userId: friendMatch.userId };
+  }
   return { kind: "main" };
 }
 
@@ -12382,6 +12538,8 @@ function persistViewRestoreContext() {
         discoverTab: isDiscoverActive() ? discoverTab : null,
         discoverPage: isDiscoverActive() ? discoverPage : null,
         activeCustomListId: isCustomListDetailActive() ? activeCustomListId : null,
+        activeFriendId: isFriendViewActive() ? activeFriendId : null,
+        friendViewName: isFriendViewActive() ? friendViewName : null,
       }),
     );
   } catch (_) {
@@ -12438,6 +12596,13 @@ function applyRestoredViewContext(restored) {
     activeCustomListId = null;
     return true;
   }
+  if (restored.appView === "friend" && restored.activeFriendId) {
+    appView = "friend";
+    activeCustomListId = null;
+    activeFriendId = restored.activeFriendId;
+    friendViewName = restored.friendViewName || "Friend";
+    return true;
+  }
   return false;
 }
 
@@ -12445,26 +12610,35 @@ function syncAppViewChrome() {
   document.body.classList.toggle("view-custom-index", isCustomListIndexActive());
   document.body.classList.toggle("view-custom-detail", isCustomListDetailActive());
   document.body.classList.toggle("view-discover", isDiscoverActive());
+  document.body.classList.toggle("view-friend", isFriendViewActive());
   if (customListsIndex) {
     customListsIndex.hidden = !isCustomListIndexActive();
   }
+  if (friendViewEl) {
+    friendViewEl.hidden = !isFriendViewActive();
+  }
+  if (grid) {
+    grid.hidden = isFriendViewActive();
+  }
   if (listTabs) {
-    listTabs.hidden = isCustomListView() || isDiscoverActive();
+    listTabs.hidden = isCustomListView() || isDiscoverActive() || isFriendViewActive();
   }
   if (discoverTabs) {
     discoverTabs.hidden = !isDiscoverActive();
   }
   if (discoverEntryBtn) {
-    discoverEntryBtn.hidden = isCustomListView() || isDiscoverActive();
+    discoverEntryBtn.hidden = isCustomListView() || isDiscoverActive() || isFriendViewActive();
   }
   if (listsNavBtn) {
-    listsNavBtn.hidden = isCustomListView() || isDiscoverActive();
+    listsNavBtn.hidden = isCustomListView() || isDiscoverActive() || isFriendViewActive();
   }
   if (customListBackBtn) {
-    customListBackBtn.hidden = !isCustomListView() && !isDiscoverActive();
+    customListBackBtn.hidden = !isCustomListView() && !isDiscoverActive() && !isFriendViewActive();
   }
   if (customListBackLabel) {
-    if (isDiscoverActive()) {
+    if (isFriendViewActive()) {
+      customListBackLabel.textContent = "Collection";
+    } else if (isDiscoverActive()) {
       customListBackLabel.textContent = "Collection";
     } else {
       customListBackLabel.textContent = isCustomListIndexActive() ? "Collection" : "All lists";
@@ -12474,7 +12648,7 @@ function syncAppViewChrome() {
     customListsIndexActions.hidden = !isCustomListIndexActive();
   }
   if (addMovieFab) {
-    addMovieFab.hidden = isCustomListIndexActive() || isDiscoverActive();
+    addMovieFab.hidden = isCustomListIndexActive() || isDiscoverActive() || isFriendViewActive();
   }
   updateListHeader();
   syncListSearchVisibility();
@@ -12482,6 +12656,9 @@ function syncAppViewChrome() {
 }
 
 function navigateToMain(options = {}) {
+  if (typeof clearFriendViewState === "function") {
+    clearFriendViewState();
+  }
   appView = "main";
   activeCustomListId = null;
   clearViewRestoreContext();
@@ -12500,6 +12677,9 @@ function navigateToMain(options = {}) {
 function navigateHomeToWatched(options = {}) {
   closeDetail({ popHistory: false });
   closeWatchedPicker();
+  if (typeof clearFriendViewState === "function") {
+    clearFriendViewState();
+  }
   appView = "main";
   activeCustomListId = null;
   if (userState.activeListId !== appLists.WATCHED_ID) {
@@ -12520,6 +12700,9 @@ function navigateHomeToWatched(options = {}) {
 function navigateToCustomListsIndex(options = {}) {
   appView = "customIndex";
   activeCustomListId = null;
+  if (typeof clearFriendViewState === "function") {
+    clearFriendViewState();
+  }
   closeDetail({ popHistory: false });
   if (options.pushHistory !== false) {
     history.pushState({ appView: "customIndex" }, "", "#lists");
@@ -12541,6 +12724,9 @@ function navigateToCustomList(listId, options = {}) {
   closeDetail({ popHistory: false });
   appView = "customDetail";
   activeCustomListId = listId;
+  if (typeof clearFriendViewState === "function") {
+    clearFriendViewState();
+  }
   if (options.pushHistory !== false) {
     history.pushState(
       { appView: "customDetail", activeCustomListId: listId },
@@ -12571,6 +12757,9 @@ function appViewMatchesLocation(parsed) {
       discoverPage === appDiscover.normalizeDiscoverPage(parsed.page)
     );
   }
+  if (parsed.kind === "friend") {
+    return appView === "friend" && activeFriendId === parsed.userId;
+  }
   return false;
 }
 
@@ -12595,6 +12784,9 @@ function movieUnderlayMatchesHistoryState() {
         : discoverPage;
     return tab === discoverTab && page === discoverPage;
   }
+  if (state.appView === "friend") {
+    return activeFriendId === (state.activeFriendId ?? null);
+  }
   return true;
 }
 
@@ -12612,6 +12804,14 @@ function paintLocationUnderlay() {
       loadDiscoverTab(discoverTab, { page: discoverPage, pushHistory: false });
     } else {
       renderDiscover();
+    }
+    return;
+  }
+  if (isFriendViewActive()) {
+    if (friendViewLoadedId === activeFriendId && friendViewState) {
+      renderFriendView();
+    } else if (!friendViewLoading) {
+      loadFriendView(activeFriendId);
     }
     return;
   }
@@ -12657,6 +12857,10 @@ function syncViewFromLocation(options = {}) {
     if (state?.appView) {
       appView = state.appView;
       activeCustomListId = state.activeCustomListId ?? null;
+      if (state.appView === "friend") {
+        activeFriendId = state.activeFriendId ?? null;
+        friendViewName = state.friendViewName || "Friend";
+      }
       if (state.discoverTab) {
         discoverTab = appDiscover.normalizeDiscoverTab(state.discoverTab);
       }
@@ -12677,6 +12881,9 @@ function syncViewFromLocation(options = {}) {
   if (parsed.kind === "customIndex") {
     appView = "customIndex";
     activeCustomListId = null;
+    if (typeof clearFriendViewState === "function") {
+      clearFriendViewState();
+    }
     syncAppViewChrome();
     renderCustomListsIndex();
     return;
@@ -12687,6 +12894,9 @@ function syncViewFromLocation(options = {}) {
     if (list) {
       appView = "customDetail";
       activeCustomListId = parsed.listId;
+      if (typeof clearFriendViewState === "function") {
+        clearFriendViewState();
+      }
       syncAppViewChrome();
       refreshViewModeForActiveList();
       render();
@@ -12700,6 +12910,9 @@ function syncViewFromLocation(options = {}) {
   if (parsed.kind === "discover") {
     appView = "discover";
     activeCustomListId = null;
+    if (typeof clearFriendViewState === "function") {
+      clearFriendViewState();
+    }
     syncAppViewChrome();
     refreshViewModeForActiveList();
     const tab = appDiscover.normalizeDiscoverTab(parsed.tab);
@@ -12718,6 +12931,28 @@ function syncViewFromLocation(options = {}) {
     return;
   }
 
+  if (parsed.kind === "friend") {
+    appView = "friend";
+    activeCustomListId = null;
+    activeFriendId = parsed.userId;
+    const state = history.state;
+    if (state?.friendViewName) {
+      friendViewName = state.friendViewName;
+    } else if (friendViewLoadedId !== parsed.userId) {
+      friendViewName = "Friend";
+    }
+    syncAppViewChrome();
+    if (friendViewLoadedId === parsed.userId && friendViewState) {
+      renderFriendView();
+    } else {
+      loadFriendView(parsed.userId);
+    }
+    return;
+  }
+
+  if (typeof clearFriendViewState === "function") {
+    clearFriendViewState();
+  }
   appView = "main";
   activeCustomListId = null;
   clearViewRestoreContext();
@@ -13385,6 +13620,9 @@ function detailNavigationIds() {
   if (isDiscoverActive()) {
     return discoverDisplayIds();
   }
+  if (isFriendViewActive()) {
+    return appFriendView.friendNavigationIds(friendViewSections, detailMovieId);
+  }
   return renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
 }
 
@@ -13725,6 +13963,388 @@ function onConfirmCollectionImport() {
   } finally {
     collectionImportOk.disabled = false;
   }
+}
+
+/* ===== Friend list page with overview ===== */
+
+/**
+ * Friend list page: fetch, overview, stacked section grids.
+ */
+
+function friendCardRatingChipHtml(movieId) {
+  if (!friendViewState?.ratings) {
+    return "";
+  }
+  const rating = appRatings.getRating(friendViewState.ratings, movieId);
+  if (rating == null) {
+    return "";
+  }
+  const text = appRatings.formatUserRating(rating);
+  return `<span class="card-friend-rating" aria-label="Friend rating ${appCardHtml.escapeHtml(text)}" title="Friend">★ ${appCardHtml.escapeHtml(text)}</span>`;
+}
+
+function friendMyRatingChipHtml(movieId) {
+  const rating = appRatings.getRating(userState.ratings, movieId);
+  if (rating == null) {
+    return "";
+  }
+  const text = appRatings.formatUserRating(rating);
+  return `<span class="card-user-rating" aria-label="Your rating ${appCardHtml.escapeHtml(text)}" title="You">${appCardHtml.escapeHtml(text)}</span>`;
+}
+
+function friendCardRatingsHtml(movieId) {
+  const friend = friendCardRatingChipHtml(movieId);
+  const mine = friendMyRatingChipHtml(movieId);
+  if (!friend && !mine) {
+    return "";
+  }
+  return `<div class="card-body-ratings card-body-ratings--friend">${friend}${mine}</div>`;
+}
+
+function friendCardFooterHtml(movieId) {
+  if (gridViewMode !== "cards") {
+    return "";
+  }
+  const ratings = friendCardRatingsHtml(movieId);
+  if (!ratings) {
+    return "";
+  }
+  return `<div class="card-footer card-footer--friend">${ratings}</div>`;
+}
+
+function friendCardInnerHtml(movieId) {
+  const record = movieById.get(movieId);
+  if (!record) {
+    const failed = movieErrors.has(movieId);
+    const body = posterPlaceholderHtml(null, { error: failed });
+    return `${posterWrapOpen(movieId)}${body}</div>${friendCardFooterHtml(movieId)}`;
+  }
+  if (gridViewMode === "cards") {
+    return `${posterWrapOpen(movieId)}${posterHtml(record, appTmdb.POSTER_SIZES.card)}</div>${friendCardFooterHtml(movieId)}`;
+  }
+  const ratings = friendCardRatingsHtml(movieId);
+  return `${posterWrapOpen(movieId)}
+  ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
+</div>
+<div class="card-body">
+  <div class="card-text">
+    <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>
+    ${
+      ratings
+        ? `<div class="card-meta-row"><div class="card-meta">${cardMetaHtml(record)}</div>${ratings}</div>`
+        : `<div class="card-meta">${cardMetaHtml(record)}</div>`
+    }
+  </div>
+</div>`;
+}
+
+function friendMovieHighlightSeen(movieId) {
+  if (!isFriendViewActive()) {
+    return false;
+  }
+  const watchedSection = friendViewSections.find((entry) => entry.id === appLists.WATCHED_ID);
+  if (!watchedSection || !watchedSection.movieIds.includes(movieId)) {
+    return false;
+  }
+  return appLists.isWatched(userState.lists, movieId);
+}
+
+function friendRowInnerHtml(movieId) {
+  const record = movieById.get(movieId);
+  const stateClass = record
+    ? ""
+    : movieErrors.has(movieId)
+      ? " is-error"
+      : " is-skeleton";
+  const seenClass = friendMovieHighlightSeen(movieId) ? " is-seen-by-you" : "";
+  const title = record ? appCardHtml.escapeHtml(record.title) : `Movie ${movieId}`;
+  return `<article class="card card--friend${stateClass}${seenClass}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
+${friendCardInnerHtml(movieId)}
+</article>`;
+}
+
+function friendMovieRowHtml(movieId) {
+  return `<div class="movie-row movie-row--card" data-movie-id="${movieId}">${friendRowInnerHtml(movieId)}</div>`;
+}
+
+function friendRatingLegendHtml() {
+  return `<div class="friend-view-rating-legend" aria-label="Rating legend">
+    <span class="friend-view-rating-legend-label">Ratings</span>
+    <ul class="friend-view-rating-legend-items">
+      <li class="friend-view-rating-legend-item">
+        <span class="friend-view-rating-legend-chip friend-view-rating-legend-chip--friend">★ 8.0</span>
+        <span class="friend-view-rating-legend-text">Their rating</span>
+      </li>
+      <li class="friend-view-rating-legend-item">
+        <span class="friend-view-rating-legend-chip friend-view-rating-legend-chip--mine">8.0</span>
+        <span class="friend-view-rating-legend-text">Your rating</span>
+      </li>
+    </ul>
+  </div>`;
+}
+
+function friendOverviewHtml(stats, name) {
+  const safeName = appCardHtml.escapeHtml(name || "Friend");
+  const overlap =
+    stats.overlapWatched > 0
+      ? `<p class="friend-view-overlap">${stats.overlapWatched} in common with your Watched</p>`
+      : "";
+  return `<div class="friend-view-hero">
+    <h2 class="friend-view-name">${safeName}'s collection</h2>
+    <p class="friend-view-lead">${stats.totalMovies} ${stats.totalMovies === 1 ? "movie" : "movies"} across ${stats.sectionCount} ${stats.sectionCount === 1 ? "list" : "lists"}</p>
+  </div>
+  <dl class="friend-view-stats">
+    <div class="friend-view-stat"><dt>Watched</dt><dd>${stats.watchedCount}</dd></div>
+    <div class="friend-view-stat"><dt>Watchlist</dt><dd>${stats.watchlistCount}</dd></div>
+    <div class="friend-view-stat"><dt>Custom lists</dt><dd>${stats.customListCount}</dd></div>
+    <div class="friend-view-stat"><dt>Rated</dt><dd>${stats.ratedCount}</dd></div>
+  </dl>
+  ${overlap}
+  ${friendRatingLegendHtml()}`;
+}
+
+function friendSectionHtml(section) {
+  const collapsed = friendViewCollapsedSections.has(section.id);
+  const bodyId = `friend-section-body-${section.id}`;
+  const rows = section.movieIds.map((id) => friendMovieRowHtml(id)).join("");
+  return `<section class="friend-view-section" id="friend-section-${appCardHtml.escapeHtml(section.id)}" data-friend-section-id="${appCardHtml.escapeHtml(section.id)}">
+    <div class="friend-view-list-card${collapsed ? " is-collapsed" : ""}">
+      <div class="friend-view-list-bar">
+        <button
+          type="button"
+          class="friend-view-list-toggle"
+          aria-expanded="${collapsed ? "false" : "true"}"
+          aria-controls="${appCardHtml.escapeHtml(bodyId)}"
+        >
+          <span class="friend-view-list-chevron" aria-hidden="true">
+            <svg viewBox="0 0 20 20" width="14" height="14" fill="none">
+              <path d="M7.5 5 12.5 10 7.5 15" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+          <span class="friend-view-list-title">${appCardHtml.escapeHtml(section.name)}</span>
+          <span class="friend-view-list-count">${section.movieIds.length}</span>
+        </button>
+      </div>
+      <div class="friend-view-list-body" id="${appCardHtml.escapeHtml(bodyId)}">
+        <div class="grid friend-view-grid">${rows}</div>
+      </div>
+    </div>
+  </section>`;
+}
+
+function syncFriendSectionCollapse(sectionId) {
+  const section = friendViewSectionsEl?.querySelector(
+    `[data-friend-section-id="${CSS.escape(String(sectionId))}"]`,
+  );
+  if (!section) {
+    return;
+  }
+  const collapsed = friendViewCollapsedSections.has(sectionId);
+  section.querySelector(".friend-view-list-card")?.classList.toggle("is-collapsed", collapsed);
+  const toggle = section.querySelector(".friend-view-list-toggle");
+  if (toggle) {
+    toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  }
+}
+
+function toggleFriendSectionCollapse(sectionId) {
+  if (friendViewCollapsedSections.has(sectionId)) {
+    friendViewCollapsedSections.delete(sectionId);
+  } else {
+    friendViewCollapsedSections.add(sectionId);
+  }
+  syncFriendSectionCollapse(sectionId);
+}
+
+function clearFriendViewState() {
+  activeFriendId = null;
+  friendViewName = "";
+  friendViewState = null;
+  friendViewSections = [];
+  friendViewLoadedId = null;
+  friendViewError = null;
+  friendViewLoading = false;
+  friendViewCollapsedSections.clear();
+}
+
+function navigateToFriendView(userId, name, options = {}) {
+  const id = Number(userId);
+  if (!Number.isInteger(id) || id <= 0) {
+    return;
+  }
+  closeDetail({ popHistory: false });
+  if (typeof closeSettings === "function" && !settingsDialog.hidden) {
+    closeSettings();
+  }
+  appView = "friend";
+  activeCustomListId = null;
+  activeFriendId = id;
+  friendViewName = String(name || "Friend").trim() || "Friend";
+  friendViewState = null;
+  friendViewSections = [];
+  friendViewLoadedId = null;
+  friendViewError = null;
+  friendViewLoading = true;
+  if (options.pushHistory !== false) {
+    history.pushState(
+      { appView: "friend", activeFriendId: id, friendViewName },
+      "",
+      appFriendView.buildFriendHash(id),
+    );
+    markProgrammaticLocation();
+  }
+  syncAppViewChrome();
+  loadFriendView(id);
+}
+
+function navigateFromFriendView(options = {}) {
+  clearFriendViewState();
+  navigateToMain(options);
+}
+
+async function loadFriendView(userId) {
+  const id = Number(userId);
+  if (!Number.isInteger(id) || id <= 0 || activeFriendId !== id) {
+    return;
+  }
+  friendViewLoading = true;
+  friendViewError = null;
+  renderFriendView();
+  try {
+    const state = await fetchFriendState(id);
+    if (activeFriendId !== id) {
+      return;
+    }
+    friendViewState = state;
+    friendViewSections = state ? appFriendView.friendListSections(state) : [];
+    friendViewLoadedId = id;
+    friendViewLoading = false;
+    friendViewError = null;
+    renderFriendView();
+    hydrateFriendView();
+  } catch (error) {
+    if (activeFriendId !== id) {
+      return;
+    }
+    friendViewLoading = false;
+    friendViewError = error?.message || "Could not load their lists.";
+    friendViewState = null;
+    friendViewSections = [];
+    renderFriendView();
+  }
+}
+
+function hydrateFriendView() {
+  const ids = appFriendView.friendNavigationIds(friendViewSections, null);
+  if (!ids.length) {
+    return;
+  }
+  hydrateMovies(ids, {
+    onRecord: applyFriendHydratedRecord,
+    onUpdate: applyFriendHydratedRecord,
+  });
+}
+
+function applyFriendHydratedRecord(movieId) {
+  if (!isFriendViewActive()) {
+    return;
+  }
+  const rows = friendViewSectionsEl?.querySelectorAll(`.movie-row[data-movie-id="${movieId}"]`);
+  if (rows?.length) {
+    for (const row of rows) {
+      row.innerHTML = friendRowInnerHtml(movieId);
+    }
+    bindPosterImages(friendViewSectionsEl);
+  }
+  if (detailMovieId === movieId) {
+    renderDetail();
+  }
+}
+
+function renderFriendView() {
+  if (!friendViewOverview || !friendViewSectionsEl) {
+    return;
+  }
+  syncAppViewChrome();
+  if (friendViewLoading) {
+    friendViewOverview.innerHTML = '<p class="friend-view-message">Loading…</p>';
+    friendViewSectionsEl.innerHTML = "";
+    return;
+  }
+  if (friendViewError) {
+    friendViewOverview.innerHTML = `<p class="friend-view-message friend-view-message--error">${appCardHtml.escapeHtml(friendViewError)}</p>`;
+    friendViewSectionsEl.innerHTML = "";
+    return;
+  }
+  if (!friendViewState) {
+    friendViewOverview.innerHTML =
+      '<p class="friend-view-message">They have not synced any lists yet.</p>';
+    friendViewSectionsEl.innerHTML = "";
+    return;
+  }
+  if (!friendViewSections.length) {
+    friendViewOverview.innerHTML = `<p class="friend-view-message">${appCardHtml.escapeHtml(friendViewName)}'s lists are empty so far.</p>`;
+    friendViewSectionsEl.innerHTML = "";
+    return;
+  }
+  const stats = appFriendView.friendOverviewStats(friendViewState, userState);
+  friendViewOverview.innerHTML = friendOverviewHtml(stats, friendViewName);
+  friendViewSectionsEl.innerHTML = friendViewSections.map((section) => friendSectionHtml(section)).join("");
+  bindPosterImages(friendViewSectionsEl);
+}
+
+function friendDetailNoteHtml(movieId) {
+  if (!isFriendViewActive() || !friendViewState) {
+    return "";
+  }
+  const names = appFriendView.friendListNamesForMovie(friendViewState, movieId);
+  const rating = appRatings.getRating(friendViewState.ratings, movieId);
+  const parts = [];
+  if (names.length) {
+    parts.push(`On their ${names.join(", ")}`);
+  }
+  if (rating != null) {
+    parts.push(`Friend rated ★ ${appRatings.formatUserRating(rating)}`);
+  }
+  const myRating = appRatings.getRating(userState.ratings, movieId);
+  if (myRating != null) {
+    parts.push(`You rated ★ ${appRatings.formatUserRating(myRating)}`);
+  }
+  if (!parts.length) {
+    return "";
+  }
+  return `<p class="friend-detail-note">${appCardHtml.escapeHtml(parts.join(" · "))}</p>`;
+}
+
+function onFriendViewSectionsClick(event) {
+  if (!isFriendViewActive()) {
+    return;
+  }
+  const toggle = event.target.closest(".friend-view-list-toggle");
+  if (toggle && friendViewSectionsEl?.contains(toggle)) {
+    const sectionId = toggle.closest("[data-friend-section-id]")?.dataset.friendSectionId;
+    if (sectionId) {
+      toggleFriendSectionCollapse(sectionId);
+    }
+    return;
+  }
+  const card = event.target.closest(".card[data-movie-id]");
+  if (!card || !friendViewSectionsEl?.contains(card)) {
+    return;
+  }
+  openDetail(Number(card.dataset.movieId));
+}
+
+function onFriendViewSectionsKeydown(event) {
+  if (!isFriendViewActive() || event.key !== "Enter") {
+    return;
+  }
+  const card = event.target.closest(".card[data-movie-id]");
+  if (!card || !friendViewSectionsEl?.contains(card)) {
+    return;
+  }
+  event.preventDefault();
+  openDetail(Number(card.dataset.movieId));
 }
 
 /* ===== Event wiring and startup ===== */
@@ -14193,7 +14813,9 @@ customListDeleteDialog?.addEventListener("click", (event) => {
   }
 });
 customListBackBtn?.addEventListener("click", () => {
-  if (isDiscoverActive()) {
+  if (isFriendViewActive()) {
+    navigateFromFriendView();
+  } else if (isDiscoverActive()) {
     navigateToMain();
   } else if (isCustomListIndexActive()) {
     navigateToMain();
@@ -14235,6 +14857,9 @@ document.addEventListener("visibilitychange", onVisibilityRefresh);
 
 settingsBtn.addEventListener("click", openSettings);
 settingsClose.addEventListener("click", closeSettings);
+settingsTabAccount.addEventListener("click", () => setSettingsTab("account"));
+settingsTabFriends.addEventListener("click", () => setSettingsTab("friends"));
+settingsTabConfig.addEventListener("click", () => setSettingsTab("config"));
 settingsDialog.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-settings")) {
     closeSettings();
@@ -14273,12 +14898,8 @@ accountDeletePassword.addEventListener("keydown", (event) => {
 });
 friendAddBtn.addEventListener("click", onAddFriend);
 friendsList.addEventListener("click", onFriendsListClick);
-friendViewClose.addEventListener("click", closeFriendView);
-friendViewDialog.addEventListener("click", (event) => {
-  if (event.target.hasAttribute("data-close-friend-view")) {
-    closeFriendView();
-  }
-});
+friendViewSectionsEl?.addEventListener("click", onFriendViewSectionsClick);
+friendViewSectionsEl?.addEventListener("keydown", onFriendViewSectionsKeydown);
 
 aboutBtn.addEventListener("click", openAbout);
 aboutClose.addEventListener("click", closeAbout);

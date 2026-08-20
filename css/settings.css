@@ -168,6 +168,22 @@
 
 /* --- Collection storage tabs & panels --- */
 
+.settings-tabs {
+  margin-bottom: 0.85rem;
+}
+
+.settings-panel[hidden] {
+  display: none;
+}
+
+.settings-panel > .sheet-note:first-child {
+  margin-top: 0;
+}
+
+.settings-friends-signin[hidden] {
+  display: none;
+}
+
 .sheet-section--storage h3 {
   margin-bottom: 0.65rem;
 }
@@ -452,12 +468,6 @@
   margin-top: 0.65rem;
 }
 
-.account-friends-section {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
-}
-
 .account-friends-section[hidden] {
   display: none;
 }
@@ -469,8 +479,12 @@
 }
 
 @media (max-width: 640px) {
-  .storage-tabs {
+  .storage-tabs:not(.settings-tabs) {
     grid-template-columns: 1fr;
+  }
+
+  .settings-tabs.storage-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .account-session-profile {
@@ -487,6 +501,10 @@
   .sheet-form--inline {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .sheet-form--inline .sheet-field--grow {
+    flex: none;
   }
 
   .friend-add-btn {
@@ -782,20 +800,4 @@
 .friend-btn {
   font-size: 0.78rem;
   padding: 0.3rem 0.6rem;
-}
-
-.friend-view-list h4 {
-  margin: 0.9rem 0 0.3rem;
-}
-
-.friend-view-list ol {
-  margin: 0;
-  padding-left: 1.4rem;
-  font-size: 0.9rem;
-  line-height: 1.6;
-}
-
-.friend-view-rating {
-  color: var(--muted);
-  font-size: 0.8rem;
 }

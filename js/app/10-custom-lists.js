@@ -26,6 +26,10 @@ function parseLocationHash() {
   if (discoverMatch) {
     return { kind: "discover", tab: discoverMatch.tab, page: discoverMatch.page };
   }
+  const friendMatch = appFriendView.parseFriendHash(hash);
+  if (friendMatch) {
+    return { kind: "friend", userId: friendMatch.userId };
+  }
   return { kind: "main" };
 }
 
@@ -40,6 +44,8 @@ function persistViewRestoreContext() {
         discoverTab: isDiscoverActive() ? discoverTab : null,
         discoverPage: isDiscoverActive() ? discoverPage : null,
         activeCustomListId: isCustomListDetailActive() ? activeCustomListId : null,
+        activeFriendId: isFriendViewActive() ? activeFriendId : null,
+        friendViewName: isFriendViewActive() ? friendViewName : null,
       }),
     );
   } catch (_) {
@@ -96,6 +102,13 @@ function applyRestoredViewContext(restored) {
     activeCustomListId = null;
     return true;
   }
+  if (restored.appView === "friend" && restored.activeFriendId) {
+    appView = "friend";
+    activeCustomListId = null;
+    activeFriendId = restored.activeFriendId;
+    friendViewName = restored.friendViewName || "Friend";
+    return true;
+  }
   return false;
 }
 
@@ -103,26 +116,35 @@ function syncAppViewChrome() {
   document.body.classList.toggle("view-custom-index", isCustomListIndexActive());
   document.body.classList.toggle("view-custom-detail", isCustomListDetailActive());
   document.body.classList.toggle("view-discover", isDiscoverActive());
+  document.body.classList.toggle("view-friend", isFriendViewActive());
   if (customListsIndex) {
     customListsIndex.hidden = !isCustomListIndexActive();
   }
+  if (friendViewEl) {
+    friendViewEl.hidden = !isFriendViewActive();
+  }
+  if (grid) {
+    grid.hidden = isFriendViewActive();
+  }
   if (listTabs) {
-    listTabs.hidden = isCustomListView() || isDiscoverActive();
+    listTabs.hidden = isCustomListView() || isDiscoverActive() || isFriendViewActive();
   }
   if (discoverTabs) {
     discoverTabs.hidden = !isDiscoverActive();
   }
   if (discoverEntryBtn) {
-    discoverEntryBtn.hidden = isCustomListView() || isDiscoverActive();
+    discoverEntryBtn.hidden = isCustomListView() || isDiscoverActive() || isFriendViewActive();
   }
   if (listsNavBtn) {
-    listsNavBtn.hidden = isCustomListView() || isDiscoverActive();
+    listsNavBtn.hidden = isCustomListView() || isDiscoverActive() || isFriendViewActive();
   }
   if (customListBackBtn) {
-    customListBackBtn.hidden = !isCustomListView() && !isDiscoverActive();
+    customListBackBtn.hidden = !isCustomListView() && !isDiscoverActive() && !isFriendViewActive();
   }
   if (customListBackLabel) {
-    if (isDiscoverActive()) {
+    if (isFriendViewActive()) {
+      customListBackLabel.textContent = "Collection";
+    } else if (isDiscoverActive()) {
       customListBackLabel.textContent = "Collection";
     } else {
       customListBackLabel.textContent = isCustomListIndexActive() ? "Collection" : "All lists";
@@ -132,7 +154,7 @@ function syncAppViewChrome() {
     customListsIndexActions.hidden = !isCustomListIndexActive();
   }
   if (addMovieFab) {
-    addMovieFab.hidden = isCustomListIndexActive() || isDiscoverActive();
+    addMovieFab.hidden = isCustomListIndexActive() || isDiscoverActive() || isFriendViewActive();
   }
   updateListHeader();
   syncListSearchVisibility();
@@ -140,6 +162,9 @@ function syncAppViewChrome() {
 }
 
 function navigateToMain(options = {}) {
+  if (typeof clearFriendViewState === "function") {
+    clearFriendViewState();
+  }
   appView = "main";
   activeCustomListId = null;
   clearViewRestoreContext();
@@ -158,6 +183,9 @@ function navigateToMain(options = {}) {
 function navigateHomeToWatched(options = {}) {
   closeDetail({ popHistory: false });
   closeWatchedPicker();
+  if (typeof clearFriendViewState === "function") {
+    clearFriendViewState();
+  }
   appView = "main";
   activeCustomListId = null;
   if (userState.activeListId !== appLists.WATCHED_ID) {
@@ -178,6 +206,9 @@ function navigateHomeToWatched(options = {}) {
 function navigateToCustomListsIndex(options = {}) {
   appView = "customIndex";
   activeCustomListId = null;
+  if (typeof clearFriendViewState === "function") {
+    clearFriendViewState();
+  }
   closeDetail({ popHistory: false });
   if (options.pushHistory !== false) {
     history.pushState({ appView: "customIndex" }, "", "#lists");
@@ -199,6 +230,9 @@ function navigateToCustomList(listId, options = {}) {
   closeDetail({ popHistory: false });
   appView = "customDetail";
   activeCustomListId = listId;
+  if (typeof clearFriendViewState === "function") {
+    clearFriendViewState();
+  }
   if (options.pushHistory !== false) {
     history.pushState(
       { appView: "customDetail", activeCustomListId: listId },
@@ -229,6 +263,9 @@ function appViewMatchesLocation(parsed) {
       discoverPage === appDiscover.normalizeDiscoverPage(parsed.page)
     );
   }
+  if (parsed.kind === "friend") {
+    return appView === "friend" && activeFriendId === parsed.userId;
+  }
   return false;
 }
 
@@ -253,6 +290,9 @@ function movieUnderlayMatchesHistoryState() {
         : discoverPage;
     return tab === discoverTab && page === discoverPage;
   }
+  if (state.appView === "friend") {
+    return activeFriendId === (state.activeFriendId ?? null);
+  }
   return true;
 }
 
@@ -270,6 +310,14 @@ function paintLocationUnderlay() {
       loadDiscoverTab(discoverTab, { page: discoverPage, pushHistory: false });
     } else {
       renderDiscover();
+    }
+    return;
+  }
+  if (isFriendViewActive()) {
+    if (friendViewLoadedId === activeFriendId && friendViewState) {
+      renderFriendView();
+    } else if (!friendViewLoading) {
+      loadFriendView(activeFriendId);
     }
     return;
   }
@@ -315,6 +363,10 @@ function syncViewFromLocation(options = {}) {
     if (state?.appView) {
       appView = state.appView;
       activeCustomListId = state.activeCustomListId ?? null;
+      if (state.appView === "friend") {
+        activeFriendId = state.activeFriendId ?? null;
+        friendViewName = state.friendViewName || "Friend";
+      }
       if (state.discoverTab) {
         discoverTab = appDiscover.normalizeDiscoverTab(state.discoverTab);
       }
@@ -335,6 +387,9 @@ function syncViewFromLocation(options = {}) {
   if (parsed.kind === "customIndex") {
     appView = "customIndex";
     activeCustomListId = null;
+    if (typeof clearFriendViewState === "function") {
+      clearFriendViewState();
+    }
     syncAppViewChrome();
     renderCustomListsIndex();
     return;
@@ -345,6 +400,9 @@ function syncViewFromLocation(options = {}) {
     if (list) {
       appView = "customDetail";
       activeCustomListId = parsed.listId;
+      if (typeof clearFriendViewState === "function") {
+        clearFriendViewState();
+      }
       syncAppViewChrome();
       refreshViewModeForActiveList();
       render();
@@ -358,6 +416,9 @@ function syncViewFromLocation(options = {}) {
   if (parsed.kind === "discover") {
     appView = "discover";
     activeCustomListId = null;
+    if (typeof clearFriendViewState === "function") {
+      clearFriendViewState();
+    }
     syncAppViewChrome();
     refreshViewModeForActiveList();
     const tab = appDiscover.normalizeDiscoverTab(parsed.tab);
@@ -376,6 +437,28 @@ function syncViewFromLocation(options = {}) {
     return;
   }
 
+  if (parsed.kind === "friend") {
+    appView = "friend";
+    activeCustomListId = null;
+    activeFriendId = parsed.userId;
+    const state = history.state;
+    if (state?.friendViewName) {
+      friendViewName = state.friendViewName;
+    } else if (friendViewLoadedId !== parsed.userId) {
+      friendViewName = "Friend";
+    }
+    syncAppViewChrome();
+    if (friendViewLoadedId === parsed.userId && friendViewState) {
+      renderFriendView();
+    } else {
+      loadFriendView(parsed.userId);
+    }
+    return;
+  }
+
+  if (typeof clearFriendViewState === "function") {
+    clearFriendViewState();
+  }
   appView = "main";
   activeCustomListId = null;
   clearViewRestoreContext();

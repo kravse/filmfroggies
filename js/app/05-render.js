@@ -389,6 +389,7 @@ function syncSortSelectLabels() {
 function syncSortControlUi() {
   const show =
     !isDiscoverActive() &&
+    !isFriendViewActive() &&
     usesWatchedStyleDisplay() &&
     activeMovieIds().length > 0 &&
     hasMovieData();
@@ -577,6 +578,12 @@ function syncHeaderViewTitle() {
   if (!headerTitleEl || !customListViewTitleEl) {
     return;
   }
+  if (isFriendViewActive()) {
+    customListViewTitleEl.textContent = `${friendViewName}'s lists`;
+    customListViewTitleEl.hidden = false;
+    headerTitleEl.hidden = true;
+    return;
+  }
   if (isCustomListDetailActive()) {
     customListViewTitleEl.textContent = getActiveDisplayContext().listName;
     customListViewTitleEl.hidden = false;
@@ -609,6 +616,22 @@ function updateListHeader() {
   const count = isDiscoverActive() ? discoverDisplayIds().length : activeMovieIds().length;
   if (isCustomListIndexActive()) {
     listSubtitleEl.textContent = "Create and manage custom lists";
+    return;
+  }
+  if (isFriendViewActive()) {
+    if (friendViewLoading) {
+      listSubtitleEl.textContent = "Loading their lists…";
+      return;
+    }
+    if (friendViewError) {
+      listSubtitleEl.textContent = "Could not load their lists";
+      return;
+    }
+    if (friendViewSections.length) {
+      listSubtitleEl.textContent = "Tap a movie to open details and add to your lists";
+      return;
+    }
+    listSubtitleEl.textContent = "No shared lists yet";
     return;
   }
   if (isDiscoverActive()) {
@@ -666,6 +689,7 @@ function syncAddMovieFabVisibility(count) {
     addMovieFab.hidden =
       isCustomListIndexActive() ||
       isDiscoverActive() ||
+      isFriendViewActive() ||
       (count === 0 && !isCustomListDetailActive());
   }
 }
@@ -725,6 +749,11 @@ function onRemoteStateAdopted() {
 
 function render() {
   syncAccountLoginGate();
+  if (isFriendViewActive()) {
+    syncAppViewChrome();
+    renderFriendView();
+    return;
+  }
   if (isCustomListIndexActive()) {
     syncAppViewChrome();
     renderCustomListsIndex();
@@ -751,6 +780,10 @@ function render() {
 /** Patches one row after hydration so the rest of the grid stays untouched. */
 function applyHydratedRecord(movieId, options = {}) {
   const opts = options && typeof options === "object" ? options : {};
+  if (isFriendViewActive()) {
+    applyFriendHydratedRecord(movieId);
+    return;
+  }
   const row = grid.querySelector(`.movie-row[data-movie-id="${movieId}"]`);
   if (row) {
     row.innerHTML = rowInnerHtml(movieId);

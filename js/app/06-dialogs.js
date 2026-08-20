@@ -1438,11 +1438,12 @@ function renderDetail() {
       ? detailAddBlockHtml()
       : "";
     detailBody.innerHTML = `${detailTitleRowHtml(heading)}
-<p class="movie-detail-overview">${note}</p>${addForm}`;
+<p class="movie-detail-overview">${note}</p>${friendDetailNoteHtml(detailMovieId)}${addForm}`;
   } else {
     detailPoster.innerHTML = detailPosterFrameHtml(record, appTmdb.POSTER_SIZES.detail);
     bindPosterImages(detailPoster);
     detailBody.innerHTML = `${detailTitleRowHtml(appCardHtml.escapeHtml(record.title))}
+${friendDetailNoteHtml(detailMovieId)}
 ${detailBodyTabsHtml(detailMovieId, record)}`;
   }
 
@@ -1500,6 +1501,8 @@ function detailHistoryState(movieId) {
     detailMovieId: movieId,
     appView,
     activeCustomListId,
+    activeFriendId: isFriendViewActive() ? activeFriendId : null,
+    friendViewName: isFriendViewActive() ? friendViewName : null,
     discoverTab: isDiscoverActive() ? discoverTab : null,
     discoverPage: isDiscoverActive() ? discoverPage : null,
   };
@@ -1557,6 +1560,12 @@ function underlayHistoryEntry() {
     return {
       state: { appView: "customDetail", activeCustomListId },
       url: path + hash,
+    };
+  }
+  if (isFriendViewActive() && activeFriendId) {
+    return {
+      state: { appView: "friend", activeFriendId, friendViewName },
+      url: path + appFriendView.buildFriendHash(activeFriendId),
     };
   }
   if (isCustomListIndexActive()) {
@@ -1695,6 +1704,25 @@ function accountDisplayInitial(config) {
 }
 
 let accountAuthMode = "login";
+let settingsTab = "account";
+
+function setSettingsTab(tab) {
+  settingsTab = tab === "friends" || tab === "config" ? tab : "account";
+  const accountSelected = settingsTab === "account";
+  const friendsSelected = settingsTab === "friends";
+  const configSelected = settingsTab === "config";
+
+  settingsTabAccount.setAttribute("aria-selected", accountSelected ? "true" : "false");
+  settingsTabAccount.tabIndex = accountSelected ? 0 : -1;
+  settingsTabFriends.setAttribute("aria-selected", friendsSelected ? "true" : "false");
+  settingsTabFriends.tabIndex = friendsSelected ? 0 : -1;
+  settingsTabConfig.setAttribute("aria-selected", configSelected ? "true" : "false");
+  settingsTabConfig.tabIndex = configSelected ? 0 : -1;
+
+  settingsPanelAccount.hidden = !accountSelected;
+  settingsPanelFriends.hidden = !friendsSelected;
+  settingsPanelConfig.hidden = !configSelected;
+}
 
 function setAccountAuthMode(mode) {
   accountAuthMode = mode === "signup" ? "signup" : "login";
@@ -1726,6 +1754,7 @@ function refreshSettings() {
 
 function openSettings() {
   refreshSettings();
+  setSettingsTab("account");
   settingsDialog.hidden = false;
   settingsBtn.setAttribute("aria-expanded", "true");
   if (accountSyncEnabled()) {
@@ -1810,6 +1839,7 @@ function refreshAccountSection() {
   accountAuthFields.hidden = connected;
   accountSessionCard.hidden = !connected;
   accountFriendsSection.hidden = !connected;
+  settingsFriendsSignin.hidden = connected;
   if (connected) {
     const displayName =
       accountConfig.displayName || accountConfig.email.split("@")[0] || "Account";
@@ -1985,7 +2015,7 @@ async function onAddFriend() {
     friendEmailInput.value = "";
     setStatus(
       friendsStatus,
-      "Request sent. If they have an account, they can accept it from their settings.",
+      "Request sent. If they have an account, they can accept it from Settings → Friends.",
       "ok",
     );
     refreshFriendsList();
@@ -2011,86 +2041,10 @@ async function onFriendsListClick(event) {
       await removeFriend(friendId);
       refreshFriendsList();
     } else if (action === "view") {
-      openFriendView(friendId, button.dataset.friendName || "Friend");
+      navigateToFriendView(friendId, button.dataset.friendName || "Friend");
     }
   } catch (error) {
     setStatus(friendsStatus, error.message, "error");
-  }
-}
-
-/* --- Friend list viewer (read-only) --- */
-
-function closeFriendView() {
-  friendViewDialog.hidden = true;
-  friendViewContent.innerHTML = "";
-}
-
-/** Resolves a movie title from cache/snapshot/TMDB; never blocks the dialog. */
-async function friendMovieLabel(movieId) {
-  try {
-    const record = await getMovie(movieId);
-    const year = appCardHtml.formatYear(record.release_date);
-    return `${record.title}${year ? ` (${year})` : ""}`;
-  } catch (_) {
-    return `TMDB #${movieId}`;
-  }
-}
-
-function friendViewListHtml(name, movieIds, labels, ratings) {
-  const items = movieIds
-    .map((id) => {
-      const rating = appRatings.getRating(ratings, id);
-      const ratingHtml =
-        rating == null
-          ? ""
-          : ` <span class="friend-view-rating">★ ${appRatings.formatUserRating(rating)}</span>`;
-      return `<li>${appCardHtml.escapeHtml(labels.get(id) || `TMDB #${id}`)}${ratingHtml}</li>`;
-    })
-    .join("");
-  return `<section class="friend-view-list"><h4>${appCardHtml.escapeHtml(name)} (${movieIds.length})</h4><ol>${items}</ol></section>`;
-}
-
-async function openFriendView(friendId, friendName) {
-  friendViewTitle.textContent = `${friendName}'s lists`;
-  friendViewContent.innerHTML = '<p class="sheet-note">Loading…</p>';
-  friendViewDialog.hidden = false;
-  try {
-    const state = await fetchFriendState(friendId);
-    if (!state) {
-      friendViewContent.innerHTML =
-        '<p class="sheet-note">They have not synced any lists yet.</p>';
-      return;
-    }
-    const sections = [
-      ...appLists.PRESET_LISTS.map((preset) => ({
-        name: preset.name,
-        movieIds: appLists.findList(state.lists, preset.id)?.movieIds || [],
-      })),
-      ...state.customLists.map((list) => ({
-        name: list.name,
-        movieIds: list.movieIds,
-      })),
-    ].filter((section) => section.movieIds.length);
-
-    if (!sections.length) {
-      friendViewContent.innerHTML =
-        '<p class="sheet-note">Their lists are empty so far.</p>';
-      return;
-    }
-
-    const uniqueIds = [...new Set(sections.flatMap((s) => s.movieIds))];
-    const labels = new Map(
-      await Promise.all(
-        uniqueIds.map(async (id) => [id, await friendMovieLabel(id)]),
-      ),
-    );
-    friendViewContent.innerHTML = sections
-      .map((section) =>
-        friendViewListHtml(section.name, section.movieIds, labels, state.ratings),
-      )
-      .join("");
-  } catch (error) {
-    friendViewContent.innerHTML = `<p class="sheet-note">Could not load their lists. ${appCardHtml.escapeHtml(error.message)}</p>`;
   }
 }
 

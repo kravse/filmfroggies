@@ -462,7 +462,9 @@ customListDeleteDialog?.addEventListener("click", (event) => {
   }
 });
 customListBackBtn?.addEventListener("click", () => {
-  if (isDiscoverActive()) {
+  if (isFriendViewActive()) {
+    navigateFromFriendView();
+  } else if (isDiscoverActive()) {
     navigateToMain();
   } else if (isCustomListIndexActive()) {
     navigateToMain();
@@ -504,6 +506,9 @@ document.addEventListener("visibilitychange", onVisibilityRefresh);
 
 settingsBtn.addEventListener("click", openSettings);
 settingsClose.addEventListener("click", closeSettings);
+settingsTabAccount.addEventListener("click", () => setSettingsTab("account"));
+settingsTabFriends.addEventListener("click", () => setSettingsTab("friends"));
+settingsTabConfig.addEventListener("click", () => setSettingsTab("config"));
 settingsDialog.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-settings")) {
     closeSettings();
@@ -542,12 +547,8 @@ accountDeletePassword.addEventListener("keydown", (event) => {
 });
 friendAddBtn.addEventListener("click", onAddFriend);
 friendsList.addEventListener("click", onFriendsListClick);
-friendViewClose.addEventListener("click", closeFriendView);
-friendViewDialog.addEventListener("click", (event) => {
-  if (event.target.hasAttribute("data-close-friend-view")) {
-    closeFriendView();
-  }
-});
+friendViewSectionsEl?.addEventListener("click", onFriendViewSectionsClick);
+friendViewSectionsEl?.addEventListener("keydown", onFriendViewSectionsKeydown);
 
 aboutBtn.addEventListener("click", openAbout);
 aboutClose.addEventListener("click", closeAbout);
