@@ -61,7 +61,7 @@ On the collection view, the sparkle button beside **Lists** opens **Discover** (
 
 On **Watched** (and custom lists), the **Sort** dropdown offers My Rating, Fan Rating, Release Year, Title, Date Added, and Date Watched (using the latest viewing), plus a reverse button for direction. Default is My Rating, highest first. Sort never rewrites stored order.
 
-Click any card to open the detail overlay — poster, year, runtime, genres, fan rating, your rating, director, cast, and overview. Edit **My rating** and list membership in the overlay (desktop inline; mobile via a lists sheet). Arrow keys move between movies; Escape closes. Overlays deep-link as `#movie/{id}`.
+Click any card to open the detail overlay — poster, year, runtime, genres, fan rating, your rating, director, cast, and overview. Edit **My rating** and list membership in the overlay (desktop inline; mobile via a lists sheet). **Share** beside the title copies a `#movie/{id}` link; anyone using this site with a TMDB credential can open that movie. If it is not in their collection, the overlay shows the overview plus the add-movie controls (Watched / Watchlist, optional rating and viewing date, custom lists). Arrow keys move between movies; Escape closes. Overlays deep-link as `#movie/{id}`.
 
 **Watchlist** cards show **Watch** (moves to Watched) and **Remove**. **Remove movie** in the detail overlay on a preset list drops the film from your entire preset collection. On a custom list, remove takes the movie off that list only.
 

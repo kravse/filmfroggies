@@ -59,3 +59,17 @@ test("movie search picker is exported and included in the browser bundle", () =>
   assert.ok(entry.exports.includes("createMovieSearchPicker"));
   assert.ok(PARTS.some((part) => part.file === entry.target));
 });
+
+test("share and add-movie helpers are exported to the browser bundle", () => {
+  const { APP_SYNC_ENTRIES } = require("../scripts/app-sync-config");
+  const { PARTS } = require("../scripts/bundle-app-js");
+  const share = APP_SYNC_ENTRIES.find((candidate) => candidate.target === "00-app-movie-share.js");
+  const addMovie = APP_SYNC_ENTRIES.find((candidate) => candidate.target === "00-app-add-movie.js");
+  assert.ok(share);
+  assert.ok(addMovie);
+  assert.ok(share.exports.includes("movieShareUrl"));
+  assert.ok(share.exports.includes("isMovieOwned"));
+  assert.ok(addMovie.exports.includes("applyAddMovie"));
+  assert.ok(PARTS.some((part) => part.file === share.target));
+  assert.ok(PARTS.some((part) => part.file === addMovie.target));
+});

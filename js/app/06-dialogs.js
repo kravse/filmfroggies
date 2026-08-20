@@ -9,6 +9,24 @@
 
 const TMDB_MOVIE_URL = "https://www.themoviedb.org/movie/";
 
+function detailShareButtonHtml() {
+  return `<button type="button" id="movie-detail-share" class="icon-btn movie-detail-share-btn" aria-label="Share movie" title="Share">
+  <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none">
+    <circle cx="14.5" cy="4.5" r="2.25" stroke="currentColor" stroke-width="1.75" />
+    <circle cx="14.5" cy="15.5" r="2.25" stroke="currentColor" stroke-width="1.75" />
+    <circle cx="5.5" cy="10" r="2.25" stroke="currentColor" stroke-width="1.75" />
+    <path d="M7.4 9.1 12.6 5.9M7.4 10.9 12.6 14.1" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
+  </svg>
+</button>`;
+}
+
+function detailTitleRowHtml(titleText) {
+  return `<div class="movie-detail-title-row">
+  <h2 class="movie-detail-title" id="movie-detail-title">${titleText}</h2>
+  ${detailShareButtonHtml()}
+</div>`;
+}
+
 /* --- Detail overlay --- */
 
 function detailMetaChips(record) {
@@ -521,10 +539,16 @@ function detailOverviewPanelHtml(movieId, record) {
   const tagline = record.tagline
     ? `<p class="movie-detail-tagline">${appCardHtml.escapeHtml(record.tagline)}</p>`
     : "";
+  const overview = `<p class="movie-detail-overview">${appCardHtml.escapeHtml(record.overview || "No overview available.")}</p>
+<div class="movie-detail-credits">${detailCreditsHtml(record)}</div>`;
+  if (shouldShowDetailAddForm(movieId)) {
+    return `${tagline}<div class="movie-detail-meta">${detailMetaChips(record)}</div>
+${overview}
+${detailAddBlockHtml(movieId)}`;
+  }
   return `${tagline}<div class="movie-detail-meta">${detailMetaChips(record)}</div>
 ${detailUserRatingBlockHtml(movieId)}
-<p class="movie-detail-overview">${appCardHtml.escapeHtml(record.overview || "No overview available.")}</p>
-<div class="movie-detail-credits">${detailCreditsHtml(record)}</div>
+${overview}
 ${detailListsBlockHtml(movieId)}`;
 }
 
@@ -1043,6 +1067,315 @@ function clearDetailRating() {
   syncDetailRatingDisplay(null);
 }
 
+const detailAddRatingRefs = {
+  field: null,
+  slider: null,
+  select: null,
+  clear: null,
+  value: null,
+};
+let detailAddRatingController = null;
+
+function shouldShowDetailAddForm(movieId) {
+  if (isDiscoverActive() || movieId == null || !userState) {
+    return false;
+  }
+  return !appMovieShare.isMovieOwned(
+    userState.lists,
+    userState.customLists,
+    movieId,
+  );
+}
+
+function resetDetailAddFormState() {
+  detailAddListId = null;
+  detailAddCustomListIds = new Set();
+  detailAddRating = null;
+  detailAddWatchDateActive = false;
+  detailAddWatchDate = "";
+  detailAddRatingController?.reset();
+}
+
+function detailAddHasDestinations() {
+  return appAddMovie.hasAddMovieDestinations(
+    detailAddListId,
+    [...detailAddCustomListIds],
+  );
+}
+
+function detailAddPresetOptionHtml(listId, name, iconPreset) {
+  const pressed = detailAddListId === listId;
+  return `<button type="button" class="add-list-option" data-detail-add-list-id="${appCardHtml.escapeHtml(listId)}" aria-pressed="${pressed}">${appCardHtml.addListPresetIconHtml(iconPreset)}<span class="add-list-name">${appCardHtml.escapeHtml(name)}</span></button>`;
+}
+
+function detailAddCustomListsHtml() {
+  const lists = userState.customLists || [];
+  if (!lists.length) {
+    return `<p class="detail-add-to-list-hint"><a href="#lists" class="detail-add-to-list-link">Create lists…</a></p>`;
+  }
+  return `<p class="add-movie-pick-label">Also add to</p>
+<div class="add-custom-list-picker" id="detail-add-custom-list-picker">${lists
+    .map((list) => {
+      const selected = detailAddCustomListIds.has(list.id);
+      return `<button type="button" class="add-custom-list-chip" data-detail-add-custom-list-id="${appCardHtml.escapeHtml(list.id)}" aria-pressed="${selected}">${appCardHtml.escapeHtml(list.name)}</button>`;
+    })
+    .join("")}</div>`;
+}
+
+function detailAddBlockHtml() {
+  const watchedSelected = detailAddListId === appLists.WATCHED_ID;
+  const extrasHidden = watchedSelected ? "" : " hidden";
+  const submitDisabled = detailAddHasDestinations() ? "" : " disabled";
+  return `<section class="detail-add-block" id="detail-add-block">
+  <p class="add-movie-pick-label">Add to</p>
+  <div class="add-list-picker" id="detail-add-list-picker" role="group" aria-label="Choose a list">
+    ${detailAddPresetOptionHtml(appLists.WATCHED_ID, "Watched", "watched")}
+    ${detailAddPresetOptionHtml(appLists.WATCHLIST_ID, "Watchlist", "watchlist")}
+  </div>
+  <div id="detail-add-watched-extras"${extrasHidden}>
+    ${appRatingFieldUi.userRatingFieldHtml({ idPrefix: "detail-add-rating" })}
+    <div class="add-movie-watch-date-wrap" id="detail-add-watch-date-wrap">
+      ${appCardHtml.viewingDatePickerHtml({
+        toggleId: "detail-add-watch-date-toggle",
+        fieldId: "detail-add-watch-date-field",
+        inputId: "detail-add-watch-date",
+        clearId: "detail-add-watch-date-clear",
+        toggleClass: "ghost-btn add-movie-watch-date-toggle",
+        fieldClass: "add-movie-watch-date",
+      })}
+    </div>
+  </div>
+  <div class="add-movie-custom-lists" id="detail-add-custom-lists-section">
+    ${detailAddCustomListsHtml()}
+  </div>
+  <div class="add-movie-pick-actions add-movie-pick-actions--end">
+    <button type="button" class="primary-btn" id="detail-add-submit"${submitDisabled}>Add</button>
+  </div>
+</section>`;
+}
+
+function ensureDetailAddRatingController() {
+  if (!detailAddRatingController) {
+    detailAddRatingController = appRatingFieldUi.createRatingFieldController(
+      detailAddRatingRefs,
+      appRatings,
+    );
+  }
+  return detailAddRatingController;
+}
+
+function syncDetailAddWatchDateUi() {
+  const watchedSelected = detailAddListId === appLists.WATCHED_ID;
+  const extras = document.getElementById("detail-add-watched-extras");
+  if (extras) {
+    extras.hidden = !watchedSelected;
+  }
+  if (!watchedSelected) {
+    detailAddWatchDateActive = false;
+  }
+  const toggle = document.getElementById("detail-add-watch-date-toggle");
+  const field = document.getElementById("detail-add-watch-date-field");
+  if (toggle) {
+    toggle.hidden = !watchedSelected || detailAddWatchDateActive;
+  }
+  if (field) {
+    field.hidden = !watchedSelected || !detailAddWatchDateActive;
+  }
+}
+
+function syncDetailAddFormUi() {
+  const root = document.getElementById("detail-add-block");
+  if (!root) {
+    return;
+  }
+  const watchedSelected = detailAddListId === appLists.WATCHED_ID;
+  root.querySelectorAll("[data-detail-add-list-id]").forEach((button) => {
+    button.setAttribute(
+      "aria-pressed",
+      String(button.dataset.detailAddListId === detailAddListId),
+    );
+  });
+  root.querySelectorAll("[data-detail-add-custom-list-id]").forEach((button) => {
+    button.setAttribute(
+      "aria-pressed",
+      String(detailAddCustomListIds.has(button.dataset.detailAddCustomListId)),
+    );
+  });
+  if (!watchedSelected) {
+    detailAddRating = null;
+    detailAddWatchDate = "";
+    detailAddRatingController?.reset();
+  }
+  syncDetailAddWatchDateUi();
+  const submit = document.getElementById("detail-add-submit");
+  if (submit) {
+    submit.disabled = !detailAddHasDestinations();
+  }
+}
+
+function bindDetailAddForm() {
+  if (!document.getElementById("detail-add-block")) {
+    return;
+  }
+  detailAddRatingRefs.field = document.getElementById("detail-add-rating-field");
+  detailAddRatingRefs.slider = document.getElementById("detail-add-rating-slider");
+  detailAddRatingRefs.select = document.getElementById("detail-add-rating-select");
+  detailAddRatingRefs.clear = document.getElementById("detail-add-rating-clear");
+  detailAddRatingRefs.value = document.getElementById("detail-add-rating-value");
+  const controller = ensureDetailAddRatingController();
+  controller.initSelect();
+  if (detailAddRating != null) {
+    controller.setValue(detailAddRating);
+  } else {
+    controller.reset();
+  }
+  const dateInput = document.getElementById("detail-add-watch-date");
+  if (dateInput) {
+    dateInput.value = detailAddWatchDate || appViewingHistory.today();
+    dateInput.max = appViewingHistory.today();
+  }
+  syncDetailAddFormUi();
+}
+
+function onDetailAddListOptionClick(listId) {
+  if (listId !== appLists.WATCHED_ID && listId !== appLists.WATCHLIST_ID) {
+    return;
+  }
+  detailAddListId = detailAddListId === listId ? null : listId;
+  syncDetailAddFormUi();
+}
+
+function onDetailAddCustomListClick(listId) {
+  if (!appCustomLists.isCustomListId(listId)) {
+    return;
+  }
+  if (detailAddCustomListIds.has(listId)) {
+    detailAddCustomListIds.delete(listId);
+  } else {
+    detailAddCustomListIds.add(listId);
+  }
+  syncDetailAddFormUi();
+}
+
+function onDetailAddWatchDateToggleClick() {
+  if (detailAddListId !== appLists.WATCHED_ID) {
+    return;
+  }
+  detailAddWatchDateActive = true;
+  if (!detailAddWatchDate) {
+    detailAddWatchDate = appViewingHistory.today();
+  }
+  syncDetailAddWatchDateUi();
+  document.getElementById("detail-add-watch-date")?.focus({ preventScroll: true });
+}
+
+function clearDetailAddWatchDate() {
+  detailAddWatchDateActive = false;
+  detailAddWatchDate = "";
+  const dateInput = document.getElementById("detail-add-watch-date");
+  if (dateInput) {
+    dateInput.value = appViewingHistory.today();
+  }
+  syncDetailAddWatchDateUi();
+}
+
+function onDetailAddRatingSliderInput() {
+  ensureDetailAddRatingController().onSliderInput();
+  detailAddRating = detailAddRatingController.getValue();
+}
+
+function onDetailAddRatingSelectChange() {
+  ensureDetailAddRatingController().onSelectChange();
+  detailAddRating = detailAddRatingController.getValue();
+}
+
+function clearDetailAddRating() {
+  ensureDetailAddRatingController().clear();
+  detailAddRating = null;
+}
+
+function confirmDetailAddMovie() {
+  if (detailMovieId == null || !shouldShowDetailAddForm(detailMovieId)) {
+    return;
+  }
+  const includeExtras = detailAddListId === appLists.WATCHED_ID;
+  const dateInput = document.getElementById("detail-add-watch-date");
+  const next = appAddMovie.applyAddMovie(userState, {
+    movieId: detailMovieId,
+    presetListId: detailAddListId,
+    customListIds: [...detailAddCustomListIds],
+    rating: includeExtras
+      ? (detailAddRatingController?.getValue() ?? detailAddRating)
+      : null,
+    watchedOn:
+      includeExtras && detailAddWatchDateActive
+        ? dateInput?.value || detailAddWatchDate
+        : null,
+  });
+  if (next === userState) {
+    return;
+  }
+  userState = next;
+  persistUserState();
+  resetDetailAddFormState();
+  if (isCustomListIndexActive()) {
+    renderCustomListsIndex();
+  } else if (isDiscoverActive()) {
+    renderDiscover();
+  } else {
+    render();
+  }
+  renderDetail();
+  hydrateMovies([detailMovieId], {
+    onRecord: applyHydratedRecord,
+    onUpdate: applyHydratedRecord,
+  });
+}
+
+function setMovieShareStatus(message) {
+  if (movieShareStatus) {
+    movieShareStatus.textContent = message || "";
+  }
+}
+
+function closeMovieShareDialog() {
+  if (movieShareDialog) {
+    movieShareDialog.hidden = true;
+  }
+  setMovieShareStatus("");
+}
+
+function openMovieShareDialog() {
+  if (detailMovieId == null || !movieShareDialog || !movieShareUrlInput) {
+    return;
+  }
+  movieShareUrlInput.value = appMovieShare.movieShareUrl(
+    window.location.href,
+    detailMovieId,
+  );
+  setMovieShareStatus("");
+  movieShareDialog.hidden = false;
+  movieShareUrlInput.focus({ preventScroll: true });
+  movieShareUrlInput.select();
+}
+
+async function copyMovieShareUrl() {
+  const url = movieShareUrlInput?.value || "";
+  if (!url) {
+    return;
+  }
+  try {
+    if (!navigator.clipboard?.writeText) {
+      throw new Error("clipboard unavailable");
+    }
+    await navigator.clipboard.writeText(url);
+    setMovieShareStatus("Copied.");
+  } catch (_) {
+    movieShareUrlInput?.select();
+    setMovieShareStatus("Select the link and copy it.");
+  }
+}
+
 function renderDetail() {
   if (detailMovieId == null) {
     return;
@@ -1068,12 +1401,15 @@ function renderDetail() {
       note = "TMDB did not return details. Check your credential and connection.";
     }
     detailPoster.innerHTML = detailPosterSkeletonHtml();
-    detailBody.innerHTML = `<h2 class="movie-detail-title" id="movie-detail-title">${heading}</h2>
-<p class="movie-detail-overview">${note}</p>`;
+    const addForm = shouldShowDetailAddForm(detailMovieId)
+      ? detailAddBlockHtml()
+      : "";
+    detailBody.innerHTML = `${detailTitleRowHtml(heading)}
+<p class="movie-detail-overview">${note}</p>${addForm}`;
   } else {
     detailPoster.innerHTML = detailPosterFrameHtml(record, appTmdb.POSTER_SIZES.detail);
     bindPosterImages(detailPoster);
-    detailBody.innerHTML = `<h2 class="movie-detail-title" id="movie-detail-title">${appCardHtml.escapeHtml(record.title)}</h2>
+    detailBody.innerHTML = `${detailTitleRowHtml(appCardHtml.escapeHtml(record.title))}
 ${detailBodyTabsHtml(detailMovieId, record)}`;
   }
 
@@ -1112,6 +1448,7 @@ ${detailBodyTabsHtml(detailMovieId, record)}`;
     syncDetailRatingDisplay(appRatings.getRating(userState.ratings, detailMovieId));
     syncDetailRatingEditorVisibility();
   }
+  bindDetailAddForm();
   syncDetailConfigResults();
 }
 
@@ -1135,6 +1472,44 @@ function detailHistoryState(movieId) {
   };
 }
 
+function movieHash(id) {
+  return `#movie/${id}`;
+}
+
+const MAIN_HISTORY_PLACEHOLDER_HASH = "#_";
+
+function pushMovieHistory(id) {
+  const hash = movieHash(id);
+  const state = detailHistoryState(id);
+  const path = window.location.pathname + window.location.search;
+  if (window.location.hash === hash) {
+    history.replaceState(state, "", path + hash);
+    markProgrammaticLocation();
+    return;
+  }
+  // iOS Safari records two entries when pushState first introduces a hash.
+  // Seed a placeholder hash on the current list entry, then push the movie.
+  if (!window.location.hash) {
+    const underlayState =
+      history.state && typeof history.state === "object" ? history.state : { appView };
+    history.replaceState(underlayState, "", path + MAIN_HISTORY_PLACEHOLDER_HASH);
+  }
+  history.pushState(state, "", path + hash);
+  markProgrammaticLocation();
+}
+
+function stripMainHistoryPlaceholder() {
+  if (window.location.hash !== MAIN_HISTORY_PLACEHOLDER_HASH) {
+    return;
+  }
+  history.replaceState(
+    history.state,
+    "",
+    window.location.pathname + window.location.search,
+  );
+  markProgrammaticLocation();
+}
+
 function openDetail(movieId, options = {}) {
   const id = Number(movieId);
   if (!Number.isInteger(id) || id <= 0) {
@@ -1156,6 +1531,8 @@ function openDetail(movieId, options = {}) {
   detailRatingEditorSnapshot = null;
   detailListPickerOpen = false;
   detailListPickerSelectedIds.clear();
+  resetDetailAddFormState();
+  closeMovieShareDialog();
   closeDetailListsOverlay();
   closeDetailConfigSearch();
   detailDialog.hidden = false;
@@ -1165,7 +1542,7 @@ function openDetail(movieId, options = {}) {
   detailCloseBtn.focus({ preventScroll: true });
 
   if (options.pushHistory !== false) {
-    history.pushState(detailHistoryState(id), "", `#movie/${id}`);
+    pushMovieHistory(id);
   }
   if (openingOverUnderlay) {
     restoreUnderlayScroll();
@@ -1184,12 +1561,15 @@ function closeDetail(options = {}) {
     return;
   }
   commitDetailRating();
+  const closingId = detailMovieId;
   const hadHistoryEntry = history.state?.detailMovieId != null;
   detailMovieId = null;
   detailRatingEditorOpen = false;
   detailRatingEditorSnapshot = null;
   detailListPickerOpen = false;
   detailListPickerSelectedIds.clear();
+  resetDetailAddFormState();
+  closeMovieShareDialog();
   closeDetailListsOverlay();
   hideDetailConfigResults();
   closeDetailConfigSearch();
@@ -1198,7 +1578,10 @@ function closeDetail(options = {}) {
 
   if (options.popHistory !== false && hadHistoryEntry) {
     detailCloseNavigationPending = true;
+    detailClosedMovieId = closingId;
     history.back();
+  } else {
+    detailClosedMovieId = null;
   }
 }
 

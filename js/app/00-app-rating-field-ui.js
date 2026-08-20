@@ -144,6 +144,17 @@ const appRatingFieldUi = (function () {
       return touched ? pending : null;
     }
 
+    function setValue(rating) {
+      const normalized = ratingsLib.normalizeRating(rating);
+      if (normalized == null) {
+        reset();
+        return;
+      }
+      touched = true;
+      pending = normalized;
+      syncDisplay();
+    }
+
     return {
       reset,
       syncDisplay,
@@ -151,6 +162,7 @@ const appRatingFieldUi = (function () {
       onSelectChange,
       initSelect,
       getValue,
+      setValue,
       clear: reset,
     };
   }

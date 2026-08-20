@@ -92,6 +92,14 @@ const PARTS = [
     title: "Sync merge and tombstones (generated from scripts/lib/sync-merge.js)",
   },
   {
+    file: "00-app-add-movie.js",
+    title: "Add-movie state application (generated from scripts/lib/add-movie.js)",
+  },
+  {
+    file: "00-app-movie-share.js",
+    title: "Shareable movie URLs (generated from scripts/lib/movie-share.js)",
+  },
+  {
     file: "00-app-custom-list-merge.js",
     title: "Custom list Gist merge (generated from scripts/lib/custom-list-merge.js)",
   },

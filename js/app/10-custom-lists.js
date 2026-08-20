@@ -277,8 +277,9 @@ function paintLocationUnderlay() {
   hydrateActiveList();
 }
 
-function syncViewFromLocation() {
+function syncViewFromLocation(options = {}) {
   const parsed = parseLocationHash();
+  const fromPopState = Boolean(options.fromPopState);
 
   if (parsed.kind !== "movie") {
     const dismissOverlayOnly =
@@ -286,11 +287,23 @@ function syncViewFromLocation() {
       appViewMatchesLocation(parsed);
     detailCloseNavigationPending = false;
     closeDetail({ popHistory: false });
+    detailClosedMovieId = null;
     if (dismissOverlayOnly) {
       restoreUnderlayScroll();
+      stripMainHistoryPlaceholder();
       return;
     }
   } else {
+    const id = movieIdFromHash();
+    if (fromPopState && detailMovieId != null && id === detailMovieId) {
+      window.setTimeout(() => history.back(), 0);
+      return;
+    }
+    if (detailCloseNavigationPending && id === detailClosedMovieId) {
+      window.setTimeout(() => history.back(), 0);
+      return;
+    }
+    detailClosedMovieId = null;
     const keepUnderlay =
       detailMovieId != null || detailCloseNavigationPending;
     detailCloseNavigationPending = false;
