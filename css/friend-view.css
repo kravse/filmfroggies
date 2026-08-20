@@ -251,9 +251,9 @@ button.friends-roster-chip:hover {
   width: 1.55rem;
   height: 1.55rem;
   padding: 0;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: var(--panel-raised);
+  background: transparent;
   color: var(--muted);
   font-family: var(--ui-font);
   font-size: 0.9rem;
