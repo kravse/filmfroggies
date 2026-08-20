@@ -47,7 +47,6 @@ const RATE_LIMIT_ERROR = "Too many attempts. Try again later.";
 const LOCAL_DEV_PORT = 8743;
 
 export const DEFAULT_ALLOWED_ORIGINS = [
-  "https://cinequeue.org",
   "https://filmfroggies.com",
   "https://www.filmfroggies.com",
   `http://localhost:${LOCAL_DEV_PORT}`,
