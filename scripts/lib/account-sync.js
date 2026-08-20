@@ -1,0 +1,64 @@
+/**
+ * Account sync helpers for the CineQueue backend (Cloudflare Worker + D1).
+ *
+ * Pure config/URL helpers only; the fetch runtime lives in 03-user-state.js.
+ * The session token is stored under its own key and never part of the synced
+ * payload, same as the Gist token.
+ */
+
+/** Direct Worker URL for local dev; Netlify proxies /api/backend in production. */
+const ACCOUNT_API_DIRECT = "https://cinequeue-api.alexlaviolette.workers.dev/api";
+const ACCOUNT_API_PROXIED = "/api/backend";
+
+function resolveAccountApiBase(hostname) {
+  const host = String(hostname || "");
+  return host === "localhost" || host === "127.0.0.1"
+    ? ACCOUNT_API_DIRECT
+    : ACCOUNT_API_PROXIED;
+}
+
+function parseAccountConfig(json) {
+  if (json == null || json === "") {
+    return null;
+  }
+  try {
+    const parsed = typeof json === "string" ? JSON.parse(json) : json;
+    const token = typeof parsed.token === "string" ? parsed.token.trim() : "";
+    const email = typeof parsed.email === "string" ? parsed.email.trim() : "";
+    const userId = Number(parsed.userId);
+    if (!token || !Number.isInteger(userId)) {
+      return null;
+    }
+    return {
+      token,
+      email,
+      userId,
+      displayName:
+        typeof parsed.displayName === "string" ? parsed.displayName : "",
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+function serializeAccountConfig(config) {
+  return JSON.stringify({
+    token: config.token,
+    email: config.email || "",
+    userId: config.userId,
+    displayName: config.displayName || "",
+  });
+}
+
+function isConnectedAccountConfig(config) {
+  return Boolean(config?.token && Number.isInteger(config?.userId));
+}
+
+module.exports = {
+  ACCOUNT_API_DIRECT,
+  ACCOUNT_API_PROXIED,
+  resolveAccountApiBase,
+  parseAccountConfig,
+  serializeAccountConfig,
+  isConnectedAccountConfig,
+};

@@ -1729,9 +1729,15 @@ function refreshSettings() {
   );
 
   const usingGist = userState.storageMode === "gist";
-  storageModeLocal.checked = !usingGist;
+  const usingAccount = userState.storageMode === "account";
+  storageModeLocal.checked = !usingGist && !usingAccount;
   storageModeGist.checked = usingGist;
+  storageModeAccount.checked = usingAccount;
   gistFields.hidden = !usingGist;
+  accountFields.hidden = !usingAccount;
+  if (usingAccount) {
+    refreshAccountSection();
+  }
   gistTokenInput.value = "";
   setStatus(
     gistStatus,
@@ -1861,13 +1867,20 @@ async function onExportCsv() {
 function onStorageModeChange(mode) {
   if (mode === "gist") {
     userState = { ...userState, storageMode: "gist" };
-    gistFields.hidden = false;
     persistUserState({ sync: false });
     refreshSettings();
     return;
   }
+  if (mode === "account") {
+    userState = { ...userState, storageMode: "account" };
+    persistUserState({ sync: false });
+    refreshSettings();
+    if (accountSyncEnabled()) {
+      queueAccountSync();
+    }
+    return;
+  }
   disconnectGist();
-  gistFields.hidden = true;
   refreshSettings();
 }
 
@@ -1902,6 +1915,225 @@ function onDisconnectGist() {
   disconnectGist();
   refreshSettings();
   refreshGistBackupList();
+}
+
+/* --- Account & friends --- */
+
+function refreshAccountSection() {
+  const connected = appAccountSync.isConnectedAccountConfig(accountConfig);
+  accountAuthFields.hidden = connected;
+  accountLogoutBtn.hidden = !connected;
+  accountFriendsSection.hidden = !connected;
+  if (connected) {
+    setStatus(
+      accountStatus,
+      `Signed in as ${accountConfig.email || accountConfig.displayName}.`,
+      "ok",
+    );
+    refreshFriendsList();
+  } else {
+    setStatus(accountStatus, "Not signed in.", null);
+    friendsList.innerHTML = "";
+  }
+}
+
+async function onAccountAuth(mode) {
+  const email = accountEmailInput.value.trim();
+  const password = accountPasswordInput.value;
+  setStatus(accountStatus, mode === "signup" ? "Creating account…" : "Logging in…", null);
+  accountLoginBtn.disabled = true;
+  accountSignupBtn.disabled = true;
+  try {
+    const result = await connectAccount(mode, email, password);
+    if (!result.ok) {
+      setStatus(accountStatus, result.error, "error");
+      return;
+    }
+    accountPasswordInput.value = "";
+    refreshSettings();
+    refreshViewModeForActiveList();
+    render();
+    hydrateActiveList();
+  } finally {
+    accountLoginBtn.disabled = false;
+    accountSignupBtn.disabled = false;
+  }
+}
+
+function onAccountLogout() {
+  disconnectAccount();
+  refreshSettings();
+}
+
+function friendDisplayName(friend) {
+  return friend.displayName || friend.email;
+}
+
+function friendItemHtml(friend) {
+  const name = appCardHtml.escapeHtml(friendDisplayName(friend));
+  const pending = friend.status === "pending";
+  const meta = pending
+    ? friend.direction === "incoming"
+      ? "wants to be friends"
+      : "request sent"
+    : "";
+  const buttons = [];
+  if (pending && friend.direction === "incoming") {
+    buttons.push(
+      `<button type="button" class="primary-btn friend-btn" data-friend-action="accept" data-friend-id="${friend.id}">Accept</button>`,
+    );
+  }
+  if (!pending) {
+    buttons.push(
+      `<button type="button" class="ghost-btn friend-btn" data-friend-action="view" data-friend-id="${friend.id}" data-friend-name="${name}">View lists</button>`,
+    );
+  }
+  buttons.push(
+    `<button type="button" class="ghost-btn friend-btn" data-friend-action="remove" data-friend-id="${friend.id}">${pending && friend.direction === "outgoing" ? "Cancel" : "Remove"}</button>`,
+  );
+  return `<li class="friend-item"><span class="friend-name">${name}</span><span class="friend-meta">${meta}</span><span class="friend-actions">${buttons.join("")}</span></li>`;
+}
+
+async function refreshFriendsList() {
+  friendsList.innerHTML = '<li class="gist-backup-empty">Loading…</li>';
+  try {
+    const body = await fetchFriends();
+    const friends = body?.friends || [];
+    friendsList.innerHTML = friends.length
+      ? friends.map(friendItemHtml).join("")
+      : '<li class="gist-backup-empty">No friends yet. Add one by email above.</li>';
+    setStatus(friendsStatus, "", null);
+  } catch (error) {
+    friendsList.innerHTML = "";
+    setStatus(friendsStatus, error.message, "error");
+    if (error?.status === 401) {
+      refreshAccountSection();
+    }
+  }
+}
+
+async function onAddFriend() {
+  const email = friendEmailInput.value.trim();
+  if (!email) {
+    setStatus(friendsStatus, "Enter your friend's account email first.", "error");
+    return;
+  }
+  friendAddBtn.disabled = true;
+  setStatus(friendsStatus, "Sending request…", null);
+  try {
+    const body = await sendFriendRequest(email);
+    friendEmailInput.value = "";
+    setStatus(
+      friendsStatus,
+      body?.status === "accepted"
+        ? "They had already added you. You are now friends."
+        : "Request sent. They can accept it from their settings.",
+      "ok",
+    );
+    refreshFriendsList();
+  } catch (error) {
+    setStatus(friendsStatus, error.message, "error");
+  } finally {
+    friendAddBtn.disabled = false;
+  }
+}
+
+async function onFriendsListClick(event) {
+  const button = event.target.closest("[data-friend-action]");
+  if (!button) {
+    return;
+  }
+  const friendId = Number(button.dataset.friendId);
+  const action = button.dataset.friendAction;
+  try {
+    if (action === "accept") {
+      await acceptFriend(friendId);
+      refreshFriendsList();
+    } else if (action === "remove") {
+      await removeFriend(friendId);
+      refreshFriendsList();
+    } else if (action === "view") {
+      openFriendView(friendId, button.dataset.friendName || "Friend");
+    }
+  } catch (error) {
+    setStatus(friendsStatus, error.message, "error");
+  }
+}
+
+/* --- Friend list viewer (read-only) --- */
+
+function closeFriendView() {
+  friendViewDialog.hidden = true;
+  friendViewContent.innerHTML = "";
+}
+
+/** Resolves a movie title from cache/snapshot/TMDB; never blocks the dialog. */
+async function friendMovieLabel(movieId) {
+  try {
+    const record = await getMovie(movieId);
+    const year = appCardHtml.formatYear(record.release_date);
+    return `${record.title}${year ? ` (${year})` : ""}`;
+  } catch (_) {
+    return `TMDB #${movieId}`;
+  }
+}
+
+function friendViewListHtml(name, movieIds, labels, ratings) {
+  const items = movieIds
+    .map((id) => {
+      const rating = appRatings.getRating(ratings, id);
+      const ratingHtml =
+        rating == null
+          ? ""
+          : ` <span class="friend-view-rating">★ ${appRatings.formatUserRating(rating)}</span>`;
+      return `<li>${appCardHtml.escapeHtml(labels.get(id) || `TMDB #${id}`)}${ratingHtml}</li>`;
+    })
+    .join("");
+  return `<section class="friend-view-list"><h4>${appCardHtml.escapeHtml(name)} (${movieIds.length})</h4><ol>${items}</ol></section>`;
+}
+
+async function openFriendView(friendId, friendName) {
+  friendViewTitle.textContent = `${friendName}'s lists`;
+  friendViewContent.innerHTML = '<p class="sheet-note">Loading…</p>';
+  friendViewDialog.hidden = false;
+  try {
+    const state = await fetchFriendState(friendId);
+    if (!state) {
+      friendViewContent.innerHTML =
+        '<p class="sheet-note">They have not synced any lists yet.</p>';
+      return;
+    }
+    const sections = [
+      ...appLists.PRESET_LISTS.map((preset) => ({
+        name: preset.name,
+        movieIds: appLists.findList(state.lists, preset.id)?.movieIds || [],
+      })),
+      ...state.customLists.map((list) => ({
+        name: list.name,
+        movieIds: list.movieIds,
+      })),
+    ].filter((section) => section.movieIds.length);
+
+    if (!sections.length) {
+      friendViewContent.innerHTML =
+        '<p class="sheet-note">Their lists are empty so far.</p>';
+      return;
+    }
+
+    const uniqueIds = [...new Set(sections.flatMap((s) => s.movieIds))];
+    const labels = new Map(
+      await Promise.all(
+        uniqueIds.map(async (id) => [id, await friendMovieLabel(id)]),
+      ),
+    );
+    friendViewContent.innerHTML = sections
+      .map((section) =>
+        friendViewListHtml(section.name, section.movieIds, labels, state.ratings),
+      )
+      .join("");
+  } catch (error) {
+    friendViewContent.innerHTML = `<p class="sheet-note">Could not load their lists. ${appCardHtml.escapeHtml(error.message)}</p>`;
+  }
 }
 
 /* --- About --- */

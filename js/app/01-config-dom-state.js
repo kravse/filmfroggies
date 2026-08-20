@@ -118,6 +118,26 @@ const gistBackupSection = document.getElementById("gist-backup-section");
 const gistBackupList = document.getElementById("gist-backup-list");
 const gistBackupStatus = document.getElementById("gist-backup-status");
 
+const storageModeAccount = document.getElementById("storage-mode-account");
+const accountFields = document.getElementById("account-fields");
+const accountAuthFields = document.getElementById("account-auth-fields");
+const accountEmailInput = document.getElementById("account-email-input");
+const accountPasswordInput = document.getElementById("account-password-input");
+const accountLoginBtn = document.getElementById("account-login");
+const accountSignupBtn = document.getElementById("account-signup");
+const accountLogoutBtn = document.getElementById("account-logout");
+const accountStatus = document.getElementById("account-status");
+const accountFriendsSection = document.getElementById("account-friends-section");
+const friendEmailInput = document.getElementById("friend-email-input");
+const friendAddBtn = document.getElementById("friend-add");
+const friendsList = document.getElementById("friends-list");
+const friendsStatus = document.getElementById("friends-status");
+
+const friendViewDialog = document.getElementById("friend-view-dialog");
+const friendViewTitle = document.getElementById("friend-view-title");
+const friendViewContent = document.getElementById("friend-view-content");
+const friendViewClose = document.getElementById("friend-view-close");
+
 const backupRestoreDialog = document.getElementById("backup-restore-dialog");
 const backupRestoreMessage = document.getElementById("backup-restore-message");
 const backupRestoreCancel = document.getElementById("backup-restore-cancel");

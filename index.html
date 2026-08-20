@@ -841,6 +841,79 @@
                 />
                 Sync with GitHub Gist
               </label>
+              <label>
+                <input
+                  type="radio"
+                  name="storage-mode"
+                  value="account"
+                  id="storage-mode-account"
+                />
+                Sync with account
+              </label>
+            </div>
+            <div id="account-fields" hidden>
+              <div id="account-auth-fields">
+                <p class="sheet-note">
+                  An account syncs your lists across devices and lets friends see
+                  them. Only your list data is stored, never your TMDB or GitHub
+                  tokens.
+                </p>
+                <div class="field-row">
+                  <input
+                    type="email"
+                    id="account-email-input"
+                    placeholder="Email"
+                    aria-label="Account email"
+                    autocomplete="email"
+                    spellcheck="false"
+                  />
+                </div>
+                <div class="field-row">
+                  <input
+                    type="password"
+                    id="account-password-input"
+                    placeholder="Password (8+ characters)"
+                    aria-label="Account password"
+                    autocomplete="current-password"
+                  />
+                </div>
+                <div class="field-row">
+                  <button type="button" id="account-login" class="primary-btn">
+                    Log in
+                  </button>
+                  <button type="button" id="account-signup" class="ghost-btn">
+                    Sign up
+                  </button>
+                </div>
+              </div>
+              <div class="field-row">
+                <button type="button" id="account-logout" class="ghost-btn" hidden>
+                  Log out
+                </button>
+                <span class="status-text" id="account-status"></span>
+              </div>
+              <div id="account-friends-section" hidden>
+                <h4 class="gist-backup-heading">Friends</h4>
+                <p class="sheet-note">
+                  Friends can browse each other's lists once both sides agree.
+                  Add a friend by the email they signed up with.
+                </p>
+                <div class="field-row">
+                  <input
+                    type="email"
+                    id="friend-email-input"
+                    placeholder="friend@example.com"
+                    aria-label="Friend's account email"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                  <button type="button" id="friend-add" class="primary-btn">
+                    Add friend
+                  </button>
+                </div>
+                <ul id="friends-list" class="friends-list" aria-label="Friends"></ul>
+                <span class="status-text" id="friends-status"></span>
+              </div>
             </div>
             <div id="gist-fields" hidden>
               <p class="sheet-note">
@@ -1137,6 +1210,38 @@
     </div>
 
     <!-- Share movie link -->
+    <div id="friend-view-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
+      <div class="sheet-backdrop" data-close-friend-view></div>
+      <div
+        class="sheet-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="friend-view-title"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="friend-view-title">Friend's lists</h2>
+          <button
+            type="button"
+            id="friend-view-close"
+            class="icon-btn"
+            aria-label="Close"
+          >
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none">
+              <path
+                d="M6 6l8 8M14 6l-8 8"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+        <div class="sheet-scroll">
+          <div id="friend-view-content" class="friend-view-content"></div>
+        </div>
+      </div>
+    </div>
+
     <div id="movie-share-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
       <div class="sheet-backdrop" data-close-movie-share></div>
       <div

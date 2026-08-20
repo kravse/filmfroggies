@@ -408,6 +408,20 @@ const APP_SYNC_ENTRIES = [
     ],
   },
   {
+    sources: [path.join(LIB, "account-sync.js")],
+    target: "00-app-account-sync.js",
+    globalName: "appAccountSync",
+    header: "Generated from scripts/lib/account-sync.js — run npm run bundle",
+    exports: [
+      "ACCOUNT_API_DIRECT",
+      "ACCOUNT_API_PROXIED",
+      "resolveAccountApiBase",
+      "parseAccountConfig",
+      "serializeAccountConfig",
+      "isConnectedAccountConfig",
+    ],
+  },
+  {
     sources: [path.join(LIB, "reorder.js")],
     target: "00-app-reorder.js",
     globalName: "appReorder",

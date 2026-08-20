@@ -87,6 +87,9 @@ function persistUserState(options = {}) {
   if (options.sync !== false && gistSyncEnabled()) {
     queueGistSync({ push: true });
   }
+  if (options.sync !== false && accountSyncEnabled()) {
+    queueAccountSync({ push: true });
+  }
 }
 
 function updateRatings(nextRatings) {
@@ -286,7 +289,7 @@ function remoteStateFromGistBody(body) {
 /** Adopts a merged payload locally, keeping the previous one as a backup. */
 function adoptMergedState(merged) {
   backupUserState(userState);
-  userState = { ...merged, storageMode: "gist" };
+  userState = { ...merged, storageMode: userState.storageMode };
   gridViewMode = userState.preferences.viewMode;
   writeUserStateToStorage();
 }
@@ -418,8 +421,14 @@ function onUserStateStorageEvent(event) {
 
 /** A tab coming back to the foreground is the most likely one to be stale. */
 function onVisibilityRefresh() {
-  if (document.visibilityState === "visible" && gistSyncEnabled()) {
+  if (document.visibilityState !== "visible") {
+    return;
+  }
+  if (gistSyncEnabled()) {
     queueGistSync();
+  }
+  if (accountSyncEnabled()) {
+    queueAccountSync();
   }
 }
 
@@ -672,4 +681,208 @@ async function restoreGistSnapshot(at) {
   queueGistSync({ push: true });
   onRemoteStateAdopted();
   return { ok: true };
+}
+
+/* --- Account sync (CineQueue backend: Cloudflare Worker + D1) --- */
+
+const ACCOUNT_TIMEOUT_MS = 15000;
+
+let accountConfig = null;
+
+/** Serializes every account read/write pair, same reasoning as queueGistSync. */
+let accountSyncChain = Promise.resolve();
+
+function loadAccountConfig() {
+  accountConfig = appAccountSync.parseAccountConfig(
+    readStorage(appUserState.ACCOUNT_KEY),
+  );
+  return accountConfig;
+}
+
+function saveAccountConfig(config) {
+  accountConfig = config;
+  if (config) {
+    writeStorage(
+      appUserState.ACCOUNT_KEY,
+      appAccountSync.serializeAccountConfig(config),
+    );
+  } else {
+    removeStorage(appUserState.ACCOUNT_KEY);
+  }
+}
+
+function accountSyncEnabled() {
+  return (
+    userState.storageMode === "account" &&
+    appAccountSync.isConnectedAccountConfig(accountConfig)
+  );
+}
+
+async function accountRequest(path, options = {}) {
+  const { method = "GET", body, auth = true } = options;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ACCOUNT_TIMEOUT_MS);
+  try {
+    const headers = {};
+    if (auth) {
+      headers.authorization = `Bearer ${accountConfig?.token || ""}`;
+    }
+    if (body) {
+      headers["content-type"] = "application/json";
+    }
+    const base = appAccountSync.resolveAccountApiBase(window.location.hostname);
+    const response = await fetch(`${base}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      // An expired or revoked session should read as "logged out", not as an
+      // endless string of sync errors.
+      if (response.status === 401 && auth) {
+        saveAccountConfig(null);
+      }
+      const error = new Error(
+        payload?.error || `Account request failed (${response.status})`,
+      );
+      error.status = response.status;
+      throw error;
+    }
+    return payload;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Same read-merge-write dance as reconcileWithGist, against /api/data. */
+async function reconcileWithAccount(options = {}) {
+  if (!accountSyncEnabled()) {
+    return { ok: false, reason: "disconnected" };
+  }
+
+  let remoteState = null;
+  try {
+    const body = await accountRequest("/data");
+    remoteState = body?.doc
+      ? appUserState.parseUserState(JSON.stringify(body.doc))
+      : null;
+  } catch (error) {
+    if (error?.status !== 404) {
+      throw error;
+    }
+    /* 404 just means nothing has been pushed yet. */
+  }
+
+  const localSignature = appUserState.userStateSignature(userState);
+  const merged = mergeIntoUserState(remoteState);
+  const mergedSignature = appUserState.userStateSignature(merged);
+  const remoteSignature = remoteState
+    ? appUserState.userStateSignature(remoteState)
+    : null;
+
+  const localChanged = mergedSignature !== localSignature;
+  if (localChanged) {
+    adoptMergedState(merged);
+  }
+
+  if (options.push || mergedSignature !== remoteSignature) {
+    userState = appUserState.touchUserState(userState);
+    writeUserStateToStorage();
+    await accountRequest("/data", {
+      method: "PUT",
+      body: { doc: JSON.parse(appUserState.serializeUserState(userState)) },
+    });
+  }
+
+  return { ok: true, localChanged };
+}
+
+function queueAccountSync(options = {}) {
+  accountSyncChain = accountSyncChain
+    .then(() => reconcileWithAccount(options))
+    .then((result) => {
+      if (!result?.ok) {
+        return;
+      }
+      if (result.localChanged) {
+        onRemoteStateAdopted();
+      }
+      setStatus(
+        accountStatus,
+        `Synced at ${formatSyncTime(userState.updatedAt)}.`,
+        "ok",
+      );
+    })
+    .catch((error) => {
+      // Same rule as Gist sync: never blind-write after a failed read.
+      setStatus(
+        accountStatus,
+        error?.status === 401
+          ? "Session expired. Log in again to keep syncing."
+          : "Could not reach the sync server. Changes are saved on this device and will sync later.",
+        "error",
+      );
+    });
+  return accountSyncChain;
+}
+
+/**
+ * Signup and login share a shape: get a session, switch to account mode, then
+ * reconcile so lists already on the account and lists already on this device
+ * merge instead of one clobbering the other.
+ */
+async function connectAccount(mode, email, password) {
+  try {
+    const body = await accountRequest(`/${mode}`, {
+      method: "POST",
+      auth: false,
+      body: { email, password },
+    });
+    saveAccountConfig({
+      token: body.token,
+      email: body.user.email,
+      userId: body.user.id,
+      displayName: body.user.displayName || "",
+    });
+    backupUserState(userState);
+    userState = { ...userState, storageMode: "account" };
+    writeUserStateToStorage();
+    await queueAccountSync({ push: true });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
+function disconnectAccount() {
+  saveAccountConfig(null);
+  userState = { ...userState, storageMode: "local" };
+  writeUserStateToStorage();
+}
+
+/* Friends: thin wrappers, the dialog layer owns rendering and status text. */
+
+function fetchFriends() {
+  return accountRequest("/friends");
+}
+
+function sendFriendRequest(email) {
+  return accountRequest("/friends/request", { method: "POST", body: { email } });
+}
+
+function acceptFriend(userId) {
+  return accountRequest(`/friends/${userId}/accept`, { method: "POST" });
+}
+
+function removeFriend(userId) {
+  return accountRequest(`/friends/${userId}`, { method: "DELETE" });
+}
+
+async function fetchFriendState(userId) {
+  const body = await accountRequest(`/friends/${userId}/data`);
+  return body?.doc
+    ? appUserState.parseUserState(JSON.stringify(body.doc))
+    : null;
 }

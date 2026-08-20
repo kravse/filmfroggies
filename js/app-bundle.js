@@ -120,6 +120,26 @@ const gistBackupSection = document.getElementById("gist-backup-section");
 const gistBackupList = document.getElementById("gist-backup-list");
 const gistBackupStatus = document.getElementById("gist-backup-status");
 
+const storageModeAccount = document.getElementById("storage-mode-account");
+const accountFields = document.getElementById("account-fields");
+const accountAuthFields = document.getElementById("account-auth-fields");
+const accountEmailInput = document.getElementById("account-email-input");
+const accountPasswordInput = document.getElementById("account-password-input");
+const accountLoginBtn = document.getElementById("account-login");
+const accountSignupBtn = document.getElementById("account-signup");
+const accountLogoutBtn = document.getElementById("account-logout");
+const accountStatus = document.getElementById("account-status");
+const accountFriendsSection = document.getElementById("account-friends-section");
+const friendEmailInput = document.getElementById("friend-email-input");
+const friendAddBtn = document.getElementById("friend-add");
+const friendsList = document.getElementById("friends-list");
+const friendsStatus = document.getElementById("friends-status");
+
+const friendViewDialog = document.getElementById("friend-view-dialog");
+const friendViewTitle = document.getElementById("friend-view-title");
+const friendViewContent = document.getElementById("friend-view-content");
+const friendViewClose = document.getElementById("friend-view-close");
+
 const backupRestoreDialog = document.getElementById("backup-restore-dialog");
 const backupRestoreMessage = document.getElementById("backup-restore-message");
 const backupRestoreCancel = document.getElementById("backup-restore-cancel");
@@ -4831,10 +4851,11 @@ const appUserState = (function () {
   const GIST_SYNC_KEY = "moviecollector-gist-sync";
   const TMDB_AUTH_KEY = "moviecollector-tmdb-auth";
   const HOSTED_SESSION_KEY = "moviecollector-hosted-session";
+  const ACCOUNT_KEY = "moviecollector-account";
   const USER_STATE_VERSION = 4;
 
   const VIEW_MODES = new Set(["cards", "detail"]);
-  const STORAGE_MODES = new Set(["local", "gist"]);
+  const STORAGE_MODES = new Set(["local", "gist", "account"]);
 
   function getLists() {
     if (typeof appLists !== "undefined") {
@@ -5386,6 +5407,77 @@ const appGistBackup = (function () {
     buildBackupGistCreatePayload,
     buildBackupGistUpdatePayload,
     extractBackupContent,
+  };
+})();
+
+/* ===== Account sync helpers (generated from scripts/lib/account-sync.js) ===== */
+
+/* Generated from scripts/lib/account-sync.js — run npm run bundle */
+
+const appAccountSync = (function () {
+  /**
+   * Account sync helpers for the CineQueue backend (Cloudflare Worker + D1).
+   *
+   * Pure config/URL helpers only; the fetch runtime lives in 03-user-state.js.
+   * The session token is stored under its own key and never part of the synced
+   * payload, same as the Gist token.
+   */
+
+  /** Direct Worker URL for local dev; Netlify proxies /api/backend in production. */
+  const ACCOUNT_API_DIRECT = "https://cinequeue-api.alexlaviolette.workers.dev/api";
+  const ACCOUNT_API_PROXIED = "/api/backend";
+
+  function resolveAccountApiBase(hostname) {
+    const host = String(hostname || "");
+    return host === "localhost" || host === "127.0.0.1"
+      ? ACCOUNT_API_DIRECT
+      : ACCOUNT_API_PROXIED;
+  }
+
+  function parseAccountConfig(json) {
+    if (json == null || json === "") {
+      return null;
+    }
+    try {
+      const parsed = typeof json === "string" ? JSON.parse(json) : json;
+      const token = typeof parsed.token === "string" ? parsed.token.trim() : "";
+      const email = typeof parsed.email === "string" ? parsed.email.trim() : "";
+      const userId = Number(parsed.userId);
+      if (!token || !Number.isInteger(userId)) {
+        return null;
+      }
+      return {
+        token,
+        email,
+        userId,
+        displayName:
+          typeof parsed.displayName === "string" ? parsed.displayName : "",
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function serializeAccountConfig(config) {
+    return JSON.stringify({
+      token: config.token,
+      email: config.email || "",
+      userId: config.userId,
+      displayName: config.displayName || "",
+    });
+  }
+
+  function isConnectedAccountConfig(config) {
+    return Boolean(config?.token && Number.isInteger(config?.userId));
+  }
+
+  return {
+    ACCOUNT_API_DIRECT,
+    ACCOUNT_API_PROXIED,
+    resolveAccountApiBase,
+    parseAccountConfig,
+    serializeAccountConfig,
+    isConnectedAccountConfig,
   };
 })();
 
@@ -6433,6 +6525,9 @@ function persistUserState(options = {}) {
   if (options.sync !== false && gistSyncEnabled()) {
     queueGistSync({ push: true });
   }
+  if (options.sync !== false && accountSyncEnabled()) {
+    queueAccountSync({ push: true });
+  }
 }
 
 function updateRatings(nextRatings) {
@@ -6632,7 +6727,7 @@ function remoteStateFromGistBody(body) {
 /** Adopts a merged payload locally, keeping the previous one as a backup. */
 function adoptMergedState(merged) {
   backupUserState(userState);
-  userState = { ...merged, storageMode: "gist" };
+  userState = { ...merged, storageMode: userState.storageMode };
   gridViewMode = userState.preferences.viewMode;
   writeUserStateToStorage();
 }
@@ -6764,8 +6859,14 @@ function onUserStateStorageEvent(event) {
 
 /** A tab coming back to the foreground is the most likely one to be stale. */
 function onVisibilityRefresh() {
-  if (document.visibilityState === "visible" && gistSyncEnabled()) {
+  if (document.visibilityState !== "visible") {
+    return;
+  }
+  if (gistSyncEnabled()) {
     queueGistSync();
+  }
+  if (accountSyncEnabled()) {
+    queueAccountSync();
   }
 }
 
@@ -7018,6 +7119,210 @@ async function restoreGistSnapshot(at) {
   queueGistSync({ push: true });
   onRemoteStateAdopted();
   return { ok: true };
+}
+
+/* --- Account sync (CineQueue backend: Cloudflare Worker + D1) --- */
+
+const ACCOUNT_TIMEOUT_MS = 15000;
+
+let accountConfig = null;
+
+/** Serializes every account read/write pair, same reasoning as queueGistSync. */
+let accountSyncChain = Promise.resolve();
+
+function loadAccountConfig() {
+  accountConfig = appAccountSync.parseAccountConfig(
+    readStorage(appUserState.ACCOUNT_KEY),
+  );
+  return accountConfig;
+}
+
+function saveAccountConfig(config) {
+  accountConfig = config;
+  if (config) {
+    writeStorage(
+      appUserState.ACCOUNT_KEY,
+      appAccountSync.serializeAccountConfig(config),
+    );
+  } else {
+    removeStorage(appUserState.ACCOUNT_KEY);
+  }
+}
+
+function accountSyncEnabled() {
+  return (
+    userState.storageMode === "account" &&
+    appAccountSync.isConnectedAccountConfig(accountConfig)
+  );
+}
+
+async function accountRequest(path, options = {}) {
+  const { method = "GET", body, auth = true } = options;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ACCOUNT_TIMEOUT_MS);
+  try {
+    const headers = {};
+    if (auth) {
+      headers.authorization = `Bearer ${accountConfig?.token || ""}`;
+    }
+    if (body) {
+      headers["content-type"] = "application/json";
+    }
+    const base = appAccountSync.resolveAccountApiBase(window.location.hostname);
+    const response = await fetch(`${base}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      // An expired or revoked session should read as "logged out", not as an
+      // endless string of sync errors.
+      if (response.status === 401 && auth) {
+        saveAccountConfig(null);
+      }
+      const error = new Error(
+        payload?.error || `Account request failed (${response.status})`,
+      );
+      error.status = response.status;
+      throw error;
+    }
+    return payload;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Same read-merge-write dance as reconcileWithGist, against /api/data. */
+async function reconcileWithAccount(options = {}) {
+  if (!accountSyncEnabled()) {
+    return { ok: false, reason: "disconnected" };
+  }
+
+  let remoteState = null;
+  try {
+    const body = await accountRequest("/data");
+    remoteState = body?.doc
+      ? appUserState.parseUserState(JSON.stringify(body.doc))
+      : null;
+  } catch (error) {
+    if (error?.status !== 404) {
+      throw error;
+    }
+    /* 404 just means nothing has been pushed yet. */
+  }
+
+  const localSignature = appUserState.userStateSignature(userState);
+  const merged = mergeIntoUserState(remoteState);
+  const mergedSignature = appUserState.userStateSignature(merged);
+  const remoteSignature = remoteState
+    ? appUserState.userStateSignature(remoteState)
+    : null;
+
+  const localChanged = mergedSignature !== localSignature;
+  if (localChanged) {
+    adoptMergedState(merged);
+  }
+
+  if (options.push || mergedSignature !== remoteSignature) {
+    userState = appUserState.touchUserState(userState);
+    writeUserStateToStorage();
+    await accountRequest("/data", {
+      method: "PUT",
+      body: { doc: JSON.parse(appUserState.serializeUserState(userState)) },
+    });
+  }
+
+  return { ok: true, localChanged };
+}
+
+function queueAccountSync(options = {}) {
+  accountSyncChain = accountSyncChain
+    .then(() => reconcileWithAccount(options))
+    .then((result) => {
+      if (!result?.ok) {
+        return;
+      }
+      if (result.localChanged) {
+        onRemoteStateAdopted();
+      }
+      setStatus(
+        accountStatus,
+        `Synced at ${formatSyncTime(userState.updatedAt)}.`,
+        "ok",
+      );
+    })
+    .catch((error) => {
+      // Same rule as Gist sync: never blind-write after a failed read.
+      setStatus(
+        accountStatus,
+        error?.status === 401
+          ? "Session expired. Log in again to keep syncing."
+          : "Could not reach the sync server. Changes are saved on this device and will sync later.",
+        "error",
+      );
+    });
+  return accountSyncChain;
+}
+
+/**
+ * Signup and login share a shape: get a session, switch to account mode, then
+ * reconcile so lists already on the account and lists already on this device
+ * merge instead of one clobbering the other.
+ */
+async function connectAccount(mode, email, password) {
+  try {
+    const body = await accountRequest(`/${mode}`, {
+      method: "POST",
+      auth: false,
+      body: { email, password },
+    });
+    saveAccountConfig({
+      token: body.token,
+      email: body.user.email,
+      userId: body.user.id,
+      displayName: body.user.displayName || "",
+    });
+    backupUserState(userState);
+    userState = { ...userState, storageMode: "account" };
+    writeUserStateToStorage();
+    await queueAccountSync({ push: true });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
+function disconnectAccount() {
+  saveAccountConfig(null);
+  userState = { ...userState, storageMode: "local" };
+  writeUserStateToStorage();
+}
+
+/* Friends: thin wrappers, the dialog layer owns rendering and status text. */
+
+function fetchFriends() {
+  return accountRequest("/friends");
+}
+
+function sendFriendRequest(email) {
+  return accountRequest("/friends/request", { method: "POST", body: { email } });
+}
+
+function acceptFriend(userId) {
+  return accountRequest(`/friends/${userId}/accept`, { method: "POST" });
+}
+
+function removeFriend(userId) {
+  return accountRequest(`/friends/${userId}`, { method: "DELETE" });
+}
+
+async function fetchFriendState(userId) {
+  const body = await accountRequest(`/friends/${userId}/data`);
+  return body?.doc
+    ? appUserState.parseUserState(JSON.stringify(body.doc))
+    : null;
 }
 
 /* ===== TMDB client: credential, Cache API wrapper, hydration pool ===== */
@@ -11181,9 +11486,15 @@ function refreshSettings() {
   );
 
   const usingGist = userState.storageMode === "gist";
-  storageModeLocal.checked = !usingGist;
+  const usingAccount = userState.storageMode === "account";
+  storageModeLocal.checked = !usingGist && !usingAccount;
   storageModeGist.checked = usingGist;
+  storageModeAccount.checked = usingAccount;
   gistFields.hidden = !usingGist;
+  accountFields.hidden = !usingAccount;
+  if (usingAccount) {
+    refreshAccountSection();
+  }
   gistTokenInput.value = "";
   setStatus(
     gistStatus,
@@ -11313,13 +11624,20 @@ async function onExportCsv() {
 function onStorageModeChange(mode) {
   if (mode === "gist") {
     userState = { ...userState, storageMode: "gist" };
-    gistFields.hidden = false;
     persistUserState({ sync: false });
     refreshSettings();
     return;
   }
+  if (mode === "account") {
+    userState = { ...userState, storageMode: "account" };
+    persistUserState({ sync: false });
+    refreshSettings();
+    if (accountSyncEnabled()) {
+      queueAccountSync();
+    }
+    return;
+  }
   disconnectGist();
-  gistFields.hidden = true;
   refreshSettings();
 }
 
@@ -11354,6 +11672,225 @@ function onDisconnectGist() {
   disconnectGist();
   refreshSettings();
   refreshGistBackupList();
+}
+
+/* --- Account & friends --- */
+
+function refreshAccountSection() {
+  const connected = appAccountSync.isConnectedAccountConfig(accountConfig);
+  accountAuthFields.hidden = connected;
+  accountLogoutBtn.hidden = !connected;
+  accountFriendsSection.hidden = !connected;
+  if (connected) {
+    setStatus(
+      accountStatus,
+      `Signed in as ${accountConfig.email || accountConfig.displayName}.`,
+      "ok",
+    );
+    refreshFriendsList();
+  } else {
+    setStatus(accountStatus, "Not signed in.", null);
+    friendsList.innerHTML = "";
+  }
+}
+
+async function onAccountAuth(mode) {
+  const email = accountEmailInput.value.trim();
+  const password = accountPasswordInput.value;
+  setStatus(accountStatus, mode === "signup" ? "Creating account…" : "Logging in…", null);
+  accountLoginBtn.disabled = true;
+  accountSignupBtn.disabled = true;
+  try {
+    const result = await connectAccount(mode, email, password);
+    if (!result.ok) {
+      setStatus(accountStatus, result.error, "error");
+      return;
+    }
+    accountPasswordInput.value = "";
+    refreshSettings();
+    refreshViewModeForActiveList();
+    render();
+    hydrateActiveList();
+  } finally {
+    accountLoginBtn.disabled = false;
+    accountSignupBtn.disabled = false;
+  }
+}
+
+function onAccountLogout() {
+  disconnectAccount();
+  refreshSettings();
+}
+
+function friendDisplayName(friend) {
+  return friend.displayName || friend.email;
+}
+
+function friendItemHtml(friend) {
+  const name = appCardHtml.escapeHtml(friendDisplayName(friend));
+  const pending = friend.status === "pending";
+  const meta = pending
+    ? friend.direction === "incoming"
+      ? "wants to be friends"
+      : "request sent"
+    : "";
+  const buttons = [];
+  if (pending && friend.direction === "incoming") {
+    buttons.push(
+      `<button type="button" class="primary-btn friend-btn" data-friend-action="accept" data-friend-id="${friend.id}">Accept</button>`,
+    );
+  }
+  if (!pending) {
+    buttons.push(
+      `<button type="button" class="ghost-btn friend-btn" data-friend-action="view" data-friend-id="${friend.id}" data-friend-name="${name}">View lists</button>`,
+    );
+  }
+  buttons.push(
+    `<button type="button" class="ghost-btn friend-btn" data-friend-action="remove" data-friend-id="${friend.id}">${pending && friend.direction === "outgoing" ? "Cancel" : "Remove"}</button>`,
+  );
+  return `<li class="friend-item"><span class="friend-name">${name}</span><span class="friend-meta">${meta}</span><span class="friend-actions">${buttons.join("")}</span></li>`;
+}
+
+async function refreshFriendsList() {
+  friendsList.innerHTML = '<li class="gist-backup-empty">Loading…</li>';
+  try {
+    const body = await fetchFriends();
+    const friends = body?.friends || [];
+    friendsList.innerHTML = friends.length
+      ? friends.map(friendItemHtml).join("")
+      : '<li class="gist-backup-empty">No friends yet. Add one by email above.</li>';
+    setStatus(friendsStatus, "", null);
+  } catch (error) {
+    friendsList.innerHTML = "";
+    setStatus(friendsStatus, error.message, "error");
+    if (error?.status === 401) {
+      refreshAccountSection();
+    }
+  }
+}
+
+async function onAddFriend() {
+  const email = friendEmailInput.value.trim();
+  if (!email) {
+    setStatus(friendsStatus, "Enter your friend's account email first.", "error");
+    return;
+  }
+  friendAddBtn.disabled = true;
+  setStatus(friendsStatus, "Sending request…", null);
+  try {
+    const body = await sendFriendRequest(email);
+    friendEmailInput.value = "";
+    setStatus(
+      friendsStatus,
+      body?.status === "accepted"
+        ? "They had already added you. You are now friends."
+        : "Request sent. They can accept it from their settings.",
+      "ok",
+    );
+    refreshFriendsList();
+  } catch (error) {
+    setStatus(friendsStatus, error.message, "error");
+  } finally {
+    friendAddBtn.disabled = false;
+  }
+}
+
+async function onFriendsListClick(event) {
+  const button = event.target.closest("[data-friend-action]");
+  if (!button) {
+    return;
+  }
+  const friendId = Number(button.dataset.friendId);
+  const action = button.dataset.friendAction;
+  try {
+    if (action === "accept") {
+      await acceptFriend(friendId);
+      refreshFriendsList();
+    } else if (action === "remove") {
+      await removeFriend(friendId);
+      refreshFriendsList();
+    } else if (action === "view") {
+      openFriendView(friendId, button.dataset.friendName || "Friend");
+    }
+  } catch (error) {
+    setStatus(friendsStatus, error.message, "error");
+  }
+}
+
+/* --- Friend list viewer (read-only) --- */
+
+function closeFriendView() {
+  friendViewDialog.hidden = true;
+  friendViewContent.innerHTML = "";
+}
+
+/** Resolves a movie title from cache/snapshot/TMDB; never blocks the dialog. */
+async function friendMovieLabel(movieId) {
+  try {
+    const record = await getMovie(movieId);
+    const year = appCardHtml.formatYear(record.release_date);
+    return `${record.title}${year ? ` (${year})` : ""}`;
+  } catch (_) {
+    return `TMDB #${movieId}`;
+  }
+}
+
+function friendViewListHtml(name, movieIds, labels, ratings) {
+  const items = movieIds
+    .map((id) => {
+      const rating = appRatings.getRating(ratings, id);
+      const ratingHtml =
+        rating == null
+          ? ""
+          : ` <span class="friend-view-rating">★ ${appRatings.formatUserRating(rating)}</span>`;
+      return `<li>${appCardHtml.escapeHtml(labels.get(id) || `TMDB #${id}`)}${ratingHtml}</li>`;
+    })
+    .join("");
+  return `<section class="friend-view-list"><h4>${appCardHtml.escapeHtml(name)} (${movieIds.length})</h4><ol>${items}</ol></section>`;
+}
+
+async function openFriendView(friendId, friendName) {
+  friendViewTitle.textContent = `${friendName}'s lists`;
+  friendViewContent.innerHTML = '<p class="sheet-note">Loading…</p>';
+  friendViewDialog.hidden = false;
+  try {
+    const state = await fetchFriendState(friendId);
+    if (!state) {
+      friendViewContent.innerHTML =
+        '<p class="sheet-note">They have not synced any lists yet.</p>';
+      return;
+    }
+    const sections = [
+      ...appLists.PRESET_LISTS.map((preset) => ({
+        name: preset.name,
+        movieIds: appLists.findList(state.lists, preset.id)?.movieIds || [],
+      })),
+      ...state.customLists.map((list) => ({
+        name: list.name,
+        movieIds: list.movieIds,
+      })),
+    ].filter((section) => section.movieIds.length);
+
+    if (!sections.length) {
+      friendViewContent.innerHTML =
+        '<p class="sheet-note">Their lists are empty so far.</p>';
+      return;
+    }
+
+    const uniqueIds = [...new Set(sections.flatMap((s) => s.movieIds))];
+    const labels = new Map(
+      await Promise.all(
+        uniqueIds.map(async (id) => [id, await friendMovieLabel(id)]),
+      ),
+    );
+    friendViewContent.innerHTML = sections
+      .map((section) =>
+        friendViewListHtml(section.name, section.movieIds, labels, state.ratings),
+      )
+      .join("");
+  } catch (error) {
+    friendViewContent.innerHTML = `<p class="sheet-note">Could not load their lists. ${appCardHtml.escapeHtml(error.message)}</p>`;
+  }
 }
 
 /* --- About --- */
@@ -13896,9 +14433,26 @@ collectionImportDialog?.addEventListener("click", (event) => {
 });
 storageModeLocal.addEventListener("change", () => onStorageModeChange("local"));
 storageModeGist.addEventListener("change", () => onStorageModeChange("gist"));
+storageModeAccount.addEventListener("change", () => onStorageModeChange("account"));
 gistConnectBtn.addEventListener("click", onConnectGist);
 gistClearBtn.addEventListener("click", onDisconnectGist);
 gistBackupList?.addEventListener("click", onGistBackupListClick);
+accountLoginBtn.addEventListener("click", () => onAccountAuth("login"));
+accountSignupBtn.addEventListener("click", () => onAccountAuth("signup"));
+accountPasswordInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    onAccountAuth("login");
+  }
+});
+accountLogoutBtn.addEventListener("click", onAccountLogout);
+friendAddBtn.addEventListener("click", onAddFriend);
+friendsList.addEventListener("click", onFriendsListClick);
+friendViewClose.addEventListener("click", closeFriendView);
+friendViewDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-friend-view")) {
+    closeFriendView();
+  }
+});
 
 aboutBtn.addEventListener("click", openAbout);
 aboutClose.addEventListener("click", closeAbout);
@@ -14070,6 +14624,7 @@ async function startApp() {
   loadCredential();
   loadHostedSession();
   loadGistConfig();
+  loadAccountConfig();
   loadUserState();
   refreshViewModeForActiveList();
   updateSearchClearVisibility();
@@ -14091,6 +14646,9 @@ async function startApp() {
   // be holding something the Gist has not seen yet.
   if (gistSyncEnabled()) {
     queueGistSync();
+  }
+  if (accountSyncEnabled()) {
+    queueAccountSync();
   }
 }
 

@@ -1,0 +1,8 @@
+name = "cinequeue-api"
+main = "src/index.js"
+compatibility_date = "2026-08-20"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cinequeue"
+database_id = "1e532bd4-e1dc-4cbb-94ac-e4c355536b3f"

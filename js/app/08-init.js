@@ -536,9 +536,26 @@ collectionImportDialog?.addEventListener("click", (event) => {
 });
 storageModeLocal.addEventListener("change", () => onStorageModeChange("local"));
 storageModeGist.addEventListener("change", () => onStorageModeChange("gist"));
+storageModeAccount.addEventListener("change", () => onStorageModeChange("account"));
 gistConnectBtn.addEventListener("click", onConnectGist);
 gistClearBtn.addEventListener("click", onDisconnectGist);
 gistBackupList?.addEventListener("click", onGistBackupListClick);
+accountLoginBtn.addEventListener("click", () => onAccountAuth("login"));
+accountSignupBtn.addEventListener("click", () => onAccountAuth("signup"));
+accountPasswordInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    onAccountAuth("login");
+  }
+});
+accountLogoutBtn.addEventListener("click", onAccountLogout);
+friendAddBtn.addEventListener("click", onAddFriend);
+friendsList.addEventListener("click", onFriendsListClick);
+friendViewClose.addEventListener("click", closeFriendView);
+friendViewDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-friend-view")) {
+    closeFriendView();
+  }
+});
 
 aboutBtn.addEventListener("click", openAbout);
 aboutClose.addEventListener("click", closeAbout);
@@ -710,6 +727,7 @@ async function startApp() {
   loadCredential();
   loadHostedSession();
   loadGistConfig();
+  loadAccountConfig();
   loadUserState();
   refreshViewModeForActiveList();
   updateSearchClearVisibility();
@@ -731,6 +749,9 @@ async function startApp() {
   // be holding something the Gist has not seen yet.
   if (gistSyncEnabled()) {
     queueGistSync();
+  }
+  if (accountSyncEnabled()) {
+    queueAccountSync();
   }
 }
 
