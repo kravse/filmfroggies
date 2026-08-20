@@ -201,7 +201,7 @@ detailListsDialog?.addEventListener("click", (event) => {
   }
 });
 
-detailCloseBtn.addEventListener("click", () => closeDetail());
+detailCloseBtn.addEventListener("click", () => dismissDetailOverlay());
 movieShareCloseBtn?.addEventListener("click", closeMovieShareDialog);
 movieShareCopyBtn?.addEventListener("click", () => copyMovieShareUrl());
 movieShareDialog?.addEventListener("click", (event) => {
@@ -214,7 +214,7 @@ detailPrevBtn.addEventListener("click", () => stepDetail(-1));
 detailNextBtn.addEventListener("click", () => stepDetail(1));
 detailDialog.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-detail")) {
-    closeDetail();
+    dismissDetailOverlay();
     return;
   }
   if (event.target.closest("#detail-rating-summary")) {
@@ -680,7 +680,7 @@ document.addEventListener("keydown", (event) => {
         cancelDetailRatingEditor();
         return;
       }
-      closeDetail();
+      dismissDetailOverlay();
     }
     return;
   }

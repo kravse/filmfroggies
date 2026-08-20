@@ -9622,7 +9622,7 @@ function watchMovie(movieId, watchedOn, rating) {
     updateRatings(appRatings.setRating(userState.ratings, movieId, rating));
   }
   if (detailMovieId === movieId && !activeMovieIds().includes(movieId)) {
-    closeDetail();
+    dismissDetailOverlay();
   }
   render();
   if (detailMovieId === movieId) {
@@ -9716,7 +9716,7 @@ function removeMovieFromCollection(movieId) {
   recordMovieStatus(movieId, appSyncMerge.REMOVED_STATUS);
   persistUserState();
   if (detailMovieId === movieId) {
-    closeDetail();
+    dismissDetailOverlay();
   }
   render();
 }
@@ -10142,7 +10142,7 @@ function saveDetailListPicker() {
 
   if (customChanged) {
     if (isCustomListDetailActive() && !activeMovieIds().includes(movieId)) {
-      closeDetail();
+      dismissDetailOverlay();
       if (isDiscoverActive()) {
         renderDiscover();
       } else {
@@ -11283,6 +11283,47 @@ function stripMainHistoryPlaceholder() {
     window.location.pathname + window.location.search,
   );
   markProgrammaticLocation();
+}
+
+function underlayHistoryEntry() {
+  const path = window.location.pathname + window.location.search;
+  if (isDiscoverActive()) {
+    const hash = appDiscover.buildDiscoverHash(discoverTab, discoverPage);
+    return {
+      state: { appView: "discover", discoverTab, discoverPage },
+      url: path + hash,
+    };
+  }
+  if (isCustomListDetailActive() && activeCustomListId) {
+    const hash = `#lists/${encodeURIComponent(activeCustomListId)}`;
+    return {
+      state: { appView: "customDetail", activeCustomListId },
+      url: path + hash,
+    };
+  }
+  if (isCustomListIndexActive()) {
+    return {
+      state: { appView: "customIndex" },
+      url: path + "#lists",
+    };
+  }
+  return {
+    state: { appView: "main" },
+    url: path,
+  };
+}
+
+/** Close the overlay in place; sync the URL without history.back(). */
+function dismissDetailOverlay() {
+  if (detailMovieId == null) {
+    return;
+  }
+  closeDetail({ popHistory: false });
+  restoreUnderlayScroll();
+  const { state, url } = underlayHistoryEntry();
+  history.replaceState(state, "", url);
+  markProgrammaticLocation();
+  detailClosedMovieId = null;
 }
 
 function openDetail(movieId, options = {}) {
@@ -12959,7 +13000,7 @@ function removeMovieFromCustomListById(movieId, listId) {
     detailMovieId === id &&
     !activeMovieIds().includes(id)
   ) {
-    closeDetail();
+    dismissDetailOverlay();
     render();
     return;
   }
@@ -13879,7 +13920,7 @@ detailListsDialog?.addEventListener("click", (event) => {
   }
 });
 
-detailCloseBtn.addEventListener("click", () => closeDetail());
+detailCloseBtn.addEventListener("click", () => dismissDetailOverlay());
 movieShareCloseBtn?.addEventListener("click", closeMovieShareDialog);
 movieShareCopyBtn?.addEventListener("click", () => copyMovieShareUrl());
 movieShareDialog?.addEventListener("click", (event) => {
@@ -13892,7 +13933,7 @@ detailPrevBtn.addEventListener("click", () => stepDetail(-1));
 detailNextBtn.addEventListener("click", () => stepDetail(1));
 detailDialog.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-detail")) {
-    closeDetail();
+    dismissDetailOverlay();
     return;
   }
   if (event.target.closest("#detail-rating-summary")) {
@@ -14358,7 +14399,7 @@ document.addEventListener("keydown", (event) => {
         cancelDetailRatingEditor();
         return;
       }
-      closeDetail();
+      dismissDetailOverlay();
     }
     return;
   }

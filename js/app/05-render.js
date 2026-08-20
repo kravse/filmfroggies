@@ -936,7 +936,7 @@ function watchMovie(movieId, watchedOn, rating) {
     updateRatings(appRatings.setRating(userState.ratings, movieId, rating));
   }
   if (detailMovieId === movieId && !activeMovieIds().includes(movieId)) {
-    closeDetail();
+    dismissDetailOverlay();
   }
   render();
   if (detailMovieId === movieId) {
@@ -1030,7 +1030,7 @@ function removeMovieFromCollection(movieId) {
   recordMovieStatus(movieId, appSyncMerge.REMOVED_STATUS);
   persistUserState();
   if (detailMovieId === movieId) {
-    closeDetail();
+    dismissDetailOverlay();
   }
   render();
 }

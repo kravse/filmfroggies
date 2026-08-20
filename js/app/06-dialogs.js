@@ -372,7 +372,7 @@ function saveDetailListPicker() {
 
   if (customChanged) {
     if (isCustomListDetailActive() && !activeMovieIds().includes(movieId)) {
-      closeDetail();
+      dismissDetailOverlay();
       if (isDiscoverActive()) {
         renderDiscover();
       } else {
@@ -1513,6 +1513,47 @@ function stripMainHistoryPlaceholder() {
     window.location.pathname + window.location.search,
   );
   markProgrammaticLocation();
+}
+
+function underlayHistoryEntry() {
+  const path = window.location.pathname + window.location.search;
+  if (isDiscoverActive()) {
+    const hash = appDiscover.buildDiscoverHash(discoverTab, discoverPage);
+    return {
+      state: { appView: "discover", discoverTab, discoverPage },
+      url: path + hash,
+    };
+  }
+  if (isCustomListDetailActive() && activeCustomListId) {
+    const hash = `#lists/${encodeURIComponent(activeCustomListId)}`;
+    return {
+      state: { appView: "customDetail", activeCustomListId },
+      url: path + hash,
+    };
+  }
+  if (isCustomListIndexActive()) {
+    return {
+      state: { appView: "customIndex" },
+      url: path + "#lists",
+    };
+  }
+  return {
+    state: { appView: "main" },
+    url: path,
+  };
+}
+
+/** Close the overlay in place; sync the URL without history.back(). */
+function dismissDetailOverlay() {
+  if (detailMovieId == null) {
+    return;
+  }
+  closeDetail({ popHistory: false });
+  restoreUnderlayScroll();
+  const { state, url } = underlayHistoryEntry();
+  history.replaceState(state, "", url);
+  markProgrammaticLocation();
+  detailClosedMovieId = null;
 }
 
 function openDetail(movieId, options = {}) {

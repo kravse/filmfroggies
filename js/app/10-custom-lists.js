@@ -632,7 +632,7 @@ function removeMovieFromCustomListById(movieId, listId) {
     detailMovieId === id &&
     !activeMovieIds().includes(id)
   ) {
-    closeDetail();
+    dismissDetailOverlay();
     render();
     return;
   }
