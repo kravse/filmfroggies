@@ -14,6 +14,14 @@ CREATE TABLE IF NOT EXISTS user_data (
   updated_at INTEGER NOT NULL
 );
 
+-- Fixed-window auth throttling. One row per throttled key (an address, or an
+-- address plus email), reused across windows rather than appended per attempt.
+CREATE TABLE IF NOT EXISTS auth_attempts (
+  key TEXT PRIMARY KEY,
+  count INTEGER NOT NULL,
+  window_start INTEGER NOT NULL
+);
+
 -- Single row per friendship; user_id is the requester. status 'accepted' means mutual.
 CREATE TABLE IF NOT EXISTS friends (
   user_id INTEGER NOT NULL REFERENCES users(id),

@@ -11,6 +11,10 @@ const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 const PBKDF2_ITERATIONS = 100_000;
 const MAX_DOC_BYTES = 200_000;
 
+const RATE_WINDOW_MS = 60_000;
+const SIGNUP_LIMIT = 3;
+const LOGIN_LIMIT = 6;
+
 const enc = new TextEncoder();
 
 const JSON_HEADERS = {
@@ -93,6 +97,69 @@ function json(status, body) {
   return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
 }
 
+function tooManyRequests() {
+  return new Response(
+    JSON.stringify({ error: "Too many attempts. Wait a minute and try again." }),
+    { status: 429, headers: { ...JSON_HEADERS, "retry-after": "60" } },
+  );
+}
+
+function clientIp(request) {
+  return request.headers.get("cf-connecting-ip") || "unknown";
+}
+
+/**
+ * Fixed window: the first attempt in a window starts the clock, and everything
+ * inside that window shares the budget. Decided separately from the storage so
+ * the rule itself is testable without a database.
+ */
+export function rateLimitDecision(row, nowMs, limit, periodMs) {
+  if (!row || nowMs - row.window_start >= periodMs) {
+    return { blocked: false, startNewWindow: true };
+  }
+  return { blocked: row.count >= limit, startNewWindow: false };
+}
+
+/**
+ * Reads before writing so a blocked caller costs a read and no write. That
+ * matters under exactly the abuse this exists to stop: D1's free tier allows
+ * 5M reads a day but only 100k writes, so counting every rejected attempt
+ * would hand an attacker a cheap way to exhaust the database for the day.
+ *
+ * ponytail: two concurrent attempts can read the same count and both pass,
+ * letting a few extra through. Fine for throttling; needs a transaction only
+ * if this ever guards something that must be exact.
+ */
+async function enforceRateLimit(env, key, limit, periodMs) {
+  const now = Date.now();
+  const row = await env.DB.prepare(
+    "SELECT count, window_start FROM auth_attempts WHERE key = ?",
+  ).bind(key).first();
+
+  const { blocked, startNewWindow } = rateLimitDecision(row, now, limit, periodMs);
+  if (blocked) {
+    return true;
+  }
+
+  if (startNewWindow) {
+    await env.DB.prepare(
+      "INSERT INTO auth_attempts (key, count, window_start) VALUES (?1, 1, ?2) ON CONFLICT(key) DO UPDATE SET count = 1, window_start = ?2",
+    ).bind(key, now).run();
+    // ponytail: opportunistic sweep, no cron. Keys rotate only when an attacker
+    // rotates addresses; swap in a scheduled cleanup if the table ever grows.
+    if (Math.random() < 0.01) {
+      await env.DB.prepare("DELETE FROM auth_attempts WHERE window_start < ?")
+        .bind(now - 3_600_000)
+        .run();
+    }
+  } else {
+    await env.DB.prepare("UPDATE auth_attempts SET count = count + 1 WHERE key = ?")
+      .bind(key)
+      .run();
+  }
+  return false;
+}
+
 function readBearerToken(request) {
   const match = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization") || "");
   return match ? match[1].trim() : "";
@@ -133,12 +200,27 @@ async function areFriends(env, a, b) {
 }
 
 async function handleAuth(request, env, path) {
+  const isSignup = path === "/api/signup";
+  const limit = isSignup ? SIGNUP_LIMIT : LOGIN_LIMIT;
+
+  // Throttle on the address before touching the body: hashing a password is
+  // the expensive part of both endpoints, so the cheap check has to come first.
+  if (await enforceRateLimit(env, `${path}:${clientIp(request)}`, limit, RATE_WINDOW_MS)) {
+    return tooManyRequests();
+  }
+
   const body = await readJsonBody(request);
   const email = normalizeEmail(body?.email);
   const password = String(body?.password || "");
   if (!email) return json(400, { error: "Valid email required" });
 
-  if (path === "/api/signup") {
+  // A second bucket per account, so guessing one password from many addresses
+  // is throttled even though each address stays under its own limit.
+  if (!isSignup && (await enforceRateLimit(env, `login:${email}`, LOGIN_LIMIT, RATE_WINDOW_MS))) {
+    return tooManyRequests();
+  }
+
+  if (isSignup) {
     if (password.length < 8) return json(400, { error: "Password must be at least 8 characters" });
     const hash = await hashPassword(password);
     let result;
