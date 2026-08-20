@@ -8,6 +8,11 @@
   padding: 1.5rem 1rem;
 }
 
+.movie-detail-dialog:has(.movie-detail-nav[hidden]) {
+  --detail-nav-track: 0px;
+  --detail-nav-gap: 0px;
+}
+
 .movie-detail-backdrop {
   position: absolute;
   inset: 0;
@@ -862,6 +867,7 @@ button.detail-rating-chip.is-rated[aria-expanded="true"] {
   top: 50%;
   transform: translateY(-50%);
   z-index: 2;
+  flex: none;
   width: 42px;
   height: 42px;
   border-radius: 50%;
@@ -871,6 +877,10 @@ button.detail-rating-chip.is-rated[aria-expanded="true"] {
   font-size: 1.5rem;
   line-height: 1;
   cursor: pointer;
+}
+
+.movie-detail-nav[hidden] {
+  display: none;
 }
 
 .movie-detail-nav:hover {
@@ -891,20 +901,61 @@ button.detail-rating-chip.is-rated[aria-expanded="true"] {
 }
 
 @media (min-width: 641px) {
+  .movie-detail-dialog {
+    --detail-nav-track: 42px;
+    --detail-nav-gap: 0.85rem;
+    display: grid;
+    grid-template-columns:
+      var(--detail-nav-track)
+      minmax(0, min(860px, calc(100vw - 2 * var(--detail-nav-track) - 2 * var(--detail-nav-gap) - 2rem)))
+      var(--detail-nav-track);
+    align-items: center;
+    justify-content: center;
+    column-gap: var(--detail-nav-gap);
+    padding: 1.5rem max(1rem, env(safe-area-inset-left)) 1.5rem max(1rem, env(safe-area-inset-right));
+  }
+
+  .movie-detail-dialog:has(.movie-detail-nav[hidden]) {
+    grid-template-columns: minmax(0, min(860px, calc(100vw - 2rem)));
+  }
+
+  .movie-detail-nav {
+    position: static;
+    top: auto;
+    transform: none;
+    align-self: center;
+    justify-self: center;
+  }
+
+  .movie-detail-nav--prev {
+    grid-column: 1;
+    grid-row: 1;
+    left: auto;
+  }
+
+  .movie-detail-panel {
+    grid-column: 2;
+    grid-row: 1;
+    width: 100%;
+    max-width: none;
+  }
+
+  .movie-detail-dialog:has(.movie-detail-nav[hidden]) .movie-detail-panel {
+    grid-column: 1;
+  }
+
+  .movie-detail-nav--next {
+    grid-column: 3;
+    grid-row: 1;
+    right: auto;
+  }
+
   .movie-detail-scroll {
     display: grid;
     grid-template-columns: 240px 1fr;
     align-items: start;
     gap: 1.5rem;
     padding: 1.5rem;
-  }
-
-  .movie-detail-nav--prev {
-    left: max(1rem, env(safe-area-inset-left, 0px));
-  }
-
-  .movie-detail-nav--next {
-    right: max(1rem, env(safe-area-inset-right, 0px));
   }
 }
 

@@ -93,11 +93,26 @@ function viewingEntries(history, movieId, options = {}) {
   const entries = normalizeViewingHistory(history)[String(Number(movieId))] || [];
   return entries
     .filter((entry) => options.includeDeleted || !entry.deletedAt)
-    .sort((a, b) => b.watchedOn.localeCompare(a.watchedOn) || b.updatedAt.localeCompare(a.updatedAt));
+    .sort(
+      (a, b) =>
+        a.watchedOn.localeCompare(b.watchedOn) ||
+        a.updatedAt.localeCompare(b.updatedAt) ||
+        a.id.localeCompare(b.id),
+    );
 }
 
 function latestViewingDate(history, movieId) {
-  return viewingEntries(history, movieId)[0]?.watchedOn || null;
+  const entries = viewingEntries(history, movieId);
+  if (!entries.length) {
+    return null;
+  }
+  let latest = entries[0].watchedOn;
+  for (const entry of entries) {
+    if (entry.watchedOn > latest) {
+      latest = entry.watchedOn;
+    }
+  }
+  return latest;
 }
 
 function addViewing(history, movieId, watchedOn, now = new Date(), id = createViewingId(now)) {

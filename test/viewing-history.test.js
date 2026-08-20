@@ -22,7 +22,7 @@ test("today uses the user's local calendar date", () => {
 test("viewings can be added, edited, and tombstoned", () => {
   let history = addViewing({}, 42, "2026-01-01", T1, "a");
   history = addViewing(history, 42, "2026-02-02", T2, "b");
-  assert.deepEqual(viewingEntries(history, 42).map((x) => x.watchedOn), ["2026-02-02", "2026-01-01"]);
+  assert.deepEqual(viewingEntries(history, 42).map((x) => x.watchedOn), ["2026-01-01", "2026-02-02"]);
   assert.equal(latestViewingDate(history, 42), "2026-02-02");
   history = updateViewing(history, 42, "a", "2026-01-03", T3);
   assert.equal(viewingEntries(history, 42).find((x) => x.id === "a").watchedOn, "2026-01-03");
@@ -59,7 +59,7 @@ test("normalization collapses duplicate active dates but retains tombstones", ()
 test("merge unions concurrent viewings", () => {
   const left = addViewing({}, 42, "2026-01-01", T1, "a");
   const right = addViewing({}, 42, "2026-02-02", T2, "b");
-  assert.deepEqual(viewingEntries(mergeViewingHistory(left, right), 42).map((x) => x.id), ["b", "a"]);
+  assert.deepEqual(viewingEntries(mergeViewingHistory(left, right), 42).map((x) => x.id), ["a", "b"]);
 });
 
 test("merge collapses duplicate dates created with different ids", () => {
@@ -75,7 +75,7 @@ test("newer edits win and deletions win timestamp ties", () => {
   const original = addViewing({}, 42, "2026-01-01", T1, "a");
   const edited = updateViewing(original, 42, "a", "2026-02-02", T2);
   const removed = removeViewing(original, 42, "a", T2);
-  assert.equal(viewingEntries(mergeViewingHistory(original, edited), 42)[0].watchedOn, "2026-02-02");
+  assert.equal(viewingEntries(mergeViewingHistory(original, edited), 42).at(-1)?.watchedOn, "2026-02-02");
   assert.deepEqual(viewingEntries(mergeViewingHistory(edited, removed), 42), []);
 });
 
@@ -84,7 +84,18 @@ test("equal-time conflicting edits converge in either merge direction", () => {
   const early = updateViewing(original, 42, "a", "2026-02-01", T3);
   const late = updateViewing(original, 42, "a", "2026-02-02", T3);
   assert.deepEqual(mergeViewingHistory(early, late), mergeViewingHistory(late, early));
-  assert.equal(viewingEntries(mergeViewingHistory(early, late), 42)[0].watchedOn, "2026-02-02");
+  assert.equal(viewingEntries(mergeViewingHistory(early, late), 42).at(-1)?.watchedOn, "2026-02-02");
+});
+
+test("viewingEntries lists active viewings earliest to latest by watchedOn", () => {
+  let history = addViewing({}, 42, "2020-03-01", T2, "c");
+  history = addViewing(history, 42, "2020-01-01", T1, "a");
+  history = addViewing(history, 42, "2020-02-01", T3, "b");
+  assert.deepEqual(viewingEntries(history, 42).map((entry) => entry.watchedOn), [
+    "2020-01-01",
+    "2020-02-01",
+    "2020-03-01",
+  ]);
 });
 
 test("add and edit reject future viewing dates", () => {
