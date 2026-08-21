@@ -1,4 +1,4 @@
-# CineQueue
+# FilmFroggies
 
 Search [TMDB](https://www.themoviedb.org/), add movies to ordered lists, and browse them as a cover grid or a detail-style layout. **Sign in with a CineQueue account** to search TMDB, sync lists across devices, and use Discover. Lists are cached in the browser and synced to the Cloudflare Worker + D1 backend when logged in.
 
@@ -107,11 +107,11 @@ A movie can be on any combination of Watched, Watchlist, and custom lists. Custo
 
 **Import & export** (Settings): see [Collection backup CSV](#collection-backup-csv). Import shows a confirmation with row counts before replacing your collection. Use this to migrate lists when moving to account-only storage or after running the local [Letterboxd import tool](#letterboxd-import-local-tool).
 
-**Account:** the footer **Log in** button (logged out) opens the login dialog; log in or sign up with email and password, and new signups also need the invite code you were given. Once logged in, Settings → **Account** shows the session and the delete-account action. Lists sync through the CineQueue backend (see [Account backend](#account-backend-cloudflare-worker--d1)). Friends can browse each other's lists at `#friend/{userId}` (header **Friends** icon → View lists) once both sides accept a request. The session token stays in this browser and is never part of the synced payload. Connecting pulls remote lists only — local lists are not pushed on signup/login; use CSV export/import to migrate.
+**Account:** the footer **Log in** button (logged out) opens the login dialog; log in or sign up with email and password, and new signups also need the invite code you were given. Once logged in, Settings → **Account** shows the session and the delete-account action. Lists sync through the filmfroggies backend (see [Account backend](#account-backend-cloudflare-worker--d1)). Friends can browse each other's lists at `#friend/{userId}` (header **Friends** icon → View lists) once both sides accept a request. The session token stays in this browser and is never part of the synced payload. Connecting pulls remote lists only — local lists are not pushed on signup/login; use CSV export/import to migrate.
 
 ## User state (what gets saved)
 
-Stored under `moviecollector-user-state` and synced to your CineQueue account when logged in. Movie records from TMDB are **not** part of this payload.
+Stored under `moviecollector-user-state` and synced to your filmfroggies account when logged in. Movie records from TMDB are **not** part of this payload.
 
 | Field | Role |
 |-------|------|
@@ -165,7 +165,7 @@ Movie metadata is served from the account-gated batch endpoint (`POST /api/movie
 
 | Environment | Account API | TMDB proxy | Notes |
 |-------------|-------------|------------|-------|
-| **Production** (`cinequeue.org`) | `/api/backend/…` | `/api/tmdb` | Netlify proxies both to the Worker (see [`netlify.toml`](netlify.toml)) |
+| **Production** (`filmfroggies.com`) | `/api/backend/…` | `/api/tmdb` | Netlify proxies both to the Worker (see [`netlify.toml`](netlify.toml)) |
 | **Local dev** (`localhost:8743`) | Worker URL directly | Worker URL directly | CORS allowlist includes `http://localhost:8743` and `http://127.0.0.1:8743` |
 
 Configured in [`scripts/lib/account-sync.js`](scripts/lib/account-sync.js). After changing the Worker URL, update that file and the Netlify redirects, then `npm run bundle`.
