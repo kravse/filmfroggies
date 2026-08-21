@@ -33,6 +33,9 @@ const adminPasswordInput = document.getElementById("admin-password-input");
 const adminLoginErrorEl = document.getElementById("admin-login-error");
 const adminUserCountEl = document.getElementById("admin-user-count");
 const adminUnusedInvitesEl = document.getElementById("admin-unused-invites");
+const adminProxyDiagnosticEl = document.getElementById("admin-proxy-diagnostic");
+const adminProxyValueEl = document.getElementById("admin-proxy-value");
+const adminProxyNoteEl = document.getElementById("admin-proxy-note");
 const adminUsersListEl = document.getElementById("admin-users-list");
 const adminInviteCountInput = document.getElementById("admin-invite-count");
 const adminInviteCountDisplay = document.getElementById("admin-invite-count-display");
@@ -1040,17 +1043,31 @@ const appPosterGrey = (function () {
     "#363c44",
   ];
 
-  function posterGreyForId(movieId) {
+  function posterGreyIndexForId(movieId) {
     const id = Number(movieId);
     if (!Number.isInteger(id) || id <= 0) {
-      return POSTER_GREYS[0];
+      return 0;
     }
-    return POSTER_GREYS[((id % POSTER_GREYS.length) + POSTER_GREYS.length) % POSTER_GREYS.length];
+    return ((id % POSTER_GREYS.length) + POSTER_GREYS.length) % POSTER_GREYS.length;
+  }
+
+  function posterGreyForId(movieId) {
+    return POSTER_GREYS[posterGreyIndexForId(movieId)];
+  }
+
+  /**
+   * Class name instead of an inline style attribute: the palette lives in
+   * css/cards.css so the page needs no style-src 'unsafe-inline'.
+   */
+  function posterGreyClassForId(movieId) {
+    return `poster-grey-${posterGreyIndexForId(movieId)}`;
   }
 
   return {
     POSTER_GREYS,
+    posterGreyIndexForId,
     posterGreyForId,
+    posterGreyClassForId,
   };
 })();
 
@@ -9295,7 +9312,7 @@ function closePosterWrap(_movieId, innerHtml, extras = "") {
 }
 
 function posterWrapOpen(movieId) {
-  return `<div class="poster-wrap" style="--poster-bg: ${appPosterGrey.posterGreyForId(movieId)}">`;
+  return `<div class="poster-wrap ${appPosterGrey.posterGreyClassForId(movieId)}">`;
 }
 
 function discoverPosterPlaceholderHtml(titleText, options = {}) {
@@ -16563,6 +16580,58 @@ function renderAdminGeneratedCodes(codes) {
   adminGeneratedCodesEl.append(list);
 }
 
+/**
+ * Rate limits key on the client IP, which for proxied traffic only comes from
+ * X-Forwarded-For when Netlify's signature verifies. When it does not, every
+ * visitor shares one bucket — invisible to a single user, so it is reported here
+ * rather than left to be inferred from other people's 429s.
+ */
+const ADMIN_PROXY_STATES = {
+  verified: {
+    label: "Verified",
+    tone: "ok",
+    note: "Rate limits are keyed to real client IPs.",
+  },
+  unsigned: {
+    label: "Not signed",
+    tone: "error",
+    note:
+      "Netlify is not signing proxied requests, so every visitor shares one rate-limit bucket. Check that NETLIFY_PROXY_SIGNING_SECRET holds the same value on Netlify (Runtime scope) and on the Worker.",
+  },
+  unconfigured: {
+    label: "Not configured",
+    tone: "warn",
+    note:
+      "No signing secret on the Worker, so the forwarded IP is trusted on a header a caller can forge. Set NETLIFY_PROXY_SIGNING_SECRET in both places.",
+  },
+  direct: {
+    label: "Direct request",
+    tone: "neutral",
+    note: "This request did not come through the Netlify proxy, so there is nothing to verify.",
+  },
+};
+
+function renderAdminProxyDiagnostic(stats) {
+  if (!adminProxyDiagnosticEl) {
+    return;
+  }
+  const state = ADMIN_PROXY_STATES[stats?.proxySignature?.status];
+  if (!state) {
+    adminProxyDiagnosticEl.hidden = true;
+    return;
+  }
+  adminProxyDiagnosticEl.hidden = false;
+  adminProxyDiagnosticEl.classList.remove("is-ok", "is-error", "is-warn", "is-neutral");
+  adminProxyDiagnosticEl.classList.add(`is-${state.tone}`);
+  if (adminProxyValueEl) {
+    adminProxyValueEl.textContent = state.label;
+  }
+  if (adminProxyNoteEl) {
+    const ip = String(stats?.rateLimitIp || "").trim();
+    adminProxyNoteEl.textContent = ip ? `${state.note} Rate-limit IP: ${ip}` : state.note;
+  }
+}
+
 async function refreshAdminDashboard() {
   setAdminStatus("");
   try {
@@ -16576,6 +16645,7 @@ async function refreshAdminDashboard() {
     if (adminUnusedInvitesEl) {
       adminUnusedInvitesEl.textContent = String(stats.unusedInviteCount ?? 0);
     }
+    renderAdminProxyDiagnostic(stats);
     renderAdminUsers(usersBody.users || []);
   } catch (error) {
     if (error?.status === 401 || error?.status === 503) {

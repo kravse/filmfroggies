@@ -33,7 +33,7 @@ function closePosterWrap(_movieId, innerHtml, extras = "") {
 }
 
 function posterWrapOpen(movieId) {
-  return `<div class="poster-wrap" style="--poster-bg: ${appPosterGrey.posterGreyForId(movieId)}">`;
+  return `<div class="poster-wrap ${appPosterGrey.posterGreyClassForId(movieId)}">`;
 }
 
 function discoverPosterPlaceholderHtml(titleText, options = {}) {

@@ -2,21 +2,37 @@
   command = "npm run build"
   publish = "build"
 
+# signed adds an HS256 x-nf-sign header so the Worker can tell real proxied
+# traffic from a direct request that forged x-forwarded-for. The secret comes
+# from the Netlify env var of this name (Runtime scope) and is never committed.
 [[redirects]]
   from = "/api/tmdb"
   to = "https://cinequeue-api.cinequeue.workers.dev/api/tmdb"
   status = 200
   force = true
+  signed = "NETLIFY_PROXY_SIGNING_SECRET"
 
 [[redirects]]
   from = "/api/backend/*"
   to = "https://cinequeue-api.cinequeue.workers.dev/api/:splat"
   status = 200
+  signed = "NETLIFY_PROXY_SIGNING_SECRET"
 
+# Headers apply to what Netlify serves; proxied /api/* responses are the
+# Worker's to control. No 'unsafe-inline' anywhere: the page has no inline
+# script or style, and poster greys come from classes in css/cards.css.
+# Report-only first — swap the header name to Content-Security-Policy once the
+# console shows a clean run across grid, detail, search, dialogs and friend view.
 [[headers]]
   for = "/*"
   [headers.values]
     X-Robots-Tag = "noindex, nofollow"
+    Content-Security-Policy-Report-Only = "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://image.tmdb.org; connect-src 'self' https://image.tmdb.org; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "DENY"
+    Permissions-Policy = "geolocation=(), camera=(), microphone=(), payment=(), usb=()"
+    Cross-Origin-Opener-Policy = "same-origin"
 
 [[headers]]
   for = "/images/share.png"

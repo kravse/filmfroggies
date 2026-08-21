@@ -188,6 +188,58 @@ function renderAdminGeneratedCodes(codes) {
   adminGeneratedCodesEl.append(list);
 }
 
+/**
+ * Rate limits key on the client IP, which for proxied traffic only comes from
+ * X-Forwarded-For when Netlify's signature verifies. When it does not, every
+ * visitor shares one bucket — invisible to a single user, so it is reported here
+ * rather than left to be inferred from other people's 429s.
+ */
+const ADMIN_PROXY_STATES = {
+  verified: {
+    label: "Verified",
+    tone: "ok",
+    note: "Rate limits are keyed to real client IPs.",
+  },
+  unsigned: {
+    label: "Not signed",
+    tone: "error",
+    note:
+      "Netlify is not signing proxied requests, so every visitor shares one rate-limit bucket. Check that NETLIFY_PROXY_SIGNING_SECRET holds the same value on Netlify (Runtime scope) and on the Worker.",
+  },
+  unconfigured: {
+    label: "Not configured",
+    tone: "warn",
+    note:
+      "No signing secret on the Worker, so the forwarded IP is trusted on a header a caller can forge. Set NETLIFY_PROXY_SIGNING_SECRET in both places.",
+  },
+  direct: {
+    label: "Direct request",
+    tone: "neutral",
+    note: "This request did not come through the Netlify proxy, so there is nothing to verify.",
+  },
+};
+
+function renderAdminProxyDiagnostic(stats) {
+  if (!adminProxyDiagnosticEl) {
+    return;
+  }
+  const state = ADMIN_PROXY_STATES[stats?.proxySignature?.status];
+  if (!state) {
+    adminProxyDiagnosticEl.hidden = true;
+    return;
+  }
+  adminProxyDiagnosticEl.hidden = false;
+  adminProxyDiagnosticEl.classList.remove("is-ok", "is-error", "is-warn", "is-neutral");
+  adminProxyDiagnosticEl.classList.add(`is-${state.tone}`);
+  if (adminProxyValueEl) {
+    adminProxyValueEl.textContent = state.label;
+  }
+  if (adminProxyNoteEl) {
+    const ip = String(stats?.rateLimitIp || "").trim();
+    adminProxyNoteEl.textContent = ip ? `${state.note} Rate-limit IP: ${ip}` : state.note;
+  }
+}
+
 async function refreshAdminDashboard() {
   setAdminStatus("");
   try {
@@ -201,6 +253,7 @@ async function refreshAdminDashboard() {
     if (adminUnusedInvitesEl) {
       adminUnusedInvitesEl.textContent = String(stats.unusedInviteCount ?? 0);
     }
+    renderAdminProxyDiagnostic(stats);
     renderAdminUsers(usersBody.users || []);
   } catch (error) {
     if (error?.status === 401 || error?.status === 503) {

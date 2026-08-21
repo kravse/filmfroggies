@@ -27,6 +27,7 @@ import {
   sessionIsActive,
   revokeSession,
 } from "./sessions.js";
+import { describeProxySignature, netlifyProxyTrusted } from "./proxy-signature.js";
 
 export { rateLimit, rateLimitBlocked, createSessionToken, verifySessionToken };
 
@@ -159,23 +160,29 @@ export async function verifyPassword(password, stored) {
   return timingSafeEqualBytes(new Uint8Array(bits), fromB64url(parts[2]));
 }
 
-/** Client IP for rate limits. CF-Connecting-IP is set by Cloudflare and cannot be spoofed on direct Worker traffic. X-Forwarded-For is used only for Netlify-proxied /api/backend requests, where CF-Connecting-IP is Netlify's edge. */
-export function clientIp(request) {
+/**
+ * Client IP for rate limits. CF-Connecting-IP is set by Cloudflare and cannot be
+ * spoofed on direct Worker traffic. X-Forwarded-For carries the real user IP for
+ * Netlify-proxied requests, where CF-Connecting-IP is Netlify's edge — but it is
+ * caller-settable, so it is only believed when trustForwardedFor is true (see
+ * netlifyProxyTrusted). Otherwise a direct caller could pick its own limit key.
+ */
+export function clientIp(request, trustForwardedFor = false) {
   const cf = request.headers.get("CF-Connecting-IP")?.trim();
-  const forwarded = request.headers.get("x-forwarded-for");
-  const firstForwarded = forwarded?.split(",")[0]?.trim();
-  const netlifyProxied = Boolean(request.headers.get("x-nf-request-id"));
+  const firstForwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
 
-  if (netlifyProxied && firstForwarded) {
+  if (trustForwardedFor && firstForwarded) {
     return firstForwarded.slice(0, 64);
   }
   if (cf) {
     return cf.slice(0, 64);
   }
-  if (firstForwarded) {
-    return firstForwarded.slice(0, 64);
-  }
   return "unknown";
+}
+
+/** Bind the per-request trust decision so handlers keep a sync clientIp(request). */
+function makeClientIp(trustForwardedFor) {
+  return (request) => clientIp(request, trustForwardedFor);
 }
 
 async function enforceRateLimit(env, key, config, res) {
@@ -286,13 +293,12 @@ export async function deleteUserAccount(env, uid) {
   ]);
 }
 
-async function handleAuth(request, env, path, res) {
+async function handleAuth(request, env, path, res, ip) {
   const body = await readJsonBody(request);
   const email = normalizeEmail(body?.email);
   const password = String(body?.password || "");
   if (!email) return res.json(400, { error: "Valid email required" });
 
-  const ip = clientIp(request);
 
   if (path === "/api/signup") {
     const inviteCode = normalizeInviteCode(body?.inviteCode);
@@ -418,7 +424,7 @@ async function handleFriends(request, env, session, path, res) {
   return res.json(404, { error: "Not found" });
 }
 
-async function handleTmdb(request, env, session, res) {
+async function handleTmdb(request, env, session, res, ip) {
   if (request.method !== "GET") {
     return res.json(405, { error: "Method not allowed" });
   }
@@ -428,7 +434,6 @@ async function handleTmdb(request, env, session, res) {
     return res.json(503, { error: "TMDB proxy is not configured" });
   }
 
-  const ip = clientIp(request);
   const ipLimited = await enforceRateLimit(env, `tmdb:ip:${ip}`, TMDB_RATE_LIMITS.ip, res);
   if (ipLimited) return ipLimited;
   const userLimited = await enforceRateLimit(
@@ -487,15 +492,22 @@ export default {
       return res.json(503, { error: "Backend is not configured" });
     }
 
+    // x-forwarded-for is only believed when Netlify signed the proxied request,
+    // so a direct caller cannot choose its own rate-limit bucket.
+    const proxyTrusted = await netlifyProxyTrusted(env, request);
+    const ipOf = makeClientIp(proxyTrusted);
+    const ip = ipOf(request);
+
     if ((path === "/api/signup" || path === "/api/login") && request.method === "POST") {
-      return handleAuth(request, env, path, res);
+      return handleAuth(request, env, path, res, ip);
     }
 
     if (path.startsWith("/api/admin")) {
       return handleAdminRoutes(request, env, path, res, {
-        clientIp,
+        clientIp: ipOf,
         readJsonBody,
         deleteUserAccount,
+        proxySignature: describeProxySignature(env, request, proxyTrusted),
       });
     }
 
@@ -559,14 +571,14 @@ export default {
     }
 
     if (path === "/api/tmdb") {
-      return handleTmdb(request, env, session, res);
+      return handleTmdb(request, env, session, res, ip);
     }
 
     if (path === "/api/movies/batch") {
-      return handleMoviesBatch(request, env, session, ctx, res, clientIp);
+      return handleMoviesBatch(request, env, session, ctx, res, ipOf);
     }
 
-    const listResponse = await handleListRoutes(request, env, session, path, res, clientIp, {
+    const listResponse = await handleListRoutes(request, env, session, path, res, ip, {
       parseStoredDoc,
       areFriends,
     });

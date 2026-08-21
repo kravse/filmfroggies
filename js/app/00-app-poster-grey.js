@@ -21,16 +21,30 @@ const appPosterGrey = (function () {
     "#363c44",
   ];
 
-  function posterGreyForId(movieId) {
+  function posterGreyIndexForId(movieId) {
     const id = Number(movieId);
     if (!Number.isInteger(id) || id <= 0) {
-      return POSTER_GREYS[0];
+      return 0;
     }
-    return POSTER_GREYS[((id % POSTER_GREYS.length) + POSTER_GREYS.length) % POSTER_GREYS.length];
+    return ((id % POSTER_GREYS.length) + POSTER_GREYS.length) % POSTER_GREYS.length;
+  }
+
+  function posterGreyForId(movieId) {
+    return POSTER_GREYS[posterGreyIndexForId(movieId)];
+  }
+
+  /**
+   * Class name instead of an inline style attribute: the palette lives in
+   * css/cards.css so the page needs no style-src 'unsafe-inline'.
+   */
+  function posterGreyClassForId(movieId) {
+    return `poster-grey-${posterGreyIndexForId(movieId)}`;
   }
 
   return {
     POSTER_GREYS,
+    posterGreyIndexForId,
     posterGreyForId,
+    posterGreyClassForId,
   };
 })();

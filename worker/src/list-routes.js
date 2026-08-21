@@ -72,7 +72,7 @@ async function buildMovieLookup(env, ids, sortMode) {
   return (id) => records.get(Number(id)) || null;
 }
 
-export async function handleListRoutes(request, env, session, path, res, clientIp, deps = {}) {
+export async function handleListRoutes(request, env, session, path, res, ip, deps = {}) {
   if (request.method !== "GET") {
     return res.json(405, { error: "Method not allowed" });
   }
@@ -82,7 +82,7 @@ export async function handleListRoutes(request, env, session, path, res, clientI
     return null;
   }
 
-  const ipLimited = await enforceRateLimit(env, `lists:ip:${clientIp}`, LIST_RATE_LIMITS.ip, res);
+  const ipLimited = await enforceRateLimit(env, `lists:ip:${ip}`, LIST_RATE_LIMITS.ip, res);
   if (ipLimited) {
     return ipLimited;
   }

@@ -153,6 +153,10 @@ export async function handleAdminRoutes(request, env, path, res, deps) {
     return res.json(200, {
       userCount: Number(userRow?.count) || 0,
       unusedInviteCount: Number(inviteRow?.count) || 0,
+      // This request travelled the same proxy path as everyone else's, so its
+      // signature state is a live read on whether rate limits key per user.
+      rateLimitIp: clientIp(request),
+      proxySignature: deps.proxySignature || null,
     });
   }
 

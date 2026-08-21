@@ -295,6 +295,7 @@ Secrets and vars (set in Cloudflare, not committed):
 | `ADMIN_PASSWORD` | No | Admin UI login password (`#admin`) |
 | `ADMIN_SESSION_SECRET` | No | HMAC key for admin bearer tokens (required with `ADMIN_PASSWORD`) |
 | `ALLOWED_ORIGINS` | No | Comma-separated extra CORS origins merged with the default allowlist |
+| `NETLIFY_PROXY_SIGNING_SECRET` | No | Shared with Netlify's signed proxy redirects so the Worker can trust `X-Forwarded-For` for rate limits |
 
 Signup invite codes live in D1 (`invite_codes`). Generate from `#admin` when admin secrets are set.
 
@@ -305,6 +306,8 @@ Default CORS origins (hardcoded): `https://filmfroggies.com`, `https://www.filmf
 - Passwords: PBKDF2-SHA256, 100k iterations, per-user salt
 - Sessions: HMAC-signed bearer token (`{ uid, jti, exp }`) plus a D1 `sessions` row per login; logout and account delete revoke server-side
 - Rate limits (by IP / email): signup 5/hr per IP; login 15/15 min per IP; 5 failed logins/15 min per email
+- Rate-limit keys use `CF-Connecting-IP`, which Cloudflare sets and a caller cannot forge. Netlify-proxied requests arrive from Netlify's edge, so the real user IP is in `X-Forwarded-For` — a caller-settable header, honoured only when [`worker/src/proxy-signature.js`](worker/src/proxy-signature.js) verifies the HS256 `x-nf-sign` JWS from Netlify's signed proxy redirects. Without `NETLIFY_PROXY_SIGNING_SECRET` on both sides the Worker falls back to the weaker `x-nf-request-id` check, so set it in both places
+- **`#admin` reports whether that signature is verifying** (see below). A silent failure keys every visitor to Netlify's edge IP, and because the per-IP caps are only 1–2× the per-user caps it stays invisible to one user while 429ing everyone else
 - **Closed signups:** new accounts require a one-time invite code (**Log in → Sign up**); wrong or used codes get the same neutral response as a duplicate email
 - Signup and friend-request responses are intentionally neutral (no email enumeration).
 
@@ -321,6 +324,27 @@ openssl rand -base64 32 | wrangler secret put ADMIN_SESSION_SECRET
 ```
 
 Open `#admin` on the site (hash-only route, e.g. `https://filmfroggies.com/#admin`). Sign in with that password to view user counts, delete accounts, and generate one-time invite codes (up to 20 per batch). Admin sessions last 1 hour and live in `sessionStorage` only. Failed admin logins are capped at **3 per IP per hour** and **8 globally per hour**.
+
+#### Netlify proxy signature check
+
+The dashboard reports the state of the `x-nf-sign` verification for its own request, which travels the same proxy path as everyone else's, so it is a live read rather than a guess:
+
+| Shown | Meaning |
+|---|---|
+| **Verified** | Signature checks out; rate limits are keyed to real client IPs |
+| **Not signed** | Secret is set but the signature did not verify — every visitor shares one rate-limit bucket. Confirm `NETLIFY_PROXY_SIGNING_SECRET` matches on Netlify (Runtime scope) and the Worker |
+| **Not configured** | No secret on the Worker; the forwarded IP is trusted on the forgeable `x-nf-request-id` |
+| **Direct request** | Not proxied (localhost, or the Worker URL hit directly) — nothing to verify |
+
+The row also shows the IP the request was actually rate-limited under. To cross-check from the outside, the key names in D1 carry the IP:
+
+```bash
+cd worker
+wrangler d1 execute cinequeue --remote --command \
+  "SELECT key, count, window_start FROM rate_limits WHERE key LIKE '%:ip:%' ORDER BY window_start DESC LIMIT 20"
+```
+
+Real client IPs mean the signature is working; a single Netlify egress address carrying all the traffic means it is not.
 
 ### Using accounts locally
 
@@ -440,7 +464,21 @@ Point any static host at `build/` only if you also reverse-proxy `/api/tmdb` and
 | `/api/tmdb` | Worker `GET /api/tmdb` |
 | `/api/backend/*` | Worker `/api/*` |
 
+Both redirects set `signed = "NETLIFY_PROXY_SIGNING_SECRET"`, which makes Netlify add an HS256 `x-nf-sign` header the Worker verifies before trusting `X-Forwarded-For` for rate limits. Generate one value and set it in **two** places:
+
+```bash
+openssl rand -base64 32                       # one value for both
+# Netlify → Site configuration → Environment variables → NETLIFY_PROXY_SIGNING_SECRET (Runtime scope)
+wrangler secret put NETLIFY_PROXY_SIGNING_SECRET   # in worker/
+```
+
 Build command: `npm run build`. Publish directory: `build`. **No Netlify Functions** — TMDB and account traffic go to the Worker. Set `TMDB_READ_TOKEN` on the Worker (`wrangler secret put TMDB_READ_TOKEN`), not on Netlify. Remove legacy Netlify env vars `HOSTED_SITE_PASSWORD` and `TMDB_READ_TOKEN` if they are still present.
+
+#### Response headers
+
+The `/*` block in [`netlify.toml`](netlify.toml) sends `Content-Security-Policy-Report-Only` plus `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, and `Cross-Origin-Opener-Policy`. The policy allows no `'unsafe-inline'` and no `'unsafe-eval'`: `index.html` has no inline script or style, and grid poster greys come from `poster-grey-*` classes in `css/cards.css` rather than a `style` attribute. Non-`'self'` sources are Google Fonts (`css/fonts.css` `@import`s the stylesheet) and `https://image.tmdb.org` for posters.
+
+Verify in the browser console across grid, movie detail, search, dialogs, and friend view, then rename the header to `Content-Security-Policy` to enforce it. Headers only cover what Netlify serves; proxied `/api/*` responses come from the Worker. `npm run serve` on localhost applies no CSP. [`test/security-headers.test.js`](test/security-headers.test.js) guards the directives against being loosened.
 
 ### Local development
 

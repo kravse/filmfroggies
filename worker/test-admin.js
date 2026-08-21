@@ -135,7 +135,52 @@ test("admin stats requires bearer token", async () => {
     makeDeps(),
   );
   assert.equal(statsRes.status, 200);
-  assert.deepEqual(await statsRes.json(), { userCount: 3, unusedInviteCount: 2 });
+  assert.deepEqual(await statsRes.json(), {
+    userCount: 3,
+    unusedInviteCount: 2,
+    rateLimitIp: "127.0.0.1",
+    proxySignature: null,
+  });
+});
+
+test("admin stats reports the proxy signature diagnostic", async () => {
+  const json = makeJsonResponder();
+  const env = {
+    ADMIN_PASSWORD: "secret-pass",
+    ADMIN_SESSION_SECRET: "admin-session-key",
+    DB: {
+      prepare(sql) {
+        return {
+          async first() {
+            if (/FROM users/.test(sql)) return { count: 1 };
+            if (/FROM invite_codes/.test(sql)) return { count: 0 };
+            return null;
+          },
+        };
+      },
+    },
+  };
+  const token = await createAdminSessionToken(env.ADMIN_SESSION_SECRET, Date.now() + 60_000);
+  const proxySignature = {
+    configured: true,
+    verified: false,
+    looksProxied: true,
+    status: "unsigned",
+  };
+
+  const response = await handleAdminRoutes(
+    new Request("https://example.com/api/admin/stats", {
+      headers: { authorization: `Bearer ${token}` },
+    }),
+    env,
+    "/api/admin/stats",
+    json,
+    makeDeps({ clientIp: () => "198.51.100.7", proxySignature }),
+  );
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.deepEqual(body.proxySignature, proxySignature);
+  assert.equal(body.rateLimitIp, "198.51.100.7");
 });
 
 test("admin delete user calls deleteUserAccount", async () => {
@@ -309,11 +354,12 @@ function makeJsonResponder() {
   };
 }
 
-function makeDeps() {
+function makeDeps(overrides = {}) {
   return {
     clientIp: () => "127.0.0.1",
     readJsonBody: async (request) => request.json(),
     deleteUserAccount: async () => {},
+    ...overrides,
   };
 }
 

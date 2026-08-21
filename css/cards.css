@@ -211,6 +211,45 @@ body.view-mode-cards .card.is-no-watch-date:hover {
   width: 100%;
 }
 
+/* Deterministic grey fills, keyed by class so no inline style attribute is
+   needed. Values must match POSTER_GREYS in scripts/lib/poster-grey.js. */
+.poster-wrap.poster-grey-0 {
+  --poster-bg: #13161c;
+}
+.poster-wrap.poster-grey-1 {
+  --poster-bg: #1a1f28;
+}
+.poster-wrap.poster-grey-2 {
+  --poster-bg: #1e2430;
+}
+.poster-wrap.poster-grey-3 {
+  --poster-bg: #222830;
+}
+.poster-wrap.poster-grey-4 {
+  --poster-bg: #1c1a1e;
+}
+.poster-wrap.poster-grey-5 {
+  --poster-bg: #242428;
+}
+.poster-wrap.poster-grey-6 {
+  --poster-bg: #2a3038;
+}
+.poster-wrap.poster-grey-7 {
+  --poster-bg: #2e3640;
+}
+.poster-wrap.poster-grey-8 {
+  --poster-bg: #323840;
+}
+.poster-wrap.poster-grey-9 {
+  --poster-bg: #28302c;
+}
+.poster-wrap.poster-grey-10 {
+  --poster-bg: #2c2a34;
+}
+.poster-wrap.poster-grey-11 {
+  --poster-bg: #363c44;
+}
+
 .poster-wrap img {
   width: 100%;
   height: 100%;

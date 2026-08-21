@@ -66,18 +66,30 @@ test("clientIp prefers CF-Connecting-IP on direct Worker traffic", () => {
   assert.equal(clientIp(new Request("https://example.com")), "unknown");
 });
 
-test("clientIp uses X-Forwarded-For for Netlify-proxied requests", () => {
+test("clientIp uses X-Forwarded-For only when the proxy is trusted", () => {
+  const request = new Request("https://example.com", {
+    headers: {
+      "x-forwarded-for": "203.0.113.5, 10.0.0.1",
+      "CF-Connecting-IP": "198.51.100.2",
+    },
+  });
+  assert.equal(clientIp(request, true), "203.0.113.5");
+  assert.equal(clientIp(request, false), "198.51.100.2");
+});
+
+test("clientIp ignores X-Forwarded-For from an untrusted caller", () => {
+  // Without this, anyone could pick their own rate-limit bucket per request.
+  const spoofed = new Request("https://example.com", {
+    headers: {
+      "x-nf-request-id": "forged",
+      "x-forwarded-for": "203.0.113.5",
+      "CF-Connecting-IP": "198.51.100.2",
+    },
+  });
+  assert.equal(clientIp(spoofed), "198.51.100.2");
   assert.equal(
-    clientIp(
-      new Request("https://example.com", {
-        headers: {
-          "x-nf-request-id": "abc123",
-          "x-forwarded-for": "203.0.113.5, 10.0.0.1",
-          "CF-Connecting-IP": "198.51.100.2",
-        },
-      }),
-    ),
-    "203.0.113.5",
+    clientIp(new Request("https://example.com", { headers: { "x-forwarded-for": "203.0.113.5" } })),
+    "unknown",
   );
 });
 

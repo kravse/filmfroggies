@@ -17,5 +17,8 @@ database_id = "e8fd9017-45e1-4abb-aa97-32e9db8ffbf1"
 #   ADMIN_PASSWORD         — optional; admin UI login password
 #   ADMIN_SESSION_SECRET   — optional; signs admin bearer tokens (required with ADMIN_PASSWORD)
 #   ALLOWED_ORIGINS        — optional; extra CORS origins, comma-separated
+#   NETLIFY_PROXY_SIGNING_SECRET — optional; must match the `signed` env var in
+#     netlify.toml. Without it X-Forwarded-For is trusted on the weaker
+#     x-nf-request-id check, which a direct caller can forge to dodge rate limits.
 #
 # Signup uses one-time invite codes in D1 (invite_codes table). Generate from #admin.

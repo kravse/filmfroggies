@@ -132,6 +132,62 @@ body.view-admin .toolbar-left {
   text-shadow: var(--page-title-shadow);
 }
 
+.admin-diagnostic {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.8rem 0.9rem;
+  margin-bottom: 1.15rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--bg-rgb), 0.45);
+}
+
+.admin-diagnostic-label {
+  font-family: var(--ui-font);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.admin-diagnostic-value {
+  font-family: var(--ui-font);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.admin-diagnostic-note {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.admin-diagnostic.is-ok {
+  border-color: var(--success-border);
+}
+
+.admin-diagnostic.is-ok .admin-diagnostic-value {
+  color: var(--success);
+}
+
+.admin-diagnostic.is-error {
+  border-color: var(--danger-border);
+  background: var(--danger-dim);
+}
+
+.admin-diagnostic.is-error .admin-diagnostic-value {
+  color: var(--danger);
+}
+
+.admin-diagnostic.is-warn {
+  border-color: var(--danger-border);
+}
+
+.admin-diagnostic.is-warn .admin-diagnostic-value {
+  color: var(--danger-text);
+}
+
 .admin-section {
   margin-top: 1.15rem;
   padding-top: 1.15rem;
