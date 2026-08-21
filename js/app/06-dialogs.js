@@ -2430,13 +2430,18 @@ async function onAccountAuth() {
 }
 
 /** Logging out lands on the splash rather than a modal asking you back in. */
-function onAccountLogout() {
-  disconnectAccount();
-  refreshSettings();
-  closeSettings();
-  refreshViewModeForActiveList();
-  render();
-  hydrateActiveList();
+async function onAccountLogout() {
+  accountLogoutBtn.disabled = true;
+  try {
+    await logoutAccount();
+    refreshSettings();
+    closeSettings();
+    refreshViewModeForActiveList();
+    render();
+    hydrateActiveList();
+  } finally {
+    accountLogoutBtn.disabled = false;
+  }
 }
 
 function openAccountDeleteConfirm() {

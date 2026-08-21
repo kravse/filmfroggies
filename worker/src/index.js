@@ -1,7 +1,6 @@
 /**
  * CineQueue backend: accounts, per-user data doc, friends.
- * Auth mirrors scripts/lib/hosted-session.js: HMAC-signed bearer token,
- * payload now carries { uid, exp }. Secret: SESSION_SECRET (wrangler secret).
+ * Auth: HMAC-signed bearer token with { uid, jti, exp } plus D1 session rows for revocation.
  */
 
 import {
@@ -20,8 +19,16 @@ import {
 } from "./invite-codes.js";
 import { handleAdminRoutes } from "./admin.js";
 import { handleListRoutes } from "./list-routes.js";
+import {
+  createSessionToken,
+  verifySessionToken,
+  generateJti,
+  insertSession,
+  sessionIsActive,
+  revokeSession,
+} from "./sessions.js";
 
-export { rateLimit, rateLimitBlocked };
+export { rateLimit, rateLimitBlocked, createSessionToken, verifySessionToken };
 
 const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 // ponytail: 100k PBKDF2 iterations fits the free plan's 10ms CPU budget in
@@ -132,46 +139,6 @@ function timingSafeEqualBytes(a, b) {
   return diff === 0;
 }
 
-function timingSafeEqualString(a, b) {
-  const left = enc.encode(String(a ?? ""));
-  const right = enc.encode(String(b ?? ""));
-  if (left.length !== right.length) {
-    return false;
-  }
-  return timingSafeEqualBytes(left, right);
-}
-
-async function hmacKey(secret) {
-  return crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-}
-
-export async function createSessionToken(secret, uid, expiresAtMs) {
-  const payload = toB64url(enc.encode(JSON.stringify({ uid, exp: expiresAtMs })));
-  const sig = await crypto.subtle.sign("HMAC", await hmacKey(secret), enc.encode(payload));
-  return `${payload}.${toB64url(sig)}`;
-}
-
-export async function verifySessionToken(secret, token, nowMs) {
-  if (!secret || !token) return null;
-  const parts = String(token).split(".");
-  if (parts.length !== 2) return null;
-  const [payload, sig] = parts;
-  let expected;
-  try {
-    expected = await crypto.subtle.sign("HMAC", await hmacKey(secret), enc.encode(payload));
-  } catch (_) {
-    return null;
-  }
-  try {
-    if (!timingSafeEqualBytes(fromB64url(sig), new Uint8Array(expected))) return null;
-    const parsed = JSON.parse(new TextDecoder().decode(fromB64url(payload)));
-    if (!Number.isInteger(parsed.uid) || !Number.isFinite(parsed.exp) || parsed.exp <= nowMs) return null;
-    return { uid: parsed.uid, exp: parsed.exp };
-  } catch (_) {
-    return null;
-  }
-}
-
 async function pbkdf2(password, salt, iterations) {
   const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
   return crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256);
@@ -233,7 +200,11 @@ function readBearerToken(request) {
 }
 
 async function requireUser(request, env) {
-  return verifySessionToken(env.SESSION_SECRET, readBearerToken(request), Date.now());
+  const nowMs = Date.now();
+  const session = await verifySessionToken(env.SESSION_SECRET, readBearerToken(request), nowMs);
+  if (!session) return null;
+  if (!(await sessionIsActive(env, session, nowMs))) return null;
+  return session;
 }
 
 function normalizeEmail(email) {
@@ -265,8 +236,11 @@ export function parseStoredDoc(jsonText) {
 }
 
 async function issueToken(env, uid) {
-  const exp = Date.now() + SESSION_LIFETIME_MS;
-  return { token: await createSessionToken(env.SESSION_SECRET, uid, exp), expiresAt: exp };
+  const nowMs = Date.now();
+  const exp = nowMs + SESSION_LIFETIME_MS;
+  const jti = generateJti();
+  await insertSession(env, { jti, userId: uid, expiresAtMs: exp }, nowMs);
+  return { token: await createSessionToken(env.SESSION_SECRET, uid, jti, exp), expiresAt: exp };
 }
 
 async function readJsonBody(request) {
@@ -305,6 +279,7 @@ async function findFriendship(env, userId, friendId) {
 /** Remove a user and all server-side rows that reference them. */
 export async function deleteUserAccount(env, uid) {
   await env.DB.batch([
+    env.DB.prepare("DELETE FROM sessions WHERE user_id = ?1").bind(uid),
     env.DB.prepare("DELETE FROM friends WHERE user_id = ?1 OR friend_id = ?1").bind(uid),
     env.DB.prepare("DELETE FROM user_data WHERE user_id = ?1").bind(uid),
     env.DB.prepare("DELETE FROM users WHERE id = ?1").bind(uid),
@@ -534,6 +509,11 @@ export default {
       return user
         ? res.json(200, { user: publicUser(user) })
         : res.json(401, { error: "Account no longer exists" });
+    }
+
+    if (path === "/api/logout" && request.method === "POST") {
+      await revokeSession(env, session.jti);
+      return res.json(200, { status: "ok" });
     }
 
     if (path === "/api/account" && request.method === "DELETE") {

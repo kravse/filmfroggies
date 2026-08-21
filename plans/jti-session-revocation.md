@@ -1,6 +1,6 @@
 # JTI session revocation plan
 
-Status: not started. Design notes only.
+Status: implemented.
 
 ## Goal
 

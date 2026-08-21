@@ -467,6 +467,16 @@ function disconnectAccount() {
   stopFriendsNavPolling();
 }
 
+async function logoutAccount() {
+  try {
+    await accountSyncChain;
+    await accountRequest("/logout", { method: "POST" });
+  } catch (_) {
+    /* offline or already revoked */
+  }
+  disconnectAccount();
+}
+
 async function deleteRemoteAccount(password) {
   return accountRequest("/account", {
     method: "DELETE",

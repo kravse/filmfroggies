@@ -7727,6 +7727,16 @@ function disconnectAccount() {
   stopFriendsNavPolling();
 }
 
+async function logoutAccount() {
+  try {
+    await accountSyncChain;
+    await accountRequest("/logout", { method: "POST" });
+  } catch (_) {
+    /* offline or already revoked */
+  }
+  disconnectAccount();
+}
+
 async function deleteRemoteAccount(password) {
   return accountRequest("/account", {
     method: "DELETE",
@@ -13140,13 +13150,18 @@ async function onAccountAuth() {
 }
 
 /** Logging out lands on the splash rather than a modal asking you back in. */
-function onAccountLogout() {
-  disconnectAccount();
-  refreshSettings();
-  closeSettings();
-  refreshViewModeForActiveList();
-  render();
-  hydrateActiveList();
+async function onAccountLogout() {
+  accountLogoutBtn.disabled = true;
+  try {
+    await logoutAccount();
+    refreshSettings();
+    closeSettings();
+    refreshViewModeForActiveList();
+    render();
+    hydrateActiveList();
+  } finally {
+    accountLogoutBtn.disabled = false;
+  }
 }
 
 function openAccountDeleteConfirm() {

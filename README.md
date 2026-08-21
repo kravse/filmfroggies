@@ -178,6 +178,7 @@ All paths are under `/api`. Authenticated routes expect `Authorization: Bearer <
 |--------|------|------|---------|
 | `POST` | `/signup` | No | Create account (returns session token on success) |
 | `POST` | `/login` | No | Log in |
+| `POST` | `/logout` | Yes | Revoke current session |
 | `GET` | `/me` | Yes | Current user profile |
 | `GET` | `/data` | Yes | Fetch synced list doc (`404` if never pushed) |
 | `PUT` | `/data` | Yes | Save list doc (max ~200 KB JSON) |
@@ -214,7 +215,7 @@ wrangler d1 create cinequeue
 
 Copy the `database_id` from the output into [`worker/wrangler.toml`](worker/wrangler.toml) under `[[d1_databases]]`.
 
-**2. Apply schema** (creates `users`, `user_data`, `friends`, `rate_limits`, `movies`, `invite_codes`):
+**2. Apply schema** (creates `users`, `user_data`, `friends`, `rate_limits`, `movies`, `invite_codes`, `sessions`):
 
 ```bash
 wrangler d1 execute cinequeue --remote --file=schema.sql
@@ -226,7 +227,10 @@ wrangler d1 execute cinequeue --remote --file=schema.sql
 wrangler d1 execute cinequeue --remote --file=migrations/001_rate_limits.sql
 wrangler d1 execute cinequeue --remote --file=migrations/002_movies.sql
 wrangler d1 execute cinequeue --remote --file=migrations/003_invite_codes.sql
+wrangler d1 execute cinequeue --remote --file=migrations/004_sessions.sql
 ```
+
+Apply `004_sessions.sql` **before** deploying Worker code that reads the `sessions` table. Existing bearer tokens without a server session row will 401 once; users re-login once.
 
 **4. Set secrets** (required):
 
@@ -299,12 +303,12 @@ Default CORS origins (hardcoded): `https://filmfroggies.com`, `https://www.filmf
 ### Auth and limits
 
 - Passwords: PBKDF2-SHA256, 100k iterations, per-user salt
-- Sessions: signed bearer token in `Authorization` header; not stored server-side
+- Sessions: HMAC-signed bearer token (`{ uid, jti, exp }`) plus a D1 `sessions` row per login; logout and account delete revoke server-side
 - Rate limits (by IP / email): signup 5/hr per IP; login 15/15 min per IP; 5 failed logins/15 min per email
 - **Closed signups:** new accounts require a one-time invite code (**Log in → Sign up**); wrong or used codes get the same neutral response as a duplicate email
-- Signup and friend-request responses are intentionally neutral (no email enumeration)
+- Signup and friend-request responses are intentionally neutral (no email enumeration).
 
-Logout today clears the browser session only; tokens remain valid until expiry unless you add server-side revocation.
+Logout flushes pending sync, calls `POST /api/logout` to delete the session row, then clears local storage. Account delete removes all sessions for that user before the user row is deleted.
 
 ### Admin (`#admin`)
 
@@ -332,6 +336,7 @@ To run the Worker itself locally against a local D1:
 cd worker
 wrangler d1 execute cinequeue --local --file=schema.sql
 wrangler d1 execute cinequeue --local --file=migrations/003_invite_codes.sql
+wrangler d1 execute cinequeue --local --file=migrations/004_sessions.sql
 wrangler secret put SESSION_SECRET   # prompts; needed for wrangler dev too
 wrangler dev
 ```
