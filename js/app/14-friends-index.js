@@ -58,12 +58,44 @@ function refreshFriendsNavFromCache() {
  * The badge needs the same roster the page renders, so it shares that loader and
  * its in-flight dedupe instead of issuing a second read.
  */
-async function refreshFriendsNavBadge() {
+async function refreshFriendsNavBadge(options = {}) {
   if (!accountSyncEnabled()) {
     clearFriendsNavData();
+    stopFriendsNavPolling();
     return;
   }
-  await refreshFriendsList();
+  await refreshFriendsList(options);
+}
+
+/** How often to re-check for incoming friend requests while the tab is visible. */
+const FRIENDS_NAV_POLL_MS = 60_000;
+
+let friendsNavPollTimer = null;
+
+function startFriendsNavPolling() {
+  stopFriendsNavPolling();
+  if (!accountSyncEnabled()) {
+    return;
+  }
+  friendsNavPollTimer = setInterval(pollFriendsNavBadge, FRIENDS_NAV_POLL_MS);
+}
+
+function stopFriendsNavPolling() {
+  if (friendsNavPollTimer != null) {
+    clearInterval(friendsNavPollTimer);
+    friendsNavPollTimer = null;
+  }
+}
+
+/** Background badge check: no roster paint unless the friends page is open. */
+function pollFriendsNavBadge() {
+  if (!accountSyncEnabled() || document.visibilityState !== "visible") {
+    return;
+  }
+  if (isFriendsIndexActive()) {
+    return;
+  }
+  refreshFriendsNavBadge({ quiet: true });
 }
 
 function renderFriendsIndex() {

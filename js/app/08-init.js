@@ -684,6 +684,7 @@ async function startApp() {
   if (accountSyncEnabled()) {
     queueAccountSync();
     refreshFriendsNavBadge();
+    startFriendsNavPolling();
   }
 }
 

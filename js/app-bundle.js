@@ -7525,10 +7525,13 @@ function onUserStateStorageEvent(event) {
 /** A tab coming back to the foreground is the most likely one to be stale. */
 function onVisibilityRefresh() {
   if (document.visibilityState !== "visible") {
+    stopFriendsNavPolling();
     return;
   }
   if (accountSyncEnabled()) {
     queueAccountSync();
+    refreshFriendsNavBadge({ quiet: true });
+    startFriendsNavPolling();
   }
 }
 
@@ -7721,6 +7724,7 @@ function disconnectAccount() {
   saveAccountConfig(null);
   userState = { ...userState, storageMode: "account" };
   writeUserStateToStorage();
+  stopFriendsNavPolling();
 }
 
 async function deleteRemoteAccount(password) {
@@ -13127,6 +13131,7 @@ async function onAccountAuth() {
     render();
     hydrateActiveList();
     refreshFriendsNavBadge();
+    startFriendsNavPolling();
   } finally {
     accountSubmitBtn.disabled = false;
     accountAuthTabLogin.disabled = false;
@@ -13248,30 +13253,41 @@ let friendsRosterInFlight = 0;
  * pass force to queue a fresh one behind it.
  */
 function refreshFriendsList(options = {}) {
-  renderFriendsRoster();
+  if (!options.quiet) {
+    renderFriendsRoster();
+  }
   if (friendsRosterInFlight > 0 && !options.force) {
     return friendsRosterChain;
   }
   friendsRosterInFlight += 1;
-  friendsRosterChain = friendsRosterChain.then(loadFriendsRoster).finally(() => {
-    friendsRosterInFlight -= 1;
-  });
+  friendsRosterChain = friendsRosterChain
+    .then(() => loadFriendsRoster(options))
+    .finally(() => {
+      friendsRosterInFlight -= 1;
+    });
   return friendsRosterChain;
 }
 
 /** Never rejects, so the roster chain cannot be poisoned by one failed read. */
-async function loadFriendsRoster() {
+async function loadFriendsRoster(options = {}) {
+  const onFriendsPage = isFriendsIndexActive();
   try {
     const body = await fetchFriends();
     setFriendsNavData(body?.friends || []);
-    renderFriendsRoster();
-    setStatus(friendsStatus, "", null);
+    if (!options.quiet || onFriendsPage) {
+      renderFriendsRoster();
+    }
+    if (!options.quiet && onFriendsPage) {
+      setStatus(friendsStatus, "", null);
+    }
   } catch (error) {
     // A failed refresh keeps whatever roster is already on screen.
     if (!cachedFriendsRoster()) {
       friendsList.innerHTML = "";
     }
-    setStatus(friendsStatus, error.message, "error");
+    if (!options.quiet && onFriendsPage) {
+      setStatus(friendsStatus, error.message, "error");
+    }
     if (error?.status === 401) {
       refreshAccountSection();
     }
@@ -16267,12 +16283,44 @@ function refreshFriendsNavFromCache() {
  * The badge needs the same roster the page renders, so it shares that loader and
  * its in-flight dedupe instead of issuing a second read.
  */
-async function refreshFriendsNavBadge() {
+async function refreshFriendsNavBadge(options = {}) {
   if (!accountSyncEnabled()) {
     clearFriendsNavData();
+    stopFriendsNavPolling();
     return;
   }
-  await refreshFriendsList();
+  await refreshFriendsList(options);
+}
+
+/** How often to re-check for incoming friend requests while the tab is visible. */
+const FRIENDS_NAV_POLL_MS = 60_000;
+
+let friendsNavPollTimer = null;
+
+function startFriendsNavPolling() {
+  stopFriendsNavPolling();
+  if (!accountSyncEnabled()) {
+    return;
+  }
+  friendsNavPollTimer = setInterval(pollFriendsNavBadge, FRIENDS_NAV_POLL_MS);
+}
+
+function stopFriendsNavPolling() {
+  if (friendsNavPollTimer != null) {
+    clearInterval(friendsNavPollTimer);
+    friendsNavPollTimer = null;
+  }
+}
+
+/** Background badge check: no roster paint unless the friends page is open. */
+function pollFriendsNavBadge() {
+  if (!accountSyncEnabled() || document.visibilityState !== "visible") {
+    return;
+  }
+  if (isFriendsIndexActive()) {
+    return;
+  }
+  refreshFriendsNavBadge({ quiet: true });
 }
 
 function renderFriendsIndex() {
@@ -17429,6 +17477,7 @@ async function startApp() {
   if (accountSyncEnabled()) {
     queueAccountSync();
     refreshFriendsNavBadge();
+    startFriendsNavPolling();
   }
 }
 

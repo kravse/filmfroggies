@@ -2421,6 +2421,7 @@ async function onAccountAuth() {
     render();
     hydrateActiveList();
     refreshFriendsNavBadge();
+    startFriendsNavPolling();
   } finally {
     accountSubmitBtn.disabled = false;
     accountAuthTabLogin.disabled = false;
@@ -2542,30 +2543,41 @@ let friendsRosterInFlight = 0;
  * pass force to queue a fresh one behind it.
  */
 function refreshFriendsList(options = {}) {
-  renderFriendsRoster();
+  if (!options.quiet) {
+    renderFriendsRoster();
+  }
   if (friendsRosterInFlight > 0 && !options.force) {
     return friendsRosterChain;
   }
   friendsRosterInFlight += 1;
-  friendsRosterChain = friendsRosterChain.then(loadFriendsRoster).finally(() => {
-    friendsRosterInFlight -= 1;
-  });
+  friendsRosterChain = friendsRosterChain
+    .then(() => loadFriendsRoster(options))
+    .finally(() => {
+      friendsRosterInFlight -= 1;
+    });
   return friendsRosterChain;
 }
 
 /** Never rejects, so the roster chain cannot be poisoned by one failed read. */
-async function loadFriendsRoster() {
+async function loadFriendsRoster(options = {}) {
+  const onFriendsPage = isFriendsIndexActive();
   try {
     const body = await fetchFriends();
     setFriendsNavData(body?.friends || []);
-    renderFriendsRoster();
-    setStatus(friendsStatus, "", null);
+    if (!options.quiet || onFriendsPage) {
+      renderFriendsRoster();
+    }
+    if (!options.quiet && onFriendsPage) {
+      setStatus(friendsStatus, "", null);
+    }
   } catch (error) {
     // A failed refresh keeps whatever roster is already on screen.
     if (!cachedFriendsRoster()) {
       friendsList.innerHTML = "";
     }
-    setStatus(friendsStatus, error.message, "error");
+    if (!options.quiet && onFriendsPage) {
+      setStatus(friendsStatus, error.message, "error");
+    }
     if (error?.status === 401) {
       refreshAccountSection();
     }

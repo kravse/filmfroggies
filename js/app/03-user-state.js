@@ -265,10 +265,13 @@ function onUserStateStorageEvent(event) {
 /** A tab coming back to the foreground is the most likely one to be stale. */
 function onVisibilityRefresh() {
   if (document.visibilityState !== "visible") {
+    stopFriendsNavPolling();
     return;
   }
   if (accountSyncEnabled()) {
     queueAccountSync();
+    refreshFriendsNavBadge({ quiet: true });
+    startFriendsNavPolling();
   }
 }
 
@@ -461,6 +464,7 @@ function disconnectAccount() {
   saveAccountConfig(null);
   userState = { ...userState, storageMode: "account" };
   writeUserStateToStorage();
+  stopFriendsNavPolling();
 }
 
 async function deleteRemoteAccount(password) {
