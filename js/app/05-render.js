@@ -227,52 +227,84 @@ function cardDetailRatingsHtml(movieId) {
   return inner ? ratingChitHtml(inner) : "";
 }
 
-function isUserRatingSortMode() {
+function watchedListSortField() {
   if (!usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
-    return false;
+    return null;
   }
-  const sortMode = userState?.preferences.sort;
-  return sortMode === "user-rating-asc" || sortMode === "user-rating-desc";
+  const sort = userState?.preferences?.sort;
+  if (!sort) {
+    return null;
+  }
+  const resolved = isFriendViewActive()
+    ? appSort.resolveSortMode(sort, { friendView: true })
+    : appSort.resolveSortMode(sort);
+  return appSort.getSortField(resolved);
+}
+
+function isUserRatingSortMode() {
+  return watchedListSortField() === "user-rating";
 }
 
 function isFanRatingSortMode() {
-  if (!usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
-    return false;
-  }
-  const sortMode = userState?.preferences.sort;
-  return sortMode === "rating-asc" || sortMode === "rating-desc";
+  return watchedListSortField() === "rating";
 }
 
 function isYearSortMode() {
-  if (!usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
-    return false;
-  }
-  const sortMode = userState?.preferences.sort;
-  return sortMode === "year-asc" || sortMode === "year-desc";
+  return watchedListSortField() === "year";
 }
 
 function isTitleSortMode() {
-  if (!usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
-    return false;
-  }
-  const sortMode = userState?.preferences.sort;
-  return sortMode === "title-asc" || sortMode === "title-desc";
+  return watchedListSortField() === "title";
 }
 
 function isAddedSortMode() {
-  if (!usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
-    return false;
-  }
-  const sortMode = userState?.preferences.sort;
-  return sortMode === "added-asc" || sortMode === "added-desc";
+  return watchedListSortField() === "added";
 }
 
 function isWatchedSortMode() {
-  if (!usesWatchedStyleDisplay() || usesCustomDisplayOrder()) {
-    return false;
+  return watchedListSortField() === "watched";
+}
+
+/** Keep small-card sort footers in sync when sort UI updates without a full render. */
+function syncWatchedCardSortFooters() {
+  if (
+    !grid ||
+    isDiscoverActive() ||
+    gridViewMode !== "cards" ||
+    !usesWatchedStyleDisplay() ||
+    usesCustomDisplayOrder()
+  ) {
+    return;
   }
-  const sortMode = userState?.preferences.sort;
-  return sortMode === "watched-asc" || sortMode === "watched-desc";
+  for (const row of grid.querySelectorAll(".movie-row[data-movie-id]")) {
+    const movieId = Number(row.dataset.movieId);
+    if (!Number.isInteger(movieId) || movieId <= 0) {
+      continue;
+    }
+    const card = row.querySelector(".card");
+    if (!card) {
+      continue;
+    }
+    const dimClass = cardSortDimClass(movieId);
+    card.classList.remove("is-unrated", "is-no-watch-date");
+    if (dimClass.includes("is-unrated")) {
+      card.classList.add("is-unrated");
+    }
+    if (dimClass.includes("is-no-watch-date")) {
+      card.classList.add("is-no-watch-date");
+    }
+    const existing = card.querySelector(".card-footer--sort");
+    const next = cardSmallFooterHtml(movieId);
+    if (next) {
+      if (existing) {
+        existing.outerHTML = next;
+      } else {
+        card.insertAdjacentHTML("beforeend", next);
+      }
+    } else if (existing) {
+      existing.remove();
+    }
+  }
 }
 
 function cardUserRatingSegmentHtml(movieId, { showEmpty = false } = {}) {
@@ -510,6 +542,7 @@ function syncSortControlUi() {
     );
   }
   syncSortSelectLabels();
+  syncWatchedCardSortFooters();
 }
 
 function syncReorderModeUi() {
