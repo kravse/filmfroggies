@@ -320,11 +320,19 @@ function friendDisplayIdsForSection(section) {
 }
 
 let friendServerSortGeneration = 0;
+let friendServerSortKey = "";
 const friendServerSortCache = new Map();
 
 function clearFriendServerSortCache() {
   friendServerSortGeneration += 1;
+  friendServerSortKey = "";
   friendServerSortCache.clear();
+}
+
+/** Identifies a prefetch by friend, sort, and section set so repeat renders reuse it. */
+function friendServerSortRequestKey(friendId, sort) {
+  const sectionIds = friendViewSections.map((section) => section.id).join(",");
+  return `${friendId}:${sort}:${sectionIds}`;
 }
 
 async function prefetchFriendServerSorts(friendId) {
@@ -335,9 +343,15 @@ async function prefetchFriendServerSorts(friendId) {
   if (!Number.isInteger(id) || id <= 0 || activeFriendId !== id || !friendViewSections.length) {
     return;
   }
-  const generation = (friendServerSortGeneration += 1);
   const sort = appSort.resolveSortMode(userState.preferences.sort, { friendView: true });
+  const key = friendServerSortRequestKey(id, sort);
+  if (key === friendServerSortKey) {
+    return;
+  }
+  friendServerSortKey = key;
+  const generation = (friendServerSortGeneration += 1);
   friendServerSortCache.clear();
+  let failed = false;
   await Promise.all(
     friendViewSections.map(async (section) => {
       try {
@@ -346,13 +360,19 @@ async function prefetchFriendServerSorts(friendId) {
           friendServerSortCache.set(section.id, ids);
         }
       } catch (_) {
+        failed = true;
         /* Client sort fallback in friendDisplayIdsForSection. */
       }
     }),
   );
-  if (generation === friendServerSortGeneration && activeFriendId === id) {
-    renderFriendView();
+  if (generation !== friendServerSortGeneration || activeFriendId !== id) {
+    return;
   }
+  if (failed) {
+    // Let a later render retry whatever fell back to client sort.
+    friendServerSortKey = "";
+  }
+  renderFriendView();
 }
 
 function friendWatchedOverlapHtml(stats) {
@@ -443,13 +463,17 @@ function navigateToFriendView(userId, name, options = {}) {
   }
   appView = "friend";
   activeCustomListId = null;
+  // Reopening the friend you just viewed keeps their lists on screen while we refresh.
+  const loaded = friendViewLoadedId === id && Boolean(friendViewState);
   activeFriendId = id;
   friendViewName = String(name || "Friend").trim() || "Friend";
-  friendViewState = null;
-  friendViewSections = [];
-  friendViewLoadedId = null;
+  if (!loaded) {
+    friendViewState = null;
+    friendViewSections = [];
+    friendViewLoadedId = null;
+  }
   friendViewError = null;
-  friendViewLoading = true;
+  friendViewLoading = !loaded;
   if (options.pushHistory !== false) {
     history.pushState(
       { appView: "friend", activeFriendId: id, friendViewName },
@@ -471,7 +495,8 @@ async function loadFriendView(userId) {
   if (!Number.isInteger(id) || id <= 0 || activeFriendId !== id) {
     return;
   }
-  friendViewLoading = true;
+  const revalidating = friendViewLoadedId === id && Boolean(friendViewState);
+  friendViewLoading = !revalidating;
   friendViewError = null;
   renderFriendView();
   try {
@@ -486,12 +511,19 @@ async function loadFriendView(userId) {
     friendViewError = null;
     renderFriendView();
     hydrateFriendView();
+    // Fresh lists invalidate the server sort order that was cached for the old ones.
+    clearFriendServerSortCache();
     prefetchFriendServerSorts(id);
   } catch (error) {
     if (activeFriendId !== id) {
       return;
     }
     friendViewLoading = false;
+    if (revalidating) {
+      // Keep the lists already on screen instead of trading them for an error.
+      renderFriendView();
+      return;
+    }
     friendViewError = error?.message || "Could not load their lists.";
     friendViewState = null;
     friendViewSections = [];

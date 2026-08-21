@@ -13070,13 +13070,12 @@ function refreshAccountSection() {
     accountSessionName.textContent = displayName;
     accountSessionEmail.textContent = accountConfig.email || "";
     setStatus(accountStatus, "", null);
-    refreshFriendsList();
   } else {
     setAccountAuthMode("login");
     setStatus(accountStatus, "", null);
     setStatus(accountSyncStatus, "", null);
     friendsList.innerHTML = "";
-    setFriendsNavData([]);
+    clearFriendsNavData();
   }
 }
 
@@ -13127,6 +13126,7 @@ async function onAccountAuth() {
     refreshViewModeForActiveList();
     render();
     hydrateActiveList();
+    refreshFriendsNavBadge();
   } finally {
     accountSubmitBtn.disabled = false;
     accountAuthTabLogin.disabled = false;
@@ -13228,18 +13228,49 @@ function friendRosterItemHtml(friend) {
 </li>`;
 }
 
-async function refreshFriendsList() {
-  friendsList.innerHTML = '<li class="friends-roster-empty">Loading friends…</li>';
+function renderFriendsRoster() {
+  const cached = cachedFriendsRoster();
+  if (!cached) {
+    friendsList.innerHTML = '<li class="friends-roster-empty">Loading friends…</li>';
+    return;
+  }
+  friendsList.innerHTML = cached.length
+    ? cached.map(friendRosterItemHtml).join("")
+    : '<li class="friends-roster-empty">No friends yet. Add someone by email above.</li>';
+}
+
+let friendsRosterChain = Promise.resolve();
+let friendsRosterInFlight = 0;
+
+/**
+ * Paints the cached roster first so reopening the page does not flash a spinner,
+ * then revalidates. Repeat renders share the in-flight read; membership changes
+ * pass force to queue a fresh one behind it.
+ */
+function refreshFriendsList(options = {}) {
+  renderFriendsRoster();
+  if (friendsRosterInFlight > 0 && !options.force) {
+    return friendsRosterChain;
+  }
+  friendsRosterInFlight += 1;
+  friendsRosterChain = friendsRosterChain.then(loadFriendsRoster).finally(() => {
+    friendsRosterInFlight -= 1;
+  });
+  return friendsRosterChain;
+}
+
+/** Never rejects, so the roster chain cannot be poisoned by one failed read. */
+async function loadFriendsRoster() {
   try {
     const body = await fetchFriends();
-    const friends = body?.friends || [];
-    friendsList.innerHTML = friends.length
-      ? friends.map(friendRosterItemHtml).join("")
-      : '<li class="friends-roster-empty">No friends yet. Add someone by email above.</li>';
-    setFriendsNavData(friends);
+    setFriendsNavData(body?.friends || []);
+    renderFriendsRoster();
     setStatus(friendsStatus, "", null);
   } catch (error) {
-    friendsList.innerHTML = "";
+    // A failed refresh keeps whatever roster is already on screen.
+    if (!cachedFriendsRoster()) {
+      friendsList.innerHTML = "";
+    }
     setStatus(friendsStatus, error.message, "error");
     if (error?.status === 401) {
       refreshAccountSection();
@@ -13263,7 +13294,7 @@ async function onAddFriend() {
       "Request sent. They can accept it from their Friends page.",
       "ok",
     );
-    refreshFriendsList();
+    refreshFriendsList({ force: true });
   } catch (error) {
     setStatus(friendsStatus, error.message, "error");
   } finally {
@@ -13294,7 +13325,7 @@ async function confirmRemoveFriend() {
     if (isFriendViewActive() && activeFriendId === friendId) {
       navigateFromFriendView();
     }
-    refreshFriendsList();
+    refreshFriendsList({ force: true });
   } catch (error) {
     setStatus(friendsStatus, error.message, "error");
   }
@@ -13310,11 +13341,11 @@ async function onFriendsListClick(event) {
   try {
     if (action === "accept") {
       await acceptFriend(friendId);
-      refreshFriendsList();
+      refreshFriendsList({ force: true });
     } else if (action === "remove") {
       if (button.closest(".friends-roster-item--pending")) {
         await removeFriend(friendId);
-        refreshFriendsList();
+        refreshFriendsList({ force: true });
       } else {
         requestRemoveFriendConfirm(friendId, button.dataset.friendName || "this friend");
       }
@@ -15836,11 +15867,19 @@ function friendDisplayIdsForSection(section) {
 }
 
 let friendServerSortGeneration = 0;
+let friendServerSortKey = "";
 const friendServerSortCache = new Map();
 
 function clearFriendServerSortCache() {
   friendServerSortGeneration += 1;
+  friendServerSortKey = "";
   friendServerSortCache.clear();
+}
+
+/** Identifies a prefetch by friend, sort, and section set so repeat renders reuse it. */
+function friendServerSortRequestKey(friendId, sort) {
+  const sectionIds = friendViewSections.map((section) => section.id).join(",");
+  return `${friendId}:${sort}:${sectionIds}`;
 }
 
 async function prefetchFriendServerSorts(friendId) {
@@ -15851,9 +15890,15 @@ async function prefetchFriendServerSorts(friendId) {
   if (!Number.isInteger(id) || id <= 0 || activeFriendId !== id || !friendViewSections.length) {
     return;
   }
-  const generation = (friendServerSortGeneration += 1);
   const sort = appSort.resolveSortMode(userState.preferences.sort, { friendView: true });
+  const key = friendServerSortRequestKey(id, sort);
+  if (key === friendServerSortKey) {
+    return;
+  }
+  friendServerSortKey = key;
+  const generation = (friendServerSortGeneration += 1);
   friendServerSortCache.clear();
+  let failed = false;
   await Promise.all(
     friendViewSections.map(async (section) => {
       try {
@@ -15862,13 +15907,19 @@ async function prefetchFriendServerSorts(friendId) {
           friendServerSortCache.set(section.id, ids);
         }
       } catch (_) {
+        failed = true;
         /* Client sort fallback in friendDisplayIdsForSection. */
       }
     }),
   );
-  if (generation === friendServerSortGeneration && activeFriendId === id) {
-    renderFriendView();
+  if (generation !== friendServerSortGeneration || activeFriendId !== id) {
+    return;
   }
+  if (failed) {
+    // Let a later render retry whatever fell back to client sort.
+    friendServerSortKey = "";
+  }
+  renderFriendView();
 }
 
 function friendWatchedOverlapHtml(stats) {
@@ -15959,13 +16010,17 @@ function navigateToFriendView(userId, name, options = {}) {
   }
   appView = "friend";
   activeCustomListId = null;
+  // Reopening the friend you just viewed keeps their lists on screen while we refresh.
+  const loaded = friendViewLoadedId === id && Boolean(friendViewState);
   activeFriendId = id;
   friendViewName = String(name || "Friend").trim() || "Friend";
-  friendViewState = null;
-  friendViewSections = [];
-  friendViewLoadedId = null;
+  if (!loaded) {
+    friendViewState = null;
+    friendViewSections = [];
+    friendViewLoadedId = null;
+  }
   friendViewError = null;
-  friendViewLoading = true;
+  friendViewLoading = !loaded;
   if (options.pushHistory !== false) {
     history.pushState(
       { appView: "friend", activeFriendId: id, friendViewName },
@@ -15987,7 +16042,8 @@ async function loadFriendView(userId) {
   if (!Number.isInteger(id) || id <= 0 || activeFriendId !== id) {
     return;
   }
-  friendViewLoading = true;
+  const revalidating = friendViewLoadedId === id && Boolean(friendViewState);
+  friendViewLoading = !revalidating;
   friendViewError = null;
   renderFriendView();
   try {
@@ -16002,12 +16058,19 @@ async function loadFriendView(userId) {
     friendViewError = null;
     renderFriendView();
     hydrateFriendView();
+    // Fresh lists invalidate the server sort order that was cached for the old ones.
+    clearFriendServerSortCache();
     prefetchFriendServerSorts(id);
   } catch (error) {
     if (activeFriendId !== id) {
       return;
     }
     friendViewLoading = false;
+    if (revalidating) {
+      // Keep the lists already on screen instead of trading them for an error.
+      renderFriendView();
+      return;
+    }
     friendViewError = error?.message || "Could not load their lists.";
     friendViewState = null;
     friendViewSections = [];
@@ -16176,27 +16239,40 @@ function syncFriendsNavBadge(friends) {
 }
 
 let lastFriendsList = [];
+let friendsRosterLoaded = false;
 
 function setFriendsNavData(friends) {
   lastFriendsList = friends || [];
+  friendsRosterLoaded = true;
   syncFriendsNavBadge(lastFriendsList);
+}
+
+/** Logging out or losing the read drops the cache so the next open really loads. */
+function clearFriendsNavData() {
+  lastFriendsList = [];
+  friendsRosterLoaded = false;
+  syncFriendsNavBadge(lastFriendsList);
+}
+
+/** Null until a read succeeds, which is what separates "empty" from "unknown". */
+function cachedFriendsRoster() {
+  return friendsRosterLoaded ? lastFriendsList : null;
 }
 
 function refreshFriendsNavFromCache() {
   syncFriendsNavBadge(lastFriendsList);
 }
 
+/**
+ * The badge needs the same roster the page renders, so it shares that loader and
+ * its in-flight dedupe instead of issuing a second read.
+ */
 async function refreshFriendsNavBadge() {
   if (!accountSyncEnabled()) {
-    setFriendsNavData([]);
+    clearFriendsNavData();
     return;
   }
-  try {
-    const body = await fetchFriends();
-    setFriendsNavData(body?.friends || []);
-  } catch (_) {
-    setFriendsNavData([]);
-  }
+  await refreshFriendsList();
 }
 
 function renderFriendsIndex() {

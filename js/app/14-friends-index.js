@@ -30,27 +30,40 @@ function syncFriendsNavBadge(friends) {
 }
 
 let lastFriendsList = [];
+let friendsRosterLoaded = false;
 
 function setFriendsNavData(friends) {
   lastFriendsList = friends || [];
+  friendsRosterLoaded = true;
   syncFriendsNavBadge(lastFriendsList);
+}
+
+/** Logging out or losing the read drops the cache so the next open really loads. */
+function clearFriendsNavData() {
+  lastFriendsList = [];
+  friendsRosterLoaded = false;
+  syncFriendsNavBadge(lastFriendsList);
+}
+
+/** Null until a read succeeds, which is what separates "empty" from "unknown". */
+function cachedFriendsRoster() {
+  return friendsRosterLoaded ? lastFriendsList : null;
 }
 
 function refreshFriendsNavFromCache() {
   syncFriendsNavBadge(lastFriendsList);
 }
 
+/**
+ * The badge needs the same roster the page renders, so it shares that loader and
+ * its in-flight dedupe instead of issuing a second read.
+ */
 async function refreshFriendsNavBadge() {
   if (!accountSyncEnabled()) {
-    setFriendsNavData([]);
+    clearFriendsNavData();
     return;
   }
-  try {
-    const body = await fetchFriends();
-    setFriendsNavData(body?.friends || []);
-  } catch (_) {
-    setFriendsNavData([]);
-  }
+  await refreshFriendsList();
 }
 
 function renderFriendsIndex() {
