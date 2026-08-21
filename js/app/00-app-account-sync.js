@@ -15,6 +15,26 @@ const appAccountSync = (function () {
   const TMDB_API_PROXIED = "/api/tmdb";
   const MOVIES_BATCH_PATH = "/movies/batch";
 
+  function buildListIdsPath(listId) {
+    const id = String(listId || "").trim();
+    if (id.startsWith("custom-")) {
+      return `/lists/custom/${encodeURIComponent(id)}`;
+    }
+    return `/lists/${encodeURIComponent(id)}`;
+  }
+
+  function buildFriendListIdsPath(friendUserId, listId) {
+    const friendId = Number(friendUserId);
+    const id = String(listId || "").trim();
+    if (!Number.isInteger(friendId) || friendId <= 0) {
+      throw new Error("Invalid friend user id");
+    }
+    if (id.startsWith("custom-")) {
+      return `/friends/${friendId}/lists/custom/${encodeURIComponent(id)}`;
+    }
+    return `/friends/${friendId}/lists/${encodeURIComponent(id)}`;
+  }
+
   function resolveAccountApiBase(hostname) {
     const host = String(hostname || "");
     return host === "localhost" || host === "127.0.0.1"

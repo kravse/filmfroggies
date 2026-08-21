@@ -306,6 +306,12 @@ function friendViewNavigationOptions() {
 }
 
 function friendDisplayIdsForSection(section) {
+  if (typeof usesServerSortedIds === "function" && usesServerSortedIds()) {
+    const cached = friendServerSortCache.get(section.id);
+    if (cached) {
+      return cached;
+    }
+  }
   return appFriendView.friendSectionSortedIds(
     section,
     userState.preferences.sort,
@@ -313,6 +319,42 @@ function friendDisplayIdsForSection(section) {
     friendViewState,
     friendViewSortRuntime(),
   );
+}
+
+let friendServerSortGeneration = 0;
+const friendServerSortCache = new Map();
+
+function clearFriendServerSortCache() {
+  friendServerSortGeneration += 1;
+  friendServerSortCache.clear();
+}
+
+async function prefetchFriendServerSorts(friendId) {
+  if (typeof usesServerSortedIds !== "function" || !usesServerSortedIds()) {
+    return;
+  }
+  const id = Number(friendId);
+  if (!Number.isInteger(id) || id <= 0 || activeFriendId !== id || !friendViewSections.length) {
+    return;
+  }
+  const generation = (friendServerSortGeneration += 1);
+  const sort = appSort.resolveSortMode(userState.preferences.sort, { friendView: true });
+  friendServerSortCache.clear();
+  await Promise.all(
+    friendViewSections.map(async (section) => {
+      try {
+        const ids = await fetchFriendSortedListIds(id, section.id, sort);
+        if (generation === friendServerSortGeneration && activeFriendId === id) {
+          friendServerSortCache.set(section.id, ids);
+        }
+      } catch (_) {
+        /* Client sort fallback in friendDisplayIdsForSection. */
+      }
+    }),
+  );
+  if (generation === friendServerSortGeneration && activeFriendId === id) {
+    renderFriendView();
+  }
 }
 
 function friendWatchedOverlapHtml(stats) {
@@ -389,6 +431,7 @@ function clearFriendViewState() {
   friendViewError = null;
   friendViewLoading = false;
   friendViewCollapsedSections.clear();
+  clearFriendServerSortCache();
 }
 
 function navigateToFriendView(userId, name, options = {}) {
@@ -445,6 +488,7 @@ async function loadFriendView(userId) {
     friendViewError = null;
     renderFriendView();
     hydrateFriendView();
+    prefetchFriendServerSorts(id);
   } catch (error) {
     if (activeFriendId !== id) {
       return;

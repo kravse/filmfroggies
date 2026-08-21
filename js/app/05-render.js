@@ -145,7 +145,7 @@ function cardFanRatingSegmentHtml(movieId) {
   }
   const record = movieById.get(movieId);
   if (!record) {
-    return "";
+    return ratingSegmentHtml("fan", "—", true);
   }
   const label = appCardHtml.formatRating(record.voteAverage);
   const text = label || "—";
@@ -397,6 +397,34 @@ function cardPosterOnlyHtml(movieId) {
   return `${posterWrapOpen(movieId)}${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>${cardSmallFooterHtml(movieId)}`;
 }
 
+function cardPosterOnlySkeletonHtml(movieId) {
+  const body = posterPlaceholderHtml(null, {});
+  return `${posterWrapOpen(movieId)}${body}</div>${cardSmallFooterHtml(movieId)}`;
+}
+
+function skeletonCardInnerHtml(movieId) {
+  if (gridViewMode === "cards") {
+    return cardPosterOnlySkeletonHtml(movieId);
+  }
+  const body = posterPlaceholderHtml(null, {});
+  return `${posterWrapOpen(movieId)}${body}</div>
+<div class="card-body">
+  <div class="card-text">
+    <div class="card-title"></div>
+    <div class="card-meta"></div>
+  </div>
+</div>`;
+}
+
+function skeletonRowHtml(movieId) {
+  const watchlistCard =
+    !isDiscoverActive() && isWatchlistActive() ? " card--watchlist" : "";
+  const title = `Movie ${movieId}`;
+  return `<div class="movie-row movie-row--card" data-movie-id="${movieId}"><article class="card is-skeleton${cardSortDimClass(movieId)}${watchlistCard}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
+${skeletonCardInnerHtml(movieId)}
+</article></div>`;
+}
+
 function listShowsReorderGrip() {
   return (
     !isDiscoverActive() &&
@@ -632,6 +660,75 @@ function rowHtml(movieId) {
   return `<div class="movie-row movie-row--card" data-movie-id="${movieId}">${rowInnerHtml(movieId)}</div>`;
 }
 
+let serverSortFetchGeneration = 0;
+let serverSortCacheKey = "";
+let serverSortCachedIds = null;
+
+function serverSortCacheToken() {
+  const ctx = getActiveDisplayContext();
+  const sort = appSort.resolveSortMode(userState.preferences.sort);
+  const searchKey =
+    ctx.searchable && typeof hasActiveListSearch === "function" && hasActiveListSearch()
+      ? getListSearchFilter()
+      : "";
+  return `${ctx.listId}:${sort}:${searchKey}`;
+}
+
+function usesServerSortedIds() {
+  if (!hasTmdbAccess()) {
+    return false;
+  }
+  if (isWatchlistActive()) {
+    return false;
+  }
+  if (isFriendViewActive()) {
+    const field = appSort.getSortField(userState.preferences.sort);
+    return field !== "custom";
+  }
+  return getActiveDisplayContext().sortable;
+}
+
+function applyDisplayListFilters(ids) {
+  const ctx = getActiveDisplayContext();
+  if (ctx.searchable && typeof hasActiveListSearch === "function" && hasActiveListSearch()) {
+    return appListSearch.filterMovieIds(ids, getListSearchFilter(), (id) =>
+      movieById.get(id) ?? localMovieRecord(id),
+    );
+  }
+  return ids;
+}
+
+function invalidateServerSortCache() {
+  serverSortCacheKey = "";
+  serverSortCachedIds = null;
+}
+
+async function renderServerSortedGrid() {
+  const ctx = getActiveDisplayContext();
+  const sort = appSort.resolveSortMode(userState.preferences.sort);
+  const cacheKey = serverSortCacheToken();
+  const generation = (serverSortFetchGeneration += 1);
+  const initialIds =
+    cacheKey === serverSortCacheKey && serverSortCachedIds ? serverSortCachedIds : ctx.movieIds;
+
+  paintMovieGrid(applyDisplayListFilters(initialIds));
+
+  try {
+    const ids = await fetchSortedListIds(ctx.listId, sort);
+    if (generation !== serverSortFetchGeneration) {
+      return;
+    }
+    serverSortCacheKey = cacheKey;
+    serverSortCachedIds = ids;
+    paintMovieGrid(applyDisplayListFilters(ids));
+  } catch (_) {
+    if (generation !== serverSortFetchGeneration) {
+      return;
+    }
+    paintMovieGrid(displayMovieIds());
+  }
+}
+
 /** Tabs are the only list switcher, and carry each list's count. */
 function renderListTabs() {
   if (!listTabs || isCustomListView() || isDiscoverActive()) {
@@ -852,6 +949,9 @@ function render() {
   if (isFriendViewActive()) {
     syncAppViewChrome();
     renderFriendView();
+    if (usesServerSortedIds() && activeFriendId && friendViewSections.length) {
+      prefetchFriendServerSorts(activeFriendId);
+    }
     return;
   }
   if (isFriendsIndexActive()) {
@@ -867,21 +967,33 @@ function render() {
     renderDiscover();
     return;
   }
-  const ids = displayMovieIds();
-  renderedMovieIds = [...ids];
-  disconnectRowHydrateObserver();
-  grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
-  bindPosterImages(grid);
+  if (usesServerSortedIds()) {
+    renderServerSortedGrid();
+    return;
+  }
+  serverSortFetchGeneration += 1;
+  paintMovieGrid(displayMovieIds());
+}
+
+function syncMovieListChrome(ids) {
   renderListTabs();
   syncReorderModeUi();
   syncListSearchVisibility();
   syncAppViewChrome();
   renderEmptyState(ids.length);
   syncAddMovieFabVisibility(ids.length);
+}
+
+function paintMovieGrid(ids) {
+  renderedMovieIds = [...ids];
+  disconnectRowHydrateObserver();
+  grid.removeAttribute("aria-busy");
+  grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
+  bindPosterImages(grid);
+  syncMovieListChrome(ids);
   hydrateActiveList();
 }
 
-/** Patches one row after hydration so the rest of the grid stays untouched. */
 function applyHydratedRecord(movieId, options = {}) {
   const opts = options && typeof options === "object" ? options : {};
   if (isFriendViewActive()) {
@@ -896,17 +1008,6 @@ function applyHydratedRecord(movieId, options = {}) {
   if (!opts.skipDetail && detailMovieId === movieId) {
     renderDetail();
   }
-}
-
-function needsResortAfterHydration() {
-  const field = appSort.getSortField(userState.preferences.sort);
-  if (isFriendViewActive()) {
-    return field === "title" || field === "year" || field === "rating";
-  }
-  if (!getActiveDisplayContext().sortable) {
-    return false;
-  }
-  return field === "title" || field === "year" || field === "rating";
 }
 
 /** Re-sort visible rows after hydration without rebuilding the grid HTML. */
@@ -945,13 +1046,7 @@ function flushRowHydrateBatch() {
   hydrateMovies(ids, {
     onRecord: applyHydratedRecord,
     onUpdate: applyHydratedRecord,
-  })
-    .then((result) => {
-      if (result?.hydratedFromNetwork) {
-        scheduleResortAfterHydration();
-      }
-    })
-    .finally(() => {
+  }).finally(() => {
       for (const id of ids) {
         rowHydrateInflight.delete(id);
         const row = rowsById.get(id);
@@ -991,7 +1086,7 @@ function disconnectRowHydrateObserver() {
 }
 
 function scheduleResortAfterHydration() {
-  if (!needsResortAfterHydration()) {
+  if (!isFriendViewActive() || usesServerSortedIds()) {
     return;
   }
   if (rowHydrateResortTimer) {
@@ -999,11 +1094,15 @@ function scheduleResortAfterHydration() {
   }
   rowHydrateResortTimer = setTimeout(() => {
     rowHydrateResortTimer = 0;
-    if (isFriendViewActive()) {
-      renderFriendView();
+    if (!appViewportHydration.isHydrationQuiescent({
+      batchTimer: rowHydrateBatchTimer,
+      inflightCount: rowHydrateInflight.size,
+      pendingCount: rowHydratePendingIds.size,
+    })) {
+      scheduleResortAfterHydration();
       return;
     }
-    reorderGridRows();
+    renderFriendView();
   }, 300);
 }
 
@@ -1059,18 +1158,11 @@ function hydrateActiveList() {
   if (isCustomListIndexActive() || isDiscoverActive()) {
     return Promise.resolve();
   }
-  if (needsResortAfterHydration()) {
-    reorderGridRows();
-  }
   if (typeof IntersectionObserver === "undefined") {
     const ids = renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
     return hydrateMovies(ids, {
       onRecord: applyHydratedRecord,
       onUpdate: applyHydratedRecord,
-    }).then((result) => {
-      if (result?.hydratedFromNetwork && needsResortAfterHydration()) {
-        reorderGridRows();
-      }
     });
   }
   // Visible rows (+ rootMargin prefetch) debounce into one POST /api/movies/batch.
@@ -1233,7 +1325,12 @@ function removeMovieFromCollection(movieId) {
 function refreshMovieRating(movieId) {
   applyHydratedRecord(movieId, { skipDetail: true });
   if (isUserRatingSortMode()) {
-    reorderGridRows();
+    if (usesServerSortedIds()) {
+      invalidateServerSortCache();
+      render();
+    } else {
+      reorderGridRows();
+    }
   }
   if (detailMovieId === movieId) {
     syncDetailRatingDisplay(appRatings.getRating(userState.ratings, movieId));

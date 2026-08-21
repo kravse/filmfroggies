@@ -186,6 +186,10 @@ All paths are under `/api`. Authenticated routes expect `Authorization: Bearer <
 | `DELETE` | `/account` | Yes | Delete account (body: `{ password }`; removes server data only) |
 | `GET` | `/tmdb` | Yes | TMDB proxy (allowlisted paths; server `TMDB_READ_TOKEN`) |
 | `POST` | `/movies/batch` | Yes | Batch movie metadata (D1 cache + TMDB miss fill) |
+| `GET` | `/lists/watched?sort=…` | Yes | Full sorted id list for Watched (TMDB fill on title/year/fan-rating sorts) |
+| `GET` | `/lists/watchlist` | Yes | Watchlist ids in stored order (sort param ignored) |
+| `GET` | `/lists/custom/{id}?sort=…` | Yes | Full sorted id list for a custom list |
+| `GET` | `/friends/{id}/lists/…` | Yes | Same as `/lists/…` but for an accepted friend's doc |
 | `GET` | `/friends/{id}/data` | Yes | Read an accepted friend's list doc |
 
 Implementation: [`worker/src/index.js`](worker/src/index.js). Schema: [`worker/schema.sql`](worker/schema.sql).
@@ -457,6 +461,13 @@ After any change under `scripts/lib/` or `js/app/`:
 ```bash
 npm test
 npm run bundle
+```
+
+Sort logic shared with the Worker lives in [`scripts/lib/list-query.js`](scripts/lib/list-query.js). After changing `list-query.js`, `sort.js`, or their deps, also run:
+
+```bash
+npm run sync-worker-lib
+cd worker && npm test
 ```
 
 Adding a new `scripts/lib/` module: implement + test, add its exports to [`scripts/app-sync-config.js`](scripts/app-sync-config.js), then `npm run bundle`.

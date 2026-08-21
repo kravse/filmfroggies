@@ -19,6 +19,7 @@ import {
   reserveInviteCode,
 } from "./invite-codes.js";
 import { handleAdminRoutes } from "./admin.js";
+import { handleListRoutes } from "./list-routes.js";
 
 export { rateLimit, rateLimitBlocked };
 
@@ -583,6 +584,14 @@ export default {
 
     if (path === "/api/movies/batch") {
       return handleMoviesBatch(request, env, session, ctx, res, clientIp);
+    }
+
+    const listResponse = await handleListRoutes(request, env, session, path, res, clientIp, {
+      parseStoredDoc,
+      areFriends,
+    });
+    if (listResponse) {
+      return listResponse;
     }
 
     return res.json(404, { error: "Not found" });

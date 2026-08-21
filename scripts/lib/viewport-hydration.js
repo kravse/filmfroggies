@@ -19,7 +19,13 @@ function movieIdFromRowElement(element) {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+/** True when no viewport hydration batches are queued or in flight. */
+function isHydrationQuiescent({ batchTimer = 0, inflightCount = 0, pendingCount = 0 } = {}) {
+  return !batchTimer && inflightCount === 0 && pendingCount === 0;
+}
+
 module.exports = {
   ROW_HYDRATE_ROOT_MARGIN,
   movieIdFromRowElement,
+  isHydrationQuiescent,
 };

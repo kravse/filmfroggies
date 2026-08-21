@@ -757,3 +757,74 @@ async function hydrateMovies(ids, handlers = {}) {
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
   return { hydratedFromNetwork };
 }
+
+const LIST_IDS_TIMEOUT_MS = 20000;
+
+function parseSortedListIdsPayload(payload) {
+  if (!payload || !Array.isArray(payload.ids)) {
+    throw new Error("Invalid list sort response");
+  }
+  return payload.ids.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0);
+}
+
+async function fetchSortedListIds(listId, sort) {
+  const base = appAccountSync.resolveAccountApiBase(window.location.hostname);
+  const path = appAccountSync.buildListIdsPath(listId);
+  const url = new URL(`${base}${path}`, window.location.origin);
+  if (sort) {
+    url.searchParams.set("sort", sort);
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LIST_IDS_TIMEOUT_MS);
+  try {
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${accountConfig?.token || ""}`,
+      },
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      if (response.status === 401) {
+        saveAccountConfig(null);
+      }
+      throw new Error(payload?.error || `List sort failed (${response.status})`);
+    }
+    return parseSortedListIdsPayload(payload);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchFriendSortedListIds(friendUserId, listId, sort) {
+  const base = appAccountSync.resolveAccountApiBase(window.location.hostname);
+  const path = appAccountSync.buildFriendListIdsPath(friendUserId, listId);
+  const url = new URL(`${base}${path}`, window.location.origin);
+  if (sort) {
+    url.searchParams.set("sort", sort);
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LIST_IDS_TIMEOUT_MS);
+  try {
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${accountConfig?.token || ""}`,
+      },
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      if (response.status === 401) {
+        saveAccountConfig(null);
+      }
+      throw new Error(payload?.error || `Friend list sort failed (${response.status})`);
+    }
+    return parseSortedListIdsPayload(payload);
+  } finally {
+    clearTimeout(timer);
+  }
+}

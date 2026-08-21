@@ -1516,9 +1516,15 @@ const appViewportHydration = (function () {
     return Number.isInteger(id) && id > 0 ? id : null;
   }
 
+  /** True when no viewport hydration batches are queued or in flight. */
+  function isHydrationQuiescent({ batchTimer = 0, inflightCount = 0, pendingCount = 0 } = {}) {
+    return !batchTimer && inflightCount === 0 && pendingCount === 0;
+  }
+
   return {
     ROW_HYDRATE_ROOT_MARGIN,
     movieIdFromRowElement,
+    isHydrationQuiescent,
   };
 })();
 
@@ -5831,6 +5837,26 @@ const appAccountSync = (function () {
   const TMDB_API_PROXIED = "/api/tmdb";
   const MOVIES_BATCH_PATH = "/movies/batch";
 
+  function buildListIdsPath(listId) {
+    const id = String(listId || "").trim();
+    if (id.startsWith("custom-")) {
+      return `/lists/custom/${encodeURIComponent(id)}`;
+    }
+    return `/lists/${encodeURIComponent(id)}`;
+  }
+
+  function buildFriendListIdsPath(friendUserId, listId) {
+    const friendId = Number(friendUserId);
+    const id = String(listId || "").trim();
+    if (!Number.isInteger(friendId) || friendId <= 0) {
+      throw new Error("Invalid friend user id");
+    }
+    if (id.startsWith("custom-")) {
+      return `/friends/${friendId}/lists/custom/${encodeURIComponent(id)}`;
+    }
+    return `/friends/${friendId}/lists/${encodeURIComponent(id)}`;
+  }
+
   function resolveAccountApiBase(hostname) {
     const host = String(hostname || "");
     return host === "localhost" || host === "127.0.0.1"
@@ -8202,6 +8228,77 @@ async function hydrateMovies(ids, handlers = {}) {
   return { hydratedFromNetwork };
 }
 
+const LIST_IDS_TIMEOUT_MS = 20000;
+
+function parseSortedListIdsPayload(payload) {
+  if (!payload || !Array.isArray(payload.ids)) {
+    throw new Error("Invalid list sort response");
+  }
+  return payload.ids.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0);
+}
+
+async function fetchSortedListIds(listId, sort) {
+  const base = appAccountSync.resolveAccountApiBase(window.location.hostname);
+  const path = appAccountSync.buildListIdsPath(listId);
+  const url = new URL(`${base}${path}`, window.location.origin);
+  if (sort) {
+    url.searchParams.set("sort", sort);
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LIST_IDS_TIMEOUT_MS);
+  try {
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${accountConfig?.token || ""}`,
+      },
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      if (response.status === 401) {
+        saveAccountConfig(null);
+      }
+      throw new Error(payload?.error || `List sort failed (${response.status})`);
+    }
+    return parseSortedListIdsPayload(payload);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchFriendSortedListIds(friendUserId, listId, sort) {
+  const base = appAccountSync.resolveAccountApiBase(window.location.hostname);
+  const path = appAccountSync.buildFriendListIdsPath(friendUserId, listId);
+  const url = new URL(`${base}${path}`, window.location.origin);
+  if (sort) {
+    url.searchParams.set("sort", sort);
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LIST_IDS_TIMEOUT_MS);
+  try {
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${accountConfig?.token || ""}`,
+      },
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      if (response.status === 401) {
+        saveAccountConfig(null);
+      }
+      throw new Error(payload?.error || `Friend list sort failed (${response.status})`);
+    }
+    return parseSortedListIdsPayload(payload);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /* ===== Search box, TMDB autocomplete, and add-to-list ===== */
 
 /**
@@ -9007,7 +9104,7 @@ function cardFanRatingSegmentHtml(movieId) {
   }
   const record = movieById.get(movieId);
   if (!record) {
-    return "";
+    return ratingSegmentHtml("fan", "—", true);
   }
   const label = appCardHtml.formatRating(record.voteAverage);
   const text = label || "—";
@@ -9259,6 +9356,34 @@ function cardPosterOnlyHtml(movieId) {
   return `${posterWrapOpen(movieId)}${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>${cardSmallFooterHtml(movieId)}`;
 }
 
+function cardPosterOnlySkeletonHtml(movieId) {
+  const body = posterPlaceholderHtml(null, {});
+  return `${posterWrapOpen(movieId)}${body}</div>${cardSmallFooterHtml(movieId)}`;
+}
+
+function skeletonCardInnerHtml(movieId) {
+  if (gridViewMode === "cards") {
+    return cardPosterOnlySkeletonHtml(movieId);
+  }
+  const body = posterPlaceholderHtml(null, {});
+  return `${posterWrapOpen(movieId)}${body}</div>
+<div class="card-body">
+  <div class="card-text">
+    <div class="card-title"></div>
+    <div class="card-meta"></div>
+  </div>
+</div>`;
+}
+
+function skeletonRowHtml(movieId) {
+  const watchlistCard =
+    !isDiscoverActive() && isWatchlistActive() ? " card--watchlist" : "";
+  const title = `Movie ${movieId}`;
+  return `<div class="movie-row movie-row--card" data-movie-id="${movieId}"><article class="card is-skeleton${cardSortDimClass(movieId)}${watchlistCard}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
+${skeletonCardInnerHtml(movieId)}
+</article></div>`;
+}
+
 function listShowsReorderGrip() {
   return (
     !isDiscoverActive() &&
@@ -9494,6 +9619,75 @@ function rowHtml(movieId) {
   return `<div class="movie-row movie-row--card" data-movie-id="${movieId}">${rowInnerHtml(movieId)}</div>`;
 }
 
+let serverSortFetchGeneration = 0;
+let serverSortCacheKey = "";
+let serverSortCachedIds = null;
+
+function serverSortCacheToken() {
+  const ctx = getActiveDisplayContext();
+  const sort = appSort.resolveSortMode(userState.preferences.sort);
+  const searchKey =
+    ctx.searchable && typeof hasActiveListSearch === "function" && hasActiveListSearch()
+      ? getListSearchFilter()
+      : "";
+  return `${ctx.listId}:${sort}:${searchKey}`;
+}
+
+function usesServerSortedIds() {
+  if (!hasTmdbAccess()) {
+    return false;
+  }
+  if (isWatchlistActive()) {
+    return false;
+  }
+  if (isFriendViewActive()) {
+    const field = appSort.getSortField(userState.preferences.sort);
+    return field !== "custom";
+  }
+  return getActiveDisplayContext().sortable;
+}
+
+function applyDisplayListFilters(ids) {
+  const ctx = getActiveDisplayContext();
+  if (ctx.searchable && typeof hasActiveListSearch === "function" && hasActiveListSearch()) {
+    return appListSearch.filterMovieIds(ids, getListSearchFilter(), (id) =>
+      movieById.get(id) ?? localMovieRecord(id),
+    );
+  }
+  return ids;
+}
+
+function invalidateServerSortCache() {
+  serverSortCacheKey = "";
+  serverSortCachedIds = null;
+}
+
+async function renderServerSortedGrid() {
+  const ctx = getActiveDisplayContext();
+  const sort = appSort.resolveSortMode(userState.preferences.sort);
+  const cacheKey = serverSortCacheToken();
+  const generation = (serverSortFetchGeneration += 1);
+  const initialIds =
+    cacheKey === serverSortCacheKey && serverSortCachedIds ? serverSortCachedIds : ctx.movieIds;
+
+  paintMovieGrid(applyDisplayListFilters(initialIds));
+
+  try {
+    const ids = await fetchSortedListIds(ctx.listId, sort);
+    if (generation !== serverSortFetchGeneration) {
+      return;
+    }
+    serverSortCacheKey = cacheKey;
+    serverSortCachedIds = ids;
+    paintMovieGrid(applyDisplayListFilters(ids));
+  } catch (_) {
+    if (generation !== serverSortFetchGeneration) {
+      return;
+    }
+    paintMovieGrid(displayMovieIds());
+  }
+}
+
 /** Tabs are the only list switcher, and carry each list's count. */
 function renderListTabs() {
   if (!listTabs || isCustomListView() || isDiscoverActive()) {
@@ -9714,6 +9908,9 @@ function render() {
   if (isFriendViewActive()) {
     syncAppViewChrome();
     renderFriendView();
+    if (usesServerSortedIds() && activeFriendId && friendViewSections.length) {
+      prefetchFriendServerSorts(activeFriendId);
+    }
     return;
   }
   if (isFriendsIndexActive()) {
@@ -9729,21 +9926,33 @@ function render() {
     renderDiscover();
     return;
   }
-  const ids = displayMovieIds();
-  renderedMovieIds = [...ids];
-  disconnectRowHydrateObserver();
-  grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
-  bindPosterImages(grid);
+  if (usesServerSortedIds()) {
+    renderServerSortedGrid();
+    return;
+  }
+  serverSortFetchGeneration += 1;
+  paintMovieGrid(displayMovieIds());
+}
+
+function syncMovieListChrome(ids) {
   renderListTabs();
   syncReorderModeUi();
   syncListSearchVisibility();
   syncAppViewChrome();
   renderEmptyState(ids.length);
   syncAddMovieFabVisibility(ids.length);
+}
+
+function paintMovieGrid(ids) {
+  renderedMovieIds = [...ids];
+  disconnectRowHydrateObserver();
+  grid.removeAttribute("aria-busy");
+  grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
+  bindPosterImages(grid);
+  syncMovieListChrome(ids);
   hydrateActiveList();
 }
 
-/** Patches one row after hydration so the rest of the grid stays untouched. */
 function applyHydratedRecord(movieId, options = {}) {
   const opts = options && typeof options === "object" ? options : {};
   if (isFriendViewActive()) {
@@ -9758,17 +9967,6 @@ function applyHydratedRecord(movieId, options = {}) {
   if (!opts.skipDetail && detailMovieId === movieId) {
     renderDetail();
   }
-}
-
-function needsResortAfterHydration() {
-  const field = appSort.getSortField(userState.preferences.sort);
-  if (isFriendViewActive()) {
-    return field === "title" || field === "year" || field === "rating";
-  }
-  if (!getActiveDisplayContext().sortable) {
-    return false;
-  }
-  return field === "title" || field === "year" || field === "rating";
 }
 
 /** Re-sort visible rows after hydration without rebuilding the grid HTML. */
@@ -9807,13 +10005,7 @@ function flushRowHydrateBatch() {
   hydrateMovies(ids, {
     onRecord: applyHydratedRecord,
     onUpdate: applyHydratedRecord,
-  })
-    .then((result) => {
-      if (result?.hydratedFromNetwork) {
-        scheduleResortAfterHydration();
-      }
-    })
-    .finally(() => {
+  }).finally(() => {
       for (const id of ids) {
         rowHydrateInflight.delete(id);
         const row = rowsById.get(id);
@@ -9853,7 +10045,7 @@ function disconnectRowHydrateObserver() {
 }
 
 function scheduleResortAfterHydration() {
-  if (!needsResortAfterHydration()) {
+  if (!isFriendViewActive() || usesServerSortedIds()) {
     return;
   }
   if (rowHydrateResortTimer) {
@@ -9861,11 +10053,15 @@ function scheduleResortAfterHydration() {
   }
   rowHydrateResortTimer = setTimeout(() => {
     rowHydrateResortTimer = 0;
-    if (isFriendViewActive()) {
-      renderFriendView();
+    if (!appViewportHydration.isHydrationQuiescent({
+      batchTimer: rowHydrateBatchTimer,
+      inflightCount: rowHydrateInflight.size,
+      pendingCount: rowHydratePendingIds.size,
+    })) {
+      scheduleResortAfterHydration();
       return;
     }
-    reorderGridRows();
+    renderFriendView();
   }, 300);
 }
 
@@ -9921,18 +10117,11 @@ function hydrateActiveList() {
   if (isCustomListIndexActive() || isDiscoverActive()) {
     return Promise.resolve();
   }
-  if (needsResortAfterHydration()) {
-    reorderGridRows();
-  }
   if (typeof IntersectionObserver === "undefined") {
     const ids = renderedMovieIds.length ? renderedMovieIds : displayMovieIds();
     return hydrateMovies(ids, {
       onRecord: applyHydratedRecord,
       onUpdate: applyHydratedRecord,
-    }).then((result) => {
-      if (result?.hydratedFromNetwork && needsResortAfterHydration()) {
-        reorderGridRows();
-      }
     });
   }
   // Visible rows (+ rootMargin prefetch) debounce into one POST /api/movies/batch.
@@ -10095,7 +10284,12 @@ function removeMovieFromCollection(movieId) {
 function refreshMovieRating(movieId) {
   applyHydratedRecord(movieId, { skipDetail: true });
   if (isUserRatingSortMode()) {
-    reorderGridRows();
+    if (usesServerSortedIds()) {
+      invalidateServerSortCache();
+      render();
+    } else {
+      reorderGridRows();
+    }
   }
   if (detailMovieId === movieId) {
     syncDetailRatingDisplay(appRatings.getRating(userState.ratings, movieId));
@@ -14748,6 +14942,12 @@ function friendViewNavigationOptions() {
 }
 
 function friendDisplayIdsForSection(section) {
+  if (typeof usesServerSortedIds === "function" && usesServerSortedIds()) {
+    const cached = friendServerSortCache.get(section.id);
+    if (cached) {
+      return cached;
+    }
+  }
   return appFriendView.friendSectionSortedIds(
     section,
     userState.preferences.sort,
@@ -14755,6 +14955,42 @@ function friendDisplayIdsForSection(section) {
     friendViewState,
     friendViewSortRuntime(),
   );
+}
+
+let friendServerSortGeneration = 0;
+const friendServerSortCache = new Map();
+
+function clearFriendServerSortCache() {
+  friendServerSortGeneration += 1;
+  friendServerSortCache.clear();
+}
+
+async function prefetchFriendServerSorts(friendId) {
+  if (typeof usesServerSortedIds !== "function" || !usesServerSortedIds()) {
+    return;
+  }
+  const id = Number(friendId);
+  if (!Number.isInteger(id) || id <= 0 || activeFriendId !== id || !friendViewSections.length) {
+    return;
+  }
+  const generation = (friendServerSortGeneration += 1);
+  const sort = appSort.resolveSortMode(userState.preferences.sort, { friendView: true });
+  friendServerSortCache.clear();
+  await Promise.all(
+    friendViewSections.map(async (section) => {
+      try {
+        const ids = await fetchFriendSortedListIds(id, section.id, sort);
+        if (generation === friendServerSortGeneration && activeFriendId === id) {
+          friendServerSortCache.set(section.id, ids);
+        }
+      } catch (_) {
+        /* Client sort fallback in friendDisplayIdsForSection. */
+      }
+    }),
+  );
+  if (generation === friendServerSortGeneration && activeFriendId === id) {
+    renderFriendView();
+  }
 }
 
 function friendWatchedOverlapHtml(stats) {
@@ -14831,6 +15067,7 @@ function clearFriendViewState() {
   friendViewError = null;
   friendViewLoading = false;
   friendViewCollapsedSections.clear();
+  clearFriendServerSortCache();
 }
 
 function navigateToFriendView(userId, name, options = {}) {
@@ -14887,6 +15124,7 @@ async function loadFriendView(userId) {
     friendViewError = null;
     renderFriendView();
     hydrateFriendView();
+    prefetchFriendServerSorts(id);
   } catch (error) {
     if (activeFriendId !== id) {
       return;

@@ -112,7 +112,7 @@ const APP_SYNC_ENTRIES = [
     target: "00-app-viewport-hydration.js",
     globalName: "appViewportHydration",
     header: "Generated from scripts/lib/viewport-hydration.js — run npm run bundle",
-    exports: ["ROW_HYDRATE_ROOT_MARGIN", "movieIdFromRowElement"],
+    exports: ["ROW_HYDRATE_ROOT_MARGIN", "movieIdFromRowElement", "isHydrationQuiescent"],
   },
   {
     sources: [path.join(LIB, "grid-reorder.js")],
