@@ -56,7 +56,7 @@ test("every group id has a committed poster", () => {
 /** Mounts use one fluid tile grid; column count is optional via data-splash-cols. */
 test("index.html mounts use splash-tiles", () => {
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
-  const mounts = [...html.matchAll(/class="splash-tiles"/g)];
+  const mounts = [...html.matchAll(/class="[^"]*\bsplash-tiles\b[^"]*"/g)];
   assert.equal(mounts.length, 7, "expected seven section tile mounts");
   assert.ok(!html.includes("splash-tiles--sm"), "remove fixed small tile tier");
   assert.ok(!html.includes("splash-tiles--lg"), "remove fixed large tile tier");

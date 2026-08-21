@@ -152,11 +152,20 @@ body.view-splash main.page-shell {
 }
 
 .splash-marquee-track .splash-tile {
-  width: 108px;
-  min-width: 108px;
-  max-width: 108px;
-  margin-right: 0.7rem;
+  width: 84px;
+  min-width: 84px;
+  max-width: 84px;
+  margin-right: 0.55rem;
   flex: none;
+}
+
+@media (min-width: 640px) {
+  .splash-marquee-track .splash-tile {
+    width: 108px;
+    min-width: 108px;
+    max-width: 108px;
+    margin-right: 0.7rem;
+  }
 }
 
 @keyframes splash-marquee {
@@ -169,13 +178,13 @@ body.view-splash main.page-shell {
   }
 }
 
-/* --- Feature sections (one layout: copy on top, visuals below) --- */
+/* --- Feature sections (mobile-first) --- */
 
 .splash-section {
   display: flex;
   flex-direction: column;
-  gap: 1.35rem;
-  padding: 1.5rem;
+  gap: 1rem;
+  padding: 1.1rem;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -189,9 +198,9 @@ body.view-splash main.page-shell {
 }
 
 .splash-section-copy h2 {
-  margin: 0 0 0.55rem;
+  margin: 0 0 0.45rem;
   font-family: var(--display-font);
-  font-size: clamp(1.25rem, 2.6vw, 1.55rem);
+  font-size: 1.22rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--text);
@@ -199,39 +208,35 @@ body.view-splash main.page-shell {
 
 .splash-section-copy p {
   margin: 0 auto;
-  max-width: 48ch;
-  font-size: clamp(0.9rem, 1.8vw, 1rem);
-  line-height: 1.65;
+  max-width: 42ch;
+  font-size: 0.9rem;
+  line-height: 1.55;
   color: var(--text-secondary);
 }
 
 .splash-section-visual {
   width: 100%;
   min-width: 0;
-  container-type: inline-size;
-  container-name: splash-visual;
 }
 
-/* Two-up list previews (Watched/Watchlist, custom lists). */
+/* Dual previews: one spotlight card each (Watched | Watchlist, custom lists). */
 .splash-preview-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.25rem 1.5rem;
+  gap: 0.75rem 0.85rem;
 }
 
 .splash-preview {
   min-width: 0;
-  container-type: inline-size;
-  container-name: splash-visual;
 }
 
 .splash-preview-label {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  margin: 0 0 0.55rem;
-  font-size: 0.72rem;
+  gap: 0.35rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.68rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
@@ -241,7 +246,7 @@ body.view-splash main.page-shell {
   padding: 0 0.35rem;
   border: 1px solid var(--border);
   border-radius: 999px;
-  font-size: 0.66rem;
+  font-size: 0.62rem;
   letter-spacing: 0.04em;
   color: var(--text-tertiary);
 }
@@ -250,23 +255,21 @@ body.view-splash main.page-shell {
   color: var(--list-chip-text);
   text-transform: none;
   letter-spacing: 0.02em;
-  font-size: 0.8rem;
+  font-size: 0.74rem;
 }
 
 .splash-friend-card {
-  padding: 0.9rem;
+  padding: 0.85rem;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  container-type: inline-size;
-  container-name: splash-visual;
 }
 
 .splash-friend-head {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.7rem;
+  margin-bottom: 0.65rem;
   min-width: 0;
 }
 
@@ -299,13 +302,34 @@ body.view-splash main.page-shell {
   white-space: nowrap;
 }
 
-/* --- Tiles (fluid grid; hero marquee uses fixed widths above) --- */
+/* Scroll fade hints that more cards sit off-screen (mobile rails only). */
+.splash-section-visual--rail {
+  position: relative;
+}
+
+.splash-section-visual--rail::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 2.25rem;
+  background: linear-gradient(to right, transparent, var(--panel));
+  pointer-events: none;
+}
+
+.splash-section-visual--rail:has(.splash-friend-card)::after {
+  background: linear-gradient(to right, transparent, var(--bg));
+}
+
+/* --- Tiles (one card component; layout mode varies by breakpoint) --- */
 
 .splash-tiles {
   --splash-cols: 4;
-  --splash-gap: clamp(0.35rem, 1.4vw, 0.6rem);
-  --splash-title-font: clamp(0.62rem, 2.4cqi, 0.74rem);
-  --splash-meta-font: clamp(0.58rem, 2.1cqi, 0.68rem);
+  --splash-gap: 0.55rem;
+  --splash-card-width: 100%;
+  --splash-title-font: 0.72rem;
+  --splash-meta-font: 0.66rem;
   --splash-body-pad-block: 0.85rem;
   --splash-body-pad-inline: 0.42rem;
   --splash-title-leading: 1.3;
@@ -330,6 +354,66 @@ body.view-splash main.page-shell {
 
 .splash-tiles[data-splash-cols="3"] {
   --splash-cols: 3;
+}
+
+/*
+ * Mobile spotlight: preview sections show one representative card at full size.
+ * Count badges on labels still reflect the full list length.
+ */
+.splash-preview .splash-tiles {
+  --splash-card-width: min(100%, 9.5rem);
+  --splash-title-font: 0.72rem;
+  --splash-meta-font: 0.66rem;
+  display: grid;
+  justify-content: center;
+  grid-template-columns: var(--splash-card-width);
+}
+
+.splash-preview .splash-tile:not(:first-child) {
+  display: none;
+}
+
+.splash-preview .splash-tile {
+  width: var(--splash-card-width);
+  max-width: 100%;
+  justify-self: center;
+}
+
+/*
+ * Mobile rail: four-up sections become a horizontal snap scroll with a fixed
+ * card width and a peek of the next title — same footprint for every tile.
+ */
+.splash-tiles--rail {
+  --splash-card-width: 7.85rem;
+  --splash-title-font: 0.7rem;
+  --splash-meta-font: 0.64rem;
+  --splash-gap: 0.5rem;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: start;
+  gap: var(--splash-gap);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 0.15rem;
+  padding-bottom: 0.15rem;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.splash-tiles--rail::-webkit-scrollbar {
+  display: none;
+}
+
+.splash-section-visual--rail > .splash-tiles--rail {
+  margin-inline: -0.15rem;
+  padding-inline: 0.15rem;
+}
+
+.splash-tiles--rail .splash-tile {
+  flex: 0 0 var(--splash-card-width);
+  width: var(--splash-card-width);
+  scroll-snap-align: start;
 }
 
 .splash-tile {
@@ -432,14 +516,7 @@ body.view-splash main.page-shell {
 .splash-tile-meta-row .rating-segment {
   min-width: 1.35rem;
   height: 1.05rem;
-  font-size: clamp(0.58rem, 2cqi, 0.66rem);
-}
-
-/* Narrow tile mounts drop to two columns so rows stay balanced. */
-@container splash-visual (max-width: 22rem) {
-  .splash-tiles {
-    --splash-cols: 2;
-  }
+  font-size: 0.64rem;
 }
 
 /* --- Outro --- */
@@ -487,17 +564,121 @@ body.view-splash main.page-shell {
   }
 }
 
-@media (max-width: 640px) {
+@media (min-width: 640px) {
+  .splash {
+    gap: 2.75rem;
+  }
+
+  .splash-hero {
+    padding-top: 2.75rem;
+  }
+
+  .splash-cta-btn {
+    width: auto;
+    max-width: none;
+  }
+
+  .splash-marquee {
+    margin-top: 2rem;
+  }
+
+  .splash-section {
+    gap: 1.35rem;
+    padding: 1.5rem;
+  }
+
+  .splash-section-copy h2 {
+    font-size: clamp(1.25rem, 2.6vw, 1.55rem);
+    margin-bottom: 0.55rem;
+  }
+
+  .splash-section-copy p {
+    max-width: 48ch;
+    font-size: clamp(0.9rem, 1.8vw, 1rem);
+    line-height: 1.65;
+  }
+
+  .splash-preview-row {
+    gap: 1.25rem 1.5rem;
+  }
+
+  .splash-preview-label {
+    font-size: 0.72rem;
+    margin-bottom: 0.55rem;
+  }
+
+  .splash-preview-label span {
+    font-size: 0.66rem;
+  }
+
+  .splash-preview-label--custom {
+    font-size: 0.8rem;
+  }
+
+  .splash-friend-card {
+    padding: 0.9rem;
+  }
+
+  .splash-section-visual--rail::after {
+    display: none;
+  }
+
+  /* Desktop: full grids — every tile visible, fluid columns. */
+  .splash-preview .splash-tiles {
+    --splash-card-width: 100%;
+    --splash-title-font: 0.74rem;
+    --splash-meta-font: 0.68rem;
+    --splash-gap: 0.6rem;
+    grid-template-columns: repeat(var(--splash-cols), minmax(0, 1fr));
+    justify-content: start;
+  }
+
+  .splash-preview .splash-tile:not(:first-child) {
+    display: flex;
+  }
+
+  .splash-preview .splash-tile {
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
+  }
+
+  .splash-tiles--rail {
+    --splash-card-width: 100%;
+    --splash-title-font: 0.74rem;
+    --splash-meta-font: 0.68rem;
+    --splash-gap: 0.6rem;
+    display: grid;
+    overflow: visible;
+    padding-bottom: 0;
+    scroll-snap-type: none;
+    grid-template-columns: repeat(var(--splash-cols), minmax(0, 1fr));
+  }
+
+  .splash-section-visual--rail > .splash-tiles--rail {
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+
+  .splash-tiles--rail .splash-tile {
+    flex: none;
+    width: 100%;
+    scroll-snap-align: none;
+  }
+
+  /* Fifth and sixth rail tiles are mobile scroll extras only. */
+  .splash-tiles--rail .splash-tile:nth-child(n + 5) {
+    display: none;
+  }
+}
+
+@media (max-width: 639px) {
   .splash {
     gap: 2rem;
   }
 
   .splash-hero {
     padding-top: 1.75rem;
-  }
-
-  .splash-lede {
-    font-size: 0.94rem;
   }
 
   .splash-cta-btn {
@@ -507,22 +688,6 @@ body.view-splash main.page-shell {
 
   .splash-marquee {
     margin-top: 1.5rem;
-  }
-
-  .splash-marquee-track .splash-tile {
-    width: 84px;
-    min-width: 84px;
-    max-width: 84px;
-  }
-
-  .splash-section {
-    gap: 1.1rem;
-    padding: 1.15rem;
-  }
-
-  .splash-preview-row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1.15rem;
   }
 
   .splash-outro {

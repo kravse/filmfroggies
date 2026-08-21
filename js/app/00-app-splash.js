@@ -36,8 +36,10 @@ const appSplash = (function () {
     { id: 9426, title: "The Fly", year: 1986 },
     { id: 9538, title: "Scanners", year: 1981 },
     { id: 10774, title: "Network", year: 1976 },
+    { id: 110415, title: "Snowpiercer", year: 2013 },
     { id: 11305, title: "Mystery Train", year: 1989 },
     { id: 11423, title: "Memories of Murder", year: 2003 },
+    { id: 1255, title: "The Host", year: 2006 },
     { id: 30018, title: "Mother", year: 2009 },
     { id: 76341, title: "Mad Max: Fury Road", year: 2015 },
     { id: 120467, title: "The Grand Budapest Hotel", year: 2014 },
@@ -67,11 +69,13 @@ const appSplash = (function () {
       { id: 129, rating: 9 },
       { id: 120467, rating: 8.5 },
       { id: 670, rating: 8 },
+      { id: 496243, rating: 9 },
+      { id: 278, rating: 8.5 },
     ],
     listSunday: [4538, 1548, 401, 11305],
     listBodyHorror: [837, 9426, 9538, 1946],
-    friends: [496243, 11423, 30018, 387426],
-    discover: [1368337, 1272837, 1339713, 1154538],
+    friends: [496243, 11423, 30018, 387426, 110415, 1255],
+    discover: [1368337, 1272837, 1339713, 1154538, 329865, 76341],
   };
 
   const SPLASH_GROUP_NAMES = Object.keys(SPLASH_GROUPS);
