@@ -102,6 +102,14 @@ test("addListPresetIconHtml matches add-movie list picker icons", () => {
   assert.match(addListPresetIconHtml("watchlist"), /M12 2C6\.48 2/);
 });
 
+test("detailPresetStatusIconHtml renders watched, watchlist, and unlisted icons", () => {
+  const { detailPresetStatusIconHtml } = require("../scripts/lib/card-html");
+  assert.match(detailPresetStatusIconHtml("watched"), />✓</);
+  assert.match(detailPresetStatusIconHtml("watchlist"), /add-list-icon-watchlist/);
+  assert.match(detailPresetStatusIconHtml("none"), /add-list-icon-unlisted/);
+  assert.match(detailPresetStatusIconHtml("none"), /M8\.5 12h7/);
+});
+
 test("viewingDateIconHtml renders the retro TV icon", () => {
   assert.match(viewingDateIconHtml(), /class="viewing-date-icon"/);
   assert.match(viewingDateIconHtml(), /M7\.5 8 5\.5 3/);

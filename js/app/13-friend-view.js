@@ -150,15 +150,13 @@ function friendCardInnerHtml(movieId) {
   if (!record) {
     const failed = movieErrors.has(movieId);
     const body = posterPlaceholderHtml(null, { error: failed });
-    return `${posterWrapOpen(movieId)}${body}</div>${friendCardFooterHtml(movieId)}`;
+    return `${posterWrapOpen(movieId)}${closePosterWrap(movieId, body)}${friendCardFooterHtml(movieId)}`;
   }
   if (gridViewMode === "cards") {
-    return `${posterWrapOpen(movieId)}${posterHtml(record, appTmdb.POSTER_SIZES.card)}</div>${friendCardFooterHtml(movieId)}`;
+    return `${posterWrapOpen(movieId)}${closePosterWrap(movieId, posterHtml(record, appTmdb.POSTER_SIZES.card))}${friendCardFooterHtml(movieId)}`;
   }
   const ratings = friendCardDetailTrailingHtml(movieId);
-  return `${posterWrapOpen(movieId)}
-  ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
-</div>
+  return `${posterWrapOpen(movieId)}${closePosterWrap(movieId, posterHtml(record, appTmdb.POSTER_SIZES.detailGrid))}
 <div class="card-body">
   <div class="card-text">
     <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>

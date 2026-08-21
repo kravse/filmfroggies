@@ -1748,6 +1748,31 @@
       </div>
     </div>
 
+    <!-- Detail add form save-before-leave -->
+    <div id="detail-add-discard-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
+      <div class="sheet-backdrop" data-close-detail-add-discard></div>
+      <div
+        class="sheet-panel confirm-panel"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="detail-add-discard-title"
+        aria-describedby="detail-add-discard-message"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="detail-add-discard-title">Save before you go?</h2>
+        </div>
+        <div class="sheet-scroll">
+          <p id="detail-add-discard-message" class="confirm-message"></p>
+        </div>
+        <div class="confirm-actions">
+          <button type="button" id="detail-add-discard-leave" class="ghost-btn">
+            Leave without saving
+          </button>
+          <button type="button" id="detail-add-discard-save" class="primary-btn">Save</button>
+        </div>
+      </div>
+    </div>
+
     <div id="app-toast" class="app-toast" hidden role="status" aria-live="polite"></div>
 
     <script src="js/app-bundle.js"></script>

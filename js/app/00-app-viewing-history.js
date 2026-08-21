@@ -118,6 +118,14 @@ const appViewingHistory = (function () {
     return latest;
   }
 
+  function hasActiveViewingOnDate(history, movieId, watchedOn) {
+    const date = normalizeDate(watchedOn);
+    if (!date) {
+      return false;
+    }
+    return viewingEntries(history, movieId).some((entry) => entry.watchedOn === date);
+  }
+
   function addViewing(history, movieId, watchedOn, now = new Date(), id = createViewingId(now)) {
     const movie = Number(movieId);
     const date = normalizeDate(watchedOn);
@@ -166,6 +174,7 @@ const appViewingHistory = (function () {
     normalizeViewingHistory,
     viewingEntries,
     latestViewingDate,
+    hasActiveViewingOnDate,
     addViewing,
     updateViewing,
     removeViewing,

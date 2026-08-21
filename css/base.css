@@ -270,8 +270,9 @@ textarea:focus-visible,
 
 .app-toast {
   position: fixed;
+  right: 1.25rem;
   bottom: 1.25rem;
-  left: 50%;
+  left: auto;
   z-index: 200;
   max-width: min(420px, calc(100vw - 2rem));
   padding: 0.75rem 1rem;
@@ -282,16 +283,16 @@ textarea:focus-visible,
   font-family: var(--ui-font);
   font-size: 0.875rem;
   line-height: 1.4;
-  text-align: center;
+  text-align: left;
   opacity: 0;
-  transform: translateX(-50%) translateY(120%);
+  transform: translateY(120%);
   transition: transform 0.2s ease, opacity 0.2s ease;
   pointer-events: none;
 }
 
 .app-toast.is-visible {
   opacity: 1;
-  transform: translateX(-50%) translateY(0);
+  transform: translateY(0);
 }
 
 .app-toast.is-error {

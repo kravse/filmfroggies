@@ -90,6 +90,9 @@ function addMovieViewing(movieId, watchedOn) {
   if (!appLists.isWatched(userState.lists, movieId)) {
     return false;
   }
+  if (appViewingHistory.hasActiveViewingOnDate(userState.viewingHistory, movieId, watchedOn)) {
+    return false;
+  }
   return updateViewingHistory(
     appViewingHistory.addViewing(userState.viewingHistory, movieId, watchedOn),
   );

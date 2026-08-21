@@ -221,6 +221,7 @@ const detailListsCancel = document.getElementById("detail-lists-cancel");
 const detailListsSaveOverlay = document.getElementById("detail-lists-save-overlay");
 
 const removeConfirmDialog = document.getElementById("remove-confirm-dialog");
+const removeConfirmTitle = document.getElementById("remove-confirm-title");
 const removeConfirmMessage = document.getElementById("remove-confirm-message");
 const removeConfirmCancel = document.getElementById("remove-confirm-cancel");
 const removeConfirmOk = document.getElementById("remove-confirm-ok");
@@ -240,6 +241,11 @@ const discoverAddConfirmTitle = document.getElementById("discover-add-confirm-ti
 const discoverAddConfirmMessage = document.getElementById("discover-add-confirm-message");
 const discoverAddConfirmCancel = document.getElementById("discover-add-confirm-cancel");
 const discoverAddConfirmOk = document.getElementById("discover-add-confirm-ok");
+
+const detailAddDiscardDialog = document.getElementById("detail-add-discard-dialog");
+const detailAddDiscardMessage = document.getElementById("detail-add-discard-message");
+const detailAddDiscardLeave = document.getElementById("detail-add-discard-leave");
+const detailAddDiscardSave = document.getElementById("detail-add-discard-save");
 
 /* --- Mutable state --- */
 
@@ -269,11 +275,15 @@ let detailListPickerOpen = false;
 let detailListPickerSelectedIds = new Set();
 /** "overview" | "viewing-history" | "config" */
 let detailBodyTab = "overview";
-let detailAddListId = null;
-let detailAddCustomListIds = new Set();
 let detailAddRating = null;
 let detailAddWatchDateActive = false;
-let detailAddWatchDate = "";
+/** Keep the friend/discover add UI for the current detail visit even after membership saves. */
+let detailAddSessionActive = false;
+let detailAddDraft = null;
+let detailAddSavedSnapshot = null;
+let detailAddDraftMovieId = null;
+let detailAddDiscardPendingAction = null;
+let detailUnderlayRenderPending = false;
 let detailRemapCandidateId = null;
 let detailRemapQuery = "";
 let detailRemapResults = [];
@@ -464,6 +474,14 @@ function notifyCustomListMovieCaps(listNames) {
       `${names.length} lists are full (${appCustomLists.MAX_CUSTOM_LIST_MOVIES} movies max).`,
     );
   }
+}
+
+function notifyDuplicateViewingDate(watchedOn) {
+  const date = new Date(`${watchedOn}T00:00:00`);
+  const label = Number.isFinite(date.getTime())
+    ? date.toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" })
+    : watchedOn;
+  showAppToast(`You already logged a viewing on ${label}.`);
 }
 
 /** Keeps range sliders responsive on touch devices during slow drags. */

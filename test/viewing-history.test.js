@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   normalizeDate, today, normalizeViewingHistory, viewingEntries, latestViewingDate, addViewing,
-  updateViewing, removeViewing, mergeViewingHistory,
+  updateViewing, removeViewing, mergeViewingHistory, hasActiveViewingOnDate,
 } = require("../scripts/lib/viewing-history");
 
 const T1 = new Date("2026-01-01T10:00:00.000Z");
@@ -103,4 +103,13 @@ test("add and edit reject future viewing dates", () => {
   assert.deepEqual(history, {});
   const existing = addViewing({}, 42, "2026-01-01", T2, "a");
   assert.equal(updateViewing(existing, 42, "a", "2027-01-01", T2), existing);
+});
+
+test("hasActiveViewingOnDate detects active calendar dates only", () => {
+  let history = addViewing({}, 42, "2026-01-01", T1, "a");
+  assert.equal(hasActiveViewingOnDate(history, 42, "2026-01-01"), true);
+  assert.equal(hasActiveViewingOnDate(history, 42, "2026-02-02"), false);
+  assert.equal(hasActiveViewingOnDate(history, 42, "bad-date"), false);
+  history = removeViewing(history, 42, "a", T2);
+  assert.equal(hasActiveViewingOnDate(history, 42, "2026-01-01"), false);
 });

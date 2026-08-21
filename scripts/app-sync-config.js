@@ -38,6 +38,7 @@ const APP_SYNC_ENTRIES = [
       "formatRating",
       "joinNames",
       "addListPresetIconHtml",
+      "detailPresetStatusIconHtml",
       "discoverPresetButtonInnerHtml",
       "viewingDateIconHtml",
       "viewingDatePickerHtml",
@@ -312,7 +313,7 @@ const APP_SYNC_ENTRIES = [
     header: "Generated from scripts/lib/viewing-history.js — run npm run bundle",
     exports: [
       "normalizeDate", "today", "createViewingId", "normalizeViewingHistory",
-      "viewingEntries", "latestViewingDate", "addViewing", "updateViewing", "removeViewing", "mergeViewingHistory",
+      "viewingEntries", "latestViewingDate", "hasActiveViewingOnDate", "addViewing", "updateViewing", "removeViewing", "mergeViewingHistory",
     ],
   },
   {

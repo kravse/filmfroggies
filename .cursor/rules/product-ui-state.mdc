@@ -1,0 +1,72 @@
+---
+description: Plan UI as state + reusable components before coding; think product scale and iteration
+alwaysApply: true
+---
+
+# Product-minded UI and state
+
+Build features like a product that will change — not as a chain of reactive patches.
+
+## Before coding (required for UI flows)
+
+1. **Restate the goal** — who sees what, when, and what triggers change.
+2. **Model state** — name modes, stored vs draft vs displayed, and transitions (open, edit, save, remove, navigate away).
+3. **Map surfaces** — which parts of the UI read/write which state (footer, scroll body, overlays, toasts).
+4. **List invariants** — rules that must never break (e.g. footer badge = saved membership only; draft until explicit Save).
+5. **Propose approach** — especially when saved vs draft, or when friend/discover/owned contexts differ.
+6. **Then implement** — one coherent pass; verify every transition path, not just the happy path.
+
+Do not jump to edits on the latest sentence without checking implications across surfaces and contexts.
+
+## Components (this repo)
+
+“Components” here are **not** a framework. They are cohesive UI units:
+
+| Layer | Role |
+|-------|------|
+| `scripts/lib/` | Pure domain logic — membership, drafts, merge rules. Tested; no DOM. |
+| `js/app/` partials | Render HTML, bind events, `sync*Ui()` from state. One concern per partial when possible. |
+| CSS in `css/` | Styles per surface; no inline styles in `index.html`. |
+
+Each component should have:
+
+- **Render** — build markup from inputs (no hidden globals when avoidable).
+- **Sync** — update DOM when state changes without full re-render when reasonable.
+- **Clear inputs** — what state it reads; what events it emits.
+
+Prefer **one derived mode** (e.g. detail view mode from saved + draft + context) over scattered booleans that each partial interprets differently.
+
+## State discipline
+
+- **Persisted** — `userState`, account sync payloads; ids, ratings, stamps only.
+- **Draft** — staged until Save; must not leak into read-only indicators (badges, counts, friend comparisons).
+- **Session / chrome** — overlay open, active tab, editor open; reset on close or named transitions.
+
+Domain transitions belong in `scripts/lib/` with tests. App partials orchestrate and render.
+
+When adding a flag, ask: *which mode does this represent?* Can it fold into an existing mode enum or helper?
+
+## Scale and reuse
+
+- New behavior in the same surface → extend the existing component and mode model, don’t fork parallel paths.
+- Logic reused in tests or Worker → `scripts/lib/`, mirror via `npm run bundle` — never duplicate in `js/app/` alone.
+- Context variants (owned, discover, friend view) share components; differences live in the mode resolver, not copy-pasted `if` trees in every partial.
+
+## Anti-patterns
+
+- Patching one surface without tracing others (footer vs body vs save flow).
+- Draft state driving saved-status UI.
+- New one-off flags instead of a named mode or lib helper.
+- Toast or layout fixes that fight a missing state model.
+
+## Reference: detail overlay modes
+
+| Mode | Body | Footer badge | Save |
+|------|------|--------------|------|
+| Uncollected | Add form (draft) | Not collected (saved) | When dirty |
+| Watchlist (saved) | Partial add form (no watchlist toggle) | In Watchlist | When dirty |
+| Watched (saved) | Tabs, rating, lists | In Watched | Hidden |
+
+Friend view uses the same overlay; badge reflects **your** saved state, not the friend’s.
+
+When touching detail, add form, or footer actions — re-read this table and update the model if the product changed.

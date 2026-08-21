@@ -115,6 +115,14 @@ function latestViewingDate(history, movieId) {
   return latest;
 }
 
+function hasActiveViewingOnDate(history, movieId, watchedOn) {
+  const date = normalizeDate(watchedOn);
+  if (!date) {
+    return false;
+  }
+  return viewingEntries(history, movieId).some((entry) => entry.watchedOn === date);
+}
+
 function addViewing(history, movieId, watchedOn, now = new Date(), id = createViewingId(now)) {
   const movie = Number(movieId);
   const date = normalizeDate(watchedOn);
@@ -158,5 +166,5 @@ function mergeViewingHistory(a, b) {
 
 module.exports = {
   normalizeDate, today, createViewingId, normalizeViewingHistory, viewingEntries, latestViewingDate,
-  addViewing, updateViewing, removeViewing, mergeViewingHistory,
+  hasActiveViewingOnDate, addViewing, updateViewing, removeViewing, mergeViewingHistory,
 };

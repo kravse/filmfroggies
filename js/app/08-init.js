@@ -80,23 +80,6 @@ grid.addEventListener("click", (event) => {
     }
     return;
   }
-  const watchBtn = event.target.closest(".card-watch-btn");
-  if (watchBtn) {
-    event.stopPropagation();
-    requestWatchMovie(Number(watchBtn.closest("[data-movie-id]").dataset.movieId));
-    return;
-  }
-  const removeBtn = event.target.closest(".card-remove-btn");
-  if (removeBtn) {
-    event.stopPropagation();
-    const movieId = Number(removeBtn.closest("[data-movie-id]").dataset.movieId);
-    if (isCustomListDetailActive()) {
-      requestRemoveFromCustomList(movieId);
-    } else {
-      requestRemoveMovie(movieId);
-    }
-    return;
-  }
   if (event.target.closest(".card-grip")) {
     return;
   }
@@ -263,16 +246,17 @@ detailDialog.addEventListener("click", (event) => {
     requestRemoveDetailViewing(removeViewingBtn.dataset.viewingRemoveId);
     return;
   }
+  const removePendingViewingBtn = event.target.closest("[data-viewing-remove-pending-date]");
+  if (removePendingViewingBtn) {
+    removeDetailPendingViewing(removePendingViewingBtn.dataset.viewingRemovePendingDate);
+    return;
+  }
   if (event.target.closest("#detail-lists-edit")) {
     toggleDetailListPicker();
     return;
   }
   if (event.target.closest("#detail-lists-save")) {
     saveDetailListPicker();
-    return;
-  }
-  if (event.target.closest("#detail-add-submit")) {
-    confirmDetailAddMovie();
     return;
   }
   const addListOption = event.target.closest("[data-detail-add-list-id]");
@@ -289,8 +273,8 @@ detailDialog.addEventListener("click", (event) => {
     onDetailAddWatchDateToggleClick();
     return;
   }
-  if (event.target.closest("#detail-add-watch-date-clear")) {
-    clearDetailAddWatchDate();
+  if (event.target.closest("#detail-add-submit")) {
+    saveDetailAddForm();
     return;
   }
   if (event.target.closest("#detail-add-rating-clear")) {
@@ -312,11 +296,6 @@ detailDialog.addEventListener("click", (event) => {
   }
 });
 detailDialog.addEventListener("input", onDetailRemapQueryInput);
-detailDialog.addEventListener("input", (event) => {
-  if (event.target.id === "detail-add-watch-date") {
-    detailAddWatchDate = event.target.value;
-  }
-});
 detailConfigSearchClose?.addEventListener("click", closeDetailConfigSearch);
 detailConfigSearchDialog?.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-detail-config-search")) {
@@ -355,26 +334,10 @@ detailDialog.addEventListener("change", (event) => {
     onDetailAddRatingSelectChange();
     return;
   }
-  if (event.target.id === "detail-add-watch-date") {
-    detailAddWatchDate = event.target.value;
-  }
 });
 detailActions.addEventListener("click", (event) => {
-  const discoverPresetBtn = event.target.closest("[data-discover-preset-id]");
-  if (discoverPresetBtn) {
-    requestDiscoverDetailPreset(discoverPresetBtn.dataset.discoverPresetId);
-    return;
-  }
-  if (event.target.closest("#detail-remove-from-list")) {
-    requestRemoveFromCustomList(detailMovieId);
-    return;
-  }
-  if (event.target.closest("#detail-remove")) {
-    requestRemoveMovie(detailMovieId);
-    return;
-  }
-  if (event.target.closest("#detail-watch")) {
-    requestWatchMovie(detailMovieId);
+  if (event.target.closest("#detail-preset-remove")) {
+    requestDetailPresetRemove(detailMovieId);
     return;
   }
 });
@@ -405,6 +368,13 @@ removeConfirmOk.addEventListener("click", () => confirmRemoveMovie());
 removeConfirmDialog.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-remove-confirm")) {
     closeRemoveConfirm();
+  }
+});
+detailAddDiscardLeave?.addEventListener("click", () => confirmDetailAddDiscard());
+detailAddDiscardSave?.addEventListener("click", () => confirmDetailAddSaveAndLeave());
+detailAddDiscardDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-detail-add-discard")) {
+    closeDetailAddDiscardConfirm();
   }
 });
 viewingRemoveConfirmCancel.addEventListener("click", () => closeViewingRemoveConfirm());
@@ -603,6 +573,10 @@ document.addEventListener("keydown", (event) => {
     }
     if (!removeConfirmDialog.hidden) {
       closeRemoveConfirm();
+      return;
+    }
+    if (detailAddDiscardDialog && !detailAddDiscardDialog.hidden) {
+      closeDetailAddDiscardConfirm();
       return;
     }
     if (!watchConfirmDialog.hidden) {

@@ -28,6 +28,10 @@ const watchConfirmRatingController = appRatingFieldUi.createRatingFieldControlle
 );
 watchConfirmRatingController.initSelect();
 
+function closePosterWrap(_movieId, innerHtml, extras = "") {
+  return `${innerHtml}${extras}</div>`;
+}
+
 function posterWrapOpen(movieId) {
   return `<div class="poster-wrap" style="--poster-bg: ${appPosterGrey.posterGreyForId(movieId)}">`;
 }
@@ -327,8 +331,7 @@ function cardSmallFooterHtml(movieId) {
   }
 
   if (isWatchlistActive()) {
-    const panel = watchlistCardPanelHtml(movieId);
-    return panel ? `<div class="card-footer card-footer--watchlist">${panel}</div>` : "";
+    return "";
   }
 
   if (!usesWatchedStyleDisplay()) {
@@ -361,45 +364,22 @@ function cardSortDimClass(movieId) {
   return "";
 }
 
-function cardRemoveIconHtml() {
-  return `<svg class="card-remove-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none">
-  <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
-</svg>`;
-}
-
-/**
- * Watchlist cards use a dedicated bottom panel: split remove / watched actions.
- */
-function watchlistCardPanelHtml(movieId) {
-  if (!isWatchlistActive()) {
-    return "";
-  }
-  const record = movieById.get(movieId);
-  const titleLabel = record ? appCardHtml.escapeHtml(record.title) : "movie";
-  return `<div class="watchlist-card-panel">
-  <div class="watchlist-card-actions">
-    <button type="button" class="watchlist-action-btn watchlist-action-btn--remove card-remove-btn" aria-label="Remove ${titleLabel}" title="Remove movie">${cardRemoveIconHtml()}</button>
-    <button type="button" class="watchlist-action-btn watchlist-action-btn--watch card-watch-btn discover-preset-btn-with-icon" aria-label="Mark as watched" title="Mark as watched">${appCardHtml.discoverPresetButtonInnerHtml("watched", "Watched")}</button>
-  </div>
-</div>`;
-}
-
 function cardPosterOnlyHtml(movieId) {
   const record = movieById.get(movieId);
   if (!record) {
     const failed = movieErrors.has(movieId);
     const body = posterPlaceholderHtml(null, { error: failed });
-    return `${posterWrapOpen(movieId)}${body}</div>${cardSmallFooterHtml(movieId)}`;
+    return `${posterWrapOpen(movieId)}${closePosterWrap(movieId, body)}${cardSmallFooterHtml(movieId)}`;
   }
   const grip = listShowsReorderGrip()
     ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>`
     : "";
-  return `${posterWrapOpen(movieId)}${posterHtml(record, appTmdb.POSTER_SIZES.card)}${grip}</div>${cardSmallFooterHtml(movieId)}`;
+  return `${posterWrapOpen(movieId)}${closePosterWrap(movieId, posterHtml(record, appTmdb.POSTER_SIZES.card), grip)}${cardSmallFooterHtml(movieId)}`;
 }
 
 function cardPosterOnlySkeletonHtml(movieId) {
   const body = posterPlaceholderHtml(null, {});
-  return `${posterWrapOpen(movieId)}${body}</div>${cardSmallFooterHtml(movieId)}`;
+  return `${posterWrapOpen(movieId)}${closePosterWrap(movieId, body)}${cardSmallFooterHtml(movieId)}`;
 }
 
 function skeletonCardInnerHtml(movieId) {
@@ -407,7 +387,7 @@ function skeletonCardInnerHtml(movieId) {
     return cardPosterOnlySkeletonHtml(movieId);
   }
   const body = posterPlaceholderHtml(null, {});
-  return `${posterWrapOpen(movieId)}${body}</div>
+  return `${posterWrapOpen(movieId)}${closePosterWrap(movieId, body)}
 <div class="card-body">
   <div class="card-text">
     <div class="card-title"></div>
@@ -417,10 +397,8 @@ function skeletonCardInnerHtml(movieId) {
 }
 
 function skeletonRowHtml(movieId) {
-  const watchlistCard =
-    !isDiscoverActive() && isWatchlistActive() ? " card--watchlist" : "";
   const title = `Movie ${movieId}`;
-  return `<div class="movie-row movie-row--card" data-movie-id="${movieId}"><article class="card is-skeleton${cardSortDimClass(movieId)}${watchlistCard}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
+  return `<div class="movie-row movie-row--card" data-movie-id="${movieId}"><article class="card is-skeleton${cardSortDimClass(movieId)}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
 ${skeletonCardInnerHtml(movieId)}
 </article></div>`;
 }
@@ -594,7 +572,7 @@ function cardInnerHtml(movieId) {
   if (!record) {
     const failed = movieErrors.has(movieId);
     const body = posterPlaceholderHtml(null, { error: failed });
-    return `${posterWrapOpen(movieId)}${body}</div>
+    return `${posterWrapOpen(movieId)}${closePosterWrap(movieId, body)}
 <div class="card-body">
   <div class="card-text">
     <div class="card-title">${failed ? `TMDB #${movieId}` : ""}</div>
@@ -603,29 +581,18 @@ function cardInnerHtml(movieId) {
 </div>`;
   }
 
-  if (!isDiscoverActive() && isWatchlistActive()) {
-    return `${posterWrapOpen(movieId)}
-  ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
-  ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
-</div>
-<div class="card-body card-body--watchlist">
-  ${watchlistCardPanelHtml(movieId)}
-</div>`;
-  }
+  const grip = listShowsReorderGrip()
+    ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>`
+    : "";
 
   if (isDiscoverActive()) {
-    return `${posterWrapOpen(movieId)}
-  ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
-</div>
+    return `${posterWrapOpen(movieId)}${closePosterWrap(movieId, posterHtml(record, appTmdb.POSTER_SIZES.detailGrid))}
 <div class="card-body">
   ${discoverCardTextHtml(movieId, record)}
 </div>`;
   }
 
-  return `${posterWrapOpen(movieId)}
-  ${posterHtml(record, appTmdb.POSTER_SIZES.detailGrid)}
-  ${listShowsReorderGrip() ? `<button type="button" class="card-grip" aria-label="Drag to reorder" title="Drag to reorder">&#8942;&#8942;</button>` : ""}
-</div>
+  return `${posterWrapOpen(movieId)}${closePosterWrap(movieId, posterHtml(record, appTmdb.POSTER_SIZES.detailGrid), grip)}
 <div class="card-body">
   <div class="card-text">
     <div class="card-title">${appCardHtml.escapeHtml(record.title)}</div>
@@ -646,12 +613,7 @@ function rowInnerHtml(movieId) {
       : " is-skeleton";
   const title = record ? appCardHtml.escapeHtml(record.title) : `Movie ${movieId}`;
 
-  const watchlistCard =
-    !isDiscoverActive() && isWatchlistActive()
-      ? " card--watchlist"
-      : "";
-
-  return `<article class="card${stateClass}${cardSortDimClass(movieId)}${watchlistCard}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
+  return `<article class="card${stateClass}${cardSortDimClass(movieId)}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
 ${cardInnerHtml(movieId)}
 </article>`;
 }
@@ -1206,6 +1168,31 @@ function commitListChange(nextLists, statusChange) {
   return true;
 }
 
+/** Re-render grids after list membership changes; defer while detail overlay is open. */
+function refreshViewsAfterListMembershipChange() {
+  if (detailMovieId != null) {
+    detailUnderlayRenderPending = true;
+    return;
+  }
+  flushUnderlayAfterDetailClose();
+}
+
+function flushUnderlayAfterDetailClose() {
+  if (!detailUnderlayRenderPending) {
+    return;
+  }
+  detailUnderlayRenderPending = false;
+  if (isCustomListIndexActive()) {
+    renderCustomListsIndex();
+  } else if (isDiscoverActive()) {
+    renderDiscover();
+  } else if (isFriendViewActive()) {
+    renderFriendView();
+  } else {
+    render();
+  }
+}
+
 function watchMovie(movieId, watchedOn, rating) {
   const nextLists = appLists.assignMovieToList(
     userState.lists,
@@ -1217,15 +1204,20 @@ function watchMovie(movieId, watchedOn, rating) {
   }
   recordAddedAt(movieId);
   if (watchedOn) {
-    addMovieViewing(movieId, watchedOn);
+    if (appViewingHistory.hasActiveViewingOnDate(userState.viewingHistory, movieId, watchedOn)) {
+      notifyDuplicateViewingDate(watchedOn);
+    } else {
+      addMovieViewing(movieId, watchedOn);
+    }
   }
   if (rating != null) {
     updateRatings(appRatings.setRating(userState.ratings, movieId, rating));
   }
-  if (detailMovieId === movieId && !activeMovieIds().includes(movieId)) {
+  if (detailMovieId === movieId && !activeMovieIds().includes(movieId) && !detailAddSessionActive) {
     dismissDetailOverlay();
+    return;
   }
-  render();
+  refreshViewsAfterListMembershipChange();
   if (detailMovieId === movieId) {
     renderDetail();
   }
@@ -1307,17 +1299,27 @@ function confirmWatchMovie() {
   watchMovie(movieId, watchedOn, rating);
 }
 
-function removeMovieFromCollection(movieId) {
+function removeMoviePresetMembership(movieId) {
   const nextLists = appLists.removeMovie(userState.lists, movieId);
   if (!updateLists(nextLists)) {
-    return;
+    return false;
   }
   updateRatings(appRatings.removeRating(userState.ratings, movieId));
   updateAddedAt(appAddedAt.removeAddedAt(userState.addedAt, movieId));
   recordMovieStatus(movieId, appSyncMerge.REMOVED_STATUS);
   persistUserState();
+  refreshViewsAfterListMembershipChange();
+  return true;
+}
+
+function removeMovieFromCollection(movieId) {
+  if (!removeMoviePresetMembership(movieId)) {
+    return;
+  }
   if (detailMovieId === movieId) {
-    dismissDetailOverlay();
+    prepareDetailForPresetRemove();
+    renderDetail();
+    return;
   }
   render();
 }
@@ -1337,19 +1339,32 @@ function refreshMovieRating(movieId) {
   }
 }
 
-function removeConfirmScopeLabel(movieId) {
-  if (appLists.isOnWatchlist(userState.lists, movieId)) {
-    return "the watchlist";
+function detailPresetRemoveConfirmCopy(movieId) {
+  const record = movieById.get(movieId);
+  const title = record?.title || `Movie ${movieId}`;
+  if (appLists.isWatched(userState.lists, movieId)) {
+    return {
+      title: "Remove from watched?",
+      message: `Remove “${title}” from your watched list?`,
+    };
   }
-  return "your watched list";
+  return {
+    title: "Remove from watchlist?",
+    message: `Really remove “${title}” from your watchlist?`,
+  };
 }
 
-function requestRemoveMovie(movieId) {
+function requestDetailPresetRemove(movieId) {
   pendingRemoveMovieId = Number(movieId);
-  const record = movieById.get(pendingRemoveMovieId);
-  const title = record?.title || `Movie ${pendingRemoveMovieId}`;
-  const scope = removeConfirmScopeLabel(pendingRemoveMovieId);
-  removeConfirmMessage.textContent = `Remove “${title}” from ${scope}? This cannot be undone.`;
+  if (!Number.isInteger(pendingRemoveMovieId) || pendingRemoveMovieId <= 0) {
+    pendingRemoveMovieId = null;
+    return;
+  }
+  const copy = detailPresetRemoveConfirmCopy(pendingRemoveMovieId);
+  if (removeConfirmTitle) {
+    removeConfirmTitle.textContent = copy.title;
+  }
+  removeConfirmMessage.textContent = copy.message;
   removeConfirmDialog.hidden = false;
   removeConfirmCancel.focus({ preventScroll: true });
 }
@@ -1363,10 +1378,6 @@ function confirmRemoveMovie() {
   const movieId = pendingRemoveMovieId;
   closeRemoveConfirm();
   if (movieId == null) {
-    return;
-  }
-  if (isCustomListDetailActive()) {
-    removeMovieFromCustomListView(movieId);
     return;
   }
   removeMovieFromCollection(movieId);
