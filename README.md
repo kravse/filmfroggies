@@ -476,9 +476,9 @@ Build command: `npm run build`. Publish directory: `build`. **No Netlify Functio
 
 #### Response headers
 
-The `/*` block in [`netlify.toml`](netlify.toml) sends `Content-Security-Policy-Report-Only` plus `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, and `Cross-Origin-Opener-Policy`. The policy allows no `'unsafe-inline'` and no `'unsafe-eval'`: `index.html` has no inline script or style, and grid poster greys come from `poster-grey-*` classes in `css/cards.css` rather than a `style` attribute. Non-`'self'` sources are Google Fonts (`css/fonts.css` `@import`s the stylesheet) and `https://image.tmdb.org` for posters.
+The `/*` block in [`netlify.toml`](netlify.toml) sends an enforced `Content-Security-Policy` plus `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, and `Cross-Origin-Opener-Policy`. The policy allows no `'unsafe-inline'` and no `'unsafe-eval'`: `index.html` has no inline script or style, and grid poster greys come from `poster-grey-*` classes in `css/cards.css` rather than a `style` attribute. Non-`'self'` sources are Google Fonts (`css/fonts.css` `@import`s the stylesheet) and `https://image.tmdb.org` for posters.
 
-Verify in the browser console across grid, movie detail, search, dialogs, and friend view, then rename the header to `Content-Security-Policy` to enforce it. Headers only cover what Netlify serves; proxied `/api/*` responses come from the Worker. `npm run serve` on localhost applies no CSP. [`test/security-headers.test.js`](test/security-headers.test.js) guards the directives against being loosened.
+Headers only cover what Netlify serves; proxied `/api/*` responses come from the Worker. `npm run serve` on localhost applies no CSP. [`test/security-headers.test.js`](test/security-headers.test.js) guards the directives against being loosened.
 
 ### Local development
 

@@ -17,7 +17,7 @@ function headerValue(name) {
 }
 
 function cspDirectives() {
-  const value = headerValue("Content-Security-Policy-Report-Only") || headerValue("Content-Security-Policy");
+  const value = headerValue("Content-Security-Policy");
   assert.ok(value, "no Content-Security-Policy header declared");
   const map = new Map();
   for (const part of value.split(";")) {
