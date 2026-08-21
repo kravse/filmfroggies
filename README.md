@@ -1,6 +1,6 @@
 # FilmFroggies
 
-Search [TMDB](https://www.themoviedb.org/), add movies to ordered lists, and browse them as a cover grid or a detail-style layout. **Sign in with a CineQueue account** to search TMDB, sync lists across devices, and use Discover. Lists are cached in the browser and synced to the Cloudflare Worker + D1 backend when logged in.
+Search [TMDB](https://www.themoviedb.org/), add movies to ordered lists, and browse them as a cover grid or a detail-style layout. **Sign in with a filmfroggies account** to search TMDB, sync lists across devices, and use Discover. Lists are cached in the browser and synced to the Cloudflare Worker + D1 backend when logged in.
 
 ## How it works
 
