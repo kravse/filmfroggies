@@ -132,7 +132,6 @@ const settingsPanelAccount = document.getElementById("settings-panel-account");
 const settingsPanelConfig = document.getElementById("settings-panel-config");
 const settingsFriendsSignin = document.getElementById("settings-friends-signin");
 const friendsIndexEl = document.getElementById("friends-index");
-const friendsIndexEmptyEl = document.getElementById("friends-index-empty");
 
 const accountFields = document.getElementById("account-fields");
 const accountAuthFields = document.getElementById("account-auth-fields");

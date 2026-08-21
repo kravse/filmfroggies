@@ -62,9 +62,6 @@ function renderFriendsIndex() {
   if (accountSyncEnabled()) {
     refreshFriendsList();
   }
-  if (friendsIndexEmptyEl) {
-    friendsIndexEmptyEl.hidden = !accountSyncEnabled();
-  }
 }
 
 function onFriendsInviteSubmit(event) {

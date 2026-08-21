@@ -324,20 +324,28 @@
 
   body.view-friend .catalog-toolbar,
   body.view-custom-detail .catalog-toolbar {
-    flex-wrap: wrap;
-    row-gap: 0.35rem;
+    flex-wrap: nowrap;
+    gap: 0.45rem;
+  }
+
+  body.view-friend .toolbar-left,
+  body.view-custom-detail .toolbar-left {
+    flex: 0 0 auto;
+  }
+
+  body.view-friend .toolbar-back-btn,
+  body.view-custom-detail .toolbar-back-btn {
+    width: auto;
+    max-width: none;
+    flex-shrink: 0;
   }
 
   body.view-friend .toolbar-right,
   body.view-custom-detail .toolbar-right {
-    flex: 1 1 100%;
+    flex: 1 1 auto;
+    min-width: 0;
     justify-content: flex-end;
-    margin-left: 0;
-  }
-
-  body.view-friend #custom-list-back-label,
-  body.view-custom-detail #custom-list-back-label {
-    display: none;
+    margin-left: auto;
   }
 
   .sort-reverse-btn {
@@ -371,6 +379,27 @@
 
   body.view-discover {
     padding-bottom: calc(5.35rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  body.view-discover .catalog-toolbar {
+    flex-wrap: nowrap;
+    gap: 0.45rem;
+  }
+
+  body.view-discover .toolbar-left {
+    flex: 0 0 auto;
+  }
+
+  body.view-discover .toolbar-right {
+    order: 2;
+    margin-left: auto;
+  }
+
+  body.view-discover #discover-tabs {
+    flex: 0 0 auto;
+    order: 3;
+    margin-left: 0;
+    justify-content: flex-end;
   }
 
   body.view-discover #discover-pagination {
