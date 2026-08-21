@@ -24,6 +24,10 @@ const PARTS = [
     title: "Card HTML helpers (generated from scripts/lib/card-html.js)",
   },
   {
+    file: "00-app-brand.js",
+    title: "Site wordmark (generated from scripts/lib/brand.js)",
+  },
+  {
     file: "00-app-movie-search-picker.js",
     title: "Shared movie search picker (generated from scripts/lib/movie-search-picker.js)",
   },

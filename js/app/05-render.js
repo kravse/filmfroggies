@@ -791,7 +791,11 @@ function syncHeaderViewTitle() {
     headerTitleEl.textContent = "Discover";
     return;
   }
-  headerTitleEl.textContent = isCustomListIndexActive() ? "Lists" : SITE_BRAND_NAME;
+  if (isCustomListIndexActive()) {
+    headerTitleEl.textContent = "Lists";
+    return;
+  }
+  headerTitleEl.innerHTML = appBrand.brandNameHtml();
 }
 
 function syncAccountLoginGate() {
@@ -915,7 +919,7 @@ function renderEmptyState(count) {
   emptyState.hidden = false;
   if (isCustomListDetailActive()) {
     if (!hasTmdbAccess()) {
-      emptyState.innerHTML = `<strong>Log in to use ${SITE_BRAND_NAME}</strong><p class="empty-state-hint">Log in or sign up to start your collection.</p>`;
+      emptyState.innerHTML = `<strong>Log in to use ${appBrand.brandNameHtml()}</strong><p class="empty-state-hint">Log in or sign up to start your collection.</p>`;
       return;
     }
     emptyState.innerHTML = `<strong>This list is empty</strong>
@@ -937,7 +941,7 @@ function renderEmptyState(count) {
     return;
   }
   if (!hasTmdbAccess()) {
-    emptyState.innerHTML = `<strong>Log in to use ${SITE_BRAND_NAME}</strong><p class="empty-state-hint">Log in or sign up to start your collection.</p>`;
+    emptyState.innerHTML = `<strong>Log in to use ${appBrand.brandNameHtml()}</strong><p class="empty-state-hint">Log in or sign up to start your collection.</p>`;
     return;
   }
   emptyState.innerHTML = `<strong>Nothing in ${appCardHtml.escapeHtml(listName)} yet</strong>

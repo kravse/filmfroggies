@@ -45,6 +45,13 @@ const APP_SYNC_ENTRIES = [
     ],
   },
   {
+    sources: [path.join(LIB, "brand.js")],
+    target: "00-app-brand.js",
+    globalName: "appBrand",
+    header: "Generated from scripts/lib/brand.js — run npm run bundle",
+    exports: ["BRAND_NAME", "brandNameHtml"],
+  },
+  {
     sources: [path.join(LIB, "poster-grey.js")],
     target: "00-app-poster-grey.js",
     globalName: "appPosterGrey",

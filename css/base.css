@@ -66,6 +66,14 @@ main.page-shell {
   line-height: 1.6;
 }
 
+.brand-word {
+  color: var(--page-title-color);
+}
+
+.brand-word-film {
+  color: var(--text);
+}
+
 .empty-state strong {
   display: block;
   color: var(--page-title-color);

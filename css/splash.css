@@ -64,7 +64,6 @@ body.view-splash main.page-shell {
   font-weight: 600;
   line-height: 1.05;
   letter-spacing: 0.02em;
-  color: var(--page-title-color);
   text-shadow: var(--page-title-shadow);
 }
 

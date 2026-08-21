@@ -758,6 +758,25 @@ const appCardHtml = (function () {
   };
 })();
 
+/* ===== Site wordmark (generated from scripts/lib/brand.js) ===== */
+
+/* Generated from scripts/lib/brand.js — run npm run bundle */
+
+const appBrand = (function () {
+  /** Site wordmark: "film" in body text color, "froggies" in accent green. */
+
+  const BRAND_NAME = "filmfroggies";
+
+  function brandNameHtml() {
+    return '<span class="brand-word"><span class="brand-word-film">film</span>froggies</span>';
+  }
+
+  return {
+    BRAND_NAME,
+    brandNameHtml,
+  };
+})();
+
 /* ===== Shared movie search picker (generated from scripts/lib/movie-search-picker.js) ===== */
 
 /* Generated from scripts/lib/movie-search-picker.js — run npm run bundle */
@@ -10020,7 +10039,11 @@ function syncHeaderViewTitle() {
     headerTitleEl.textContent = "Discover";
     return;
   }
-  headerTitleEl.textContent = isCustomListIndexActive() ? "Lists" : SITE_BRAND_NAME;
+  if (isCustomListIndexActive()) {
+    headerTitleEl.textContent = "Lists";
+    return;
+  }
+  headerTitleEl.innerHTML = appBrand.brandNameHtml();
 }
 
 function syncAccountLoginGate() {
@@ -10144,7 +10167,7 @@ function renderEmptyState(count) {
   emptyState.hidden = false;
   if (isCustomListDetailActive()) {
     if (!hasTmdbAccess()) {
-      emptyState.innerHTML = `<strong>Log in to use ${SITE_BRAND_NAME}</strong><p class="empty-state-hint">Log in or sign up to start your collection.</p>`;
+      emptyState.innerHTML = `<strong>Log in to use ${appBrand.brandNameHtml()}</strong><p class="empty-state-hint">Log in or sign up to start your collection.</p>`;
       return;
     }
     emptyState.innerHTML = `<strong>This list is empty</strong>
@@ -10166,7 +10189,7 @@ function renderEmptyState(count) {
     return;
   }
   if (!hasTmdbAccess()) {
-    emptyState.innerHTML = `<strong>Log in to use ${SITE_BRAND_NAME}</strong><p class="empty-state-hint">Log in or sign up to start your collection.</p>`;
+    emptyState.innerHTML = `<strong>Log in to use ${appBrand.brandNameHtml()}</strong><p class="empty-state-hint">Log in or sign up to start your collection.</p>`;
     return;
   }
   emptyState.innerHTML = `<strong>Nothing in ${appCardHtml.escapeHtml(listName)} yet</strong>
