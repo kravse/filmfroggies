@@ -85,7 +85,7 @@ function renderDiscoverEmptyState(count) {
   }
   emptyState.hidden = false;
   if (!hasTmdbAccess()) {
-    emptyState.innerHTML = `<strong>Sign in to use Discover</strong><p class="empty-state-hint">Open Settings → Account to log in or create an account.</p>`;
+    emptyState.innerHTML = `<strong>Log in to use Discover</strong><p class="empty-state-hint">Log in or sign up to browse new releases.</p>`;
     return;
   }
   if (discoverLoading) {

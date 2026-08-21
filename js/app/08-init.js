@@ -486,8 +486,16 @@ addMovieCreateListsLink?.addEventListener("click", (event) => {
 window.addEventListener("storage", onUserStateStorageEvent);
 document.addEventListener("visibilitychange", onVisibilityRefresh);
 
-/* --- Settings and about --- */
+/* --- Login, settings, and about --- */
 
+splashEl?.addEventListener("click", onSplashClick);
+loginBtn.addEventListener("click", () => openLogin());
+loginClose.addEventListener("click", closeLogin);
+loginDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-login")) {
+    closeLogin();
+  }
+});
 settingsBtn.addEventListener("click", openSettings);
 settingsClose.addEventListener("click", closeSettings);
 settingsTabAccount.addEventListener("click", () => setSettingsTab("account"));
@@ -531,7 +539,7 @@ accountDeletePassword.addEventListener("keydown", (event) => {
 });
 friendAddBtn?.addEventListener("click", onAddFriend);
 document.getElementById("friends-invite-form")?.addEventListener("submit", onFriendsInviteSubmit);
-document.getElementById("friends-signin-btn")?.addEventListener("click", openSettings);
+document.getElementById("friends-signin-btn")?.addEventListener("click", () => openLogin());
 friendsList?.addEventListener("click", onFriendsListClick);
 friendViewOverview?.addEventListener("change", onFriendFanRatingsToggleChange);
 friendViewSectionsEl?.addEventListener("click", onFriendViewSectionsClick);
@@ -593,6 +601,10 @@ document.addEventListener("keydown", (event) => {
     }
     if (!settingsDialog.hidden) {
       closeSettings();
+      return;
+    }
+    if (!loginDialog.hidden) {
+      closeLogin();
       return;
     }
     if (!addMovieDialog.hidden) {
@@ -672,10 +684,6 @@ async function startApp() {
   if (accountSyncEnabled()) {
     queueAccountSync();
     refreshFriendsNavBadge();
-  }
-
-  if (!accountSyncEnabled()) {
-    openSettings();
   }
 }
 

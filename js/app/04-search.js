@@ -400,7 +400,7 @@ function renderAddMovieDetail() {
     } else if (canLoad) {
       statusText = "Loading details…";
     } else {
-      statusText = "Add a TMDB credential in Settings to load details.";
+      statusText = "Log in to load details from TMDB.";
     }
     addMovieDetailContent.innerHTML = `<div class="add-movie-detail-layout">
   ${addMovieDetailPosterHtml(pendingAddResult)}

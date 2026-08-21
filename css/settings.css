@@ -1,4 +1,4 @@
-/* --- Shared sheet dialog (settings, about) --- */
+/* --- Shared sheet dialog (login, settings, about) --- */
 
 .sheet-dialog {
   position: fixed;
@@ -33,6 +33,10 @@
   border-radius: var(--radius);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
   overflow: hidden;
+}
+
+.login-panel {
+  width: min(420px, 100%);
 }
 
 .sheet-toolbar {

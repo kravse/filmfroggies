@@ -4,7 +4,7 @@
 /* Opens the shared IIFE scope for every partial. Closed by 08-init.js. */
 
 const ACCOUNT_LOGIN_HINT =
-  "Sign in via Settings → Account to search TMDB and sync your lists.";
+  "Log in to search TMDB and sync your lists.";
 const SITE_BRAND_NAME = "filmfroggies";
 
 /* --- DOM --- */
@@ -122,8 +122,12 @@ const grid = document.getElementById("grid");
 const emptyState = document.getElementById("empty-state");
 
 const settingsBtn = document.getElementById("settings-btn");
+const loginBtn = document.getElementById("login-btn");
 const aboutBtn = document.getElementById("about-btn");
 
+const loginDialog = document.getElementById("login-dialog");
+const loginTitle = document.getElementById("login-title");
+const loginClose = document.getElementById("login-close");
 const settingsDialog = document.getElementById("settings-dialog");
 const settingsClose = document.getElementById("settings-close");
 const settingsTabAccount = document.getElementById("settings-tab-account");
@@ -132,6 +136,8 @@ const settingsPanelAccount = document.getElementById("settings-panel-account");
 const settingsPanelConfig = document.getElementById("settings-panel-config");
 const settingsFriendsSignin = document.getElementById("settings-friends-signin");
 const friendsIndexEl = document.getElementById("friends-index");
+const splashEl = document.getElementById("splash");
+const splashMarqueeTrack = document.getElementById("splash-marquee-track");
 
 const accountFields = document.getElementById("account-fields");
 const accountAuthFields = document.getElementById("account-auth-fields");
@@ -144,6 +150,7 @@ const accountPasswordInput = document.getElementById("account-password-input");
 const accountInviteField = document.getElementById("account-invite-field");
 const accountInviteInput = document.getElementById("account-invite-input");
 const accountAuthTitle = document.getElementById("account-auth-title");
+const accountAuthNote = document.getElementById("account-auth-note");
 const accountAuthTabLogin = document.getElementById("account-auth-tab-login");
 const accountAuthTabSignup = document.getElementById("account-auth-tab-signup");
 const accountAuthForm = document.getElementById("account-auth-form");

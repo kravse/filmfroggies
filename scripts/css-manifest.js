@@ -6,6 +6,7 @@ const VIEWER_CSS_FILES = [
   "header.css",
   "attribution.css",
   "settings.css",
+  "splash.css",
   "cards.css",
   "ratings.css",
   "movie-detail.css",

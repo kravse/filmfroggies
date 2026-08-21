@@ -6,7 +6,7 @@
 /* Opens the shared IIFE scope for every partial. Closed by 08-init.js. */
 
 const ACCOUNT_LOGIN_HINT =
-  "Sign in via Settings → Account to search TMDB and sync your lists.";
+  "Log in to search TMDB and sync your lists.";
 const SITE_BRAND_NAME = "filmfroggies";
 
 /* --- DOM --- */
@@ -124,8 +124,12 @@ const grid = document.getElementById("grid");
 const emptyState = document.getElementById("empty-state");
 
 const settingsBtn = document.getElementById("settings-btn");
+const loginBtn = document.getElementById("login-btn");
 const aboutBtn = document.getElementById("about-btn");
 
+const loginDialog = document.getElementById("login-dialog");
+const loginTitle = document.getElementById("login-title");
+const loginClose = document.getElementById("login-close");
 const settingsDialog = document.getElementById("settings-dialog");
 const settingsClose = document.getElementById("settings-close");
 const settingsTabAccount = document.getElementById("settings-tab-account");
@@ -134,6 +138,8 @@ const settingsPanelAccount = document.getElementById("settings-panel-account");
 const settingsPanelConfig = document.getElementById("settings-panel-config");
 const settingsFriendsSignin = document.getElementById("settings-friends-signin");
 const friendsIndexEl = document.getElementById("friends-index");
+const splashEl = document.getElementById("splash");
+const splashMarqueeTrack = document.getElementById("splash-marquee-track");
 
 const accountFields = document.getElementById("account-fields");
 const accountAuthFields = document.getElementById("account-auth-fields");
@@ -146,6 +152,7 @@ const accountPasswordInput = document.getElementById("account-password-input");
 const accountInviteField = document.getElementById("account-invite-field");
 const accountInviteInput = document.getElementById("account-invite-input");
 const accountAuthTitle = document.getElementById("account-auth-title");
+const accountAuthNote = document.getElementById("account-auth-note");
 const accountAuthTabLogin = document.getElementById("account-auth-tab-login");
 const accountAuthTabSignup = document.getElementById("account-auth-tab-signup");
 const accountAuthForm = document.getElementById("account-auth-form");
@@ -5474,6 +5481,219 @@ const appFriendView = (function () {
   };
 })();
 
+/* ===== Logged-out splash content (generated from scripts/lib/splash.js) ===== */
+
+/* Generated from scripts/lib/splash.js — run npm run bundle */
+
+const appSplash = (function () {
+  /**
+   * Content for the logged-out splash page.
+   *
+   * Titles and years are a small committed snapshot, restored from the retired
+   * data/movies.json, covering only ids whose posters ship in data/posters/. That
+   * lets the marketing page render real tiles with no session and no TMDB call.
+   * It is not a metadata source for collections — hydrateMovies still resolves
+   * those from D1/TMDB, and nothing here reaches user state.
+   */
+
+  const SPLASH_MOVIES = [
+    { id: 38, title: "Eternal Sunshine of the Spotless Mind", year: 2004 },
+    { id: 73, title: "American History X", year: 1998 },
+    { id: 129, title: "Spirited Away", year: 2001 },
+    { id: 141, title: "Donnie Darko", year: 2001 },
+    { id: 238, title: "The Godfather", year: 1972 },
+    { id: 278, title: "The Shawshank Redemption", year: 1994 },
+    { id: 387, title: "Das Boot", year: 1981 },
+    { id: 389, title: "12 Angry Men", year: 1957 },
+    { id: 401, title: "Garden State", year: 2004 },
+    { id: 550, title: "Fight Club", year: 1999 },
+    { id: 603, title: "The Matrix", year: 1999 },
+    { id: 670, title: "Oldboy", year: 2003 },
+    { id: 680, title: "Pulp Fiction", year: 1994 },
+    { id: 694, title: "The Shining", year: 1980 },
+    { id: 837, title: "Videodrome", year: 1983 },
+    { id: 1091, title: "The Thing", year: 1982 },
+    { id: 1398, title: "Stalker", year: 1979 },
+    { id: 1548, title: "Ghost World", year: 2001 },
+    { id: 1946, title: "eXistenZ", year: 1999 },
+    { id: 4538, title: "The Darjeeling Limited", year: 2007 },
+    { id: 8337, title: "They Live", year: 1988 },
+    { id: 9426, title: "The Fly", year: 1986 },
+    { id: 9538, title: "Scanners", year: 1981 },
+    { id: 10774, title: "Network", year: 1976 },
+    { id: 11305, title: "Mystery Train", year: 1989 },
+    { id: 11423, title: "Memories of Murder", year: 2003 },
+    { id: 30018, title: "Mother", year: 2009 },
+    { id: 76341, title: "Mad Max: Fury Road", year: 2015 },
+    { id: 120467, title: "The Grand Budapest Hotel", year: 2014 },
+    { id: 246741, title: "What We Do in the Shadows", year: 2014 },
+    { id: 329865, title: "Arrival", year: 2016 },
+    { id: 387426, title: "Okja", year: 2017 },
+    { id: 496243, title: "Parasite", year: 2019 },
+    { id: 1154538, title: "Nirvanna the Band the Show the Movie", year: 2026 },
+    { id: 1272837, title: "28 Years Later: The Bone Temple", year: 2026 },
+    { id: 1339713, title: "Obsession", year: 2026 },
+    { id: 1368337, title: "The Odyssey", year: 2026 },
+  ];
+
+  /**
+   * Each group is one illustration on the page. Entries are ids, or an id with a
+   * demo rating where the section is showing off ratings.
+   */
+  const SPLASH_GROUPS = {
+    hero: [
+      278, 680, 129, 496243, 1091, 550, 694, 603, 120467, 38, 670, 76341, 389, 238,
+      329865, 8337, 141, 246741,
+    ],
+    watchedList: [278, 496243, 120467],
+    watchlist: [1398, 387, 10774],
+    rated: [
+      { id: 38, rating: 9.5 },
+      { id: 129, rating: 9 },
+      { id: 120467, rating: 8.5 },
+      { id: 670, rating: 8 },
+    ],
+    listSunday: [4538, 1548, 401, 11305],
+    listBodyHorror: [837, 9426, 9538, 1946],
+    friends: [496243, 11423, 30018, 387426],
+    discover: [1368337, 1272837, 1339713, 1154538],
+  };
+
+  const SPLASH_GROUP_NAMES = Object.keys(SPLASH_GROUPS);
+
+  const moviesById = new Map(SPLASH_MOVIES.map((movie) => [movie.id, movie]));
+
+  function getCardHtml() {
+    if (typeof appCardHtml !== "undefined") {
+      return appCardHtml;
+    }
+    if (typeof require === "function") {
+      return require("./card-html");
+    }
+    throw new Error("appCardHtml is not available");
+  }
+
+  function getRatings() {
+    if (typeof appRatings !== "undefined") {
+      return appRatings;
+    }
+    if (typeof require === "function") {
+      return require("./ratings");
+    }
+    throw new Error("appRatings is not available");
+  }
+
+  function splashMovie(id) {
+    return moviesById.get(Number(id)) || null;
+  }
+
+  /** Ids and `{ id, rating }` entries both normalize to the same shape. */
+  function splashGroupEntries(name) {
+    const raw = SPLASH_GROUPS[name];
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    const entries = [];
+    for (const item of raw) {
+      const id = Number(item && typeof item === "object" ? item.id : item);
+      if (!Number.isInteger(id) || id <= 0) {
+        continue;
+      }
+      const rating = item && typeof item === "object" ? Number(item.rating) : NaN;
+      entries.push({ id, rating: Number.isFinite(rating) ? rating : null });
+    }
+    return entries;
+  }
+
+  /**
+   * Tiles for one group, in the order they are curated. An entry is dropped when
+   * its poster is not on disk, so a trimmed data/posters/ degrades to fewer tiles
+   * instead of broken images.
+   */
+  function splashTiles(name, options = {}) {
+    const posterUrl = typeof options.posterUrl === "function" ? options.posterUrl : () => null;
+    const tiles = [];
+    for (const entry of splashGroupEntries(name)) {
+      const movie = splashMovie(entry.id);
+      if (!movie) {
+        continue;
+      }
+      const url = posterUrl(entry.id);
+      if (!url) {
+        continue;
+      }
+      tiles.push({
+        id: movie.id,
+        title: movie.title,
+        year: movie.year,
+        rating: entry.rating,
+        posterUrl: String(url),
+      });
+    }
+    return tiles;
+  }
+
+  /**
+   * `poster` is a bare poster for the decorative marquee. `rated` shows the demo
+   * rating the way the real cards do, and `titled` falls back to the year.
+   */
+  function splashMetaRowHtml(tile, variant) {
+    const escapeHtml = getCardHtml().escapeHtml;
+    const year = escapeHtml(tile.year);
+    const yearHtml = `<span class="card-meta-year">${year}</span>`;
+    if (variant !== "rated") {
+      return `<div class="splash-tile-meta-row card-meta-row">
+    <div class="card-meta">${yearHtml}</div>
+  </div>`;
+    }
+    const ratingLabel = getRatings().formatUserRating(tile.rating);
+    const safeRating = escapeHtml(ratingLabel || "—");
+    const ratingSegment = ratingLabel
+      ? `<span class="rating-segment rating-segment--mine" aria-label="Your rating ${safeRating}" title="Your rating">${safeRating}</span>`
+      : `<span class="rating-segment rating-segment--mine is-empty" aria-label="Your rating —" title="Your rating">—</span>`;
+    return `<div class="splash-tile-meta-row card-meta-row">
+    <div class="card-meta">${yearHtml}</div>
+    <div class="rating-chit card-body-ratings" aria-label="Your rating ${safeRating}">${ratingSegment}</div>
+  </div>`;
+  }
+
+  function splashTileHtml(tile, variant) {
+    const escapeHtml = getCardHtml().escapeHtml;
+    const title = escapeHtml(tile.title);
+    const poster = `<div class="splash-tile-poster"><img src="${escapeHtml(tile.posterUrl)}" alt="${title} poster" loading="lazy" decoding="async" /></div>`;
+    if (variant === "poster") {
+      return `<div class="splash-tile splash-tile--poster">${poster}</div>`;
+    }
+    const tileClass = variant === "rated" ? "splash-tile--rated" : "splash-tile--titled";
+    return `<div class="splash-tile ${tileClass}">
+    ${poster}
+    <div class="splash-tile-body">
+      <div class="splash-tile-text">
+        <div class="splash-tile-title">${title}</div>
+        ${splashMetaRowHtml(tile, variant)}
+      </div>
+    </div>
+  </div>`;
+  }
+
+  /** `repeat` is for the marquee, which needs two identical runs to loop. */
+  function splashTilesHtml(tiles, variant, repeat = 1) {
+    const run = tiles.map((tile) => splashTileHtml(tile, variant)).join("");
+    return run.repeat(Math.max(1, Number(repeat) || 1));
+  }
+
+  return {
+    SPLASH_MOVIES,
+    SPLASH_GROUPS,
+    SPLASH_GROUP_NAMES,
+    splashMovie,
+    splashGroupEntries,
+    splashTiles,
+    splashTileHtml,
+    splashTilesHtml,
+  };
+})();
+
 /* ===== Custom list Gist merge (generated from scripts/lib/custom-list-merge.js) ===== */
 
 /* Generated from scripts/lib/custom-list-merge.js — run npm run bundle */
@@ -8749,7 +8969,7 @@ function renderAddMovieDetail() {
     } else if (canLoad) {
       statusText = "Loading details…";
     } else {
-      statusText = "Add a TMDB credential in Settings to load details.";
+      statusText = "Log in to load details from TMDB.";
     }
     addMovieDetailContent.innerHTML = `<div class="add-movie-detail-layout">
   ${addMovieDetailPosterHtml(pendingAddResult)}
@@ -9802,6 +10022,8 @@ function syncHeaderViewTitle() {
 function syncAccountLoginGate() {
   const loggedIn = accountSyncEnabled();
   document.body.classList.toggle("account-login-required", !loggedIn);
+  settingsBtn.hidden = !loggedIn;
+  loginBtn.hidden = loggedIn;
   if (searchInput) {
     searchInput.disabled = !loggedIn;
   }
@@ -9821,7 +10043,7 @@ function updateListHeader() {
   if (isFriendsIndexActive()) {
     listSubtitleEl.textContent = accountSyncEnabled()
       ? "Add friends by email, then open their shared lists"
-      : "Sign in to connect with friends";
+      : "Log in to connect with friends";
     return;
   }
   if (isAdminViewActive()) {
@@ -9881,7 +10103,7 @@ function updateListHeader() {
   } else {
     listSubtitleEl.textContent = hasTmdbAccess()
       ? "Search TMDB to add your first movie"
-      : "Sign in via Settings → Account to get started";
+      : "Log in to get started";
   }
 }
 
@@ -9918,7 +10140,7 @@ function renderEmptyState(count) {
   emptyState.hidden = false;
   if (isCustomListDetailActive()) {
     if (!hasTmdbAccess()) {
-      emptyState.innerHTML = `<strong>Sign in to use ${SITE_BRAND_NAME}</strong><p class="empty-state-hint">Open Settings → Account to log in or create an account.</p>`;
+      emptyState.innerHTML = `<strong>Log in to use ${SITE_BRAND_NAME}</strong><p class="empty-state-hint">Log in or sign up to start your collection.</p>`;
       return;
     }
     emptyState.innerHTML = `<strong>This list is empty</strong>
@@ -9940,7 +10162,7 @@ function renderEmptyState(count) {
     return;
   }
   if (!hasTmdbAccess()) {
-    emptyState.innerHTML = `<strong>Sign in to use ${SITE_BRAND_NAME}</strong><p class="empty-state-hint">Open Settings → Account to log in or create an account.</p>`;
+    emptyState.innerHTML = `<strong>Log in to use ${SITE_BRAND_NAME}</strong><p class="empty-state-hint">Log in or sign up to start your collection.</p>`;
     return;
   }
   emptyState.innerHTML = `<strong>Nothing in ${appCardHtml.escapeHtml(listName)} yet</strong>
@@ -11295,7 +11517,7 @@ function onDetailRemapQueryInput(event) {
     return;
   }
   if (!hasTmdbAccess()) {
-    setDetailConfigSearchStatus("Add a TMDB credential in Settings to search.");
+    setDetailConfigSearchStatus("Log in to search TMDB.");
     return;
   }
   detailRemapSearchPicker.schedule(query);
@@ -12315,8 +12537,8 @@ function renderDetail() {
     let heading = "Loading…";
     let note = "";
     if (!hasTmdbAccess()) {
-      heading = "No TMDB credential";
-      note = "Open Settings and paste your TMDB credential to load this movie.";
+      heading = "Log in to see this movie";
+      note = "Log in or sign up to load details from TMDB.";
     } else if (movieErrors.has(detailMovieId)) {
       heading = "Could not load this movie";
       note = "TMDB did not return details. Check your credential and connection.";
@@ -12674,9 +12896,17 @@ function setAccountAuthMode(mode) {
     loginSelected ? "account-auth-tab-login" : "account-auth-tab-signup",
   );
   accountSubmitBtn.textContent = loginSelected ? "Log in" : "Create account";
+  if (loginTitle) {
+    loginTitle.textContent = loginSelected ? "Log in" : "Sign up";
+  }
   accountAuthTitle.textContent = loginSelected
-    ? `Sign in to use ${SITE_BRAND_NAME}`
-    : "Create an account";
+    ? `Log in to ${SITE_BRAND_NAME}`
+    : `Create your ${SITE_BRAND_NAME} account`;
+  if (accountAuthNote) {
+    accountAuthNote.textContent = loginSelected
+      ? "Log in to pick up your lists on this device. Friends can browse them when you both agree."
+      : "You need an invite code to sign up. Your lists follow you to every device you log in on.";
+  }
   accountPasswordInput.placeholder = loginSelected ? "Your password" : "At least 8 characters";
   accountPasswordInput.autocomplete = loginSelected ? "current-password" : "new-password";
   if (accountInviteField) {
@@ -12691,21 +12921,38 @@ function refreshSettings() {
   refreshCollectionTransferStatus();
 }
 
+// Settings holds nothing a logged-out visitor can act on, so every entry point
+// lands on the login dialog until there is an account.
 function openSettings() {
+  if (!accountSyncEnabled()) {
+    openLogin();
+    return;
+  }
   refreshSettings();
   setSettingsTab("account");
   settingsDialog.hidden = false;
   settingsBtn.setAttribute("aria-expanded", "true");
-  if (accountSyncEnabled()) {
-    settingsClose.focus({ preventScroll: true });
-  } else {
-    accountEmailInput.focus({ preventScroll: true });
-  }
+  settingsClose.focus({ preventScroll: true });
 }
 
 function closeSettings() {
   settingsDialog.hidden = true;
   settingsBtn.setAttribute("aria-expanded", "false");
+}
+
+function openLogin(options = {}) {
+  refreshAccountSection();
+  if (options.mode === "signup") {
+    setAccountAuthMode("signup");
+  }
+  loginDialog.hidden = false;
+  loginBtn.setAttribute("aria-expanded", "true");
+  accountEmailInput.focus({ preventScroll: true });
+}
+
+function closeLogin() {
+  loginDialog.hidden = true;
+  loginBtn.setAttribute("aria-expanded", "false");
 }
 
 function openFriends() {
@@ -12848,6 +13095,7 @@ async function onAccountAuth() {
     if (accountInviteInput) {
       accountInviteInput.value = "";
     }
+    closeLogin();
     refreshSettings();
     refreshViewModeForActiveList();
     render();
@@ -12859,9 +13107,11 @@ async function onAccountAuth() {
   }
 }
 
+/** Logging out lands on the splash rather than a modal asking you back in. */
 function onAccountLogout() {
   disconnectAccount();
   refreshSettings();
+  closeSettings();
   refreshViewModeForActiveList();
   render();
   hydrateActiveList();
@@ -12894,9 +13144,12 @@ async function onAccountDeleteConfirm() {
     closeAccountDeleteConfirm();
     disconnectAccount();
     refreshSettings();
+    closeSettings();
     refreshViewModeForActiveList();
     render();
     hydrateActiveList();
+    // The login dialog is the only surface left that can carry the outcome.
+    openLogin();
     setStatus(accountStatus, "Account deleted. Your lists are still on this device.", "ok");
   } catch (error) {
     setStatus(accountDeleteStatus, error.message, "error");
@@ -13804,6 +14057,7 @@ function syncHeaderNavUi() {
 }
 
 function syncAppViewChrome() {
+  syncSplashUi();
   document.body.classList.toggle("view-custom-index", isCustomListIndexActive());
   document.body.classList.toggle("view-custom-detail", isCustomListDetailActive());
   document.body.classList.toggle("view-discover", isDiscoverActive());
@@ -14945,7 +15199,7 @@ function renderDiscoverEmptyState(count) {
   }
   emptyState.hidden = false;
   if (!hasTmdbAccess()) {
-    emptyState.innerHTML = `<strong>Sign in to use Discover</strong><p class="empty-state-hint">Open Settings → Account to log in or create an account.</p>`;
+    emptyState.innerHTML = `<strong>Log in to use Discover</strong><p class="empty-state-hint">Log in or sign up to browse new releases.</p>`;
     return;
   }
   if (discoverLoading) {
@@ -16297,6 +16551,9 @@ function navigateToAdmin(options = {}) {
   if (typeof closeSettings === "function" && !settingsDialog.hidden) {
     closeSettings();
   }
+  if (typeof closeLogin === "function" && !loginDialog.hidden) {
+    closeLogin();
+  }
   if (typeof clearFriendViewState === "function") {
     clearFriendViewState();
   }
@@ -16316,6 +16573,70 @@ adminLogoutBtn?.addEventListener("click", onAdminLogout);
 adminInviteCountDec?.addEventListener("click", onAdminInviteCountDec);
 adminInviteCountInc?.addEventListener("click", onAdminInviteCountInc);
 syncAdminInviteCountUi();
+
+/* ===== Logged-out splash page ===== */
+
+/* --- Logged-out splash --- */
+
+/**
+ * The marketing page for visitors with no session. Tiles come from committed
+ * posters plus the curated titles in appSplash, so nothing here needs a token.
+ */
+
+const SPLASH_POSTER_SIZE = "w342";
+
+let splashPainted = false;
+
+/** Admin has its own password gate, so it still owns the page when logged out. */
+function isSplashActive() {
+  return !accountSyncEnabled() && !isAdminViewActive();
+}
+
+function splashPosterUrl(movieId) {
+  return localPosterUrlFor({ id: movieId }, SPLASH_POSTER_SIZE);
+}
+
+/**
+ * Paints every mount once. Nothing is painted until the poster manifest has
+ * loaded, so an empty pass leaves the page unpainted and the next sync retries.
+ */
+function renderSplash() {
+  if (!splashEl || splashPainted) {
+    return;
+  }
+  let painted = 0;
+  for (const mount of splashEl.querySelectorAll("[data-splash-group]")) {
+    const tiles = appSplash.splashTiles(mount.dataset.splashGroup, {
+      posterUrl: splashPosterUrl,
+    });
+    mount.innerHTML = appSplash.splashTilesHtml(
+      tiles,
+      mount.dataset.splashVariant || "titled",
+      mount === splashMarqueeTrack ? 2 : 1,
+    );
+    painted += tiles.length;
+  }
+  splashPainted = painted > 0;
+}
+
+function syncSplashUi() {
+  const active = isSplashActive();
+  document.body.classList.toggle("view-splash", active);
+  if (splashEl) {
+    splashEl.hidden = !active;
+  }
+  if (active) {
+    renderSplash();
+  }
+}
+
+function onSplashClick(event) {
+  const trigger = event.target.closest("[data-splash-action]");
+  if (!trigger) {
+    return;
+  }
+  openLogin({ mode: trigger.dataset.splashAction === "signup" ? "signup" : "login" });
+}
 
 /* ===== Event wiring and startup ===== */
 
@@ -16807,8 +17128,16 @@ addMovieCreateListsLink?.addEventListener("click", (event) => {
 window.addEventListener("storage", onUserStateStorageEvent);
 document.addEventListener("visibilitychange", onVisibilityRefresh);
 
-/* --- Settings and about --- */
+/* --- Login, settings, and about --- */
 
+splashEl?.addEventListener("click", onSplashClick);
+loginBtn.addEventListener("click", () => openLogin());
+loginClose.addEventListener("click", closeLogin);
+loginDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-login")) {
+    closeLogin();
+  }
+});
 settingsBtn.addEventListener("click", openSettings);
 settingsClose.addEventListener("click", closeSettings);
 settingsTabAccount.addEventListener("click", () => setSettingsTab("account"));
@@ -16852,7 +17181,7 @@ accountDeletePassword.addEventListener("keydown", (event) => {
 });
 friendAddBtn?.addEventListener("click", onAddFriend);
 document.getElementById("friends-invite-form")?.addEventListener("submit", onFriendsInviteSubmit);
-document.getElementById("friends-signin-btn")?.addEventListener("click", openSettings);
+document.getElementById("friends-signin-btn")?.addEventListener("click", () => openLogin());
 friendsList?.addEventListener("click", onFriendsListClick);
 friendViewOverview?.addEventListener("change", onFriendFanRatingsToggleChange);
 friendViewSectionsEl?.addEventListener("click", onFriendViewSectionsClick);
@@ -16914,6 +17243,10 @@ document.addEventListener("keydown", (event) => {
     }
     if (!settingsDialog.hidden) {
       closeSettings();
+      return;
+    }
+    if (!loginDialog.hidden) {
+      closeLogin();
       return;
     }
     if (!addMovieDialog.hidden) {
@@ -16993,10 +17326,6 @@ async function startApp() {
   if (accountSyncEnabled()) {
     queueAccountSync();
     refreshFriendsNavBadge();
-  }
-
-  if (!accountSyncEnabled()) {
-    openSettings();
   }
 }
 

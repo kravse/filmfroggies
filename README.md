@@ -23,7 +23,7 @@ npm run serve    # http://localhost:8743
 
 Copy [`.env.example`](.env.example) to `.env` if you need `npm run scrape` or `npm run letterboxd-import` (both read `TMDB_READ_TOKEN` from the environment).
 
-Open **Settings → Account** and sign up or log in. Search, Discover, metadata hydration, and adding movies require login. TMDB traffic uses the server read token on the Worker — you never paste a personal TMDB token in Settings.
+Logged-out visitors land on a **splash page** that explains the site and shows sample poster tiles from committed `data/` assets. Use **Sign up** or **Log in** there, or the footer **Log in** button. Search, Discover, metadata hydration, and adding movies require a session. TMDB traffic uses the server read token on the Worker — you never paste a personal TMDB token in Settings.
 
 ### Migrating from local-only or Gist data
 
@@ -95,9 +95,11 @@ A movie can be on any combination of Watched, Watchlist, and custom lists. Custo
 
 ### Footer
 
-**Settings** (bottom left): **Account** and **Config** tabs — sign in and delete account; import/export CSV and clear cached movie/poster data. **Friends** (header icon beside Lists and Discover) opens the friends overlay to add people and browse shared lists at `#friend/{userId}`.
+**Log in** (bottom left, logged out only): opens the login dialog. It replaces the Settings button until you have a session. The splash page also links to sign up and log in.
 
-**About** (bottom right): short description and TMDB attribution.
+**Settings** (bottom left, logged in): **Account** and **Config** tabs — session details and delete account; import/export CSV and clear cached movie/poster data. **Friends** (header icon beside Lists and Discover) opens the friends overlay to add people and browse shared lists at `#friend/{userId}`.
+
+**Attribution** (bottom right): TMDB credit and required disclaimer.
 
 ### Settings details
 
@@ -105,7 +107,7 @@ A movie can be on any combination of Watched, Watchlist, and custom lists. Custo
 
 **Import & export** (Settings): see [Collection backup CSV](#collection-backup-csv). Import shows a confirmation with row counts before replacing your collection. Use this to migrate lists when moving to account-only storage or after running the local [Letterboxd import tool](#letterboxd-import-local-tool).
 
-**Account:** Settings → **Account**. Sign up or log in with email and password; new signups also need the invite code you were given. Lists sync through the CineQueue backend (see [Account backend](#account-backend-cloudflare-worker--d1)). Friends can browse each other's lists at `#friend/{userId}` (header **Friends** icon → View lists) once both sides accept a request. The session token stays in this browser and is never part of the synced payload. Connecting pulls remote lists only — local lists are not pushed on signup/login; use CSV export/import to migrate.
+**Account:** the footer **Log in** button (logged out) opens the login dialog; log in or sign up with email and password, and new signups also need the invite code you were given. Once logged in, Settings → **Account** shows the session and the delete-account action. Lists sync through the CineQueue backend (see [Account backend](#account-backend-cloudflare-worker--d1)). Friends can browse each other's lists at `#friend/{userId}` (header **Friends** icon → View lists) once both sides accept a request. The session token stays in this browser and is never part of the synced payload. Connecting pulls remote lists only — local lists are not pushed on signup/login; use CSV export/import to migrate.
 
 ## User state (what gets saved)
 
@@ -299,7 +301,7 @@ Default CORS origins (hardcoded): `https://filmfroggies.com`, `https://www.filmf
 - Passwords: PBKDF2-SHA256, 100k iterations, per-user salt
 - Sessions: signed bearer token in `Authorization` header; not stored server-side
 - Rate limits (by IP / email): signup 5/hr per IP; login 15/15 min per IP; 5 failed logins/15 min per email
-- **Closed signups:** new accounts require a one-time invite code (Settings → Account → Create account); wrong or used codes get the same neutral response as a duplicate email
+- **Closed signups:** new accounts require a one-time invite code (**Log in → Sign up**); wrong or used codes get the same neutral response as a duplicate email
 - Signup and friend-request responses are intentionally neutral (no email enumeration)
 
 Logout today clears the browser session only; tokens remain valid until expiry unless you add server-side revocation.
@@ -322,7 +324,7 @@ Open `#admin` on the site (hash-only route, e.g. `https://filmfroggies.com/#admi
 npm run serve    # http://localhost:8743
 ```
 
-Open **Settings → Account**. Localhost talks to the deployed Worker URL directly (CORS must allow your dev origin — the defaults cover port **8743**).
+Log in through the footer **Log in** button. Localhost talks to the deployed Worker URL directly (CORS must allow your dev origin — the defaults cover port **8743**).
 
 To run the Worker itself locally against a local D1:
 
@@ -439,7 +441,7 @@ Build command: `npm run build`. Publish directory: `build`. **No Netlify Functio
 
 | Command | Use |
 |---------|-----|
-| `npm run serve` | Static site on port 8743; sign in via Settings → Account; TMDB + account API hit the deployed Worker directly |
+| `npm run serve` | Static site on port 8743; logged-out visitors see the splash page; TMDB + account API hit the deployed Worker directly |
 | `cd worker && wrangler dev` | Run the account API + TMDB proxy locally (see [Account backend](#account-backend-cloudflare-worker--d1)) |
 | `cd worker && npm test` | Worker auth, CORS, TMDB proxy, movies batch cache, and rate-limit unit tests |
 

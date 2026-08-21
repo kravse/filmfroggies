@@ -342,6 +342,9 @@ function navigateToAdmin(options = {}) {
   if (typeof closeSettings === "function" && !settingsDialog.hidden) {
     closeSettings();
   }
+  if (typeof closeLogin === "function" && !loginDialog.hidden) {
+    closeLogin();
+  }
   if (typeof clearFriendViewState === "function") {
     clearFriendViewState();
   }

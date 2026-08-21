@@ -144,6 +144,7 @@ function syncHeaderNavUi() {
 }
 
 function syncAppViewChrome() {
+  syncSplashUi();
   document.body.classList.toggle("view-custom-index", isCustomListIndexActive());
   document.body.classList.toggle("view-custom-detail", isCustomListDetailActive());
   document.body.classList.toggle("view-discover", isDiscoverActive());

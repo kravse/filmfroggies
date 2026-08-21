@@ -116,6 +116,10 @@ const PARTS = [
     title: "Friend list page helpers (generated from scripts/lib/friend-view.js)",
   },
   {
+    file: "00-app-splash.js",
+    title: "Logged-out splash content (generated from scripts/lib/splash.js)",
+  },
+  {
     file: "00-app-custom-list-merge.js",
     title: "Custom list Gist merge (generated from scripts/lib/custom-list-merge.js)",
   },
@@ -194,6 +198,10 @@ const PARTS = [
   {
     file: "15-admin.js",
     title: "Admin page",
+  },
+  {
+    file: "16-splash.js",
+    title: "Logged-out splash page",
   },
   {
     file: "08-init.js",

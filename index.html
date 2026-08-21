@@ -38,6 +38,7 @@
     <link rel="stylesheet" href="css/header.css" />
     <link rel="stylesheet" href="css/attribution.css" />
     <link rel="stylesheet" href="css/settings.css" />
+    <link rel="stylesheet" href="css/splash.css" />
     <link rel="stylesheet" href="css/cards.css" />
     <link rel="stylesheet" href="css/ratings.css" />
     <link rel="stylesheet" href="css/movie-detail.css" />
@@ -413,6 +414,188 @@
     </header>
 
     <main class="page-shell">
+      <section class="splash" id="splash" aria-labelledby="splash-title" hidden>
+        <div class="splash-hero">
+          <img
+            class="splash-mark"
+            src="images/froggy.png"
+            alt=""
+            width="84"
+            height="84"
+          />
+          <p class="splash-eyebrow">A hobby project, not a startup</p>
+          <h1 class="splash-title" id="splash-title">
+            <span class="splash-title-brand">film froggies</span>
+            <span class="splash-title-tagline">A movie tracker for your watched films and your watchlist.</span>
+          </h1>
+          <div class="splash-cta">
+            <button type="button" class="primary-btn splash-cta-btn" data-splash-action="signup">
+              Sign up
+            </button>
+            <p class="splash-cta-alt">
+              Been here before?
+              <button type="button" class="splash-link" data-splash-action="login">Log in</button>
+            </p>
+          </div>
+          <p class="splash-fineprint">
+            Invite-only, on account of the hobby-sized server.
+          </p>
+          <div class="splash-marquee" aria-hidden="true">
+            <div
+              class="splash-marquee-track"
+              id="splash-marquee-track"
+              data-splash-group="hero"
+              data-splash-variant="poster"
+            ></div>
+          </div>
+        </div>
+
+        <section class="splash-section">
+          <div class="splash-section-copy">
+            <h2>Two preset lists at the core</h2>
+            <p>
+              Watched is where films land once you&rsquo;ve seen them. Watchlist is
+              what&rsquo;s next, dragged into whatever order feels right. A film sits in
+              one or the other, not both. Custom lists layer on top when you want extra
+              groupings &mdash; they are not a third preset to maintain.
+            </p>
+          </div>
+          <div class="splash-section-visual splash-preview-row">
+            <div class="splash-preview">
+              <p class="splash-preview-label">Watched<span>3</span></p>
+              <div
+                class="splash-tiles"
+                data-splash-cols="3"
+                data-splash-group="watchedList"
+                data-splash-variant="titled"
+              ></div>
+            </div>
+            <div class="splash-preview">
+              <p class="splash-preview-label">Watchlist<span>3</span></p>
+              <div
+                class="splash-tiles"
+                data-splash-cols="3"
+                data-splash-group="watchlist"
+                data-splash-variant="titled"
+              ></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="splash-section">
+          <div class="splash-section-copy">
+            <h2>Rate it out of ten. Or don&rsquo;t.</h2>
+            <p>
+              Ratings are optional and nobody is averaging yours into a score out of
+              a hundred. You can log a viewing date when you mark something watched
+              &mdash; also optional &mdash; and rewatches keep every date.
+            </p>
+          </div>
+          <div class="splash-section-visual">
+            <div
+              class="splash-tiles"
+              data-splash-group="rated"
+              data-splash-variant="rated"
+            ></div>
+          </div>
+        </section>
+
+        <section class="splash-section">
+          <div class="splash-section-copy">
+            <h2>Custom lists for very specific moods</h2>
+            <p>
+              Up to 20 custom lists on top of the two presets. A rainy Sunday, a
+              body-horror night, films you will definitely finish this time. A movie
+              can sit in as many custom lists as you like, alongside Watched or
+              Watchlist.
+            </p>
+          </div>
+          <div class="splash-section-visual splash-preview-row">
+            <div class="splash-preview">
+              <p class="splash-preview-label splash-preview-label--custom">Rainy Sunday</p>
+              <div
+                class="splash-tiles"
+                data-splash-group="listSunday"
+                data-splash-variant="poster"
+              ></div>
+            </div>
+            <div class="splash-preview">
+              <p class="splash-preview-label splash-preview-label--custom">Body horror night</p>
+              <div
+                class="splash-tiles"
+                data-splash-group="listBodyHorror"
+                data-splash-variant="poster"
+              ></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="splash-section">
+          <div class="splash-section-copy">
+            <h2>See what your friends are on</h2>
+            <p>
+              Add someone by email; once you both accept, you can browse each
+              other&rsquo;s lists. That is the entire social feature. No comments, no
+              likes, no public feed &mdash; only people you&rsquo;ve accepted can see
+              your collection.
+            </p>
+          </div>
+          <div class="splash-section-visual">
+            <div class="splash-friend-card">
+              <div class="splash-friend-head">
+                <span class="splash-friend-avatar" aria-hidden="true">S</span>
+                <span class="splash-friend-name">Sam</span>
+                <span class="splash-friend-note">is on a Bong Joon Ho run</span>
+              </div>
+              <div
+                class="splash-tiles"
+                data-splash-group="friends"
+                data-splash-variant="titled"
+              ></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="splash-section">
+          <div class="splash-section-copy">
+            <h2>Find things before you forget they exist</h2>
+            <p>
+              Discover shows upcoming releases and what&rsquo;s in cinemas now, straight
+              from TMDB. Tap a title to add it to your watchlist.
+            </p>
+          </div>
+          <div class="splash-section-visual">
+            <div
+              class="splash-tiles"
+              data-splash-group="discover"
+              data-splash-variant="titled"
+            ></div>
+          </div>
+        </section>
+
+        <div class="splash-outro">
+          <h2>That&rsquo;s it. That&rsquo;s the site.</h2>
+          <p>
+            Signing up takes about ten seconds, assuming somebody gave you an invite
+            code.
+          </p>
+          <div class="splash-cta">
+            <button type="button" class="primary-btn splash-cta-btn" data-splash-action="signup">
+              Sign up
+            </button>
+            <p class="splash-cta-alt">
+              Already have an account?
+              <button type="button" class="splash-link" data-splash-action="login">Log in</button>
+            </p>
+          </div>
+          <p class="splash-attribution">
+            Posters and film data from
+            <a href="https://www.themoviedb.org/" rel="noopener noreferrer" target="_blank"
+              >The Movie Database</a
+            >. This product uses the TMDB API but is not endorsed or certified by TMDB.
+          </p>
+        </div>
+      </section>
       <section class="custom-lists-index" id="custom-lists-index" hidden>
         <p class="custom-lists-index-note" id="custom-lists-index-note">
           Up to 20 custom lists, 200 movies each. Movies can belong to multiple lists.
@@ -430,9 +613,9 @@
       <section class="friends-page" id="friends-index" hidden>
         <div class="friends-dock">
           <div id="settings-friends-signin" class="friends-dock-gate settings-friends-signin">
-            <p class="friends-dock-gate-text">Sign in to add friends and browse shared lists.</p>
+            <p class="friends-dock-gate-text">Log in to add friends and browse shared lists.</p>
             <button type="button" class="ghost-btn friends-dock-gate-btn" id="friends-signin-btn">
-              Open Settings
+              Log in
             </button>
           </div>
           <div id="account-friends-section" class="friends-dock-main account-friends-section" hidden>
@@ -880,6 +1063,16 @@
     <footer class="attribution-bar">
       <button
         type="button"
+        id="login-btn"
+        class="bar-text-btn login-btn"
+        aria-expanded="false"
+        aria-controls="login-dialog"
+        hidden
+      >
+        Log in
+      </button>
+      <button
+        type="button"
         id="settings-btn"
         class="bar-icon-btn settings-btn"
         aria-label="Settings"
@@ -906,10 +1099,10 @@
           type="button"
           id="about-btn"
           class="bar-icon-btn about-btn"
-          aria-label="About and TMDB attribution"
+          aria-label="TMDB attribution"
           aria-expanded="false"
           aria-controls="about-dialog"
-          title="About"
+          title="Attribution"
         >
           <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <circle
@@ -930,6 +1123,120 @@
         </button>
       </div>
     </footer>
+
+    <!-- Log in -->
+    <div id="login-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
+      <div class="sheet-backdrop" data-close-login></div>
+      <div
+        class="sheet-panel login-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="login-title"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="login-title">Log in</h2>
+          <button
+            type="button"
+            id="login-close"
+            class="icon-btn"
+            aria-label="Close log in"
+          >
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none">
+              <path
+                d="M6 6l8 8M14 6l-8 8"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+        <div class="sheet-scroll">
+          <div id="account-auth-fields" class="account-auth-card">
+            <div class="account-auth-intro">
+              <h4 class="account-card-title" id="account-auth-title">Log in to filmfroggies</h4>
+              <p class="sheet-note" id="account-auth-note">
+                Log in to pick up your lists on this device. Friends can browse them
+                when you both agree.
+              </p>
+            </div>
+            <div class="account-auth-tabs" role="tablist" aria-label="Account action">
+              <button
+                type="button"
+                class="storage-tab account-auth-tab"
+                id="account-auth-tab-login"
+                role="tab"
+                aria-selected="true"
+                aria-controls="account-auth-form"
+              >
+                Log in
+              </button>
+              <button
+                type="button"
+                class="storage-tab account-auth-tab"
+                id="account-auth-tab-signup"
+                role="tab"
+                aria-selected="false"
+                aria-controls="account-auth-form"
+                tabindex="-1"
+              >
+                Sign up
+              </button>
+            </div>
+            <div
+              id="account-auth-form"
+              class="sheet-form account-auth-form"
+              role="tabpanel"
+              aria-labelledby="account-auth-tab-login"
+            >
+              <label class="sheet-field" for="account-email-input">
+                <span class="sheet-field-label">Email</span>
+                <input
+                  type="email"
+                  class="sheet-field-input"
+                  id="account-email-input"
+                  placeholder="you@example.com"
+                  autocomplete="username"
+                  spellcheck="false"
+                />
+              </label>
+              <label class="sheet-field" for="account-password-input">
+                <span class="sheet-field-label">Password</span>
+                <input
+                  type="password"
+                  class="sheet-field-input"
+                  id="account-password-input"
+                  placeholder="Your password"
+                  autocomplete="current-password"
+                />
+              </label>
+              <label
+                class="sheet-field account-invite-field"
+                id="account-invite-field"
+                for="account-invite-input"
+                hidden
+              >
+                <span class="sheet-field-label">Invite code</span>
+                <input
+                  type="password"
+                  class="sheet-field-input"
+                  id="account-invite-input"
+                  placeholder="Required to create an account"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+              </label>
+            </div>
+            <div class="storage-panel-actions account-auth-actions">
+              <button type="button" id="account-submit" class="primary-btn">
+                Log in
+              </button>
+            </div>
+            <span class="status-text" id="account-status"></span>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Settings -->
     <div id="settings-dialog" class="sheet-dialog" hidden>
@@ -989,94 +1296,7 @@
             role="tabpanel"
             aria-labelledby="settings-tab-account"
           >
-            <p class="sheet-note">
-              Sign in to search TMDB and sync your lists across devices. Only list
-              data is stored on the server — never passwords in your lists export.
-            </p>
             <div id="account-fields" class="storage-panel">
-              <div id="account-auth-fields" class="account-auth-card">
-                <div class="account-auth-intro">
-                  <h4 class="account-card-title" id="account-auth-title">Sign in to use filmfroggies</h4>
-                  <p class="sheet-note">
-                    An account syncs your lists across devices and lets friends browse
-                    them when you both agree.
-                  </p>
-                </div>
-                <div class="account-auth-tabs" role="tablist" aria-label="Account action">
-                  <button
-                    type="button"
-                    class="storage-tab account-auth-tab"
-                    id="account-auth-tab-login"
-                    role="tab"
-                    aria-selected="true"
-                    aria-controls="account-auth-form"
-                  >
-                    Log in
-                  </button>
-                  <button
-                    type="button"
-                    class="storage-tab account-auth-tab"
-                    id="account-auth-tab-signup"
-                    role="tab"
-                    aria-selected="false"
-                    aria-controls="account-auth-form"
-                    tabindex="-1"
-                  >
-                    Create account
-                  </button>
-                </div>
-                <div
-                  id="account-auth-form"
-                  class="sheet-form account-auth-form"
-                  role="tabpanel"
-                  aria-labelledby="account-auth-tab-login"
-                >
-                  <label class="sheet-field" for="account-email-input">
-                    <span class="sheet-field-label">Email</span>
-                    <input
-                      type="email"
-                      class="sheet-field-input"
-                      id="account-email-input"
-                      placeholder="you@example.com"
-                      autocomplete="username"
-                      spellcheck="false"
-                    />
-                  </label>
-                  <label class="sheet-field" for="account-password-input">
-                    <span class="sheet-field-label">Password</span>
-                    <input
-                      type="password"
-                      class="sheet-field-input"
-                      id="account-password-input"
-                      placeholder="Your password"
-                      autocomplete="current-password"
-                    />
-                  </label>
-                  <label
-                    class="sheet-field account-invite-field"
-                    id="account-invite-field"
-                    for="account-invite-input"
-                    hidden
-                  >
-                    <span class="sheet-field-label">Invite code</span>
-                    <input
-                      type="password"
-                      class="sheet-field-input"
-                      id="account-invite-input"
-                      placeholder="Required to create an account"
-                      autocomplete="off"
-                      spellcheck="false"
-                    />
-                  </label>
-                </div>
-                <div class="storage-panel-actions account-auth-actions">
-                  <button type="button" id="account-submit" class="primary-btn">
-                    Log in
-                  </button>
-                </div>
-                <span class="status-text" id="account-status"></span>
-              </div>
-
               <div id="account-session-card" class="account-session-card" hidden>
                 <div class="account-session-profile">
                   <div class="account-avatar" id="account-avatar" aria-hidden="true">
@@ -1229,7 +1449,7 @@
       </div>
     </div>
 
-    <!-- About -->
+    <!-- TMDB attribution -->
     <div id="about-dialog" class="sheet-dialog" hidden>
       <div class="sheet-backdrop" data-close-about></div>
       <div
@@ -1239,12 +1459,12 @@
         aria-labelledby="about-title"
       >
         <div class="sheet-toolbar">
-          <h2 id="about-title">About</h2>
+          <h2 id="about-title">Attribution</h2>
           <button
             type="button"
             id="about-close"
             class="icon-btn"
-            aria-label="Close about"
+            aria-label="Close attribution"
           >
             <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none">
               <path
@@ -1258,19 +1478,14 @@
         </div>
         <div class="sheet-scroll">
           <section class="sheet-section">
-            <p>
-              Search TMDB, add movies to ordered lists, and browse them as a grid, a
-              list, or a full detail view. Your lists stay in this browser unless you
-              connect Gist sync.
-            </p>
-            <p class="attribution-statement">
-              This product uses the TMDB API but is not endorsed or certified by TMDB.
-            </p>
             <p class="sheet-note">
-              Metadata and images from
+              Posters and film data from
               <a href="https://www.themoviedb.org/" rel="noopener noreferrer" target="_blank"
                 >The Movie Database</a
               >.
+            </p>
+            <p class="attribution-statement">
+              This product uses the TMDB API but is not endorsed or certified by TMDB.
             </p>
           </section>
         </div>

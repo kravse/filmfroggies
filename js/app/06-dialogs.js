@@ -838,7 +838,7 @@ function onDetailRemapQueryInput(event) {
     return;
   }
   if (!hasTmdbAccess()) {
-    setDetailConfigSearchStatus("Add a TMDB credential in Settings to search.");
+    setDetailConfigSearchStatus("Log in to search TMDB.");
     return;
   }
   detailRemapSearchPicker.schedule(query);
@@ -1858,8 +1858,8 @@ function renderDetail() {
     let heading = "Loading…";
     let note = "";
     if (!hasTmdbAccess()) {
-      heading = "No TMDB credential";
-      note = "Open Settings and paste your TMDB credential to load this movie.";
+      heading = "Log in to see this movie";
+      note = "Log in or sign up to load details from TMDB.";
     } else if (movieErrors.has(detailMovieId)) {
       heading = "Could not load this movie";
       note = "TMDB did not return details. Check your credential and connection.";
@@ -2217,9 +2217,17 @@ function setAccountAuthMode(mode) {
     loginSelected ? "account-auth-tab-login" : "account-auth-tab-signup",
   );
   accountSubmitBtn.textContent = loginSelected ? "Log in" : "Create account";
+  if (loginTitle) {
+    loginTitle.textContent = loginSelected ? "Log in" : "Sign up";
+  }
   accountAuthTitle.textContent = loginSelected
-    ? `Sign in to use ${SITE_BRAND_NAME}`
-    : "Create an account";
+    ? `Log in to ${SITE_BRAND_NAME}`
+    : `Create your ${SITE_BRAND_NAME} account`;
+  if (accountAuthNote) {
+    accountAuthNote.textContent = loginSelected
+      ? "Log in to pick up your lists on this device. Friends can browse them when you both agree."
+      : "You need an invite code to sign up. Your lists follow you to every device you log in on.";
+  }
   accountPasswordInput.placeholder = loginSelected ? "Your password" : "At least 8 characters";
   accountPasswordInput.autocomplete = loginSelected ? "current-password" : "new-password";
   if (accountInviteField) {
@@ -2234,21 +2242,38 @@ function refreshSettings() {
   refreshCollectionTransferStatus();
 }
 
+// Settings holds nothing a logged-out visitor can act on, so every entry point
+// lands on the login dialog until there is an account.
 function openSettings() {
+  if (!accountSyncEnabled()) {
+    openLogin();
+    return;
+  }
   refreshSettings();
   setSettingsTab("account");
   settingsDialog.hidden = false;
   settingsBtn.setAttribute("aria-expanded", "true");
-  if (accountSyncEnabled()) {
-    settingsClose.focus({ preventScroll: true });
-  } else {
-    accountEmailInput.focus({ preventScroll: true });
-  }
+  settingsClose.focus({ preventScroll: true });
 }
 
 function closeSettings() {
   settingsDialog.hidden = true;
   settingsBtn.setAttribute("aria-expanded", "false");
+}
+
+function openLogin(options = {}) {
+  refreshAccountSection();
+  if (options.mode === "signup") {
+    setAccountAuthMode("signup");
+  }
+  loginDialog.hidden = false;
+  loginBtn.setAttribute("aria-expanded", "true");
+  accountEmailInput.focus({ preventScroll: true });
+}
+
+function closeLogin() {
+  loginDialog.hidden = true;
+  loginBtn.setAttribute("aria-expanded", "false");
 }
 
 function openFriends() {
@@ -2391,6 +2416,7 @@ async function onAccountAuth() {
     if (accountInviteInput) {
       accountInviteInput.value = "";
     }
+    closeLogin();
     refreshSettings();
     refreshViewModeForActiveList();
     render();
@@ -2402,9 +2428,11 @@ async function onAccountAuth() {
   }
 }
 
+/** Logging out lands on the splash rather than a modal asking you back in. */
 function onAccountLogout() {
   disconnectAccount();
   refreshSettings();
+  closeSettings();
   refreshViewModeForActiveList();
   render();
   hydrateActiveList();
@@ -2437,9 +2465,12 @@ async function onAccountDeleteConfirm() {
     closeAccountDeleteConfirm();
     disconnectAccount();
     refreshSettings();
+    closeSettings();
     refreshViewModeForActiveList();
     render();
     hydrateActiveList();
+    // The login dialog is the only surface left that can carry the outcome.
+    openLogin();
     setStatus(accountStatus, "Account deleted. Your lists are still on this device.", "ok");
   } catch (error) {
     setStatus(accountDeleteStatus, error.message, "error");

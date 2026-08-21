@@ -797,6 +797,8 @@ function syncHeaderViewTitle() {
 function syncAccountLoginGate() {
   const loggedIn = accountSyncEnabled();
   document.body.classList.toggle("account-login-required", !loggedIn);
+  settingsBtn.hidden = !loggedIn;
+  loginBtn.hidden = loggedIn;
   if (searchInput) {
     searchInput.disabled = !loggedIn;
   }
@@ -816,7 +818,7 @@ function updateListHeader() {
   if (isFriendsIndexActive()) {
     listSubtitleEl.textContent = accountSyncEnabled()
       ? "Add friends by email, then open their shared lists"
-      : "Sign in to connect with friends";
+      : "Log in to connect with friends";
     return;
   }
   if (isAdminViewActive()) {
@@ -876,7 +878,7 @@ function updateListHeader() {
   } else {
     listSubtitleEl.textContent = hasTmdbAccess()
       ? "Search TMDB to add your first movie"
-      : "Sign in via Settings → Account to get started";
+      : "Log in to get started";
   }
 }
 
@@ -913,7 +915,7 @@ function renderEmptyState(count) {
   emptyState.hidden = false;
   if (isCustomListDetailActive()) {
     if (!hasTmdbAccess()) {
-      emptyState.innerHTML = `<strong>Sign in to use ${SITE_BRAND_NAME}</strong><p class="empty-state-hint">Open Settings → Account to log in or create an account.</p>`;
+      emptyState.innerHTML = `<strong>Log in to use ${SITE_BRAND_NAME}</strong><p class="empty-state-hint">Log in or sign up to start your collection.</p>`;
       return;
     }
     emptyState.innerHTML = `<strong>This list is empty</strong>
@@ -935,7 +937,7 @@ function renderEmptyState(count) {
     return;
   }
   if (!hasTmdbAccess()) {
-    emptyState.innerHTML = `<strong>Sign in to use ${SITE_BRAND_NAME}</strong><p class="empty-state-hint">Open Settings → Account to log in or create an account.</p>`;
+    emptyState.innerHTML = `<strong>Log in to use ${SITE_BRAND_NAME}</strong><p class="empty-state-hint">Log in or sign up to start your collection.</p>`;
     return;
   }
   emptyState.innerHTML = `<strong>Nothing in ${appCardHtml.escapeHtml(listName)} yet</strong>

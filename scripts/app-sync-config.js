@@ -504,6 +504,22 @@ const APP_SYNC_ENTRIES = [
     exports: ["movieShareUrl", "isMovieOwned"],
   },
   {
+    sources: [path.join(LIB, "splash.js")],
+    target: "00-app-splash.js",
+    globalName: "appSplash",
+    header: "Generated from scripts/lib/splash.js — run npm run bundle",
+    exports: [
+      "SPLASH_MOVIES",
+      "SPLASH_GROUPS",
+      "SPLASH_GROUP_NAMES",
+      "splashMovie",
+      "splashGroupEntries",
+      "splashTiles",
+      "splashTileHtml",
+      "splashTilesHtml",
+    ],
+  },
+  {
     sources: [path.join(LIB, "friend-view.js")],
     target: "00-app-friend-view.js",
     globalName: "appFriendView",
