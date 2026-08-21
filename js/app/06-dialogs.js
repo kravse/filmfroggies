@@ -144,7 +144,7 @@ function addDiscoverPresetMembership(listId, movieId) {
     return;
   }
   recordAddedAt(movieId);
-  refreshViewsAfterListMembershipChange();
+  refreshViewsAfterListMembershipChange({ movieId });
   if (detailMovieId === movieId) {
     renderDetail();
   }
@@ -155,7 +155,7 @@ function removeDiscoverPresetMembership(listId, movieId) {
   if (!commitListChange(nextLists, { movieId, status: appSyncMerge.REMOVED_STATUS })) {
     return;
   }
-  refreshViewsAfterListMembershipChange();
+  refreshViewsAfterListMembershipChange({ movieId });
   if (detailMovieId === movieId) {
     renderDetail();
   }
@@ -172,41 +172,72 @@ function toggleDiscoverPresetMembership(listId, movieId) {
   }
 }
 
+function discoverRemoveConfirmCopy(listId, title) {
+  const quotedTitle = `“${title}”`;
+  if (listId === appLists.WATCHED_ID) {
+    return {
+      title: "Remove from watched",
+      message: `Remove ${quotedTitle} from your watched list?`,
+      okLabel: "Remove from watched",
+    };
+  }
+  return {
+    title: "Remove from watchlist",
+    message: `Remove ${quotedTitle} from your watchlist?`,
+    okLabel: "Remove from watchlist",
+  };
+}
+
+function openDiscoverPresetConfirm(listId, movieId, { remove = false } = {}) {
+  pendingDiscoverAddMovieId = Number(movieId);
+  pendingDiscoverAddListId = listId;
+  pendingDiscoverConfirmRemove = remove;
+  const record = movieById.get(pendingDiscoverAddMovieId);
+  const title = record?.title || `Movie ${pendingDiscoverAddMovieId}`;
+  const copy = remove
+    ? discoverRemoveConfirmCopy(listId, title)
+    : discoverAddConfirmCopy(listId, title);
+  discoverAddConfirmTitle.textContent = copy.title;
+  discoverAddConfirmMessage.textContent = copy.message;
+  discoverAddConfirmOk.textContent = copy.okLabel;
+  discoverAddConfirmOk.classList.toggle("confirm-danger", remove);
+  discoverAddConfirmDialog.hidden = false;
+  discoverAddConfirmCancel.focus({ preventScroll: true });
+}
+
 function requestDiscoverPresetMembership(listId, movieId) {
   if (!isDiscoverActive() || !appLists.isListId(listId)) {
     return;
   }
   if (discoverPresetMembership(listId, movieId)) {
-    removeDiscoverPresetMembership(listId, movieId);
+    openDiscoverPresetConfirm(listId, movieId, { remove: true });
     return;
   }
   if (listId === appLists.WATCHED_ID) {
     requestWatchMovie(Number(movieId), { fromDiscover: true });
     return;
   }
-  pendingDiscoverAddMovieId = Number(movieId);
-  pendingDiscoverAddListId = listId;
-  const record = movieById.get(pendingDiscoverAddMovieId);
-  const title = record?.title || `Movie ${pendingDiscoverAddMovieId}`;
-  const copy = discoverAddConfirmCopy(listId, title);
-  discoverAddConfirmTitle.textContent = copy.title;
-  discoverAddConfirmMessage.textContent = copy.message;
-  discoverAddConfirmOk.textContent = copy.okLabel;
-  discoverAddConfirmDialog.hidden = false;
-  discoverAddConfirmCancel.focus({ preventScroll: true });
+  openDiscoverPresetConfirm(listId, movieId);
 }
 
 function closeDiscoverAddConfirm() {
   pendingDiscoverAddMovieId = null;
   pendingDiscoverAddListId = null;
+  pendingDiscoverConfirmRemove = false;
+  discoverAddConfirmOk?.classList.remove("confirm-danger");
   discoverAddConfirmDialog.hidden = true;
 }
 
 function confirmDiscoverPresetAdd() {
   const movieId = pendingDiscoverAddMovieId;
   const listId = pendingDiscoverAddListId;
+  const removing = pendingDiscoverConfirmRemove;
   closeDiscoverAddConfirm();
   if (movieId == null || listId == null) {
+    return;
+  }
+  if (removing) {
+    removeDiscoverPresetMembership(listId, movieId);
     return;
   }
   addDiscoverPresetMembership(listId, movieId);
@@ -353,10 +384,10 @@ function saveDetailListPicker() {
   if (customChanged) {
     if (isCustomListDetailActive() && !activeMovieIds().includes(movieId)) {
       dismissDetailOverlay();
-      refreshViewsAfterListMembershipChange();
+      refreshViewsAfterListMembershipChange({ movieId });
       return;
     }
-    refreshViewsAfterListMembershipChange();
+    refreshViewsAfterListMembershipChange({ movieId });
   }
   renderDetail();
 }
@@ -1596,7 +1627,7 @@ function saveDetailAddForm() {
 
   persistUserState();
   notifyCustomListMovieCaps(cappedListNames);
-  refreshViewsAfterListMembershipChange();
+  refreshViewsAfterListMembershipChange({ movieId });
   detailAddSessionActive = false;
   detailAddWatchDateActive = false;
   detailRatingEditorOpen = false;

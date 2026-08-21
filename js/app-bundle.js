@@ -286,6 +286,7 @@ let detailAddSavedSnapshot = null;
 let detailAddDraftMovieId = null;
 let detailAddDiscardPendingAction = null;
 let detailUnderlayRenderPending = false;
+let detailUnderlayPatchMovieId = null;
 let detailRemapCandidateId = null;
 let detailRemapQuery = "";
 let detailRemapResults = [];
@@ -295,6 +296,7 @@ let pendingWatchMovieId = null;
 let watchConfirmWatchDateActive = false;
 let pendingDiscoverAddMovieId = null;
 let pendingDiscoverAddListId = null;
+let pendingDiscoverConfirmRemove = false;
 let pendingCustomListDeleteId = null;
 let pendingFriendRemoveId = null;
 let tmdbCredential = "";
@@ -9183,6 +9185,23 @@ function discoverCardActionsHtml(movieId) {
   return `<div class="card-body-ratings card-body-ratings--interactive discover-card-actions">${buttons}</div>`;
 }
 
+/** Patch discover preset buttons on one card without rebuilding the grid. */
+function syncDiscoverCardMembershipUi(movieId) {
+  if (!isDiscoverActive() || !grid) {
+    return false;
+  }
+  const row = grid.querySelector(`.movie-row[data-movie-id="${movieId}"]`);
+  if (!row) {
+    return false;
+  }
+  const actions = row.querySelector(".discover-card-actions");
+  if (!actions) {
+    return false;
+  }
+  actions.outerHTML = discoverCardActionsHtml(movieId);
+  return true;
+}
+
 function discoverCardTextHtml(movieId, record) {
   const titleRating =
     discoverTab === "now-playing" ? cardFanRatingHtml(movieId) : "";
@@ -10173,19 +10192,7 @@ function commitListChange(nextLists, statusChange) {
 }
 
 /** Re-render grids after list membership changes; defer while detail overlay is open. */
-function refreshViewsAfterListMembershipChange() {
-  if (detailMovieId != null) {
-    detailUnderlayRenderPending = true;
-    return;
-  }
-  flushUnderlayAfterDetailClose();
-}
-
-function flushUnderlayAfterDetailClose() {
-  if (!detailUnderlayRenderPending) {
-    return;
-  }
-  detailUnderlayRenderPending = false;
+function renderActiveUnderlayView() {
   if (isCustomListIndexActive()) {
     renderCustomListsIndex();
   } else if (isDiscoverActive()) {
@@ -10195,6 +10202,33 @@ function flushUnderlayAfterDetailClose() {
   } else {
     render();
   }
+}
+
+function refreshViewsAfterListMembershipChange(options = {}) {
+  const movieId = Number(options.movieId);
+  const patchMovieId = Number.isInteger(movieId) && movieId > 0 ? movieId : null;
+  if (detailMovieId != null) {
+    detailUnderlayRenderPending = true;
+    detailUnderlayPatchMovieId = patchMovieId;
+    return;
+  }
+  if (patchMovieId != null && syncDiscoverCardMembershipUi(patchMovieId)) {
+    return;
+  }
+  renderActiveUnderlayView();
+}
+
+function flushUnderlayAfterDetailClose() {
+  if (!detailUnderlayRenderPending) {
+    return;
+  }
+  const patchMovieId = detailUnderlayPatchMovieId;
+  detailUnderlayRenderPending = false;
+  detailUnderlayPatchMovieId = null;
+  if (patchMovieId != null && syncDiscoverCardMembershipUi(patchMovieId)) {
+    return;
+  }
+  renderActiveUnderlayView();
 }
 
 function watchMovie(movieId, watchedOn, rating) {
@@ -10221,7 +10255,7 @@ function watchMovie(movieId, watchedOn, rating) {
     dismissDetailOverlay();
     return;
   }
-  refreshViewsAfterListMembershipChange();
+  refreshViewsAfterListMembershipChange({ movieId });
   if (detailMovieId === movieId) {
     renderDetail();
   }
@@ -10312,7 +10346,7 @@ function removeMoviePresetMembership(movieId) {
   updateAddedAt(appAddedAt.removeAddedAt(userState.addedAt, movieId));
   recordMovieStatus(movieId, appSyncMerge.REMOVED_STATUS);
   persistUserState();
-  refreshViewsAfterListMembershipChange();
+  refreshViewsAfterListMembershipChange({ movieId });
   return true;
 }
 
@@ -10535,7 +10569,7 @@ function addDiscoverPresetMembership(listId, movieId) {
     return;
   }
   recordAddedAt(movieId);
-  refreshViewsAfterListMembershipChange();
+  refreshViewsAfterListMembershipChange({ movieId });
   if (detailMovieId === movieId) {
     renderDetail();
   }
@@ -10546,7 +10580,7 @@ function removeDiscoverPresetMembership(listId, movieId) {
   if (!commitListChange(nextLists, { movieId, status: appSyncMerge.REMOVED_STATUS })) {
     return;
   }
-  refreshViewsAfterListMembershipChange();
+  refreshViewsAfterListMembershipChange({ movieId });
   if (detailMovieId === movieId) {
     renderDetail();
   }
@@ -10563,41 +10597,72 @@ function toggleDiscoverPresetMembership(listId, movieId) {
   }
 }
 
+function discoverRemoveConfirmCopy(listId, title) {
+  const quotedTitle = `“${title}”`;
+  if (listId === appLists.WATCHED_ID) {
+    return {
+      title: "Remove from watched",
+      message: `Remove ${quotedTitle} from your watched list?`,
+      okLabel: "Remove from watched",
+    };
+  }
+  return {
+    title: "Remove from watchlist",
+    message: `Remove ${quotedTitle} from your watchlist?`,
+    okLabel: "Remove from watchlist",
+  };
+}
+
+function openDiscoverPresetConfirm(listId, movieId, { remove = false } = {}) {
+  pendingDiscoverAddMovieId = Number(movieId);
+  pendingDiscoverAddListId = listId;
+  pendingDiscoverConfirmRemove = remove;
+  const record = movieById.get(pendingDiscoverAddMovieId);
+  const title = record?.title || `Movie ${pendingDiscoverAddMovieId}`;
+  const copy = remove
+    ? discoverRemoveConfirmCopy(listId, title)
+    : discoverAddConfirmCopy(listId, title);
+  discoverAddConfirmTitle.textContent = copy.title;
+  discoverAddConfirmMessage.textContent = copy.message;
+  discoverAddConfirmOk.textContent = copy.okLabel;
+  discoverAddConfirmOk.classList.toggle("confirm-danger", remove);
+  discoverAddConfirmDialog.hidden = false;
+  discoverAddConfirmCancel.focus({ preventScroll: true });
+}
+
 function requestDiscoverPresetMembership(listId, movieId) {
   if (!isDiscoverActive() || !appLists.isListId(listId)) {
     return;
   }
   if (discoverPresetMembership(listId, movieId)) {
-    removeDiscoverPresetMembership(listId, movieId);
+    openDiscoverPresetConfirm(listId, movieId, { remove: true });
     return;
   }
   if (listId === appLists.WATCHED_ID) {
     requestWatchMovie(Number(movieId), { fromDiscover: true });
     return;
   }
-  pendingDiscoverAddMovieId = Number(movieId);
-  pendingDiscoverAddListId = listId;
-  const record = movieById.get(pendingDiscoverAddMovieId);
-  const title = record?.title || `Movie ${pendingDiscoverAddMovieId}`;
-  const copy = discoverAddConfirmCopy(listId, title);
-  discoverAddConfirmTitle.textContent = copy.title;
-  discoverAddConfirmMessage.textContent = copy.message;
-  discoverAddConfirmOk.textContent = copy.okLabel;
-  discoverAddConfirmDialog.hidden = false;
-  discoverAddConfirmCancel.focus({ preventScroll: true });
+  openDiscoverPresetConfirm(listId, movieId);
 }
 
 function closeDiscoverAddConfirm() {
   pendingDiscoverAddMovieId = null;
   pendingDiscoverAddListId = null;
+  pendingDiscoverConfirmRemove = false;
+  discoverAddConfirmOk?.classList.remove("confirm-danger");
   discoverAddConfirmDialog.hidden = true;
 }
 
 function confirmDiscoverPresetAdd() {
   const movieId = pendingDiscoverAddMovieId;
   const listId = pendingDiscoverAddListId;
+  const removing = pendingDiscoverConfirmRemove;
   closeDiscoverAddConfirm();
   if (movieId == null || listId == null) {
+    return;
+  }
+  if (removing) {
+    removeDiscoverPresetMembership(listId, movieId);
     return;
   }
   addDiscoverPresetMembership(listId, movieId);
@@ -10744,10 +10809,10 @@ function saveDetailListPicker() {
   if (customChanged) {
     if (isCustomListDetailActive() && !activeMovieIds().includes(movieId)) {
       dismissDetailOverlay();
-      refreshViewsAfterListMembershipChange();
+      refreshViewsAfterListMembershipChange({ movieId });
       return;
     }
-    refreshViewsAfterListMembershipChange();
+    refreshViewsAfterListMembershipChange({ movieId });
   }
   renderDetail();
 }
@@ -11987,7 +12052,7 @@ function saveDetailAddForm() {
 
   persistUserState();
   notifyCustomListMovieCaps(cappedListNames);
-  refreshViewsAfterListMembershipChange();
+  refreshViewsAfterListMembershipChange({ movieId });
   detailAddSessionActive = false;
   detailAddWatchDateActive = false;
   detailRatingEditorOpen = false;

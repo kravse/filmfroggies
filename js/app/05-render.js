@@ -179,6 +179,23 @@ function discoverCardActionsHtml(movieId) {
   return `<div class="card-body-ratings card-body-ratings--interactive discover-card-actions">${buttons}</div>`;
 }
 
+/** Patch discover preset buttons on one card without rebuilding the grid. */
+function syncDiscoverCardMembershipUi(movieId) {
+  if (!isDiscoverActive() || !grid) {
+    return false;
+  }
+  const row = grid.querySelector(`.movie-row[data-movie-id="${movieId}"]`);
+  if (!row) {
+    return false;
+  }
+  const actions = row.querySelector(".discover-card-actions");
+  if (!actions) {
+    return false;
+  }
+  actions.outerHTML = discoverCardActionsHtml(movieId);
+  return true;
+}
+
 function discoverCardTextHtml(movieId, record) {
   const titleRating =
     discoverTab === "now-playing" ? cardFanRatingHtml(movieId) : "";
@@ -1169,19 +1186,7 @@ function commitListChange(nextLists, statusChange) {
 }
 
 /** Re-render grids after list membership changes; defer while detail overlay is open. */
-function refreshViewsAfterListMembershipChange() {
-  if (detailMovieId != null) {
-    detailUnderlayRenderPending = true;
-    return;
-  }
-  flushUnderlayAfterDetailClose();
-}
-
-function flushUnderlayAfterDetailClose() {
-  if (!detailUnderlayRenderPending) {
-    return;
-  }
-  detailUnderlayRenderPending = false;
+function renderActiveUnderlayView() {
   if (isCustomListIndexActive()) {
     renderCustomListsIndex();
   } else if (isDiscoverActive()) {
@@ -1191,6 +1196,33 @@ function flushUnderlayAfterDetailClose() {
   } else {
     render();
   }
+}
+
+function refreshViewsAfterListMembershipChange(options = {}) {
+  const movieId = Number(options.movieId);
+  const patchMovieId = Number.isInteger(movieId) && movieId > 0 ? movieId : null;
+  if (detailMovieId != null) {
+    detailUnderlayRenderPending = true;
+    detailUnderlayPatchMovieId = patchMovieId;
+    return;
+  }
+  if (patchMovieId != null && syncDiscoverCardMembershipUi(patchMovieId)) {
+    return;
+  }
+  renderActiveUnderlayView();
+}
+
+function flushUnderlayAfterDetailClose() {
+  if (!detailUnderlayRenderPending) {
+    return;
+  }
+  const patchMovieId = detailUnderlayPatchMovieId;
+  detailUnderlayRenderPending = false;
+  detailUnderlayPatchMovieId = null;
+  if (patchMovieId != null && syncDiscoverCardMembershipUi(patchMovieId)) {
+    return;
+  }
+  renderActiveUnderlayView();
 }
 
 function watchMovie(movieId, watchedOn, rating) {
@@ -1217,7 +1249,7 @@ function watchMovie(movieId, watchedOn, rating) {
     dismissDetailOverlay();
     return;
   }
-  refreshViewsAfterListMembershipChange();
+  refreshViewsAfterListMembershipChange({ movieId });
   if (detailMovieId === movieId) {
     renderDetail();
   }
@@ -1308,7 +1340,7 @@ function removeMoviePresetMembership(movieId) {
   updateAddedAt(appAddedAt.removeAddedAt(userState.addedAt, movieId));
   recordMovieStatus(movieId, appSyncMerge.REMOVED_STATUS);
   persistUserState();
-  refreshViewsAfterListMembershipChange();
+  refreshViewsAfterListMembershipChange({ movieId });
   return true;
 }
 
