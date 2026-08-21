@@ -203,7 +203,7 @@ async function requireUser(request, env) {
   const nowMs = Date.now();
   const session = await verifySessionToken(env.SESSION_SECRET, readBearerToken(request), nowMs);
   if (!session) return null;
-  if (!(await sessionIsActive(env, session, nowMs))) return null;
+  if (!(await sessionIsActive(env, { jti: session.jti, userId: session.uid }, nowMs))) return null;
   return session;
 }
 

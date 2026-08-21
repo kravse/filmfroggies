@@ -132,6 +132,16 @@ test("sessionIsActive and revokeSession", async () => {
   assert.equal(await sessionIsActive(env, { jti, userId: 7 }, nowMs), false);
 });
 
+test("sessionIsActive accepts uid from verifySessionToken shape", async () => {
+  const { env } = mockDb();
+  const nowMs = Date.now();
+  const jti = generateJti();
+  await insertSession(env, { jti, userId: 9, expiresAtMs: nowMs + 60_000 }, nowMs);
+
+  assert.equal(await sessionIsActive(env, { uid: 9, jti, exp: nowMs + 60_000 }, nowMs), true);
+  assert.equal(await sessionIsActive(env, { uid: 9, jti: "" }, nowMs), false);
+});
+
 test("revokeAllUserSessions removes all rows for user", async () => {
   const { env } = mockDb();
   const nowMs = Date.now();

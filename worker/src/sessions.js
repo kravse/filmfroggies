@@ -69,11 +69,15 @@ export async function insertSession(env, { jti, userId, expiresAtMs }, nowMs) {
   ]);
 }
 
-export async function sessionIsActive(env, { jti, userId }, nowMs) {
+export async function sessionIsActive(env, { jti, userId, uid }, nowMs) {
+  const resolvedUserId = userId ?? uid;
+  if (!jti || !Number.isInteger(resolvedUserId)) {
+    return false;
+  }
   const row = await env.DB.prepare(
     "SELECT 1 AS ok FROM sessions WHERE jti = ?1 AND user_id = ?2 AND expires_at > ?3",
   )
-    .bind(jti, userId, nowMs)
+    .bind(jti, resolvedUserId, nowMs)
     .first();
   return Boolean(row);
 }
