@@ -7,6 +7,7 @@ const {
   TMDB_AUTH_KEY,
   HOSTED_SESSION_KEY,
   GIST_SYNC_KEY,
+  LAST_ACCOUNT_USER_ID_KEY,
   USER_STATE_VERSION,
   defaultUserState,
   normalizePreferences,
@@ -15,7 +16,9 @@ const {
   serializeUserState,
   touchUserState,
   userStateSignature,
+  userStateAfterAccountConnect,
 } = require("../scripts/lib/user-state");
+const { mergeUserStates } = require("../scripts/lib/sync-merge");
 
 test("storage keys are distinct so credentials never ride along with state", () => {
   assert.equal(USER_STATE_KEY, "moviecollector-user-state");
@@ -30,8 +33,9 @@ test("storage keys are distinct so credentials never ride along with state", () 
       TMDB_AUTH_KEY,
       HOSTED_SESSION_KEY,
       GIST_SYNC_KEY,
+      LAST_ACCOUNT_USER_ID_KEY,
     ]).size,
-    5,
+    6,
   );
 });
 
@@ -340,4 +344,24 @@ test("touchUserState stamps updatedAt without mutating the input", () => {
   const touched = touchUserState(state, new Date("2026-08-18T12:00:00.000Z"));
   assert.equal(touched.updatedAt, "2026-08-18T12:00:00.000Z");
   assert.equal(state.updatedAt, null);
+});
+
+test("userStateAfterAccountConnect adopts remote only when switching accounts", () => {
+  const remote = normalizeUserState({
+    lists: [{ id: "watched", movieIds: [222] }, { id: "watchlist", movieIds: [] }],
+    statuses: { 222: { status: "watched", at: "2026-01-02T00:00:00.000Z" } },
+  });
+  const adopted = userStateAfterAccountConnect(remote);
+  assert.deepEqual(adopted.lists.find((list) => list.id === "watched").movieIds, [222]);
+
+  const local = normalizeUserState({
+    lists: [{ id: "watched", movieIds: [111] }, { id: "watchlist", movieIds: [] }],
+    statuses: { 111: { status: "watched", at: "2026-01-01T00:00:00.000Z" } },
+  });
+  const merged = normalizeUserState(mergeUserStates(local, remote));
+  assert.deepEqual(merged.lists.find((list) => list.id === "watched").movieIds, [111, 222]);
+});
+
+test("userStateAfterAccountConnect returns default state when remote is empty", () => {
+  assert.deepEqual(userStateAfterAccountConnect(null), defaultUserState());
 });

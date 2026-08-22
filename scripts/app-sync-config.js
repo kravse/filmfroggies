@@ -409,6 +409,7 @@ const APP_SYNC_ENTRIES = [
       "TMDB_AUTH_KEY",
       "HOSTED_SESSION_KEY",
       "ACCOUNT_KEY",
+      "LAST_ACCOUNT_USER_ID_KEY",
       "USER_STATE_VERSION",
       "defaultUserState",
       "normalizePreferences",
@@ -417,6 +418,7 @@ const APP_SYNC_ENTRIES = [
       "serializeUserState",
       "touchUserState",
       "userStateSignature",
+      "userStateAfterAccountConnect",
     ],
   },
   {

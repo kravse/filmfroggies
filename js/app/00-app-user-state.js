@@ -16,6 +16,8 @@ const appUserState = (function () {
   const TMDB_AUTH_KEY = "moviecollector-tmdb-auth";
   const HOSTED_SESSION_KEY = "moviecollector-hosted-session";
   const ACCOUNT_KEY = "moviecollector-account";
+  /** Survives token clear on 401 so re-login can merge; login to a new id replaces local state. */
+  const LAST_ACCOUNT_USER_ID_KEY = "moviecollector-last-account-user-id";
   const USER_STATE_VERSION = 4;
 
   const VIEW_MODES = new Set(["cards", "detail"]);
@@ -259,6 +261,14 @@ const appUserState = (function () {
     });
   }
 
+  /**
+   * Login/signup pulls remote lists only — never merges with whatever was left
+   * in localStorage from a previous account on this browser.
+   */
+  function userStateAfterAccountConnect(remoteState) {
+    return remoteState ? normalizeUserState(remoteState) : defaultUserState();
+  }
+
   return {
     USER_STATE_KEY,
     USER_STATE_BACKUP_KEY,
@@ -266,6 +276,7 @@ const appUserState = (function () {
     TMDB_AUTH_KEY,
     HOSTED_SESSION_KEY,
     ACCOUNT_KEY,
+    LAST_ACCOUNT_USER_ID_KEY,
     USER_STATE_VERSION,
     defaultUserState,
     normalizePreferences,
@@ -274,5 +285,6 @@ const appUserState = (function () {
     serializeUserState,
     touchUserState,
     userStateSignature,
+    userStateAfterAccountConnect,
   };
 })();

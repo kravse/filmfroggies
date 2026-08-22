@@ -46,6 +46,20 @@ function loadUserState() {
   return userState;
 }
 
+/** Drops list data from this browser without touching the account token. */
+function resetLocalUserState() {
+  userState = appUserState.defaultUserState();
+  gridViewMode = userState.preferences.viewMode;
+  removeStorage(appUserState.USER_STATE_BACKUP_KEY);
+  writeUserStateToStorage();
+  if (typeof clearFriendViewState === "function") {
+    clearFriendViewState();
+  }
+  activeCustomListId = null;
+  appView = "main";
+  reorderModeActive = false;
+}
+
 function writeUserStateToStorage() {
   writeStorage(
     appUserState.USER_STATE_KEY,
@@ -53,7 +67,6 @@ function writeUserStateToStorage() {
   );
 }
 
-/** Snapshot taken before any merge replaces state, so a bad merge is undoable. */
 function backupUserState(state) {
   if (!state) {
     return;
@@ -298,6 +311,7 @@ function saveAccountConfig(config) {
       appUserState.ACCOUNT_KEY,
       appAccountSync.serializeAccountConfig(config),
     );
+    writeStorage(appUserState.LAST_ACCOUNT_USER_ID_KEY, String(config.userId));
   } else {
     removeStorage(appUserState.ACCOUNT_KEY);
   }
@@ -368,6 +382,16 @@ async function reconcileWithAccount(options = {}) {
   }
 
   const localSignature = appUserState.userStateSignature(userState);
+
+  if (options.pullOnly) {
+    const adopted = appUserState.userStateAfterAccountConnect(remoteState);
+    adoptMergedState(adopted);
+    return {
+      ok: true,
+      localChanged: appUserState.userStateSignature(userState) !== localSignature,
+    };
+  }
+
   const merged = mergeIntoUserState(remoteState);
   const mergedSignature = appUserState.userStateSignature(merged);
   const remoteSignature = remoteState
@@ -444,16 +468,19 @@ async function connectAccount(mode, email, password, inviteCode) {
             : "Could not sign in. Check your email and password.",
       };
     }
+    const previousUserId = Number(readStorage(appUserState.LAST_ACCOUNT_USER_ID_KEY));
+    const sameAccount =
+      Number.isInteger(previousUserId) && previousUserId === body.user.id;
     saveAccountConfig({
       token: body.token,
       email: body.user.email,
       userId: body.user.id,
       displayName: body.user.displayName || "",
     });
-    backupUserState(userState);
-    userState = { ...userState, storageMode: "account" };
-    writeUserStateToStorage();
-    await queueAccountSync({ push: false });
+    if (!sameAccount) {
+      resetLocalUserState();
+    }
+    await queueAccountSync({ push: false, pullOnly: !sameAccount });
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error.message };
@@ -475,6 +502,7 @@ async function logoutAccount() {
     /* offline or already revoked */
   }
   disconnectAccount();
+  resetLocalUserState();
 }
 
 async function deleteRemoteAccount(password) {
