@@ -129,17 +129,18 @@ function renderAdminUserRow(user) {
   const main = document.createElement("div");
   main.className = "admin-user-main";
 
-  const name = document.createElement("strong");
-  name.className = "admin-user-name";
-  name.textContent = user.displayName || user.email;
+  const email = document.createElement("span");
+  email.className = "admin-user-email";
+  email.textContent = user.email;
 
-  const detail = document.createElement("span");
-  detail.className = "admin-user-detail";
-  const emailLabel = user.displayName ? user.email : "";
-  const savedLabel = formatAdminSavedAt(user.savedAt);
-  detail.textContent = emailLabel ? `${emailLabel} · Saved ${savedLabel}` : `Saved ${savedLabel}`;
+  const saved = document.createElement("span");
+  const hasSaved = Number.isFinite(Number(user.savedAt)) && Number(user.savedAt) > 0;
+  saved.className = hasSaved ? "admin-user-saved" : "admin-user-saved is-never";
+  saved.textContent = hasSaved
+    ? `Saved ${formatAdminSavedAt(user.savedAt)}`
+    : "Never saved";
 
-  main.append(name, detail);
+  main.append(email, saved);
 
   const actions = document.createElement("div");
   actions.className = "admin-user-actions";
@@ -311,7 +312,7 @@ async function onAdminLoginSubmit(event) {
 }
 
 async function onAdminDeleteUser(user) {
-  const label = user.displayName || user.email;
+  const label = user.email;
   if (!window.confirm(`Delete account for ${label}? This cannot be undone.`)) {
     return;
   }
