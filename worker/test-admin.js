@@ -10,6 +10,10 @@ import {
   handleAdminRoutes,
   MAX_ADMIN_INVITE_BATCH,
 } from "./src/admin.js";
+import {
+  generateJti,
+  insertAdminSession,
+} from "./src/admin-sessions.js";
 import { createInviteCodes } from "./src/invite-codes.js";
 import {
   countCollectionMovies,
@@ -17,9 +21,10 @@ import {
 } from "./src/user-doc-stats.js";
 
 test("admin session token roundtrip and rejects user tokens", async () => {
+  const jti = generateJti();
   const exp = Date.now() + 1000;
-  const token = await createAdminSessionToken("secret", exp);
-  assert.deepEqual(await verifyAdminSessionToken("secret", token, Date.now()), { exp });
+  const token = await createAdminSessionToken("secret", jti, exp);
+  assert.deepEqual(await verifyAdminSessionToken("secret", token, Date.now()), { jti, exp });
   assert.equal(await verifyAdminSessionToken("wrong", token, Date.now()), null);
   assert.equal(await verifyAdminSessionToken("secret", token, Date.now() + 2000), null);
 
@@ -64,7 +69,7 @@ test("admin login issues token for valid password", async () => {
   const env = {
     ADMIN_PASSWORD: "secret-pass",
     ADMIN_SESSION_SECRET: "admin-session-key",
-    DB: makeRateLimitDb(),
+    DB: makeAdminTestDb(),
   };
   const response = await handleAdminRoutes(
     new Request("https://example.com/api/admin/login", {
@@ -89,7 +94,7 @@ test("admin stats requires bearer token", async () => {
   const env = {
     ADMIN_PASSWORD: "secret-pass",
     ADMIN_SESSION_SECRET: "admin-session-key",
-    DB: makeRateLimitDb(),
+    DB: makeAdminTestDb(),
   };
   const unauthorized = await handleAdminRoutes(
     new Request("https://example.com/api/admin/stats"),
@@ -113,23 +118,11 @@ test("admin stats requires bearer token", async () => {
   );
   const { token } = await loginRes.json();
 
-  const db = {
-    prepare(sql) {
-      return {
-        async first() {
-          if (/FROM users/.test(sql)) return { count: 3 };
-          if (/FROM invite_codes/.test(sql)) return { count: 2 };
-          return null;
-        },
-      };
-    },
-  };
-
   const statsRes = await handleAdminRoutes(
     new Request("https://example.com/api/admin/stats", {
       headers: { authorization: `Bearer ${token}` },
     }),
-    { ...env, DB: db },
+    env,
     "/api/admin/stats",
     json,
     makeDeps(),
@@ -148,19 +141,9 @@ test("admin stats reports the proxy signature diagnostic", async () => {
   const env = {
     ADMIN_PASSWORD: "secret-pass",
     ADMIN_SESSION_SECRET: "admin-session-key",
-    DB: {
-      prepare(sql) {
-        return {
-          async first() {
-            if (/FROM users/.test(sql)) return { count: 1 };
-            if (/FROM invite_codes/.test(sql)) return { count: 0 };
-            return null;
-          },
-        };
-      },
-    },
+    DB: makeAdminTestDb(),
   };
-  const token = await createAdminSessionToken(env.ADMIN_SESSION_SECRET, Date.now() + 60_000);
+  const token = await issueAdminSession(env, env.ADMIN_SESSION_SECRET);
   const proxySignature = {
     configured: true,
     verified: false,
@@ -181,6 +164,7 @@ test("admin stats reports the proxy signature diagnostic", async () => {
   const body = await response.json();
   assert.deepEqual(body.proxySignature, proxySignature);
   assert.equal(body.rateLimitIp, "198.51.100.7");
+  assert.equal(body.userCount, 3);
 });
 
 test("admin delete user calls deleteUserAccount", async () => {
@@ -188,32 +172,17 @@ test("admin delete user calls deleteUserAccount", async () => {
   const env = {
     ADMIN_PASSWORD: "secret-pass",
     ADMIN_SESSION_SECRET: "admin-session-key",
+    DB: makeAdminTestDb({ userIds: [7] }),
   };
-  const token = await createAdminSessionToken(env.ADMIN_SESSION_SECRET, Date.now() + 60_000);
+  const token = await issueAdminSession(env, env.ADMIN_SESSION_SECRET);
   let deletedId = null;
-  const db = {
-    prepare(sql) {
-      return {
-        bind(id) {
-          return {
-            async first() {
-              if (/SELECT id FROM users/.test(sql)) {
-                return id === 7 ? { id: 7 } : null;
-              }
-              return null;
-            },
-          };
-        },
-      };
-    },
-  };
 
   const response = await handleAdminRoutes(
     new Request("https://example.com/api/admin/users/7", {
       method: "DELETE",
       headers: { authorization: `Bearer ${token}` },
     }),
-    { ...env, DB: db },
+    env,
     "/api/admin/users/7",
     json,
     {
@@ -232,8 +201,9 @@ test("admin invite batch validates count", async () => {
   const env = {
     ADMIN_PASSWORD: "secret-pass",
     ADMIN_SESSION_SECRET: "admin-session-key",
+    DB: makeAdminTestDb(),
   };
-  const token = await createAdminSessionToken(env.ADMIN_SESSION_SECRET, Date.now() + 60_000);
+  const token = await issueAdminSession(env, env.ADMIN_SESSION_SECRET);
 
   const bad = await handleAdminRoutes(
     new Request("https://example.com/api/admin/invite-codes", {
@@ -272,9 +242,43 @@ test("countCollectionMovies counts unique ids across preset and custom lists", (
 });
 
 test("admin session token cannot be verified with user session secret", async () => {
+  const jti = generateJti();
   const exp = Date.now() + 60_000;
-  const token = await createAdminSessionToken("admin-only-secret", exp);
+  const token = await createAdminSessionToken("admin-only-secret", jti, exp);
   assert.equal(await verifyAdminSessionToken("user-session-secret", token, Date.now()), null);
+});
+
+test("admin logout revokes the session row", async () => {
+  const json = makeJsonResponder();
+  const env = {
+    ADMIN_PASSWORD: "secret-pass",
+    ADMIN_SESSION_SECRET: "admin-session-key",
+    DB: makeAdminTestDb(),
+  };
+  const token = await issueAdminSession(env, env.ADMIN_SESSION_SECRET);
+
+  const logoutRes = await handleAdminRoutes(
+    new Request("https://example.com/api/admin/logout", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+    }),
+    env,
+    "/api/admin/logout",
+    json,
+    makeDeps(),
+  );
+  assert.equal(logoutRes.status, 200);
+
+  const statsRes = await handleAdminRoutes(
+    new Request("https://example.com/api/admin/stats", {
+      headers: { authorization: `Bearer ${token}` },
+    }),
+    env,
+    "/api/admin/stats",
+    json,
+    makeDeps(),
+  );
+  assert.equal(statsRes.status, 401);
 });
 
 test("admin login rate limits failed attempts per IP", async () => {
@@ -282,7 +286,7 @@ test("admin login rate limits failed attempts per IP", async () => {
   const env = {
     ADMIN_PASSWORD: "secret-pass",
     ADMIN_SESSION_SECRET: "admin-session-key",
-    DB: makeRateLimitDb(),
+    DB: makeAdminTestDb(),
   };
   const limits = ADMIN_LOGIN_RATE_LIMITS.ip;
 
@@ -363,30 +367,78 @@ function makeDeps(overrides = {}) {
   };
 }
 
-function makeRateLimitDb() {
-  const rows = new Map();
+function makeAdminTestDb(options = {}) {
+  const rateRows = new Map();
+  const adminSessions = new Map();
+  const userIds = new Set(options.userIds || []);
+
   return {
+    batch(stmts) {
+      for (const stmt of stmts) {
+        if (stmt.sql?.includes("DELETE FROM admin_sessions WHERE expires_at")) {
+          const cutoff = stmt.args[0];
+          for (const [jti, row] of adminSessions) {
+            if (row.expires_at <= cutoff) adminSessions.delete(jti);
+          }
+        } else if (stmt.sql?.includes("INSERT INTO admin_sessions")) {
+          const [jti, expiresAt, createdAt] = stmt.args;
+          adminSessions.set(jti, { jti, expires_at: expiresAt, created_at: createdAt });
+        }
+      }
+      return Promise.resolve([]);
+    },
     prepare(sql) {
-      return {
-        bind(key, ...rest) {
-          return {
-            async first() {
-              if (/SELECT count, window_start FROM rate_limits/.test(sql)) {
-                return rows.get(key) || null;
-              }
-              return null;
-            },
-            async run() {
-              if (/INSERT INTO rate_limits/.test(sql)) {
-                rows.set(key, { count: 1, window_start: rest[0] ?? Date.now() });
-              } else if (/UPDATE rate_limits SET count = count \+ 1/.test(sql)) {
-                const row = rows.get(key);
-                if (row) row.count += 1;
-              }
-            },
-          };
+      const query = (...args) => ({
+        sql,
+        args,
+        async first() {
+          if (/SELECT count, window_start FROM rate_limits/.test(sql)) {
+            return rateRows.get(args[0]) || null;
+          }
+          if (/SELECT 1 AS ok FROM admin_sessions/.test(sql)) {
+            const [jti, nowMs] = args;
+            const row = adminSessions.get(jti);
+            return row && row.expires_at > nowMs ? { ok: 1 } : null;
+          }
+          if (/FROM users/.test(sql) && /COUNT/.test(sql)) return { count: 3 };
+          if (/FROM invite_codes/.test(sql)) return { count: 2 };
+          if (/SELECT id FROM users WHERE id/.test(sql)) {
+            return userIds.has(args[0]) ? { id: args[0] } : null;
+          }
+          return null;
         },
+        async all() {
+          return { results: [] };
+        },
+        async run() {
+          if (/INSERT INTO rate_limits/.test(sql)) {
+            rateRows.set(args[0], { count: 1, window_start: args[1] ?? Date.now() });
+          } else if (/UPDATE rate_limits SET count = count \+ 1/.test(sql)) {
+            const row = rateRows.get(args[0]);
+            if (row) row.count += 1;
+          } else if (/DELETE FROM admin_sessions WHERE jti/.test(sql)) {
+            adminSessions.delete(args[0]);
+          }
+        },
+      });
+      const stmt = query();
+      return {
+        bind: (...args) => query(...args),
+        first: () => stmt.first(),
+        all: () => stmt.all(),
+        run: () => stmt.run(),
       };
     },
   };
+}
+
+async function issueAdminSession(env, secret, nowMs = Date.now()) {
+  const jti = generateJti();
+  const exp = nowMs + 60_000;
+  await insertAdminSession(env, { jti, expiresAtMs: exp }, nowMs);
+  return createAdminSessionToken(secret, jti, exp);
+}
+
+function makeRateLimitDb() {
+  return makeAdminTestDb();
 }

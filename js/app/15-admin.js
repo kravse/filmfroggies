@@ -370,8 +370,17 @@ function onAdminInviteCountInc() {
   syncAdminInviteCountUi();
 }
 
-function onAdminLogout() {
+async function logoutAdminAccount() {
+  try {
+    await adminRequest("/admin/logout", { method: "POST" });
+  } catch (_) {
+    /* offline or already revoked */
+  }
   clearAdminToken();
+}
+
+async function onAdminLogout() {
+  await logoutAdminAccount();
   renderAdminGeneratedCodes([]);
   setAdminStatus("");
   showAdminLogin();

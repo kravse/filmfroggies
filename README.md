@@ -228,9 +228,10 @@ wrangler d1 execute cinequeue --remote --file=migrations/001_rate_limits.sql
 wrangler d1 execute cinequeue --remote --file=migrations/002_movies.sql
 wrangler d1 execute cinequeue --remote --file=migrations/003_invite_codes.sql
 wrangler d1 execute cinequeue --remote --file=migrations/004_sessions.sql
+wrangler d1 execute cinequeue --remote --file=migrations/005_admin_sessions.sql
 ```
 
-Apply `004_sessions.sql` **before** deploying Worker code that reads the `sessions` table. Existing bearer tokens without a server session row will 401 once; users re-login once.
+Apply `004_sessions.sql` and `005_admin_sessions.sql` **before** deploying Worker code that reads those tables. Existing bearer tokens without a server session row will 401 once; users and admins re-login once.
 
 **4. Set secrets** (required):
 
@@ -323,7 +324,7 @@ wrangler secret put ADMIN_PASSWORD
 openssl rand -base64 32 | wrangler secret put ADMIN_SESSION_SECRET
 ```
 
-Open `#admin` on the site (hash-only route, e.g. `https://filmfroggies.com/#admin`). Sign in with that password to view user counts, delete accounts, and generate one-time invite codes (up to 20 per batch). Admin sessions last 1 hour and live in `sessionStorage` only. Failed admin logins are capped at **3 per IP per hour** and **8 globally per hour**.
+Open `#admin` on the site (hash-only route, e.g. `https://filmfroggies.com/#admin`). Sign in with that password to view user counts, delete accounts, and generate one-time invite codes (up to 20 per batch). Admin sessions last 1 hour, use HMAC tokens with a D1 `admin_sessions` row per login (same revocation pattern as user sessions), and live in `sessionStorage` only. Sign out calls `POST /api/admin/logout` to revoke the row. Failed admin logins are capped at **3 per IP per hour** and **8 globally per hour**.
 
 #### Netlify proxy signature check
 
@@ -361,6 +362,7 @@ cd worker
 wrangler d1 execute cinequeue --local --file=schema.sql
 wrangler d1 execute cinequeue --local --file=migrations/003_invite_codes.sql
 wrangler d1 execute cinequeue --local --file=migrations/004_sessions.sql
+wrangler d1 execute cinequeue --local --file=migrations/005_admin_sessions.sql
 wrangler secret put SESSION_SECRET   # prompts; needed for wrangler dev too
 wrangler dev
 ```
