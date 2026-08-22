@@ -516,6 +516,13 @@ async function deleteRemoteAccount(password) {
   });
 }
 
+async function changeRemoteAccountPassword(currentPassword, newPassword) {
+  return accountRequest("/account/password", {
+    method: "POST",
+    body: { currentPassword, newPassword },
+  });
+}
+
 /* Friends: thin wrappers, the dialog layer owns rendering and status text. */
 
 function fetchFriends() {

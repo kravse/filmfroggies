@@ -89,3 +89,9 @@ export async function revokeSession(env, jti) {
 export async function revokeAllUserSessions(env, userId) {
   await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?1").bind(userId).run();
 }
+
+export async function revokeOtherUserSessions(env, userId, keepJti) {
+  await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?1 AND jti != ?2")
+    .bind(userId, keepJti)
+    .run();
+}

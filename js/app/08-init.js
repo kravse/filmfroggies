@@ -524,6 +524,19 @@ accountPasswordInput.addEventListener("keydown", (event) => {
   }
 });
 accountLogoutBtn.addEventListener("click", onAccountLogout);
+accountChangePasswordBtn.addEventListener("click", openAccountPasswordChange);
+accountPasswordCancel.addEventListener("click", closeAccountPasswordChange);
+accountPasswordOk.addEventListener("click", onAccountPasswordChangeConfirm);
+accountPasswordDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-account-password")) {
+    closeAccountPasswordChange();
+  }
+});
+accountPasswordConfirm.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    onAccountPasswordChangeConfirm();
+  }
+});
 accountDeleteBtn.addEventListener("click", openAccountDeleteConfirm);
 accountDeleteCancel.addEventListener("click", closeAccountDeleteConfirm);
 accountDeleteOk.addEventListener("click", onAccountDeleteConfirm);

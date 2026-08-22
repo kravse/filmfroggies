@@ -26,6 +26,7 @@ import {
   insertSession,
   sessionIsActive,
   revokeSession,
+  revokeOtherUserSessions,
 } from "./sessions.js";
 import { describeProxySignature, netlifyProxyTrusted } from "./proxy-signature.js";
 
@@ -283,6 +284,23 @@ async function findFriendship(env, userId, friendId) {
   };
 }
 
+/** Verify the current password and store a new hash; other sessions are revoked. */
+export async function changeAccountPassword(env, uid, currentPassword, newPassword, keepJti) {
+  if (newPassword.length < 8) {
+    return { ok: false, status: 400, error: "Password must be at least 8 characters" };
+  }
+  const user = await env.DB.prepare("SELECT password_hash FROM users WHERE id = ?").bind(uid).first();
+  if (!user?.password_hash || !(await verifyPassword(currentPassword, user.password_hash))) {
+    return { ok: false, status: 403, error: "Invalid password" };
+  }
+  const hash = await hashPassword(newPassword);
+  await env.DB.prepare("UPDATE users SET password_hash = ?1 WHERE id = ?2").bind(hash, uid).run();
+  if (keepJti) {
+    await revokeOtherUserSessions(env, uid, keepJti);
+  }
+  return { ok: true };
+}
+
 /** Remove a user and all server-side rows that reference them. */
 export async function deleteUserAccount(env, uid) {
   await env.DB.batch([
@@ -525,6 +543,26 @@ export default {
 
     if (path === "/api/logout" && request.method === "POST") {
       await revokeSession(env, session.jti);
+      return res.json(200, { status: "ok" });
+    }
+
+    if (path === "/api/account/password" && request.method === "POST") {
+      const body = await readJsonBody(request);
+      const currentPassword = String(body?.currentPassword || "");
+      const newPassword = String(body?.newPassword || "");
+      if (!currentPassword || !newPassword) {
+        return res.json(400, { error: "Current and new password required" });
+      }
+      const result = await changeAccountPassword(
+        env,
+        session.uid,
+        currentPassword,
+        newPassword,
+        session.jti,
+      );
+      if (!result.ok) {
+        return res.json(result.status, { error: result.error });
+      }
       return res.json(200, { status: "ok" });
     }
 

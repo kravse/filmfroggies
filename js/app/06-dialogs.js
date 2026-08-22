@@ -2457,6 +2457,55 @@ function closeAccountDeleteConfirm() {
   setStatus(accountDeleteStatus, "", null);
 }
 
+function openAccountPasswordChange() {
+  accountPasswordCurrent.value = "";
+  accountPasswordNew.value = "";
+  accountPasswordConfirm.value = "";
+  setStatus(accountPasswordStatus, "", null);
+  accountPasswordDialog.hidden = false;
+  accountPasswordCurrent.focus({ preventScroll: true });
+}
+
+function closeAccountPasswordChange() {
+  accountPasswordDialog.hidden = true;
+  accountPasswordCurrent.value = "";
+  accountPasswordNew.value = "";
+  accountPasswordConfirm.value = "";
+  setStatus(accountPasswordStatus, "", null);
+}
+
+async function onAccountPasswordChangeConfirm() {
+  const currentPassword = accountPasswordCurrent.value;
+  const newPassword = accountPasswordNew.value;
+  const confirmPassword = accountPasswordConfirm.value;
+  if (!currentPassword) {
+    setStatus(accountPasswordStatus, "Enter your current password.", "error");
+    accountPasswordCurrent.focus({ preventScroll: true });
+    return;
+  }
+  if (newPassword.length < 8) {
+    setStatus(accountPasswordStatus, "New password must be at least 8 characters.", "error");
+    accountPasswordNew.focus({ preventScroll: true });
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    setStatus(accountPasswordStatus, "New passwords do not match.", "error");
+    accountPasswordConfirm.focus({ preventScroll: true });
+    return;
+  }
+  accountPasswordOk.disabled = true;
+  setStatus(accountPasswordStatus, "Saving…", null);
+  try {
+    await changeRemoteAccountPassword(currentPassword, newPassword);
+    closeAccountPasswordChange();
+    setStatus(accountSyncStatus, "Password updated.", "ok");
+  } catch (error) {
+    setStatus(accountPasswordStatus, error.message, "error");
+  } finally {
+    accountPasswordOk.disabled = false;
+  }
+}
+
 async function onAccountDeleteConfirm() {
   const password = accountDeletePassword.value;
   if (!password) {

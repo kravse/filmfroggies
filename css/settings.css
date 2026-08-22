@@ -484,6 +484,16 @@
   margin-left: auto;
 }
 
+.account-security-zone {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.account-change-password-btn {
+  width: 100%;
+}
+
 .account-danger-zone {
   margin-top: 1rem;
   padding-top: 1rem;

@@ -1341,6 +1341,15 @@
                   </button>
                 </div>
                 <span class="status-text" id="account-sync-status"></span>
+                <div class="account-security-zone">
+                  <button
+                    type="button"
+                    id="account-change-password"
+                    class="ghost-btn account-change-password-btn"
+                  >
+                    Change password…
+                  </button>
+                </div>
                 <div class="account-danger-zone">
                   <p class="sheet-note">
                     Delete your server account and cloud copy of your lists. Your lists
@@ -1942,6 +1951,60 @@
           </button>
           <button type="button" id="watch-confirm-ok" class="primary-btn">
             Mark watched
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="account-password-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
+      <div class="sheet-backdrop" data-close-account-password></div>
+      <div
+        class="sheet-panel confirm-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="account-password-title"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="account-password-title">Change password</h2>
+        </div>
+        <div class="sheet-scroll">
+          <label class="sheet-field" for="account-password-current">
+            <span class="sheet-field-label">Current password</span>
+            <input
+              type="password"
+              class="sheet-field-input"
+              id="account-password-current"
+              autocomplete="current-password"
+            />
+          </label>
+          <label class="sheet-field" for="account-password-new">
+            <span class="sheet-field-label">New password</span>
+            <input
+              type="password"
+              class="sheet-field-input"
+              id="account-password-new"
+              autocomplete="new-password"
+              minlength="8"
+            />
+          </label>
+          <label class="sheet-field" for="account-password-confirm">
+            <span class="sheet-field-label">Confirm new password</span>
+            <input
+              type="password"
+              class="sheet-field-input"
+              id="account-password-confirm"
+              autocomplete="new-password"
+              minlength="8"
+            />
+          </label>
+          <span class="status-text" id="account-password-status"></span>
+        </div>
+        <div class="confirm-actions">
+          <button type="button" id="account-password-cancel" class="ghost-btn">
+            Cancel
+          </button>
+          <button type="button" id="account-password-ok" class="primary-btn">
+            Save password
           </button>
         </div>
       </div>

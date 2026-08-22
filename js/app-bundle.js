@@ -161,6 +161,14 @@ const accountAuthTabSignup = document.getElementById("account-auth-tab-signup");
 const accountAuthForm = document.getElementById("account-auth-form");
 const accountSubmitBtn = document.getElementById("account-submit");
 const accountLogoutBtn = document.getElementById("account-logout");
+const accountChangePasswordBtn = document.getElementById("account-change-password");
+const accountPasswordDialog = document.getElementById("account-password-dialog");
+const accountPasswordCurrent = document.getElementById("account-password-current");
+const accountPasswordNew = document.getElementById("account-password-new");
+const accountPasswordConfirm = document.getElementById("account-password-confirm");
+const accountPasswordStatus = document.getElementById("account-password-status");
+const accountPasswordCancel = document.getElementById("account-password-cancel");
+const accountPasswordOk = document.getElementById("account-password-ok");
 const accountDeleteBtn = document.getElementById("account-delete");
 const accountDeleteDialog = document.getElementById("account-delete-dialog");
 const accountDeletePassword = document.getElementById("account-delete-password");
@@ -7805,6 +7813,13 @@ async function deleteRemoteAccount(password) {
   });
 }
 
+async function changeRemoteAccountPassword(currentPassword, newPassword) {
+  return accountRequest("/account/password", {
+    method: "POST",
+    body: { currentPassword, newPassword },
+  });
+}
+
 /* Friends: thin wrappers, the dialog layer owns rendering and status text. */
 
 function fetchFriends() {
@@ -13238,6 +13253,55 @@ function closeAccountDeleteConfirm() {
   setStatus(accountDeleteStatus, "", null);
 }
 
+function openAccountPasswordChange() {
+  accountPasswordCurrent.value = "";
+  accountPasswordNew.value = "";
+  accountPasswordConfirm.value = "";
+  setStatus(accountPasswordStatus, "", null);
+  accountPasswordDialog.hidden = false;
+  accountPasswordCurrent.focus({ preventScroll: true });
+}
+
+function closeAccountPasswordChange() {
+  accountPasswordDialog.hidden = true;
+  accountPasswordCurrent.value = "";
+  accountPasswordNew.value = "";
+  accountPasswordConfirm.value = "";
+  setStatus(accountPasswordStatus, "", null);
+}
+
+async function onAccountPasswordChangeConfirm() {
+  const currentPassword = accountPasswordCurrent.value;
+  const newPassword = accountPasswordNew.value;
+  const confirmPassword = accountPasswordConfirm.value;
+  if (!currentPassword) {
+    setStatus(accountPasswordStatus, "Enter your current password.", "error");
+    accountPasswordCurrent.focus({ preventScroll: true });
+    return;
+  }
+  if (newPassword.length < 8) {
+    setStatus(accountPasswordStatus, "New password must be at least 8 characters.", "error");
+    accountPasswordNew.focus({ preventScroll: true });
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    setStatus(accountPasswordStatus, "New passwords do not match.", "error");
+    accountPasswordConfirm.focus({ preventScroll: true });
+    return;
+  }
+  accountPasswordOk.disabled = true;
+  setStatus(accountPasswordStatus, "Saving…", null);
+  try {
+    await changeRemoteAccountPassword(currentPassword, newPassword);
+    closeAccountPasswordChange();
+    setStatus(accountSyncStatus, "Password updated.", "ok");
+  } catch (error) {
+    setStatus(accountPasswordStatus, error.message, "error");
+  } finally {
+    accountPasswordOk.disabled = false;
+  }
+}
+
 async function onAccountDeleteConfirm() {
   const password = accountDeletePassword.value;
   if (!password) {
@@ -17475,6 +17539,19 @@ accountPasswordInput.addEventListener("keydown", (event) => {
   }
 });
 accountLogoutBtn.addEventListener("click", onAccountLogout);
+accountChangePasswordBtn.addEventListener("click", openAccountPasswordChange);
+accountPasswordCancel.addEventListener("click", closeAccountPasswordChange);
+accountPasswordOk.addEventListener("click", onAccountPasswordChangeConfirm);
+accountPasswordDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-account-password")) {
+    closeAccountPasswordChange();
+  }
+});
+accountPasswordConfirm.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    onAccountPasswordChangeConfirm();
+  }
+});
 accountDeleteBtn.addEventListener("click", openAccountDeleteConfirm);
 accountDeleteCancel.addEventListener("click", closeAccountDeleteConfirm);
 accountDeleteOk.addEventListener("click", onAccountDeleteConfirm);
