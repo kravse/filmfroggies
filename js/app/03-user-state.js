@@ -496,7 +496,11 @@ function disconnectAccount() {
 
 async function logoutAccount() {
   try {
-    await accountSyncChain;
+    // Drain any in-flight sync, then push once more while the session is still
+    // valid. Logout clears local lists, so unpushed edits would otherwise die here.
+    if (accountSyncEnabled()) {
+      await queueAccountSync({ push: true });
+    }
     await accountRequest("/logout", { method: "POST" });
   } catch (_) {
     /* offline or already revoked */

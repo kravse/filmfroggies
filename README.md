@@ -311,7 +311,7 @@ Default CORS origins (hardcoded): `https://filmfroggies.com`, `https://www.filmf
 - **Closed signups:** new accounts require a one-time invite code (**Log in → Sign up**); wrong or used codes get the same neutral response as a duplicate email
 - Signup and friend-request responses are intentionally neutral (no email enumeration).
 
-Logout flushes pending sync, calls `POST /api/logout` to delete the session row, then clears local storage. Account delete removes all sessions for that user before the user row is deleted.
+Logout pushes any remaining list changes, calls `POST /api/logout` to delete the session row, then clears local list storage. Account delete removes all sessions for that user before the user row is deleted.
 
 ### Admin (`#admin`)
 
