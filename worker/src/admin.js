@@ -76,13 +76,15 @@ async function requireAdmin(request, env) {
   return session;
 }
 
-function publicAdminUser(row) {
+export function publicAdminUser(row) {
+  const savedAt = Number(row.updated_at);
   return {
     id: row.id,
     email: row.email,
     displayName: row.display_name,
     createdAt: row.created_at,
     movieCount: countCollectionMoviesFromJson(row.doc),
+    savedAt: Number.isFinite(savedAt) && savedAt > 0 ? savedAt : null,
   };
 }
 
@@ -148,7 +150,7 @@ export async function handleAdminRoutes(request, env, path, res, deps) {
 
   if (path === "/api/admin/users" && request.method === "GET") {
     const result = await env.DB.prepare(
-      `SELECT u.id, u.email, u.display_name, u.created_at, d.doc
+      `SELECT u.id, u.email, u.display_name, u.created_at, d.doc, d.updated_at
        FROM users u
        LEFT JOIN user_data d ON d.user_id = u.id
        ORDER BY u.created_at DESC`,

@@ -9,6 +9,7 @@ import {
   adminAuthConfigured,
   handleAdminRoutes,
   MAX_ADMIN_INVITE_BATCH,
+  publicAdminUser,
 } from "./src/admin.js";
 import {
   generateJti,
@@ -220,6 +221,31 @@ test("admin invite batch validates count", async () => {
     makeDeps(),
   );
   assert.equal(bad.status, 400);
+});
+
+test("publicAdminUser exposes savedAt from user_data.updated_at", () => {
+  assert.deepEqual(
+    publicAdminUser({
+      id: 1,
+      email: "a@b.com",
+      display_name: "A",
+      created_at: 100,
+      doc: null,
+      updated_at: 1_700_000_000_000,
+    }),
+    {
+      id: 1,
+      email: "a@b.com",
+      displayName: "A",
+      createdAt: 100,
+      movieCount: 0,
+      savedAt: 1_700_000_000_000,
+    },
+  );
+  assert.equal(
+    publicAdminUser({ id: 2, email: "x@y.com", created_at: 1, doc: null, updated_at: null }).savedAt,
+    null,
+  );
 });
 
 test("countCollectionMovies counts unique ids across preset and custom lists", () => {

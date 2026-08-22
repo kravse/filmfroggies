@@ -16544,28 +16544,46 @@ function showAdminDashboard() {
   }
 }
 
+function formatAdminSavedAt(savedAt) {
+  const time = Number(savedAt);
+  if (!Number.isFinite(time) || time <= 0) {
+    return "Never saved";
+  }
+  return new Date(time).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function renderAdminUserRow(user) {
   const li = document.createElement("li");
   li.className = "admin-user-row";
   li.dataset.userId = String(user.id);
 
-  const meta = document.createElement("div");
-  meta.className = "admin-user-meta";
+  const main = document.createElement("div");
+  main.className = "admin-user-main";
 
   const name = document.createElement("strong");
   name.className = "admin-user-name";
   name.textContent = user.displayName || user.email;
 
-  const email = document.createElement("span");
-  email.className = "admin-user-email";
-  email.textContent = user.email;
+  const detail = document.createElement("span");
+  detail.className = "admin-user-detail";
+  const emailLabel = user.displayName ? user.email : "";
+  const savedLabel = formatAdminSavedAt(user.savedAt);
+  detail.textContent = emailLabel ? `${emailLabel} · Saved ${savedLabel}` : `Saved ${savedLabel}`;
+
+  main.append(name, detail);
+
+  const actions = document.createElement("div");
+  actions.className = "admin-user-actions";
 
   const movies = document.createElement("span");
   movies.className = "admin-user-movies";
   const movieCount = Number(user.movieCount) || 0;
   movies.textContent = movieCount === 1 ? "1 movie" : `${movieCount} movies`;
-
-  meta.append(name, email);
 
   const deleteBtn = document.createElement("button");
   deleteBtn.type = "button";
@@ -16575,7 +16593,8 @@ function renderAdminUserRow(user) {
     onAdminDeleteUser(user);
   });
 
-  li.append(meta, movies, deleteBtn);
+  actions.append(movies, deleteBtn);
+  li.append(main, actions);
   return li;
 }
 
