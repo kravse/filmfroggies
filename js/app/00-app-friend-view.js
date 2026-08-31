@@ -245,6 +245,63 @@ const appFriendView = (function () {
       .map((section) => section.name);
   }
 
+  function parseReleaseYear(releaseDate) {
+    if (!releaseDate) {
+      return null;
+    }
+    const match = String(releaseDate).match(/\d{4}/);
+    return match ? match[0] : null;
+  }
+
+  function friendFanRatingValue(record) {
+    if (!record || record.voteAverage == null) {
+      return null;
+    }
+    const value = Number(record.voteAverage);
+    if (!Number.isFinite(value) || value < 0) {
+      return null;
+    }
+    return value;
+  }
+
+  /**
+   * CSS dim class when a movie lacks the value used by the active friend-view sort.
+   * Matches friendSortContext / sortMovieIds data sources per field.
+   */
+  function friendSortDimClass(field, movieId, viewerState, friendState, getRecord = () => null) {
+    if (!field || !friendState) {
+      return "";
+    }
+    const id = Number(movieId);
+    if (!Number.isInteger(id) || id <= 0) {
+      return "";
+    }
+    const ratingsLib = getRatings();
+    const viewingHistoryLib = getViewingHistory();
+
+    switch (field) {
+      case "friend-rating":
+        return ratingsLib.getRating(friendState.ratings, id) == null ? "is-unrated" : "";
+      case "user-rating":
+        return ratingsLib.getRating(viewerState?.ratings, id) == null ? "is-unrated" : "";
+      case "rating":
+        return friendFanRatingValue(getRecord(id)) == null ? "is-unrated" : "";
+      case "watched":
+        return viewingHistoryLib.latestViewingDate(friendState.viewingHistory, id)
+          ? ""
+          : "is-no-watch-date";
+      case "year":
+        return parseReleaseYear(getRecord(id)?.releaseDate) ? "" : "is-no-watch-date";
+      case "added":
+      case "title":
+      case "custom":
+        // Friend sections sort added by list join index, not viewer addedAt.
+        return "";
+      default:
+        return "";
+    }
+  }
+
   return {
     parseFriendHash,
     buildFriendHash,
@@ -258,5 +315,6 @@ const appFriendView = (function () {
     friendSectionContainingMovie,
     friendNavigationIds,
     friendListNamesForMovie,
+    friendSortDimClass,
   };
 })();

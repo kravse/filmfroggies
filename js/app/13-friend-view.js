@@ -183,6 +183,26 @@ function friendMovieHighlightSeen(movieId) {
   return appLists.isWatched(userState.lists, movieId);
 }
 
+function friendSortField() {
+  return appSort.getSortField(
+    appSort.resolveSortMode(userState.preferences.sort, { friendView: true }),
+  );
+}
+
+function friendCardSortDimClass(movieId) {
+  if (!isFriendViewActive() || !friendViewState) {
+    return "";
+  }
+  const cls = appFriendView.friendSortDimClass(
+    friendSortField(),
+    movieId,
+    userState,
+    friendViewState,
+    (id) => movieById.get(id) ?? localMovieRecord(id),
+  );
+  return cls ? ` ${cls}` : "";
+}
+
 function friendRowInnerHtml(movieId) {
   const record = movieById.get(movieId);
   const stateClass = record
@@ -192,7 +212,7 @@ function friendRowInnerHtml(movieId) {
       : " is-skeleton";
   const seenClass = friendMovieHighlightSeen(movieId) ? " is-seen-by-you" : "";
   const title = record ? appCardHtml.escapeHtml(record.title) : `Movie ${movieId}`;
-  return `<article class="card card--friend${stateClass}${seenClass}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
+  return `<article class="card card--friend${stateClass}${seenClass}${friendCardSortDimClass(movieId)}" data-movie-id="${movieId}" tabindex="0" role="button" aria-label="${title}">
 ${friendCardInnerHtml(movieId)}
 </article>`;
 }

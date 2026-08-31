@@ -581,6 +581,7 @@ const APP_SYNC_ENTRIES = [
       "friendSectionContainingMovie",
       "friendNavigationIds",
       "friendListNamesForMovie",
+      "friendSortDimClass",
     ],
   },
 ];

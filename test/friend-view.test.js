@@ -159,3 +159,39 @@ test("friendSectionSortedIds can sort by friend rating", () => {
     [2, 3, 1],
   );
 });
+
+test("friendSortDimClass matches each friend-view sort data source", () => {
+  const viewerState = {
+    ...defaultUserState(),
+    ratings: { 1: 8 },
+    addedAt: { 2: "2026-01-01T00:00:00.000Z" },
+  };
+  const friendState = {
+    lists: [],
+    customLists: [],
+    ratings: { 2: 9 },
+    viewingHistory: {
+      3: [{ id: "f3", watchedOn: "2026-02-01", updatedAt: "2026-02-01T00:00:00.000Z" }],
+    },
+  };
+  const getRecord = (id) => {
+    if (id === 4) {
+      return { id: 4, title: "No year", releaseDate: "" };
+    }
+    if (id === 5) {
+      return { id: 5, title: "No fan", voteAverage: null };
+    }
+    return { id, title: `Movie ${id}`, releaseDate: "2020-01-01", voteAverage: 7.2 };
+  };
+  const { friendSortDimClass } = require("../scripts/lib/friend-view");
+
+  assert.equal(friendSortDimClass("user-rating", 1, viewerState, friendState, getRecord), "");
+  assert.equal(friendSortDimClass("user-rating", 2, viewerState, friendState, getRecord), "is-unrated");
+  assert.equal(friendSortDimClass("friend-rating", 2, viewerState, friendState, getRecord), "");
+  assert.equal(friendSortDimClass("friend-rating", 1, viewerState, friendState, getRecord), "is-unrated");
+  assert.equal(friendSortDimClass("watched", 3, viewerState, friendState, getRecord), "");
+  assert.equal(friendSortDimClass("watched", 1, viewerState, friendState, getRecord), "is-no-watch-date");
+  assert.equal(friendSortDimClass("year", 4, viewerState, friendState, getRecord), "is-no-watch-date");
+  assert.equal(friendSortDimClass("rating", 5, viewerState, friendState, getRecord), "is-unrated");
+  assert.equal(friendSortDimClass("added", 1, viewerState, friendState, getRecord), "");
+});
