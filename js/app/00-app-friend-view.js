@@ -149,7 +149,7 @@ const appFriendView = (function () {
     throw new Error("appViewingHistory is not available");
   }
 
-  function friendSortContext(sectionMovieIds, viewerState, _friendState, runtimeContext = {}) {
+  function friendSortContext(sectionMovieIds, viewerState, friendState, runtimeContext = {}) {
     const sortLib = getSort();
     const sortMode = runtimeContext.sortMode ?? sortLib.DEFAULT_PREFERENCE_SORT;
     const getRecord =
@@ -161,9 +161,9 @@ const appFriendView = (function () {
     const sortContext = {
       getRecord,
       getUserRating: (id) => ratingsLib.getRating(viewerState?.ratings, id),
-      getFriendRating: (id) => ratingsLib.getRating(_friendState?.ratings, id),
+      getFriendRating: (id) => ratingsLib.getRating(friendState?.ratings, id),
       getAddedAt: (id) => addedAtLib.getAddedAt(viewerState?.addedAt, id),
-      getWatchedOn: (id) => viewingHistoryLib.latestViewingDate(viewerState?.viewingHistory, id),
+      getWatchedOn: (id) => viewingHistoryLib.latestViewingDate(friendState?.viewingHistory, id),
     };
 
     const joinOrder = sortLib.buildOrderIndex(sectionMovieIds);
@@ -171,7 +171,7 @@ const appFriendView = (function () {
 
     if (sortLib.getSortField(sortMode) === "watched") {
       const latestByMovie = new Map();
-      const normalized = viewingHistoryLib.normalizeViewingHistory(viewerState?.viewingHistory);
+      const normalized = viewingHistoryLib.normalizeViewingHistory(friendState?.viewingHistory);
       for (const [movieId, entries] of Object.entries(normalized)) {
         let latest = null;
         for (const entry of entries) {

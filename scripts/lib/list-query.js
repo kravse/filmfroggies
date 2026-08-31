@@ -67,7 +67,9 @@ function buildSortContext(movieIds, route, options = {}) {
     viewerDoc?.addedAt,
     lists.normalizeLists(viewerDoc?.lists),
   );
+  const ownerViewing = viewingHistory.normalizeViewingHistory(ownerDoc?.viewingHistory);
   const viewerViewing = viewingHistory.normalizeViewingHistory(viewerDoc?.viewingHistory);
+  const watchedViewing = friendView ? ownerViewing : viewerViewing;
 
   const getMovieRecord =
     typeof options.getMovieRecord === "function" ? options.getMovieRecord : () => null;
@@ -79,12 +81,12 @@ function buildSortContext(movieIds, route, options = {}) {
     getUserRating: (id) => ratings.getRating(viewerRatings, id),
     getFriendRating: (id) => ratings.getRating(ownerRatings, id),
     getAddedAt: (id) => addedAt.getAddedAt(viewerAddedAt, id),
-    getWatchedOn: (id) => viewingHistory.latestViewingDate(viewerViewing, id),
+    getWatchedOn: (id) => viewingHistory.latestViewingDate(watchedViewing, id),
   };
 
   if (sort.getSortField(sortMode) === "watched") {
     const latestByMovie = new Map();
-    for (const [movieId, entries] of Object.entries(viewerViewing)) {
+    for (const [movieId, entries] of Object.entries(watchedViewing)) {
       let latest = null;
       for (const entry of entries) {
         if (!entry.deletedAt && (!latest || entry.watchedOn > latest)) {

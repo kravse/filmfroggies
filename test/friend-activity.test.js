@@ -137,9 +137,35 @@ test("friend activity shows watch dates for movies still on watchlist or custom 
     displayName: "Sam",
     doc: {
       lists: [{ id: "watched", movieIds: [] }, { id: "watchlist", movieIds: [10, 20] }],
-      customLists: [{ id: "custom-favorites", movieIds: [30] }],
+      customLists: [{ id: "custom-favorites", name: "Favorites", movieIds: [30] }],
       viewingHistory: history,
     },
   }], { today: "2026-08-31" });
   assert.deepEqual(items.map((item) => item.movieId), [10, 20, 30]);
+});
+
+test("friend activity ignores remapped-away ids and uses the friend's current watch dates", () => {
+  const items = friendActivityItems([{
+    id: 2,
+    displayName: "Sam",
+    doc: {
+      lists: [{ id: "watched", movieIds: [3] }, { id: "watchlist", movieIds: [] }],
+      statuses: {
+        2: { status: "removed", at: "2026-08-20T12:00:00.000Z" },
+        3: { status: "watched", at: "2026-08-20T12:00:00.000Z" },
+      },
+      viewingHistory: {
+        2: [{ id: "old", watchedOn: "2026-08-30", updatedAt: "2026-08-30T12:00:00Z" }],
+        3: [{ id: "new", watchedOn: "2026-08-15", updatedAt: "2026-08-20T12:00:00Z" }],
+      },
+    },
+  }], { today: "2026-08-31" });
+  assert.deepEqual(items, [{
+    entryId: "new",
+    watchedOn: "2026-08-15",
+    updatedAt: "2026-08-20T12:00:00.000Z",
+    movieId: 3,
+    friend: { id: 2, displayName: "Sam" },
+    rating: null,
+  }]);
 });

@@ -113,6 +113,13 @@ function friendReleaseYearFooterHtml(movieId) {
   return `<span class="card-footer-main${emptyClass}" aria-label="Release year ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
 }
 
+function friendWatchDateFooterHtml(movieId) {
+  const watchedOn = appViewingHistory.latestViewingDate(friendViewState?.viewingHistory, movieId);
+  const text = watchedOn || "—";
+  const emptyClass = watchedOn ? "" : " is-empty";
+  return `<span class="card-footer-main${emptyClass}" aria-label="Date watched ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
+}
+
 function friendSortFooterContentHtml(movieId) {
   if (friendShowsRatingChit()) {
     return friendRatingChitHtml(movieId);
@@ -122,7 +129,7 @@ function friendSortFooterContentHtml(movieId) {
     return friendReleaseYearFooterHtml(movieId);
   }
   if (field === "watched") {
-    return cardWatchDateFooterHtml(movieId);
+    return friendWatchDateFooterHtml(movieId);
   }
   return friendRatingChitHtml(movieId);
 }

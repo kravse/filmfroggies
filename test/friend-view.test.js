@@ -114,6 +114,34 @@ test("parseFriendsIndexHash recognizes the friends page hash", () => {
   assert.equal(buildFriendsIndexHash(), "#friends");
 });
 
+test("friendSectionSortedIds sorts by friend watch date, not viewer", () => {
+  const section = { id: "watched", name: "Watched", movieIds: [1, 2, 3] };
+  const viewerState = defaultUserState();
+  viewerState.viewingHistory = {
+    1: [{ id: "v1", watchedOn: "2026-01-01", updatedAt: "2026-01-01T00:00:00.000Z" }],
+    2: [{ id: "v2", watchedOn: "2026-06-01", updatedAt: "2026-06-01T00:00:00.000Z" }],
+    3: [{ id: "v3", watchedOn: "2026-03-01", updatedAt: "2026-03-01T00:00:00.000Z" }],
+  };
+  const friendState = {
+    lists: [],
+    customLists: [],
+    ratings: {},
+    viewingHistory: {
+      1: [{ id: "f1", watchedOn: "2025-12-01", updatedAt: "2025-12-01T00:00:00.000Z" }],
+      2: [{ id: "f2", watchedOn: "2026-08-01", updatedAt: "2026-08-01T00:00:00.000Z" }],
+      3: [{ id: "f3", watchedOn: "2026-02-01", updatedAt: "2026-02-01T00:00:00.000Z" }],
+    },
+  };
+  const runtimeContext = {
+    getRecord: (id) => ({ id, title: `Movie ${id}`, voteAverage: id }),
+    sortMode: "watched-desc",
+  };
+  assert.deepEqual(
+    friendSectionSortedIds(section, "watched-desc", viewerState, friendState, runtimeContext),
+    [2, 3, 1],
+  );
+});
+
 test("friendSectionSortedIds can sort by friend rating", () => {
   const section = { id: "watched", name: "Watched", movieIds: [1, 2, 3] };
   const viewerState = defaultUserState();

@@ -674,21 +674,39 @@ const appFriendActivity = (function () {
     throw new Error("appCustomLists is not available");
   }
 
-  /** Union of preset and custom list ids — fully removed movies are absent from every list. */
+  function getViewingHistory() {
+    if (typeof appViewingHistory !== "undefined") {
+      return appViewingHistory;
+    }
+    if (typeof require === "function") {
+      return require("./viewing-history");
+    }
+    throw new Error("appViewingHistory is not available");
+  }
+
+  function isRemovedMovie(doc, movieId) {
+    return doc?.statuses?.[String(movieId)]?.status === "removed";
+  }
+
+  /** Union of normalized preset and custom list ids — fully removed movies are absent. */
   function collectionMovieIds(doc) {
     const lists = getLists();
-    const customLists = getCustomLists();
+    const customListsLib = getCustomLists();
+    const normalizedLists = lists.normalizeLists(doc?.lists);
+    const normalizedCustom = customListsLib.normalizeCustomLists(
+      doc?.customLists,
+      doc?.updatedAt,
+    );
     const ids = new Set();
     for (const listId of lists.LIST_IDS) {
-      for (const rawId of lists.findList(doc?.lists, listId)?.movieIds || []) {
+      for (const rawId of lists.findList(normalizedLists, listId)?.movieIds || []) {
         const id = Number(rawId);
         if (Number.isInteger(id) && id > 0) {
           ids.add(id);
         }
       }
     }
-    for (const list of Array.isArray(doc?.customLists) ? doc.customLists : []) {
-      if (!customLists.isCustomListId(list?.id)) continue;
+    for (const list of normalizedCustom) {
       for (const rawId of list.movieIds || []) {
         const id = Number(rawId);
         if (Number.isInteger(id) && id > 0) {
@@ -702,6 +720,7 @@ const appFriendActivity = (function () {
   function friendActivityItems(friends, options = {}) {
     const limit = normalizeActivityLimit(options.limit);
     const latestDate = normalizeDate(options.today) || new Date().toISOString().slice(0, 10);
+    const viewingLib = getViewingHistory();
     const items = [];
     for (const friend of Array.isArray(friends) ? friends : []) {
       const friendId = Number(friend?.id);
@@ -715,25 +734,18 @@ const appFriendActivity = (function () {
       const inCollection = collectionMovieIds(doc);
       const history = doc.viewingHistory;
       if (!history || typeof history !== "object" || Array.isArray(history)) continue;
-      for (const [rawMovieId, rawEntries] of Object.entries(history)) {
-        const movieId = Number(rawMovieId);
-        if (!Number.isInteger(movieId) || movieId <= 0 || !Array.isArray(rawEntries)) continue;
-        if (!inCollection.has(movieId)) continue;
-        const activeByDate = new Map();
-        for (const entry of rawEntries) {
-          const watchedOn = normalizeDate(entry?.watchedOn);
-          const updatedAt = Number.isFinite(Date.parse(entry?.updatedAt || ""))
+      for (const movieId of inCollection) {
+        if (isRemovedMovie(doc, movieId)) continue;
+        for (const entry of viewingLib.viewingEntries(history, movieId)) {
+          const watchedOn = normalizeDate(entry.watchedOn);
+          const updatedAt = Number.isFinite(Date.parse(entry.updatedAt || ""))
             ? new Date(entry.updatedAt).toISOString()
             : null;
-          if (!entry?.id || !watchedOn || watchedOn > latestDate || !updatedAt || entry.deletedAt) continue;
-          const current = activeByDate.get(watchedOn);
-          if (!current || updatedAt > current.updatedAt || (updatedAt === current.updatedAt && String(entry.id) > current.entryId)) {
-            activeByDate.set(watchedOn, { entryId: String(entry.id), watchedOn, updatedAt });
-          }
-        }
-        for (const entry of activeByDate.values()) {
+          if (!entry.id || !watchedOn || watchedOn > latestDate || !updatedAt) continue;
           items.push({
-            ...entry,
+            entryId: String(entry.id),
+            watchedOn,
+            updatedAt,
             movieId,
             friend: { id: friendId, displayName },
             rating: normalizeRating(ratings[String(movieId)]),
@@ -5683,7 +5695,7 @@ const appFriendView = (function () {
     throw new Error("appViewingHistory is not available");
   }
 
-  function friendSortContext(sectionMovieIds, viewerState, _friendState, runtimeContext = {}) {
+  function friendSortContext(sectionMovieIds, viewerState, friendState, runtimeContext = {}) {
     const sortLib = getSort();
     const sortMode = runtimeContext.sortMode ?? sortLib.DEFAULT_PREFERENCE_SORT;
     const getRecord =
@@ -5695,9 +5707,9 @@ const appFriendView = (function () {
     const sortContext = {
       getRecord,
       getUserRating: (id) => ratingsLib.getRating(viewerState?.ratings, id),
-      getFriendRating: (id) => ratingsLib.getRating(_friendState?.ratings, id),
+      getFriendRating: (id) => ratingsLib.getRating(friendState?.ratings, id),
       getAddedAt: (id) => addedAtLib.getAddedAt(viewerState?.addedAt, id),
-      getWatchedOn: (id) => viewingHistoryLib.latestViewingDate(viewerState?.viewingHistory, id),
+      getWatchedOn: (id) => viewingHistoryLib.latestViewingDate(friendState?.viewingHistory, id),
     };
 
     const joinOrder = sortLib.buildOrderIndex(sectionMovieIds);
@@ -5705,7 +5717,7 @@ const appFriendView = (function () {
 
     if (sortLib.getSortField(sortMode) === "watched") {
       const latestByMovie = new Map();
-      const normalized = viewingHistoryLib.normalizeViewingHistory(viewerState?.viewingHistory);
+      const normalized = viewingHistoryLib.normalizeViewingHistory(friendState?.viewingHistory);
       for (const [movieId, entries] of Object.entries(normalized)) {
         let latest = null;
         for (const entry of entries) {
@@ -16202,6 +16214,13 @@ function friendReleaseYearFooterHtml(movieId) {
   return `<span class="card-footer-main${emptyClass}" aria-label="Release year ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
 }
 
+function friendWatchDateFooterHtml(movieId) {
+  const watchedOn = appViewingHistory.latestViewingDate(friendViewState?.viewingHistory, movieId);
+  const text = watchedOn || "—";
+  const emptyClass = watchedOn ? "" : " is-empty";
+  return `<span class="card-footer-main${emptyClass}" aria-label="Date watched ${appCardHtml.escapeHtml(text)}">${appCardHtml.escapeHtml(text)}</span>`;
+}
+
 function friendSortFooterContentHtml(movieId) {
   if (friendShowsRatingChit()) {
     return friendRatingChitHtml(movieId);
@@ -16211,7 +16230,7 @@ function friendSortFooterContentHtml(movieId) {
     return friendReleaseYearFooterHtml(movieId);
   }
   if (field === "watched") {
-    return cardWatchDateFooterHtml(movieId);
+    return friendWatchDateFooterHtml(movieId);
   }
   return friendRatingChitHtml(movieId);
 }
