@@ -54,15 +54,19 @@ function parseListPath(path) {
   return null;
 }
 
-async function buildMovieLookup(env, ids, sortMode) {
+async function buildMovieLookup(env, ids, sortMode, ctx) {
   const records = await loadMoviesFromD1(env, ids);
   if (sortNeedsMovieMetadata(sortMode)) {
     const missing = ids.filter((id) => !records.has(Number(id)));
     if (missing.length) {
-      const fetched = await fetchMoviesWithConcurrency(missing, env);
+      const fetched = await fetchMoviesWithConcurrency(missing, env, { lite: true });
       const fresh = [...fetched.values()];
       if (fresh.length) {
-        await upsertMovies(env, fresh);
+        if (ctx?.waitUntil) {
+          ctx.waitUntil(upsertMovies(env, fresh));
+        } else {
+          await upsertMovies(env, fresh);
+        }
       }
       for (const [id, record] of fetched) {
         records.set(id, record);
@@ -72,7 +76,7 @@ async function buildMovieLookup(env, ids, sortMode) {
   return (id) => records.get(Number(id)) || null;
 }
 
-export async function handleListRoutes(request, env, session, path, res, ip, deps = {}) {
+export async function handleListRoutes(request, env, session, path, res, ip, deps = {}, ctx = null) {
   if (request.method !== "GET") {
     return res.json(405, { error: "Method not allowed" });
   }
@@ -137,7 +141,7 @@ export async function handleListRoutes(request, env, session, path, res, ip, dep
 
   const sortMode = resolveListSort(ownerDoc, parsed.listId, sortParam || undefined);
   const movieIds = listMovieIds(ownerDoc, parsed.listId);
-  const getMovieRecord = await buildMovieLookup(env, movieIds, sortMode);
+  const getMovieRecord = await buildMovieLookup(env, movieIds, sortMode, ctx);
 
   const result = sortedListIds({
     userDoc: ownerDoc,

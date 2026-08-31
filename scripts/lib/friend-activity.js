@@ -141,6 +141,9 @@ function friendActivityItems(friends, options = {}) {
     } else {
       items.push(...friendItems);
     }
+    if (items.length >= limit * 4) {
+      break;
+    }
   }
   return items
     .sort((a, b) =>

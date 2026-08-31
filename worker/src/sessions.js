@@ -22,8 +22,22 @@ function timingSafeEqualBytes(a, b) {
   return diff === 0;
 }
 
+let cachedHmacKey = null;
+let cachedHmacSecret = "";
+
 async function hmacKey(secret) {
-  return crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  if (cachedHmacSecret === secret && cachedHmacKey) {
+    return cachedHmacKey;
+  }
+  cachedHmacSecret = secret;
+  cachedHmacKey = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  return cachedHmacKey;
 }
 
 export function generateJti() {

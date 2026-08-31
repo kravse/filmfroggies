@@ -13,6 +13,10 @@ import { TMDB_API_BASE, TMDB_REQUEST_TIMEOUT_MS } from "./tmdb-proxy.js";
 export const BATCH_MAX_IDS = 100;
 export const STALE_MS = 30 * 24 * 60 * 60 * 1000;
 export const TMDB_FETCH_CONCURRENCY = 4;
+/** Workers Free allows 50 external subrequests; leave headroom for other work. */
+export const TMDB_FETCH_MAX_PER_REQUEST = 40;
+/** SQLite bind limit is 999; chunk IN queries below that. */
+export const D1_IN_CHUNK_SIZE = 400;
 
 export const BATCH_RATE_LIMITS = {
   user: { limit: 30, windowMs: 15 * 60 * 1000 },
@@ -20,6 +24,7 @@ export const BATCH_RATE_LIMITS = {
 };
 
 const TMDB_MOVIE_APPEND = "append_to_response=credits&language=en-US";
+const TMDB_MOVIE_LITE = "language=en-US";
 
 /** Dedupe positive integer ids, preserve first-seen order, cap length. */
 export function normalizeBatchIds(raw, max = BATCH_MAX_IDS) {
@@ -53,31 +58,35 @@ export async function loadMoviesFromD1(env, ids, nowMs = Date.now()) {
   if (!ids.length) {
     return new Map();
   }
-  const { sql, binds } = buildInClause(ids);
-  const result = await env.DB.prepare(sql).bind(...binds).all();
   const freshBefore = nowMs - STALE_MS;
   const out = new Map();
-  for (const row of result.results || []) {
-    if (!row || row.fetched_at < freshBefore) {
-      continue;
-    }
-    const record = parseStoredMovieDoc(row.doc);
-    if (record) {
-      out.set(record.id, record);
+  for (let offset = 0; offset < ids.length; offset += D1_IN_CHUNK_SIZE) {
+    const chunk = ids.slice(offset, offset + D1_IN_CHUNK_SIZE);
+    const { sql, binds } = buildInClause(chunk);
+    const result = await env.DB.prepare(sql).bind(...binds).all();
+    for (const row of result.results || []) {
+      if (!row || row.fetched_at < freshBefore) {
+        continue;
+      }
+      const record = parseStoredMovieDoc(row.doc);
+      if (record) {
+        out.set(record.id, record);
+      }
     }
   }
   return out;
 }
 
-export async function fetchMovieFromTmdb(id, env) {
+export async function fetchMovieFromTmdb(id, env, options = {}) {
   const token = String(env.TMDB_READ_TOKEN || "").trim();
   if (!token) {
     throw new Error("TMDB not configured");
   }
+  const query = options.lite ? TMDB_MOVIE_LITE : TMDB_MOVIE_APPEND;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TMDB_REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetch(`${TMDB_API_BASE}/movie/${id}?${TMDB_MOVIE_APPEND}`, {
+    const response = await fetch(`${TMDB_API_BASE}/movie/${id}?${query}`, {
       headers: {
         accept: "application/json",
         authorization: `Bearer ${token}`,
@@ -94,14 +103,17 @@ export async function fetchMovieFromTmdb(id, env) {
   }
 }
 
-export async function fetchMoviesWithConcurrency(ids, env, concurrency = TMDB_FETCH_CONCURRENCY) {
+export async function fetchMoviesWithConcurrency(ids, env, options = {}) {
+  const concurrency = options.concurrency ?? TMDB_FETCH_CONCURRENCY;
+  const maxFetches = options.max ?? TMDB_FETCH_MAX_PER_REQUEST;
+  const lite = options.lite === true;
+  const queue = ids.slice(0, maxFetches);
   const results = new Map();
-  const queue = [...ids];
   async function worker() {
     while (queue.length) {
       const id = queue.shift();
       try {
-        const record = await fetchMovieFromTmdb(id, env);
+        const record = await fetchMovieFromTmdb(id, env, { lite });
         if (record) {
           results.set(id, record);
         }
@@ -214,8 +226,8 @@ export async function handleMoviesBatch(request, env, session, ctx, res, clientI
   if (missing.length) {
     responseBody.missing = missing;
   }
-  if (truncated) {
-    responseBody.truncated = true;
+  if (truncated || missIds.length > fetched.size) {
+    responseBody.partial = true;
   }
 
   const response = res.json(200, responseBody);
