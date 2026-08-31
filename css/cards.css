@@ -266,6 +266,30 @@ body.view-mode-cards .card.is-no-watch-date:hover {
   opacity: 1;
 }
 
+.card-chronological-rating {
+  position: absolute;
+  z-index: 2;
+  top: 0.35rem;
+  right: 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.35rem;
+  padding: 0 0.3rem;
+  border: 1px solid var(--friend-mine-border);
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.48);
+  color: var(--friend-mine-text);
+  font-family: var(--ui-font);
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  pointer-events: none;
+}
+
 .placeholder {
   width: 100%;
   height: 100%;

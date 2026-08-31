@@ -28,8 +28,21 @@ const watchConfirmRatingController = appRatingFieldUi.createRatingFieldControlle
 );
 watchConfirmRatingController.initSelect();
 
-function closePosterWrap(_movieId, innerHtml, extras = "") {
-  return `${innerHtml}${extras}</div>`;
+function cardChronologicalRatingOverlayHtml(movieId) {
+  if (!isWatchedListActive() || isFriendViewActive() || !isWatchedSortMode()) {
+    return "";
+  }
+  const rating = appRatings.getRating(userState.ratings, movieId);
+  const label = appRatings.formatUserRating(rating);
+  if (!label) {
+    return "";
+  }
+  const safe = appCardHtml.escapeHtml(label);
+  return `<span class="card-chronological-rating" aria-label="Your rating ${safe}">${safe}</span>`;
+}
+
+function closePosterWrap(movieId, innerHtml, extras = "") {
+  return `${innerHtml}${extras}${cardChronologicalRatingOverlayHtml(movieId)}</div>`;
 }
 
 function posterWrapOpen(movieId) {
