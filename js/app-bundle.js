@@ -8269,8 +8269,9 @@ async function fetchFriendState(userId) {
  * transient and only memoized for the session.
  *
  * Ahead of network hydration, committed poster files under data/posters/ are
- * served when data/posters.json lists the id. Movie metadata comes from the
- * account D1 batch cache (POST /api/movies/batch), then per-id TMDB fallback.
+ * served when data/posters.json lists the id. Movie metadata hydrates from the
+ * TMDB Cache API first, then the account D1 batch cache (POST /api/movies/batch),
+ * then per-id TMDB fallback.
  *
  * When logged in, all TMDB traffic goes through the account-gated Worker proxy
  * at /api/tmdb (Netlify redirect in production, direct Worker URL on localhost).
@@ -8765,6 +8766,51 @@ function parseMovieText(text) {
 }
 
 /**
+ * Populate movieById from the TMDB Cache API for ids not already in memory.
+ * Returns ids still missing a detailed record. Stale entries revalidate in the background.
+ */
+async function warmMoviesFromCache(ids, handlers = {}) {
+  const cache = await openTmdbCache();
+  if (!cache || !ids.length) {
+    return ids.slice();
+  }
+  const outcomes = await Promise.all(
+    ids.map(async (id) => {
+      const movieId = Number(id);
+      try {
+        const cacheKey = movieCacheKey(movieId);
+        const cached = await cache.match(cacheKey);
+        if (!cached) {
+          return { movieId, record: null };
+        }
+        const cachedText = await cached.text();
+        const record = parseMovieText(cachedText);
+        if (!record || !appTmdb.isDetailedMovieRecord(record)) {
+          return { movieId, record: null };
+        }
+        if (appTmdbMovieCache.shouldRevalidateMovieCache(cached)) {
+          revalidateMovie(movieId, cacheKey, cache, cachedText, handlers.onUpdate);
+        }
+        return { movieId, record };
+      } catch (_) {
+        return { movieId, record: null };
+      }
+    }),
+  );
+  const stillPending = [];
+  for (const { movieId, record } of outcomes) {
+    if (record) {
+      movieById.set(movieId, record);
+      movieErrors.delete(movieId);
+      handlers.onRecord?.(movieId, record);
+    } else {
+      stillPending.push(movieId);
+    }
+  }
+  return stillPending;
+}
+
+/**
  * Background refresh when a cache entry is older than the revalidation interval.
  * Failures are intentionally silent: the caller already has a usable record.
  */
@@ -8922,7 +8968,7 @@ async function fetchDiscoverMovies(tab, options = {}) {
 }
 
 /**
- * Resolve many movies: committed snapshot, then one D1 batch request per chunk,
+ * Resolve many movies: Cache API warm, then D1 batch per chunk,
  * then per-id TMDB fallback for anything still missing.
  */
 async function fetchMoviesBatch(ids) {
@@ -8951,7 +8997,9 @@ async function fetchMoviesBatch(ids) {
         if (response.status === 401) {
           saveAccountConfig(null);
         }
-        throw new Error(payload?.error || `Movie batch failed (${response.status})`);
+        const error = new Error(payload?.error || `Movie batch failed (${response.status})`);
+        error.batchStatus = response.status;
+        throw error;
       }
       const parsed = appMovieCache.parseBatchResponse(payload);
       Object.assign(merged, parsed.movies);
@@ -8975,6 +9023,11 @@ async function hydrateMovies(ids, handlers = {}) {
   let hydratedFromNetwork = false;
   let stillPending = pending;
 
+  stillPending = await warmMoviesFromCache(stillPending, handlers);
+  if (!stillPending.length) {
+    return { hydratedFromNetwork };
+  }
+
   try {
     await devArtificialDelay();
     const batchMovies = await fetchMoviesBatch(stillPending);
@@ -8989,7 +9042,10 @@ async function hydrateMovies(ids, handlers = {}) {
     stillPending = stillPending.filter(
       (id) => !appTmdb.isDetailedMovieRecord(movieById.get(id)),
     );
-  } catch (_) {
+  } catch (error) {
+    if (error?.batchStatus === 429) {
+      return { hydratedFromNetwork };
+    }
     /* Fall through to per-id TMDB for remaining ids. */
   }
 
