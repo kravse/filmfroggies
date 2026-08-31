@@ -9757,16 +9757,31 @@ const watchConfirmRatingController = appRatingFieldUi.createRatingFieldControlle
 watchConfirmRatingController.initSelect();
 
 function cardChronologicalRatingOverlayHtml(movieId) {
-  if (!isWatchedListActive() || isFriendViewActive() || !isWatchedSortMode()) {
-    return "";
+  let rating = null;
+  let kindClass = "";
+  let ariaPrefix = "Your rating";
+  if (isFriendViewActive()) {
+    const friendSort = appSort.resolveSortMode(userState?.preferences?.sort, {
+      friendView: true,
+    });
+    if (appSort.getSortField(friendSort) !== "watched") {
+      return "";
+    }
+    rating = appRatings.getRating(friendViewState?.ratings, movieId);
+    kindClass = " is-friend";
+    ariaPrefix = "Friend rating";
+  } else {
+    if (!isWatchedListActive() || !isWatchedSortMode()) {
+      return "";
+    }
+    rating = appRatings.getRating(userState.ratings, movieId);
   }
-  const rating = appRatings.getRating(userState.ratings, movieId);
   const label = appRatings.formatUserRating(rating);
   if (!label) {
     return "";
   }
   const safe = appCardHtml.escapeHtml(label);
-  return `<span class="card-chronological-rating" aria-label="Your rating ${safe}">${safe}</span>`;
+  return `<span class="card-chronological-rating${kindClass}" aria-label="${ariaPrefix} ${safe}">${safe}</span>`;
 }
 
 function closePosterWrap(movieId, innerHtml, extras = "") {
