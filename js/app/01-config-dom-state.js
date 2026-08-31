@@ -188,6 +188,12 @@ const friendRemoveConfirmOk = document.getElementById("friend-remove-confirm-ok"
 const friendViewEl = document.getElementById("friend-view");
 const friendViewOverview = document.getElementById("friend-view-overview");
 const friendViewSectionsEl = document.getElementById("friend-view-sections");
+const friendActivityEl = document.getElementById("friend-activity");
+const friendActivityToggle = document.getElementById("friend-activity-toggle");
+const friendActivityPanel = document.getElementById("friend-activity-panel");
+const friendActivityClose = document.getElementById("friend-activity-close");
+const friendActivityStatus = document.getElementById("friend-activity-status");
+const friendActivityList = document.getElementById("friend-activity-list");
 
 const cacheClearBtn = document.getElementById("cache-clear");
 const cacheStatus = document.getElementById("cache-status");
@@ -327,6 +333,13 @@ let friendViewLoadedId = null;
 let friendViewLoading = false;
 let friendViewError = null;
 const friendViewCollapsedSections = new Set();
+let friendActivityItems = [];
+let friendActivityLoading = false;
+let friendActivityLoaded = false;
+let friendActivityError = null;
+let friendActivityCollapsed = false;
+let friendActivityAcceptedCount = null;
+let detailFriendActivityContext = null;
 
 function isCustomListIndexActive() {
   return appView === "customIndex";

@@ -279,12 +279,15 @@ function onUserStateStorageEvent(event) {
 function onVisibilityRefresh() {
   if (document.visibilityState !== "visible") {
     stopFriendsNavPolling();
+    stopFriendActivityPolling();
     return;
   }
   if (accountSyncEnabled()) {
     queueAccountSync();
     refreshFriendsNavBadge({ quiet: true });
+    refreshFriendActivity({ force: true, background: true });
     startFriendsNavPolling();
+    startFriendActivityPolling();
   }
 }
 
@@ -492,6 +495,7 @@ function disconnectAccount() {
   userState = { ...userState, storageMode: "account" };
   writeUserStateToStorage();
   stopFriendsNavPolling();
+  stopFriendActivityPolling();
 }
 
 async function logoutAccount() {
@@ -527,6 +531,10 @@ async function changeRemoteAccountPassword(currentPassword, newPassword) {
 
 function fetchFriends() {
   return accountRequest("/friends");
+}
+
+function fetchFriendsActivity(limit = 20) {
+  return accountRequest(`/friends/activity?limit=${encodeURIComponent(limit)}`);
 }
 
 function sendFriendRequest(email) {

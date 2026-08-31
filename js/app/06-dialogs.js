@@ -1872,7 +1872,7 @@ function renderDetail() {
       ? detailAddBlockHtml(detailMovieId)
       : "";
     detailBody.innerHTML = `${detailTitleRowHtml(heading)}
-<p class="movie-detail-overview">${note}</p>${friendDetailNoteHtml(detailMovieId)}${addForm}`;
+<p class="movie-detail-overview">${note}</p>${friendDetailNoteHtml(detailMovieId)}${typeof friendActivityDetailNoteHtml === "function" ? friendActivityDetailNoteHtml() : ""}${addForm}`;
   } else {
     detailPoster.innerHTML = detailPosterWithTmdbLinkHtml(
       detailPosterFrameHtml(record, appTmdb.POSTER_SIZES.detail),
@@ -1880,7 +1880,7 @@ function renderDetail() {
     );
     bindPosterImages(detailPoster);
     detailBody.innerHTML = `${detailTitleRowHtml(appCardHtml.escapeHtml(record.title))}
-${friendDetailNoteHtml(detailMovieId)}
+${friendDetailNoteHtml(detailMovieId)}${typeof friendActivityDetailNoteHtml === "function" ? friendActivityDetailNoteHtml() : ""}
 ${detailBodyTabsHtml(detailMovieId, record)}`;
   }
 
@@ -2065,6 +2065,7 @@ function openDetailNow(movieId, options = {}) {
   const keepAddSession = sameMovie && detailAddSessionActive;
   resetDetailAddFormState();
   detailAddSessionActive = keepAddSession || !appLists.isWatched(userState.lists, id);
+  detailFriendActivityContext = options.friendActivity || null;
   closeMovieShareDialog();
   closeDetailListsOverlay();
   closeDetailConfigSearch();
@@ -2114,6 +2115,7 @@ function closeDetailNow(options = {}) {
   detailListPickerSelectedIds.clear();
   resetDetailAddFormState();
   detailAddSessionActive = false;
+  detailFriendActivityContext = null;
   closeMovieShareDialog();
   closeDetailListsOverlay();
   hideDetailConfigResults();
@@ -2422,6 +2424,8 @@ async function onAccountAuth() {
     hydrateActiveList();
     refreshFriendsNavBadge();
     startFriendsNavPolling();
+    startFriendActivityPolling();
+    refreshFriendActivity({ force: true });
   } finally {
     accountSubmitBtn.disabled = false;
     accountAuthTabLogin.disabled = false;
@@ -2434,6 +2438,7 @@ async function onAccountLogout() {
   accountLogoutBtn.disabled = true;
   try {
     await logoutAccount();
+    resetFriendActivity();
     refreshSettings();
     closeSettings();
     refreshViewModeForActiveList();
@@ -2586,6 +2591,9 @@ function renderFriendsRoster() {
   friendsList.innerHTML = cached.length
     ? cached.map(friendRosterItemHtml).join("")
     : '<li class="friends-roster-empty">No friends yet. Add someone by email above.</li>';
+  if (typeof positionFriendActivityPanel === "function") {
+    positionFriendActivityPanel();
+  }
 }
 
 let friendsRosterChain = Promise.resolve();
@@ -2655,6 +2663,7 @@ async function onAddFriend() {
       "ok",
     );
     refreshFriendsList({ force: true });
+    refreshFriendActivity({ force: true });
   } catch (error) {
     setStatus(friendsStatus, error.message, "error");
   } finally {
@@ -2686,6 +2695,7 @@ async function confirmRemoveFriend() {
       navigateFromFriendView();
     }
     refreshFriendsList({ force: true });
+    refreshFriendActivity({ force: true });
   } catch (error) {
     setStatus(friendsStatus, error.message, "error");
   }
@@ -2702,10 +2712,12 @@ async function onFriendsListClick(event) {
     if (action === "accept") {
       await acceptFriend(friendId);
       refreshFriendsList({ force: true });
+      refreshFriendActivity({ force: true });
     } else if (action === "remove") {
       if (button.closest(".friends-roster-item--pending")) {
         await removeFriend(friendId);
         refreshFriendsList({ force: true });
+        refreshFriendActivity({ force: true });
       } else {
         requestRemoveFriendConfirm(friendId, button.dataset.friendName || "this friend");
       }

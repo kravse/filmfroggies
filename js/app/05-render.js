@@ -897,6 +897,9 @@ function setActiveList(listId) {
   refreshViewModeForActiveList();
   render();
   hydrateActiveList();
+  if (typeof renderFriendActivity === "function") {
+    renderFriendActivity();
+  }
 }
 
 function syncAddMovieFabVisibility(count) {

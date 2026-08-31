@@ -29,6 +29,7 @@ import {
   revokeOtherUserSessions,
 } from "./sessions.js";
 import { describeProxySignature, netlifyProxyTrusted } from "./proxy-signature.js";
+import { friendActivityItems, normalizeActivityLimit } from "./lib/friend-activity.js";
 
 export { rateLimit, rateLimitBlocked, createSessionToken, verifySessionToken };
 
@@ -366,8 +367,31 @@ async function handleAuth(request, env, path, res, ip) {
   return res.json(200, { user: publicUser(user), ...(await issueToken(env, user.id)) });
 }
 
-async function handleFriends(request, env, session, path, res) {
+export async function handleFriends(request, env, session, path, res) {
   const uid = session.uid;
+
+  if (path === "/api/friends/activity" && request.method === "GET") {
+    const limit = normalizeActivityLimit(new URL(request.url).searchParams.get("limit"));
+    const { results } = await env.DB.prepare(
+      `SELECT u.id, u.display_name, d.doc
+       FROM friends f
+       JOIN users u ON u.id = CASE WHEN f.user_id = ?1 THEN f.friend_id ELSE f.user_id END
+       LEFT JOIN user_data d ON d.user_id = u.id
+       WHERE (f.user_id = ?1 OR f.friend_id = ?1) AND f.status = 'accepted'`
+    ).bind(uid).all();
+    const friends = results.map((row) => ({
+      id: row.id,
+      displayName: row.display_name,
+      doc: parseStoredDoc(row.doc),
+    }));
+    const items = friendActivityItems(friends, { limit }).map(({ movieId, watchedOn, friend, rating }) => ({
+      movieId,
+      watchedOn,
+      friend,
+      rating,
+    }));
+    return res.json(200, { items });
+  }
 
   if (path === "/api/friends" && request.method === "GET") {
     const { results } = await env.DB.prepare(

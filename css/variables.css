@@ -85,6 +85,9 @@
   --layout-gutter: 1.25rem;
   --header-gap: 0.75rem;
   --floating-action-bottom: calc(3.35rem + env(safe-area-inset-bottom, 0px));
+  --friend-activity-width: 6.85rem;
+  --friend-activity-tab-width: 2rem;
+  --friend-activity-gutter: 0.65rem;
 
   --search-field-genre-bg: rgba(89, 195, 129, 0.24);
   --search-field-genre-border: rgba(104, 214, 145, 0.52);
