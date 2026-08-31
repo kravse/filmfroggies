@@ -793,14 +793,14 @@
       <div class="empty-state" id="empty-state" hidden></div>
     </main>
 
-    <aside class="friend-activity" id="friend-activity" aria-label="Friends activity" hidden>
+    <aside class="friend-activity" id="friend-activity" aria-label="Friend activity" hidden>
       <button
         type="button"
         class="friend-activity-toggle"
         id="friend-activity-toggle"
         aria-controls="friend-activity-panel"
         aria-expanded="true"
-        aria-label="Collapse friends activity"
+        aria-label="Collapse friend activity"
       >
         <span class="friend-activity-chevron" aria-hidden="true">›</span>
         <svg class="friend-activity-friends-icon" viewBox="0 0 24 20" width="18" height="16" fill="none" aria-hidden="true">
@@ -814,10 +814,19 @@
       <div class="friend-activity-panel" id="friend-activity-panel">
         <div class="friend-activity-header">
           <div>
-            <h2>Friends</h2>
-            <p>Recently watched</p>
+            <h2>Friend activity</h2>
+            <p>Recent watch dates</p>
           </div>
-          <button type="button" class="icon-btn friend-activity-refresh" id="friend-activity-refresh" aria-label="Refresh friends activity">↻</button>
+          <button type="button" class="icon-btn friend-activity-close" id="friend-activity-close" aria-label="Close friend activity" hidden>
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none">
+              <path
+                d="M6 6l8 8M14 6l-8 8"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
         </div>
         <div class="friend-activity-status" id="friend-activity-status" role="status">Loading activity…</div>
         <ol class="friend-activity-list" id="friend-activity-list" aria-label="Recent friend viewings"></ol>

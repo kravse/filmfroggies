@@ -612,6 +612,15 @@ document.addEventListener("keydown", (event) => {
       closeAbout();
       return;
     }
+    if (
+      friendActivityEl &&
+      !friendActivityEl.hidden &&
+      friendActivityCollapsed &&
+      typeof toggleFriendActivity === "function"
+    ) {
+      toggleFriendActivity();
+      return;
+    }
     if (!settingsDialog.hidden) {
       closeSettings();
       return;
@@ -699,6 +708,7 @@ async function startApp() {
     queueAccountSync();
     refreshFriendsNavBadge();
     startFriendsNavPolling();
+    startFriendActivityPolling();
     refreshFriendActivity();
   }
 }

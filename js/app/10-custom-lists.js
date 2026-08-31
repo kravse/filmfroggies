@@ -209,6 +209,12 @@ function syncAppViewChrome() {
   syncHeaderNavUi();
   syncListSearchVisibility();
   syncReorderModeUi();
+  if (typeof renderFriendActivity === "function") {
+    renderFriendActivity();
+  }
+  if (typeof refreshFriendActivityOnNavigate === "function") {
+    refreshFriendActivityOnNavigate();
+  }
 }
 
 function navigateToMain(options = {}) {

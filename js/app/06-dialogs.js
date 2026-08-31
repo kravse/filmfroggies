@@ -1872,7 +1872,7 @@ function renderDetail() {
       ? detailAddBlockHtml(detailMovieId)
       : "";
     detailBody.innerHTML = `${detailTitleRowHtml(heading)}
-<p class="movie-detail-overview">${note}</p>${friendDetailNoteHtml(detailMovieId)}${addForm}`;
+<p class="movie-detail-overview">${note}</p>${friendDetailNoteHtml(detailMovieId)}${typeof friendActivityDetailNoteHtml === "function" ? friendActivityDetailNoteHtml() : ""}${addForm}`;
   } else {
     detailPoster.innerHTML = detailPosterWithTmdbLinkHtml(
       detailPosterFrameHtml(record, appTmdb.POSTER_SIZES.detail),
@@ -1880,7 +1880,7 @@ function renderDetail() {
     );
     bindPosterImages(detailPoster);
     detailBody.innerHTML = `${detailTitleRowHtml(appCardHtml.escapeHtml(record.title))}
-${friendDetailNoteHtml(detailMovieId)}
+${friendDetailNoteHtml(detailMovieId)}${typeof friendActivityDetailNoteHtml === "function" ? friendActivityDetailNoteHtml() : ""}
 ${detailBodyTabsHtml(detailMovieId, record)}`;
   }
 
@@ -2065,6 +2065,7 @@ function openDetailNow(movieId, options = {}) {
   const keepAddSession = sameMovie && detailAddSessionActive;
   resetDetailAddFormState();
   detailAddSessionActive = keepAddSession || !appLists.isWatched(userState.lists, id);
+  detailFriendActivityContext = options.friendActivity || null;
   closeMovieShareDialog();
   closeDetailListsOverlay();
   closeDetailConfigSearch();
@@ -2114,6 +2115,7 @@ function closeDetailNow(options = {}) {
   detailListPickerSelectedIds.clear();
   resetDetailAddFormState();
   detailAddSessionActive = false;
+  detailFriendActivityContext = null;
   closeMovieShareDialog();
   closeDetailListsOverlay();
   hideDetailConfigResults();
@@ -2422,6 +2424,7 @@ async function onAccountAuth() {
     hydrateActiveList();
     refreshFriendsNavBadge();
     startFriendsNavPolling();
+    startFriendActivityPolling();
     refreshFriendActivity({ force: true });
   } finally {
     accountSubmitBtn.disabled = false;
@@ -2588,6 +2591,9 @@ function renderFriendsRoster() {
   friendsList.innerHTML = cached.length
     ? cached.map(friendRosterItemHtml).join("")
     : '<li class="friends-roster-empty">No friends yet. Add someone by email above.</li>';
+  if (typeof positionFriendActivityPanel === "function") {
+    positionFriendActivityPanel();
+  }
 }
 
 let friendsRosterChain = Promise.resolve();

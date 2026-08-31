@@ -36,6 +36,15 @@ test("friend activity ignores malformed friends and entries", () => {
   assert.equal(normalizeActivityLimit("nope"), 20);
 });
 
+test("formatActivityDateLabel uses relative labels and falls back to calendar dates", () => {
+  const { formatActivityDateLabel } = require("../scripts/lib/friend-activity");
+  assert.equal(formatActivityDateLabel("2026-08-31", { today: "2026-08-31" }), "Today");
+  assert.equal(formatActivityDateLabel("2026-08-30", { today: "2026-08-31" }), "Yesterday");
+  assert.equal(formatActivityDateLabel("2026-08-28", { today: "2026-08-31" }), "3 days ago");
+  assert.equal(formatActivityDateLabel("2026-08-20", { today: "2026-08-31" }), "Last week");
+  assert.match(formatActivityDateLabel("2025-12-25", { today: "2026-08-31" }), /Dec/);
+});
+
 test("friend activity rejects impossible and future viewing dates", () => {
   const items = friendActivityItems([{ id: 2, displayName: "Sam", doc: { viewingHistory: {
     10: [

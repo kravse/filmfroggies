@@ -810,7 +810,6 @@ function syncAccountLoginGate() {
     addMovieFab.disabled = !loggedIn;
   }
   updateAddMovieHint();
-  if (typeof renderFriendActivity === "function") renderFriendActivity();
 }
 
 function updateListHeader() {
@@ -898,6 +897,9 @@ function setActiveList(listId) {
   refreshViewModeForActiveList();
   render();
   hydrateActiveList();
+  if (typeof renderFriendActivity === "function") {
+    renderFriendActivity();
+  }
 }
 
 function syncAddMovieFabVisibility(count) {

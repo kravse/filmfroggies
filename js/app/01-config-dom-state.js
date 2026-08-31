@@ -191,7 +191,7 @@ const friendViewSectionsEl = document.getElementById("friend-view-sections");
 const friendActivityEl = document.getElementById("friend-activity");
 const friendActivityToggle = document.getElementById("friend-activity-toggle");
 const friendActivityPanel = document.getElementById("friend-activity-panel");
-const friendActivityRefresh = document.getElementById("friend-activity-refresh");
+const friendActivityClose = document.getElementById("friend-activity-close");
 const friendActivityStatus = document.getElementById("friend-activity-status");
 const friendActivityList = document.getElementById("friend-activity-list");
 
@@ -338,6 +338,8 @@ let friendActivityLoading = false;
 let friendActivityLoaded = false;
 let friendActivityError = null;
 let friendActivityCollapsed = false;
+let friendActivityAcceptedCount = null;
+let detailFriendActivityContext = null;
 
 function isCustomListIndexActive() {
   return appView === "customIndex";

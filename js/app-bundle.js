@@ -193,7 +193,7 @@ const friendViewSectionsEl = document.getElementById("friend-view-sections");
 const friendActivityEl = document.getElementById("friend-activity");
 const friendActivityToggle = document.getElementById("friend-activity-toggle");
 const friendActivityPanel = document.getElementById("friend-activity-panel");
-const friendActivityRefresh = document.getElementById("friend-activity-refresh");
+const friendActivityClose = document.getElementById("friend-activity-close");
 const friendActivityStatus = document.getElementById("friend-activity-status");
 const friendActivityList = document.getElementById("friend-activity-list");
 
@@ -340,6 +340,8 @@ let friendActivityLoading = false;
 let friendActivityLoaded = false;
 let friendActivityError = null;
 let friendActivityCollapsed = false;
+let friendActivityAcceptedCount = null;
+let detailFriendActivityContext = null;
 
 function isCustomListIndexActive() {
   return appView === "customIndex";
@@ -685,11 +687,34 @@ const appFriendActivity = (function () {
       .slice(0, limit);
   }
 
+  /** Relative labels for the activity rail; falls back to a short calendar date. */
+  function formatActivityDateLabel(isoDate, options = {}) {
+    const watchedOn = normalizeDate(isoDate);
+    if (!watchedOn) return String(isoDate || "");
+    const today = normalizeDate(options.today) || new Date().toISOString().slice(0, 10);
+    if (watchedOn === today) return "Today";
+    const todayMs = Date.parse(`${today}T00:00:00.000Z`);
+    const watchedMs = Date.parse(`${watchedOn}T00:00:00.000Z`);
+    if (!Number.isFinite(todayMs) || !Number.isFinite(watchedMs)) return watchedOn;
+    const dayDiff = Math.round((todayMs - watchedMs) / 86_400_000);
+    if (dayDiff === 1) return "Yesterday";
+    if (dayDiff > 1 && dayDiff < 7) return `${dayDiff} days ago`;
+    if (dayDiff >= 7 && dayDiff < 14) return "Last week";
+    const date = new Date(`${watchedOn}T00:00:00`);
+    if (!Number.isFinite(date.getTime())) return watchedOn;
+    return new Intl.DateTimeFormat(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }).format(date);
+  }
+
   return {
     DEFAULT_ACTIVITY_LIMIT,
     MAX_ACTIVITY_LIMIT,
     normalizeActivityLimit,
     friendActivityItems,
+    formatActivityDateLabel,
   };
 })();
 
@@ -7674,13 +7699,15 @@ function onUserStateStorageEvent(event) {
 function onVisibilityRefresh() {
   if (document.visibilityState !== "visible") {
     stopFriendsNavPolling();
+    stopFriendActivityPolling();
     return;
   }
   if (accountSyncEnabled()) {
     queueAccountSync();
     refreshFriendsNavBadge({ quiet: true });
-    refreshFriendActivity({ force: true });
+    refreshFriendActivity({ force: true, background: true });
     startFriendsNavPolling();
+    startFriendActivityPolling();
   }
 }
 
@@ -7888,6 +7915,7 @@ function disconnectAccount() {
   userState = { ...userState, storageMode: "account" };
   writeUserStateToStorage();
   stopFriendsNavPolling();
+  stopFriendActivityPolling();
 }
 
 async function logoutAccount() {
@@ -10251,7 +10279,6 @@ function syncAccountLoginGate() {
     addMovieFab.disabled = !loggedIn;
   }
   updateAddMovieHint();
-  if (typeof renderFriendActivity === "function") renderFriendActivity();
 }
 
 function updateListHeader() {
@@ -10339,6 +10366,9 @@ function setActiveList(listId) {
   refreshViewModeForActiveList();
   render();
   hydrateActiveList();
+  if (typeof renderFriendActivity === "function") {
+    renderFriendActivity();
+  }
 }
 
 function syncAddMovieFabVisibility(count) {
@@ -12772,7 +12802,7 @@ function renderDetail() {
       ? detailAddBlockHtml(detailMovieId)
       : "";
     detailBody.innerHTML = `${detailTitleRowHtml(heading)}
-<p class="movie-detail-overview">${note}</p>${friendDetailNoteHtml(detailMovieId)}${addForm}`;
+<p class="movie-detail-overview">${note}</p>${friendDetailNoteHtml(detailMovieId)}${typeof friendActivityDetailNoteHtml === "function" ? friendActivityDetailNoteHtml() : ""}${addForm}`;
   } else {
     detailPoster.innerHTML = detailPosterWithTmdbLinkHtml(
       detailPosterFrameHtml(record, appTmdb.POSTER_SIZES.detail),
@@ -12780,7 +12810,7 @@ function renderDetail() {
     );
     bindPosterImages(detailPoster);
     detailBody.innerHTML = `${detailTitleRowHtml(appCardHtml.escapeHtml(record.title))}
-${friendDetailNoteHtml(detailMovieId)}
+${friendDetailNoteHtml(detailMovieId)}${typeof friendActivityDetailNoteHtml === "function" ? friendActivityDetailNoteHtml() : ""}
 ${detailBodyTabsHtml(detailMovieId, record)}`;
   }
 
@@ -12965,6 +12995,7 @@ function openDetailNow(movieId, options = {}) {
   const keepAddSession = sameMovie && detailAddSessionActive;
   resetDetailAddFormState();
   detailAddSessionActive = keepAddSession || !appLists.isWatched(userState.lists, id);
+  detailFriendActivityContext = options.friendActivity || null;
   closeMovieShareDialog();
   closeDetailListsOverlay();
   closeDetailConfigSearch();
@@ -13014,6 +13045,7 @@ function closeDetailNow(options = {}) {
   detailListPickerSelectedIds.clear();
   resetDetailAddFormState();
   detailAddSessionActive = false;
+  detailFriendActivityContext = null;
   closeMovieShareDialog();
   closeDetailListsOverlay();
   hideDetailConfigResults();
@@ -13322,6 +13354,7 @@ async function onAccountAuth() {
     hydrateActiveList();
     refreshFriendsNavBadge();
     startFriendsNavPolling();
+    startFriendActivityPolling();
     refreshFriendActivity({ force: true });
   } finally {
     accountSubmitBtn.disabled = false;
@@ -13488,6 +13521,9 @@ function renderFriendsRoster() {
   friendsList.innerHTML = cached.length
     ? cached.map(friendRosterItemHtml).join("")
     : '<li class="friends-roster-empty">No friends yet. Add someone by email above.</li>';
+  if (typeof positionFriendActivityPanel === "function") {
+    positionFriendActivityPanel();
+  }
 }
 
 let friendsRosterChain = Promise.resolve();
@@ -14446,6 +14482,12 @@ function syncAppViewChrome() {
   syncHeaderNavUi();
   syncListSearchVisibility();
   syncReorderModeUi();
+  if (typeof renderFriendActivity === "function") {
+    renderFriendActivity();
+  }
+  if (typeof refreshFriendActivityOnNavigate === "function") {
+    refreshFriendActivityOnNavigate();
+  }
 }
 
 function navigateToMain(options = {}) {
@@ -16511,6 +16553,10 @@ function setFriendsNavData(friends) {
   lastFriendsList = friends || [];
   friendsRosterLoaded = true;
   syncFriendsNavBadge(lastFriendsList);
+  friendActivityAcceptedCount = lastFriendsList.filter((friend) => friend.status === "accepted").length;
+  if (typeof renderFriendActivity === "function") {
+    renderFriendActivity();
+  }
 }
 
 /** Logging out or losing the read drops the cache so the next open really loads. */
@@ -16518,6 +16564,10 @@ function clearFriendsNavData() {
   lastFriendsList = [];
   friendsRosterLoaded = false;
   syncFriendsNavBadge(lastFriendsList);
+  friendActivityAcceptedCount = null;
+  if (typeof renderFriendActivity === "function") {
+    renderFriendActivity();
+  }
 }
 
 /** Null until a read succeeds, which is what separates "empty" from "unknown". */
@@ -16581,6 +16631,9 @@ function renderFriendsIndex() {
   refreshAccountSection();
   if (accountSyncEnabled()) {
     refreshFriendsList();
+    if (typeof refreshFriendActivity === "function") {
+      refreshFriendActivity({ force: true, background: friendActivityLoaded });
+    }
   }
 }
 
@@ -16609,19 +16662,71 @@ function navigateToFriendsIndex(options = {}) {
 /* ===== Recent friends activity rail ===== */
 
 const FRIEND_ACTIVITY_COLLAPSED_KEY = "moviecollector-friend-activity-collapsed";
+const FRIEND_ACTIVITY_COLLAPSED_EXPLICIT_KEY = "moviecollector-friend-activity-collapsed-explicit";
+const FRIEND_ACTIVITY_POLL_MS = 60_000;
 let friendActivityHeaderObserver = null;
+let friendActivityPollTimer = null;
+let friendActivityNavigateKey = null;
 
-function positionFriendActivityBelowHeader() {
+function friendActivityCollapsedExplicit() {
+  try {
+    return localStorage.getItem(FRIEND_ACTIVITY_COLLAPSED_EXPLICIT_KEY) === "1";
+  } catch (_) {
+    return false;
+  }
+}
+
+function readInitialFriendActivityCollapsed() {
+  try {
+    const stored = localStorage.getItem(FRIEND_ACTIVITY_COLLAPSED_KEY);
+    if (stored === "1") return true;
+    if (stored === "0") return false;
+  } catch (_) {}
+  return window.matchMedia("(max-width: 900px)").matches;
+}
+
+function setFriendActivityCollapsed(collapsed, options = {}) {
+  friendActivityCollapsed = collapsed;
+  try {
+    localStorage.setItem(FRIEND_ACTIVITY_COLLAPSED_KEY, collapsed ? "1" : "0");
+    if (options.explicit) {
+      localStorage.setItem(FRIEND_ACTIVITY_COLLAPSED_EXPLICIT_KEY, "1");
+    }
+  } catch (_) {}
+  renderFriendActivity();
+}
+
+function maybeCollapseEmptyFriendActivity() {
+  if (friendActivityCollapsedExplicit() || isFriendsIndexActive()) return;
+  if (friendActivityLoaded && !friendActivityItems.length) {
+    friendActivityCollapsed = true;
+  }
+}
+
+function positionFriendActivityPanel() {
+  if (!friendActivityEl) return;
+
+  if (isFriendsIndexActive()) {
+    const dock = document.querySelector(".friends-dock");
+    if (!dock) return;
+    const dockRect = dock.getBoundingClientRect();
+    friendActivityEl.style.setProperty("--friend-activity-top", `${Math.round(dockRect.top)}px`);
+    friendActivityEl.style.setProperty(
+      "--friend-activity-bottom",
+      `${Math.round(window.innerHeight - dockRect.bottom)}px`,
+    );
+    return;
+  }
+
   const header = document.querySelector("body > header");
-  if (!header || !friendActivityEl || typeof header.getBoundingClientRect !== "function") return;
+  if (!header || typeof header.getBoundingClientRect !== "function") return;
   const bottom = Math.max(0, header.getBoundingClientRect()?.bottom || 0);
   friendActivityEl.style.setProperty("--friend-activity-top", `${Math.round(bottom + 12)}px`);
+  friendActivityEl.style.removeProperty("--friend-activity-bottom");
 }
 
 function friendActivityDateLabel(value) {
-  const date = new Date(`${value}T00:00:00`);
-  if (!Number.isFinite(date.getTime())) return value;
-  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(date);
+  return appFriendActivity.formatActivityDateLabel(value);
 }
 
 function friendActivityPoster(movie) {
@@ -16630,16 +16735,97 @@ function friendActivityPoster(movie) {
   return `<img src="${appCardHtml.escapeHtml(src)}" alt="" loading="lazy" />`;
 }
 
+function resolvedFriendActivityAcceptedCount() {
+  if (Number.isInteger(friendActivityAcceptedCount) && friendActivityAcceptedCount >= 0) {
+    return friendActivityAcceptedCount;
+  }
+  if (typeof cachedFriendsRoster === "function") {
+    const roster = cachedFriendsRoster();
+    if (roster) {
+      return roster.filter((friend) => friend.status === "accepted").length;
+    }
+  }
+  return null;
+}
+
+function friendActivityEmptyStatusHtml() {
+  return "When friends log watch dates, they&rsquo;ll show up here.";
+}
+
+function isFriendActivityPresetListView() {
+  return isWatchedListActive() || isWatchlistActive();
+}
+
+function friendActivityDocked() {
+  return isFriendsIndexActive();
+}
+
+function friendActivityVisible() {
+  if (!accountSyncEnabled()) return false;
+  if (document.body.classList.contains("view-splash")) return false;
+  if (isFriendViewActive()) return false;
+  if (isAdminViewActive()) return false;
+  if (!isFriendsIndexActive() && !isFriendActivityPresetListView()) return false;
+  const count = resolvedFriendActivityAcceptedCount();
+  if (count == null || count === 0) return false;
+  return true;
+}
+
+function friendActivityRatingHtml(rating) {
+  const normalized = appRatings.normalizeRating(rating);
+  if (normalized == null) return "";
+  const text = appRatings.formatUserRating(normalized);
+  return `<span class="friend-activity-rating">${ratingChitHtml(
+    ratingSegmentHtml("them", text, false),
+    `Friend rating ${text}`,
+  )}</span>`;
+}
+
+function friendActivityDetailNoteHtml() {
+  const ctx = detailFriendActivityContext;
+  if (!ctx) return "";
+  const date = friendActivityDateLabel(ctx.watchedOn);
+  const rating = appRatings.normalizeRating(ctx.rating);
+  const ratingHtml = rating == null ? "" : friendActivityRatingHtml(rating);
+  return `<p class="friend-activity-detail-note"><span>${appCardHtml.escapeHtml(ctx.displayName)} watched · ${appCardHtml.escapeHtml(date)}</span>${ratingHtml}</p>`;
+}
+
 function renderFriendActivity() {
   if (!friendActivityEl) return;
-  const visible = accountSyncEnabled() && appView !== "admin" && document.body.classList.contains("view-splash") === false;
+  const visible = friendActivityVisible();
+  const docked = visible && friendActivityDocked();
+  const open = visible && (docked || !friendActivityCollapsed);
   friendActivityEl.hidden = !visible;
-  document.body.classList.toggle("friend-activity-expanded", visible && !friendActivityCollapsed);
-  if (!visible) return;
-  friendActivityEl.classList.toggle("is-collapsed", friendActivityCollapsed);
-  friendActivityToggle.setAttribute("aria-expanded", String(!friendActivityCollapsed));
-  friendActivityToggle.setAttribute("aria-label", `${friendActivityCollapsed ? "Expand" : "Collapse"} friends activity`);
-  friendActivityToggle.querySelector(".friend-activity-chevron").textContent = "›";
+  friendActivityEl.classList.toggle("is-docked", docked);
+  document.body.classList.toggle("friend-activity-expanded", open);
+  if (!visible) {
+    friendActivityEl.classList.remove("is-collapsed");
+    return;
+  }
+  if (docked) {
+    friendActivityCollapsed = false;
+    friendActivityEl.classList.remove("is-collapsed");
+    if (friendActivityToggle) {
+      friendActivityToggle.hidden = true;
+    }
+    if (friendActivityClose) {
+      friendActivityClose.hidden = true;
+    }
+  } else {
+    friendActivityEl.classList.toggle("is-collapsed", friendActivityCollapsed);
+    if (friendActivityToggle) {
+      friendActivityToggle.hidden = !friendActivityCollapsed;
+      friendActivityToggle.setAttribute("aria-expanded", String(!friendActivityCollapsed));
+      friendActivityToggle.setAttribute(
+        "aria-label",
+        `${friendActivityCollapsed ? "Show" : "Hide"} friend activity`,
+      );
+    }
+    if (friendActivityClose) {
+      friendActivityClose.hidden = friendActivityCollapsed;
+    }
+  }
+  positionFriendActivityPanel();
 
   if (friendActivityLoading && !friendActivityLoaded) {
     friendActivityStatus.hidden = false;
@@ -16649,13 +16835,13 @@ function renderFriendActivity() {
   }
   if (friendActivityError && !friendActivityLoaded) {
     friendActivityStatus.hidden = false;
-    friendActivityStatus.innerHTML = `Couldn’t load activity. <button type="button" data-friend-activity-retry>Try again</button>`;
+    friendActivityStatus.innerHTML = `Couldn&rsquo;t load activity. <button type="button" data-friend-activity-retry>Try again</button>`;
     friendActivityList.innerHTML = "";
     return;
   }
   if (!friendActivityItems.length) {
     friendActivityStatus.hidden = false;
-    friendActivityStatus.textContent = "No dated friend viewings yet.";
+    friendActivityStatus.innerHTML = friendActivityEmptyStatusHtml();
     friendActivityList.innerHTML = "";
     return;
   }
@@ -16664,29 +16850,64 @@ function renderFriendActivity() {
     const movie = movieById.get(item.movieId);
     const title = movie?.title || `Movie #${item.movieId}`;
     const rating = appRatings.normalizeRating(item.rating);
-    return `<li><button type="button" class="friend-activity-item" data-friend-activity-movie-id="${item.movieId}">
+    const friendName = appCardHtml.escapeHtml(item.friend.displayName);
+    const dateLabel = appCardHtml.escapeHtml(friendActivityDateLabel(item.watchedOn));
+    return `<li><div class="friend-activity-item" data-friend-activity-movie-id="${item.movieId}" data-friend-activity-friend-id="${item.friend.id}" data-friend-activity-friend-name="${friendName}" data-friend-activity-watched-on="${appCardHtml.escapeHtml(item.watchedOn)}" data-friend-activity-rating="${rating ?? ""}">
       <span class="friend-activity-poster">${friendActivityPoster(movie)}</span>
       <span class="friend-activity-copy">
         <strong>${appCardHtml.escapeHtml(title)}</strong>
-        <span>${appCardHtml.escapeHtml(item.friend.displayName)} · ${appCardHtml.escapeHtml(friendActivityDateLabel(item.watchedOn))}</span>
+        <span class="friend-activity-meta">
+          <button type="button" class="friend-activity-friend-link" data-friend-id="${item.friend.id}" data-friend-name="${friendName}">${friendName}</button><span class="friend-activity-meta-sep" aria-hidden="true"> · </span><span class="friend-activity-date">${dateLabel}</span>
+        </span>
       </span>
-      ${rating == null ? "" : `<span class="rating-chit friend-activity-rating">${appCardHtml.escapeHtml(appRatings.formatUserRating(rating))}</span>`}
-    </button></li>`;
+      ${rating == null ? "" : friendActivityRatingHtml(rating)}
+    </div></li>`;
   }).join("");
 }
 
+async function loadFriendActivityRosterCount() {
+  try {
+    if (typeof cachedFriendsRoster === "function") {
+      const cached = cachedFriendsRoster();
+      if (cached) {
+        friendActivityAcceptedCount = cached.filter((friend) => friend.status === "accepted").length;
+        return;
+      }
+    }
+    const body = await fetchFriends();
+    const friends = body?.friends || [];
+    if (typeof setFriendsNavData === "function") {
+      setFriendsNavData(friends);
+    }
+    friendActivityAcceptedCount = friends.filter((friend) => friend.status === "accepted").length;
+  } catch (_) {
+    friendActivityAcceptedCount = null;
+  }
+}
+
 async function refreshFriendActivity(options = {}) {
-  if (!accountSyncEnabled() || friendActivityLoading) {
+  const background = options.background === true;
+  if (!accountSyncEnabled()) {
     renderFriendActivity();
+    return;
+  }
+  if (friendActivityLoading) {
+    if (!background) {
+      renderFriendActivity();
+    }
     return;
   }
   if (friendActivityLoaded && !options.force) {
     renderFriendActivity();
     return;
   }
-  friendActivityLoading = true;
-  friendActivityError = null;
-  renderFriendActivity();
+
+  const showLoading = !background || !friendActivityLoaded;
+  if (showLoading) {
+    friendActivityLoading = true;
+    friendActivityError = null;
+    renderFriendActivity();
+  }
   try {
     let body;
     try {
@@ -16694,25 +16915,85 @@ async function refreshFriendActivity(options = {}) {
     } catch (error) {
       const localDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
       if (!localDev || error?.status !== 404) throw error;
-      const roster = await fetchFriends();
-      const accepted = (roster?.friends || []).filter((friend) => friend.status === "accepted");
-      const friends = await Promise.all(accepted.map(async (friend) => ({
-        id: friend.id,
-        displayName: friend.displayName || friend.email?.split("@")[0] || "Friend",
-        doc: await fetchFriendState(friend.id),
-      })));
+      await loadFriendActivityRosterCount();
+      const roster = typeof cachedFriendsRoster === "function" ? cachedFriendsRoster() : null;
+      const accepted = (roster || []).filter((friend) => friend.status === "accepted");
+      const friends = await Promise.all(
+        accepted.map(async (friend) => ({
+          id: friend.id,
+          displayName: friend.displayName || friend.email?.split("@")[0] || "Friend",
+          doc: await fetchFriendState(friend.id),
+        })),
+      );
       body = { items: appFriendActivity.friendActivityItems(friends, { limit: 20 }) };
+    }
+    if (!Number.isInteger(friendActivityAcceptedCount)) {
+      await loadFriendActivityRosterCount();
     }
     friendActivityItems = Array.isArray(body?.items) ? body.items : [];
     friendActivityLoaded = true;
+    maybeCollapseEmptyFriendActivity();
     renderFriendActivity();
     const ids = [...new Set(friendActivityItems.map((item) => Number(item.movieId)).filter(Number.isInteger))];
     await hydrateMovies(ids, { onRecord: () => renderFriendActivity() });
   } catch (error) {
-    friendActivityError = error;
+    if (showLoading) {
+      friendActivityError = error;
+    }
   } finally {
-    friendActivityLoading = false;
+    if (showLoading) {
+      friendActivityLoading = false;
+    }
+    if (friendActivityVisible()) {
+      const key = friendActivityNavigateRefreshKey();
+      if (friendActivityNavigateKey == null) {
+        friendActivityNavigateKey = key;
+      }
+    }
     renderFriendActivity();
+  }
+}
+
+function friendActivityNavigateRefreshKey() {
+  const listId = userState?.activeListId ?? "";
+  return `${appView}:${listId}`;
+}
+
+function refreshFriendActivityOnNavigate() {
+  if (!accountSyncEnabled()) {
+    return;
+  }
+  const key = friendActivityNavigateRefreshKey();
+  if (!friendActivityVisible()) {
+    friendActivityNavigateKey = null;
+    return;
+  }
+  if (key === friendActivityNavigateKey) {
+    return;
+  }
+  friendActivityNavigateKey = key;
+  refreshFriendActivity({ force: true, background: true });
+}
+
+function pollFriendActivity() {
+  if (!accountSyncEnabled() || document.visibilityState !== "visible") {
+    return;
+  }
+  refreshFriendActivity({ force: true, background: true });
+}
+
+function startFriendActivityPolling() {
+  stopFriendActivityPolling();
+  if (!accountSyncEnabled()) {
+    return;
+  }
+  friendActivityPollTimer = setInterval(pollFriendActivity, FRIEND_ACTIVITY_POLL_MS);
+}
+
+function stopFriendActivityPolling() {
+  if (friendActivityPollTimer != null) {
+    clearInterval(friendActivityPollTimer);
+    friendActivityPollTimer = null;
   }
 }
 
@@ -16721,33 +17002,66 @@ function resetFriendActivity() {
   friendActivityLoaded = false;
   friendActivityError = null;
   friendActivityLoading = false;
+  friendActivityAcceptedCount = null;
+  friendActivityNavigateKey = null;
+  stopFriendActivityPolling();
   renderFriendActivity();
 }
 
 function toggleFriendActivity() {
-  friendActivityCollapsed = !friendActivityCollapsed;
-  try { localStorage.setItem(FRIEND_ACTIVITY_COLLAPSED_KEY, friendActivityCollapsed ? "1" : "0"); } catch (_) {}
-  renderFriendActivity();
+  setFriendActivityCollapsed(!friendActivityCollapsed, { explicit: true });
 }
 
 function initFriendActivity() {
-  try { friendActivityCollapsed = localStorage.getItem(FRIEND_ACTIVITY_COLLAPSED_KEY) === "1"; } catch (_) {}
+  friendActivityCollapsed = readInitialFriendActivityCollapsed();
   friendActivityToggle?.addEventListener("click", toggleFriendActivity);
-  friendActivityRefresh?.addEventListener("click", () => refreshFriendActivity({ force: true }));
+  friendActivityClose?.addEventListener("click", () => setFriendActivityCollapsed(true, { explicit: true }));
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || friendActivityCollapsed || !friendActivityVisible() || friendActivityDocked()) {
+      return;
+    }
+    setFriendActivityCollapsed(true, { explicit: true });
+  });
   friendActivityList?.addEventListener("click", (event) => {
-    const item = event.target.closest("[data-friend-activity-movie-id]");
-    if (item) openDetail(Number(item.dataset.friendActivityMovieId));
+    const friendLink = event.target.closest(".friend-activity-friend-link");
+    if (friendLink) {
+      event.stopPropagation();
+      if (typeof navigateToFriendView === "function") {
+        navigateToFriendView(
+          Number(friendLink.dataset.friendId),
+          friendLink.dataset.friendName || "Friend",
+        );
+      }
+      return;
+    }
+    const item = event.target.closest(".friend-activity-item");
+    if (!item) return;
+    const ratingRaw = item.dataset.friendActivityRating;
+    const parsedRating = ratingRaw === "" ? null : Number(ratingRaw);
+    openDetail(Number(item.dataset.friendActivityMovieId), {
+      friendActivity: {
+        friendId: Number(item.dataset.friendActivityFriendId),
+        displayName: item.dataset.friendActivityFriendName || "Friend",
+        watchedOn: item.dataset.friendActivityWatchedOn || "",
+        rating: Number.isFinite(parsedRating) ? parsedRating : null,
+      },
+    });
   });
   friendActivityStatus?.addEventListener("click", (event) => {
-    if (event.target.closest("[data-friend-activity-retry]")) refreshFriendActivity({ force: true });
+    if (event.target.closest("[data-friend-activity-retry]")) {
+      refreshFriendActivity({ force: true });
+    }
   });
-  positionFriendActivityBelowHeader();
+  positionFriendActivityPanel();
   const header = document.querySelector("body > header");
-  if (header && typeof ResizeObserver === "function") {
-    friendActivityHeaderObserver = new ResizeObserver(positionFriendActivityBelowHeader);
-    friendActivityHeaderObserver.observe(header);
+  const dock = document.querySelector(".friends-dock");
+  if (typeof ResizeObserver === "function") {
+    friendActivityHeaderObserver = new ResizeObserver(positionFriendActivityPanel);
+    if (header) friendActivityHeaderObserver.observe(header);
+    if (dock) friendActivityHeaderObserver.observe(dock);
   }
-  window.addEventListener("resize", positionFriendActivityBelowHeader);
+  window.addEventListener("resize", positionFriendActivityPanel);
+  window.addEventListener("scroll", positionFriendActivityPanel, { passive: true });
   renderFriendActivity();
 }
 
@@ -17882,6 +18196,15 @@ document.addEventListener("keydown", (event) => {
       closeAbout();
       return;
     }
+    if (
+      friendActivityEl &&
+      !friendActivityEl.hidden &&
+      friendActivityCollapsed &&
+      typeof toggleFriendActivity === "function"
+    ) {
+      toggleFriendActivity();
+      return;
+    }
     if (!settingsDialog.hidden) {
       closeSettings();
       return;
@@ -17969,6 +18292,7 @@ async function startApp() {
     queueAccountSync();
     refreshFriendsNavBadge();
     startFriendsNavPolling();
+    startFriendActivityPolling();
     refreshFriendActivity();
   }
 }

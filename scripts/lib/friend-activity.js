@@ -72,9 +72,32 @@ function friendActivityItems(friends, options = {}) {
     .slice(0, limit);
 }
 
+/** Relative labels for the activity rail; falls back to a short calendar date. */
+function formatActivityDateLabel(isoDate, options = {}) {
+  const watchedOn = normalizeDate(isoDate);
+  if (!watchedOn) return String(isoDate || "");
+  const today = normalizeDate(options.today) || new Date().toISOString().slice(0, 10);
+  if (watchedOn === today) return "Today";
+  const todayMs = Date.parse(`${today}T00:00:00.000Z`);
+  const watchedMs = Date.parse(`${watchedOn}T00:00:00.000Z`);
+  if (!Number.isFinite(todayMs) || !Number.isFinite(watchedMs)) return watchedOn;
+  const dayDiff = Math.round((todayMs - watchedMs) / 86_400_000);
+  if (dayDiff === 1) return "Yesterday";
+  if (dayDiff > 1 && dayDiff < 7) return `${dayDiff} days ago`;
+  if (dayDiff >= 7 && dayDiff < 14) return "Last week";
+  const date = new Date(`${watchedOn}T00:00:00`);
+  if (!Number.isFinite(date.getTime())) return watchedOn;
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}
+
 module.exports = {
   DEFAULT_ACTIVITY_LIMIT,
   MAX_ACTIVITY_LIMIT,
   normalizeActivityLimit,
   friendActivityItems,
+  formatActivityDateLabel,
 };

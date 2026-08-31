@@ -36,6 +36,10 @@ function setFriendsNavData(friends) {
   lastFriendsList = friends || [];
   friendsRosterLoaded = true;
   syncFriendsNavBadge(lastFriendsList);
+  friendActivityAcceptedCount = lastFriendsList.filter((friend) => friend.status === "accepted").length;
+  if (typeof renderFriendActivity === "function") {
+    renderFriendActivity();
+  }
 }
 
 /** Logging out or losing the read drops the cache so the next open really loads. */
@@ -43,6 +47,10 @@ function clearFriendsNavData() {
   lastFriendsList = [];
   friendsRosterLoaded = false;
   syncFriendsNavBadge(lastFriendsList);
+  friendActivityAcceptedCount = null;
+  if (typeof renderFriendActivity === "function") {
+    renderFriendActivity();
+  }
 }
 
 /** Null until a read succeeds, which is what separates "empty" from "unknown". */
@@ -106,6 +114,9 @@ function renderFriendsIndex() {
   refreshAccountSection();
   if (accountSyncEnabled()) {
     refreshFriendsList();
+    if (typeof refreshFriendActivity === "function") {
+      refreshFriendActivity({ force: true, background: friendActivityLoaded });
+    }
   }
 }
 

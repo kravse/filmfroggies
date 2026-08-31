@@ -279,13 +279,15 @@ function onUserStateStorageEvent(event) {
 function onVisibilityRefresh() {
   if (document.visibilityState !== "visible") {
     stopFriendsNavPolling();
+    stopFriendActivityPolling();
     return;
   }
   if (accountSyncEnabled()) {
     queueAccountSync();
     refreshFriendsNavBadge({ quiet: true });
-    refreshFriendActivity({ force: true });
+    refreshFriendActivity({ force: true, background: true });
     startFriendsNavPolling();
+    startFriendActivityPolling();
   }
 }
 
@@ -493,6 +495,7 @@ function disconnectAccount() {
   userState = { ...userState, storageMode: "account" };
   writeUserStateToStorage();
   stopFriendsNavPolling();
+  stopFriendActivityPolling();
 }
 
 async function logoutAccount() {

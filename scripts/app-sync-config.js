@@ -15,7 +15,13 @@ const APP_SYNC_ENTRIES = [
     target: "00-app-friend-activity.js",
     globalName: "appFriendActivity",
     header: "Generated from scripts/lib/friend-activity.js — run npm run bundle",
-    exports: ["DEFAULT_ACTIVITY_LIMIT", "MAX_ACTIVITY_LIMIT", "normalizeActivityLimit", "friendActivityItems"],
+    exports: [
+      "DEFAULT_ACTIVITY_LIMIT",
+      "MAX_ACTIVITY_LIMIT",
+      "normalizeActivityLimit",
+      "friendActivityItems",
+      "formatActivityDateLabel",
+    ],
   },
   {
     sources: [path.join(LIB, "movie-search-picker.js")],
