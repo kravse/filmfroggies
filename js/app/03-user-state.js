@@ -577,8 +577,16 @@ function removeFriend(userId) {
 }
 
 async function fetchFriendState(userId) {
-  const body = await accountRequest(`/friends/${userId}/data`);
-  return body?.doc
-    ? appUserState.parseUserState(JSON.stringify(body.doc))
-    : null;
+  try {
+    const body = await accountRequest(`/friends/${userId}/data`);
+    return body?.doc
+      ? appUserState.parseUserState(JSON.stringify(body.doc))
+      : null;
+  } catch (error) {
+    // Empty account — not a load failure.
+    if (error?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
 }

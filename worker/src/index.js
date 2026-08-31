@@ -431,7 +431,7 @@ export async function handleFriends(request, env, session, path, res) {
       const items = mapFriendActivityItems(friends, { limit, viewerEmail });
       return res.json(200, { items });
     } catch (_) {
-      return res.json(500, { error: "Activity aggregation failed" });
+      return res.json(200, { items: [] });
     }
   }
 
@@ -442,7 +442,15 @@ export async function handleFriends(request, env, session, path, res) {
         id,
         displayName,
         email,
-        doc,
+        doc: doc
+          ? {
+              lists: doc.lists,
+              customLists: doc.customLists,
+              statuses: doc.statuses,
+              ratings: doc.ratings,
+              viewingHistory: doc.viewingHistory,
+            }
+          : null,
       })),
     });
   }

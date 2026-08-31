@@ -268,18 +268,24 @@ async function fetchFriendActivityBody(limit = 20) {
   try {
     return await fetchFriendsActivity(limit);
   } catch (error) {
-    // Localhost used to be the only place with this fallback; production showed
-    // an error when the Worker was not deployed yet or the route 404'd.
-    if (error?.status !== 404) {
+    if (error?.status !== 404 && error?.status !== 500) {
       throw error;
     }
-    return aggregateFriendActivityLocally(limit);
+    try {
+      return await aggregateFriendActivityLocally(limit);
+    } catch (_) {
+      throw error;
+    }
   }
 }
 
 async function refreshFriendActivity(options = {}) {
   const background = options.background === true;
   if (!accountSyncEnabled()) {
+    renderFriendActivity();
+    return;
+  }
+  if (!friendActivityVisible() && !options.force && friendActivityLoaded) {
     renderFriendActivity();
     return;
   }
@@ -315,7 +321,7 @@ async function refreshFriendActivity(options = {}) {
     const ids = [...new Set(friendActivityItems.map((item) => Number(item.movieId)).filter(Number.isInteger))];
     await hydrateMovies(ids, { onRecord: () => renderFriendActivity() });
   } catch (error) {
-    if (showLoading && (friendActivityVisible() || isFriendsIndexActive())) {
+    if (showLoading && friendActivityVisible()) {
       friendActivityError = error;
     }
   } finally {

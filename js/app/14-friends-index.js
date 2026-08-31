@@ -115,7 +115,10 @@ function renderFriendsIndex() {
   if (accountSyncEnabled()) {
     refreshFriendsList({ force: true }).then(() => {
       if (typeof refreshFriendActivity === "function") {
-        refreshFriendActivity({ force: true, background: friendActivityLoaded });
+        refreshFriendActivity({
+          force: true,
+          background: friendActivityLoaded || friendActivityHiddenOnFriendsIndexMobile(),
+        });
       }
     });
   }

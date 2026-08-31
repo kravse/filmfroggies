@@ -33,26 +33,6 @@ function isVisibleActivityFriend(viewerEmail, friendEmail) {
   return !isTestAccountEmail(friendEmail) || isTestAccountEmail(viewerEmail);
 }
 
-function getLists() {
-  if (typeof appLists !== "undefined") {
-    return appLists;
-  }
-  if (typeof require === "function") {
-    return require("./lists");
-  }
-  throw new Error("appLists is not available");
-}
-
-function getCustomLists() {
-  if (typeof appCustomLists !== "undefined") {
-    return appCustomLists;
-  }
-  if (typeof require === "function") {
-    return require("./custom-lists");
-  }
-  throw new Error("appCustomLists is not available");
-}
-
 function getViewingHistory() {
   if (typeof appViewingHistory !== "undefined") {
     return appViewingHistory;
@@ -67,33 +47,45 @@ function isRemovedMovie(doc, movieId) {
   return doc?.statuses?.[String(movieId)]?.status === "removed";
 }
 
-/** Union of normalized preset and custom list ids — fully removed movies are absent. */
-function collectionMovieIds(doc) {
-  const lists = getLists();
-  const customListsLib = getCustomLists();
-  const normalizedLists = lists.normalizeLists(doc?.lists);
-  const normalizedCustom = customListsLib.normalizeCustomLists(
-    doc?.customLists,
-    doc?.updatedAt,
-  );
-  const ids = new Set();
-  for (const listId of lists.LIST_IDS) {
-    for (const rawId of lists.findList(normalizedLists, listId)?.movieIds || []) {
-      const id = Number(rawId);
-      if (Number.isInteger(id) && id > 0) {
-        ids.add(id);
-      }
-    }
+/** Lightweight membership scan — skips list normalization meant for writes. */
+function movieInActivityCollection(doc, movieId) {
+  const id = Number(movieId);
+  if (!Number.isInteger(id) || id <= 0 || isRemovedMovie(doc, id)) {
+    return false;
   }
-  for (const list of normalizedCustom) {
+  for (const list of Array.isArray(doc?.lists) ? doc.lists : []) {
+    if (!list || typeof list !== "object") {
+      continue;
+    }
     for (const rawId of list.movieIds || []) {
-      const id = Number(rawId);
-      if (Number.isInteger(id) && id > 0) {
-        ids.add(id);
+      if (Number(rawId) === id) {
+        return true;
       }
     }
   }
-  return ids;
+  for (const list of Array.isArray(doc?.customLists) ? doc.customLists : []) {
+    if (!list || typeof list !== "object") {
+      continue;
+    }
+    for (const rawId of list.movieIds || []) {
+      if (Number(rawId) === id) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function activeViewingEntries(normalizedHistory, movieId) {
+  const entries = normalizedHistory[String(Number(movieId))] || [];
+  return entries
+    .filter((entry) => !entry.deletedAt)
+    .sort(
+      (a, b) =>
+        a.watchedOn.localeCompare(b.watchedOn) ||
+        a.updatedAt.localeCompare(b.updatedAt) ||
+        a.id.localeCompare(b.id),
+    );
 }
 
 function friendActivityItems(friends, options = {}) {
@@ -110,18 +102,25 @@ function friendActivityItems(friends, options = {}) {
     }
     if (!isVisibleActivityFriend(options.viewerEmail, friend.email)) continue;
     const ratings = doc.ratings && typeof doc.ratings === "object" ? doc.ratings : {};
-    const inCollection = collectionMovieIds(doc);
     const history = doc.viewingHistory;
     if (!history || typeof history !== "object" || Array.isArray(history)) continue;
-    for (const movieId of inCollection) {
-      if (isRemovedMovie(doc, movieId)) continue;
-      for (const entry of viewingLib.viewingEntries(history, movieId)) {
+    const normalizedHistory = viewingLib.normalizeViewingHistory(history);
+    const friendItems = [];
+    for (const movieKey of Object.keys(normalizedHistory)) {
+      const movieId = Number(movieKey);
+      if (!Number.isInteger(movieId) || movieId <= 0) {
+        continue;
+      }
+      if (!movieInActivityCollection(doc, movieId)) {
+        continue;
+      }
+      for (const entry of activeViewingEntries(normalizedHistory, movieId)) {
         const watchedOn = normalizeDate(entry.watchedOn);
         const updatedAt = Number.isFinite(Date.parse(entry.updatedAt || ""))
           ? new Date(entry.updatedAt).toISOString()
           : null;
         if (!entry.id || !watchedOn || watchedOn > latestDate || !updatedAt) continue;
-        items.push({
+        friendItems.push({
           entryId: String(entry.id),
           watchedOn,
           updatedAt,
@@ -130,6 +129,17 @@ function friendActivityItems(friends, options = {}) {
           rating: normalizeRating(ratings[String(movieId)]),
         });
       }
+    }
+    if (friendItems.length > limit) {
+      friendItems.sort((a, b) =>
+        b.watchedOn.localeCompare(a.watchedOn) ||
+        b.updatedAt.localeCompare(a.updatedAt) ||
+        a.movieId - b.movieId ||
+        a.entryId.localeCompare(b.entryId),
+      );
+      items.push(...friendItems.slice(0, limit));
+    } else {
+      items.push(...friendItems);
     }
   }
   return items
