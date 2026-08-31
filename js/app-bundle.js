@@ -340,6 +340,7 @@ let friendActivityLoading = false;
 let friendActivityLoaded = false;
 let friendActivityError = null;
 let friendActivityCollapsed = false;
+let friendActivityRequestId = 0;
 
 function isCustomListIndexActive() {
   return appView === "customIndex";
@@ -14388,6 +14389,9 @@ function syncAppViewChrome() {
   document.body.classList.toggle("view-friends-index", isFriendsIndexActive());
   document.body.classList.toggle("view-friend", isFriendViewActive());
   document.body.classList.toggle("view-admin", isAdminViewActive());
+  if (typeof renderFriendActivity === "function") {
+    renderFriendActivity();
+  }
   if (customListsIndex) {
     customListsIndex.hidden = !isCustomListIndexActive();
   }
@@ -16639,6 +16643,8 @@ function renderFriendActivity() {
   friendActivityEl.classList.toggle("is-collapsed", friendActivityCollapsed);
   friendActivityToggle.setAttribute("aria-expanded", String(!friendActivityCollapsed));
   friendActivityToggle.setAttribute("aria-label", `${friendActivityCollapsed ? "Expand" : "Collapse"} friends activity`);
+  friendActivityPanel.inert = friendActivityCollapsed;
+  friendActivityPanel.setAttribute("aria-hidden", String(friendActivityCollapsed));
   friendActivityToggle.querySelector(".friend-activity-chevron").textContent = "›";
 
   if (friendActivityLoading && !friendActivityLoaded) {
@@ -16686,6 +16692,8 @@ async function refreshFriendActivity(options = {}) {
   }
   friendActivityLoading = true;
   friendActivityError = null;
+  const requestId = ++friendActivityRequestId;
+  const requestedUserId = accountConfig?.userId;
   renderFriendActivity();
   try {
     let body;
@@ -16703,20 +16711,24 @@ async function refreshFriendActivity(options = {}) {
       })));
       body = { items: appFriendActivity.friendActivityItems(friends, { limit: 20 }) };
     }
+    if (requestId !== friendActivityRequestId || accountConfig?.userId !== requestedUserId) return;
     friendActivityItems = Array.isArray(body?.items) ? body.items : [];
     friendActivityLoaded = true;
     renderFriendActivity();
     const ids = [...new Set(friendActivityItems.map((item) => Number(item.movieId)).filter(Number.isInteger))];
     await hydrateMovies(ids, { onRecord: () => renderFriendActivity() });
   } catch (error) {
+    if (requestId !== friendActivityRequestId) return;
     friendActivityError = error;
   } finally {
+    if (requestId !== friendActivityRequestId) return;
     friendActivityLoading = false;
     renderFriendActivity();
   }
 }
 
 function resetFriendActivity() {
+  friendActivityRequestId += 1;
   friendActivityItems = [];
   friendActivityLoaded = false;
   friendActivityError = null;

@@ -338,6 +338,7 @@ let friendActivityLoading = false;
 let friendActivityLoaded = false;
 let friendActivityError = null;
 let friendActivityCollapsed = false;
+let friendActivityRequestId = 0;
 
 function isCustomListIndexActive() {
   return appView === "customIndex";

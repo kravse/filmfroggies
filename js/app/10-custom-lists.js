@@ -151,6 +151,9 @@ function syncAppViewChrome() {
   document.body.classList.toggle("view-friends-index", isFriendsIndexActive());
   document.body.classList.toggle("view-friend", isFriendViewActive());
   document.body.classList.toggle("view-admin", isAdminViewActive());
+  if (typeof renderFriendActivity === "function") {
+    renderFriendActivity();
+  }
   if (customListsIndex) {
     customListsIndex.hidden = !isCustomListIndexActive();
   }
