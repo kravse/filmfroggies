@@ -111,6 +111,9 @@ function friendActivityVisible() {
   if (document.body.classList.contains("view-splash")) return false;
   if (isFriendViewActive()) return false;
   if (isAdminViewActive()) return false;
+  // Discover keeps the last preset activeListId, so the preset check below
+  // would otherwise let the rail through.
+  if (isDiscoverActive()) return false;
   if (!isFriendsIndexActive() && !isFriendActivityPresetListView()) return false;
   const count = resolvedFriendActivityAcceptedCount();
   if (count == null || count === 0) return false;

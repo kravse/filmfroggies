@@ -1194,6 +1194,16 @@ const appMovieRemap = (function () {
     throw new Error("appLists is not available");
   }
 
+  function getSyncMerge() {
+    if (typeof appSyncMerge !== "undefined") {
+      return appSyncMerge;
+    }
+    if (typeof require === "function") {
+      return require("./sync-merge");
+    }
+    throw new Error("appSyncMerge is not available");
+  }
+
   function validId(value) {
     const id = Number(value);
     return Number.isInteger(id) && id > 0 ? id : null;
@@ -1245,12 +1255,17 @@ const appMovieRemap = (function () {
       if (!list.movieIds?.includes(fromId)) return list;
       return { ...list, movieIds: replaceId(list.movieIds, fromId, toId), updatedAt: stamp };
     });
-    const statuses = {
-      ...(state.statuses && typeof state.statuses === "object" ? state.statuses : {}),
-      [String(fromId)]: { status: "removed", updatedAt: stamp },
-    };
+    // setMovieStatus owns the entry shape ({ status, at }); hand-building it here
+    // produced unparseable stamps that lost every merge.
+    const syncMerge = getSyncMerge();
+    let statuses = syncMerge.setMovieStatus(
+      state.statuses,
+      fromId,
+      syncMerge.REMOVED_STATUS,
+      now,
+    );
     if (sourceList) {
-      statuses[String(toId)] = { status: sourceList.id, updatedAt: stamp };
+      statuses = syncMerge.setMovieStatus(statuses, toId, sourceList.id, now);
     }
     return {
       ...state,
@@ -9514,10 +9529,9 @@ function updateAddListPickerSelection(listId) {
 
 function showAddPickStep(result) {
   pendingAddResult = result;
-  selectedAddListId =
-    !isCustomListView() && appLists.isListId(userState.activeListId)
-      ? userState.activeListId
-      : null;
+  // Never inherit the active tab: a preselected preset plus a focused Add button
+  // turns one stray keystroke into a silent Watched entry.
+  selectedAddListId = null;
   resetAddMovieRatingControls();
   resetAddMovieCustomListSelection();
   if (addMoviePickTabs) {
@@ -9535,7 +9549,15 @@ function showAddPickStep(result) {
   syncAddMovieDialogChrome();
   syncAddMovieSubmitState();
   prefetchAddMovieDetail(result.id);
-  addMovieSubmit.focus({ preventScroll: true });
+  focusAddMoviePickStep();
+}
+
+/** Land on the list choice, not on Add, so confirming stays a deliberate act. */
+function focusAddMoviePickStep() {
+  const presetOption = addMoviePresetSection?.hidden
+    ? null
+    : addMovieListPicker?.querySelector("[data-list-id]");
+  (presetOption ?? addMovieSubmit)?.focus({ preventScroll: true });
 }
 
 function confirmAddMovie() {
@@ -9677,9 +9699,14 @@ function onSearchKeydown(event) {
     return;
   }
 
+  // Only an explicitly highlighted row commits; a bare Enter must not stage the
+  // top hit, or two keystrokes silently add a movie the user never chose.
   if (event.key === "Enter") {
+    if (suggestIndex < 0) {
+      return;
+    }
     event.preventDefault();
-    pickSuggestion(suggestIndex >= 0 ? suggestIndex : 0);
+    pickSuggestion(suggestIndex);
   }
 }
 
@@ -17149,6 +17176,9 @@ function friendActivityVisible() {
   if (document.body.classList.contains("view-splash")) return false;
   if (isFriendViewActive()) return false;
   if (isAdminViewActive()) return false;
+  // Discover keeps the last preset activeListId, so the preset check below
+  // would otherwise let the rail through.
+  if (isDiscoverActive()) return false;
   if (!isFriendsIndexActive() && !isFriendActivityPresetListView()) return false;
   const count = resolvedFriendActivityAcceptedCount();
   if (count == null || count === 0) return false;

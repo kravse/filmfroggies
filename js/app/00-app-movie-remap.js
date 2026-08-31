@@ -13,6 +13,16 @@ const appMovieRemap = (function () {
     throw new Error("appLists is not available");
   }
 
+  function getSyncMerge() {
+    if (typeof appSyncMerge !== "undefined") {
+      return appSyncMerge;
+    }
+    if (typeof require === "function") {
+      return require("./sync-merge");
+    }
+    throw new Error("appSyncMerge is not available");
+  }
+
   function validId(value) {
     const id = Number(value);
     return Number.isInteger(id) && id > 0 ? id : null;
@@ -64,12 +74,17 @@ const appMovieRemap = (function () {
       if (!list.movieIds?.includes(fromId)) return list;
       return { ...list, movieIds: replaceId(list.movieIds, fromId, toId), updatedAt: stamp };
     });
-    const statuses = {
-      ...(state.statuses && typeof state.statuses === "object" ? state.statuses : {}),
-      [String(fromId)]: { status: "removed", updatedAt: stamp },
-    };
+    // setMovieStatus owns the entry shape ({ status, at }); hand-building it here
+    // produced unparseable stamps that lost every merge.
+    const syncMerge = getSyncMerge();
+    let statuses = syncMerge.setMovieStatus(
+      state.statuses,
+      fromId,
+      syncMerge.REMOVED_STATUS,
+      now,
+    );
     if (sourceList) {
-      statuses[String(toId)] = { status: sourceList.id, updatedAt: stamp };
+      statuses = syncMerge.setMovieStatus(statuses, toId, sourceList.id, now);
     }
     return {
       ...state,

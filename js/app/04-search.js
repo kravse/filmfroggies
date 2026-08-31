@@ -469,10 +469,9 @@ function updateAddListPickerSelection(listId) {
 
 function showAddPickStep(result) {
   pendingAddResult = result;
-  selectedAddListId =
-    !isCustomListView() && appLists.isListId(userState.activeListId)
-      ? userState.activeListId
-      : null;
+  // Never inherit the active tab: a preselected preset plus a focused Add button
+  // turns one stray keystroke into a silent Watched entry.
+  selectedAddListId = null;
   resetAddMovieRatingControls();
   resetAddMovieCustomListSelection();
   if (addMoviePickTabs) {
@@ -490,7 +489,15 @@ function showAddPickStep(result) {
   syncAddMovieDialogChrome();
   syncAddMovieSubmitState();
   prefetchAddMovieDetail(result.id);
-  addMovieSubmit.focus({ preventScroll: true });
+  focusAddMoviePickStep();
+}
+
+/** Land on the list choice, not on Add, so confirming stays a deliberate act. */
+function focusAddMoviePickStep() {
+  const presetOption = addMoviePresetSection?.hidden
+    ? null
+    : addMovieListPicker?.querySelector("[data-list-id]");
+  (presetOption ?? addMovieSubmit)?.focus({ preventScroll: true });
 }
 
 function confirmAddMovie() {
@@ -632,9 +639,14 @@ function onSearchKeydown(event) {
     return;
   }
 
+  // Only an explicitly highlighted row commits; a bare Enter must not stage the
+  // top hit, or two keystrokes silently add a movie the user never chose.
   if (event.key === "Enter") {
+    if (suggestIndex < 0) {
+      return;
+    }
     event.preventDefault();
-    pickSuggestion(suggestIndex >= 0 ? suggestIndex : 0);
+    pickSuggestion(suggestIndex);
   }
 }
 
