@@ -185,6 +185,8 @@ All paths are under `/api`. Authenticated routes expect `Authorization: Bearer <
 | `GET` | `/data` | Yes | Fetch synced list doc (`404` if never pushed) |
 | `PUT` | `/data` | Yes | Save list doc (max ~200 KB JSON) |
 | `GET` | `/friends` | Yes | List friends and pending requests |
+| `GET` | `/friends/activity?limit=…` | Yes | Aggregated watch activity for accepted friends (single query) |
+| `GET` | `/friends/bulk-data` | Yes | All accepted friends' list docs in one read |
 | `POST` | `/friends/request` | Yes | Send friend request by email |
 | `POST` | `/friends/{id}/accept` | Yes | Accept an incoming request |
 | `DELETE` | `/friends/{id}` | Yes | Remove friend or cancel outgoing pending request |

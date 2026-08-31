@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { handleFriends, parseStoredDoc } from "./src/index.js";
+import { handleFriends, loadAcceptedFriendsWithDocs, parseStoredDoc } from "./src/index.js";
 
 test("parseStoredDoc accepts objects and rejects bad JSON", () => {
   assert.deepEqual(parseStoredDoc('{"lists":[]}'), { lists: [] });
@@ -11,27 +11,53 @@ test("parseStoredDoc accepts objects and rejects bad JSON", () => {
   assert.equal(parseStoredDoc("42"), null);
 });
 
-test("friends activity falls back to the email local part when no display name is set", async () => {
-  const env = {
+function friendsDbEnv(friendRows, viewerEmail = "me@mail.com") {
+  return {
     DB: {
-      prepare() {
+      prepare(sql) {
+        if (String(sql).includes("SELECT email FROM users WHERE id")) {
+          return {
+            bind: () => ({
+              first: async () => ({ email: viewerEmail }),
+            }),
+          };
+        }
         return {
           bind: () => ({
-            all: async () => ({ results: [{
-              id: 2,
-              display_name: null,
-              email: "sam.jones@mail.com",
-              viewer_email: "me@mail.com",
-              doc: JSON.stringify({
-                lists: [{ id: "watched", movieIds: [10] }, { id: "watchlist", movieIds: [] }],
-                viewingHistory: { 10: [{ id: "a", watchedOn: "2026-08-20", updatedAt: "2026-08-20T12:00:00Z" }] },
-              }),
-            }] }),
+            all: async () => ({ results: friendRows }),
           }),
         };
       },
     },
   };
+}
+
+test("loadAcceptedFriendsWithDocs maps display names and parses docs", async () => {
+  const env = friendsDbEnv([{
+    id: 2,
+    display_name: null,
+    email: "sam.jones@mail.com",
+    doc: JSON.stringify({ lists: [] }),
+  }]);
+  const friends = await loadAcceptedFriendsWithDocs(env, 1);
+  assert.deepEqual(friends, [{
+    id: 2,
+    displayName: "sam.jones",
+    email: "sam.jones@mail.com",
+    doc: { lists: [] },
+  }]);
+});
+
+test("friends activity falls back to the email local part when no display name is set", async () => {
+  const env = friendsDbEnv([{
+    id: 2,
+    display_name: null,
+    email: "sam.jones@mail.com",
+    doc: JSON.stringify({
+      lists: [{ id: "watched", movieIds: [10] }, { id: "watchlist", movieIds: [] }],
+      viewingHistory: { 10: [{ id: "a", watchedOn: "2026-08-20", updatedAt: "2026-08-20T12:00:00Z" }] },
+    }),
+  }]);
   const res = { json: (status, body) => ({ status, body }) };
   const response = await handleFriends(
     new Request("https://example.com/api/friends/activity?limit=20"),
@@ -46,11 +72,14 @@ test("friends activity falls back to the email local part when no display name i
 });
 
 test("friends activity returns only the aggregated public fields", async () => {
-  let sql = "";
+  let friendsSql = "";
   const env = {
     DB: {
-      prepare(value) {
-        sql = value;
+      prepare(sql) {
+        if (String(sql).includes("SELECT email FROM users WHERE id")) {
+          return { bind: () => ({ first: async () => ({ email: "me@mail.com" }) }) };
+        }
+        friendsSql = sql;
         return {
           bind() {
             return {
@@ -58,6 +87,7 @@ test("friends activity returns only the aggregated public fields", async () => {
                 return { results: [{
                   id: 2,
                   display_name: "Sam",
+                  email: "sam@mail.com",
                   doc: JSON.stringify({
                     lists: [{ id: "watched", movieIds: [10] }, { id: "watchlist", movieIds: [] }],
                     ratings: { 10: 8.5 },
@@ -79,7 +109,7 @@ test("friends activity returns only the aggregated public fields", async () => {
     "/api/friends/activity",
     res,
   );
-  assert.match(sql, /f\.status = 'accepted'/);
+  assert.match(friendsSql, /f\.status = 'accepted'/);
   assert.deepEqual(response, { status: 200, body: { items: [{
     movieId: 10,
     watchedOn: "2026-08-20",
@@ -89,12 +119,11 @@ test("friends activity returns only the aggregated public fields", async () => {
 });
 
 test("friends activity hides plus-test accounts from a real viewer", async () => {
-  const activityRows = (viewerEmail) => [
+  const activityRows = [
     {
       id: 2,
       display_name: "Sam",
       email: "sam@mail.com",
-      viewer_email: viewerEmail,
       doc: JSON.stringify({
         lists: [{ id: "watched", movieIds: [10] }, { id: "watchlist", movieIds: [] }],
         viewingHistory: { 10: [{ id: "sam", watchedOn: "2026-08-20", updatedAt: "2026-08-20T12:00:00Z" }] },
@@ -104,7 +133,6 @@ test("friends activity hides plus-test accounts from a real viewer", async () =>
       id: 3,
       display_name: "Tester",
       email: "jared987+test@gmail.com",
-      viewer_email: viewerEmail,
       doc: JSON.stringify({
         lists: [{ id: "watched", movieIds: [20] }, { id: "watchlist", movieIds: [] }],
         viewingHistory: { 20: [{ id: "test", watchedOn: "2026-08-21", updatedAt: "2026-08-21T12:00:00Z" }] },
@@ -113,13 +141,7 @@ test("friends activity hides plus-test accounts from a real viewer", async () =>
   ];
   const res = { json: (status, body) => ({ status, body }) };
   const activityFriendIds = async (viewerEmail) => {
-    const env = {
-      DB: {
-        prepare() {
-          return { bind: () => ({ all: async () => ({ results: activityRows(viewerEmail) }) }) };
-        },
-      },
-    };
+    const env = friendsDbEnv(activityRows, viewerEmail);
     const response = await handleFriends(
       new Request("https://example.com/api/friends/activity?limit=20"),
       env,
@@ -131,4 +153,32 @@ test("friends activity hides plus-test accounts from a real viewer", async () =>
   };
   assert.deepEqual(await activityFriendIds("jared987@gmail.com"), [2]);
   assert.deepEqual(await activityFriendIds("jared987+test@gmail.com"), [3, 2]);
+});
+
+test("friends bulk-data returns accepted friends with parsed docs in one response", async () => {
+  const env = friendsDbEnv([{
+    id: 2,
+    display_name: "Sam",
+    email: "sam@mail.com",
+    doc: JSON.stringify({ lists: [{ id: "watched", movieIds: [10] }] }),
+  }]);
+  const res = { json: (status, body) => ({ status, body }) };
+  const response = await handleFriends(
+    new Request("https://example.com/api/friends/bulk-data"),
+    env,
+    { uid: 1 },
+    "/api/friends/bulk-data",
+    res,
+  );
+  assert.deepEqual(response, {
+    status: 200,
+    body: {
+      friends: [{
+        id: 2,
+        displayName: "Sam",
+        email: "sam@mail.com",
+        doc: { lists: [{ id: "watched", movieIds: [10] }] },
+      }],
+    },
+  });
 });

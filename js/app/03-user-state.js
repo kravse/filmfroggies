@@ -189,12 +189,20 @@ function isLayoutLockedToDetail() {
   return isWatchlistActive() || isDiscoverActive();
 }
 
+function shouldHideViewModeButton() {
+  return (
+    isLayoutLockedToDetail() ||
+    isFriendsIndexActive() ||
+    isAdminViewActive()
+  );
+}
+
 function syncViewModeButton() {
   if (!viewModeCycleBtn) {
     return;
   }
-  viewModeCycleBtn.hidden = isLayoutLockedToDetail();
-  if (isLayoutLockedToDetail()) {
+  viewModeCycleBtn.hidden = shouldHideViewModeButton();
+  if (shouldHideViewModeButton()) {
     return;
   }
   viewModeCycleBtn.dataset.viewMode = gridViewMode;
@@ -550,6 +558,10 @@ function fetchFriends() {
 
 function fetchFriendsActivity(limit = 20) {
   return accountRequest(`/friends/activity?limit=${encodeURIComponent(limit)}`);
+}
+
+function fetchFriendsBulkData() {
+  return accountRequest("/friends/bulk-data");
 }
 
 function sendFriendRequest(email) {

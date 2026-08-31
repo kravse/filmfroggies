@@ -212,6 +212,7 @@ function syncAppViewChrome() {
   syncHeaderNavUi();
   syncListSearchVisibility();
   syncReorderModeUi();
+  refreshViewModeForActiveList();
   if (typeof renderFriendActivity === "function") {
     renderFriendActivity();
   }

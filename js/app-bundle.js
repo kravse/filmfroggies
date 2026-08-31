@@ -343,6 +343,7 @@ let friendViewError = null;
 const friendViewCollapsedSections = new Set();
 let friendActivityItems = [];
 let friendActivityLoading = false;
+let friendActivityForcePending = false;
 let friendActivityLoaded = false;
 let friendActivityError = null;
 let friendActivityCollapsed = false;
@@ -7841,12 +7842,20 @@ function isLayoutLockedToDetail() {
   return isWatchlistActive() || isDiscoverActive();
 }
 
+function shouldHideViewModeButton() {
+  return (
+    isLayoutLockedToDetail() ||
+    isFriendsIndexActive() ||
+    isAdminViewActive()
+  );
+}
+
 function syncViewModeButton() {
   if (!viewModeCycleBtn) {
     return;
   }
-  viewModeCycleBtn.hidden = isLayoutLockedToDetail();
-  if (isLayoutLockedToDetail()) {
+  viewModeCycleBtn.hidden = shouldHideViewModeButton();
+  if (shouldHideViewModeButton()) {
     return;
   }
   viewModeCycleBtn.dataset.viewMode = gridViewMode;
@@ -8202,6 +8211,10 @@ function fetchFriends() {
 
 function fetchFriendsActivity(limit = 20) {
   return accountRequest(`/friends/activity?limit=${encodeURIComponent(limit)}`);
+}
+
+function fetchFriendsBulkData() {
+  return accountRequest("/friends/bulk-data");
 }
 
 function sendFriendRequest(email) {
@@ -14813,6 +14826,7 @@ function syncAppViewChrome() {
   syncHeaderNavUi();
   syncListSearchVisibility();
   syncReorderModeUi();
+  refreshViewModeForActiveList();
   if (typeof renderFriendActivity === "function") {
     renderFriendActivity();
   }
@@ -17032,10 +17046,11 @@ function renderFriendsIndex() {
   syncAppViewChrome();
   refreshAccountSection();
   if (accountSyncEnabled()) {
-    refreshFriendsList();
-    if (typeof refreshFriendActivity === "function") {
-      refreshFriendActivity({ force: true, background: friendActivityLoaded });
-    }
+    refreshFriendsList({ force: true }).then(() => {
+      if (typeof refreshFriendActivity === "function") {
+        refreshFriendActivity({ force: true, background: friendActivityLoaded });
+      }
+    });
   }
 }
 
@@ -17302,6 +17317,41 @@ async function loadFriendActivityRosterCount() {
   }
 }
 
+function friendDocFromWire(doc) {
+  return doc ? appUserState.parseUserState(JSON.stringify(doc)) : null;
+}
+
+/** When the activity route is missing, rebuild from one bulk friends read. */
+async function aggregateFriendActivityLocally(limit) {
+  await loadFriendActivityRosterCount();
+  const body = await fetchFriendsBulkData();
+  const friends = (body?.friends || []).map((friend) => ({
+    id: friend.id,
+    displayName: friend.displayName,
+    email: friend.email,
+    doc: friendDocFromWire(friend.doc),
+  }));
+  return {
+    items: appFriendActivity.friendActivityItems(friends, {
+      limit,
+      viewerEmail: accountConfig?.email,
+    }),
+  };
+}
+
+async function fetchFriendActivityBody(limit = 20) {
+  try {
+    return await fetchFriendsActivity(limit);
+  } catch (error) {
+    // Localhost used to be the only place with this fallback; production showed
+    // an error when the Worker was not deployed yet or the route 404'd.
+    if (error?.status !== 404) {
+      throw error;
+    }
+    return aggregateFriendActivityLocally(limit);
+  }
+}
+
 async function refreshFriendActivity(options = {}) {
   const background = options.background === true;
   if (!accountSyncEnabled()) {
@@ -17309,6 +17359,9 @@ async function refreshFriendActivity(options = {}) {
     return;
   }
   if (friendActivityLoading) {
+    if (options.force) {
+      friendActivityForcePending = true;
+    }
     if (!background) {
       renderFriendActivity();
     }
@@ -17326,30 +17379,7 @@ async function refreshFriendActivity(options = {}) {
     renderFriendActivity();
   }
   try {
-    let body;
-    try {
-      body = await fetchFriendsActivity(20);
-    } catch (error) {
-      const localDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
-      if (!localDev || error?.status !== 404) throw error;
-      await loadFriendActivityRosterCount();
-      const roster = typeof cachedFriendsRoster === "function" ? cachedFriendsRoster() : null;
-      const accepted = acceptedActivityFriends(roster);
-      const friends = await Promise.all(
-        accepted.map(async (friend) => ({
-          id: friend.id,
-          displayName: appDisplayName.resolveDisplayName(friend),
-          email: friend.email,
-          doc: await fetchFriendState(friend.id),
-        })),
-      );
-      body = {
-        items: appFriendActivity.friendActivityItems(friends, {
-          limit: 20,
-          viewerEmail: accountConfig?.email,
-        }),
-      };
-    }
+    const body = await fetchFriendActivityBody(20);
     if (!Number.isInteger(friendActivityAcceptedCount)) {
       await loadFriendActivityRosterCount();
     }
@@ -17360,7 +17390,7 @@ async function refreshFriendActivity(options = {}) {
     const ids = [...new Set(friendActivityItems.map((item) => Number(item.movieId)).filter(Number.isInteger))];
     await hydrateMovies(ids, { onRecord: () => renderFriendActivity() });
   } catch (error) {
-    if (showLoading) {
+    if (showLoading && (friendActivityVisible() || isFriendsIndexActive())) {
       friendActivityError = error;
     }
   } finally {
@@ -17374,6 +17404,10 @@ async function refreshFriendActivity(options = {}) {
       }
     }
     renderFriendActivity();
+    if (friendActivityForcePending) {
+      friendActivityForcePending = false;
+      refreshFriendActivity({ force: true, background: !friendActivityVisible() });
+    }
   }
 }
 
@@ -17425,6 +17459,7 @@ function resetFriendActivity() {
   friendActivityLoaded = false;
   friendActivityError = null;
   friendActivityLoading = false;
+  friendActivityForcePending = false;
   friendActivityAcceptedCount = null;
   friendActivityNavigateKey = null;
   stopFriendActivityPolling();

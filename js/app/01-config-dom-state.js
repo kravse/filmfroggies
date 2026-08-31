@@ -341,6 +341,7 @@ let friendViewError = null;
 const friendViewCollapsedSections = new Set();
 let friendActivityItems = [];
 let friendActivityLoading = false;
+let friendActivityForcePending = false;
 let friendActivityLoaded = false;
 let friendActivityError = null;
 let friendActivityCollapsed = false;

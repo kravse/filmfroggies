@@ -284,6 +284,37 @@ async function findFriendship(env, userId, friendId) {
   };
 }
 
+/** One read for all accepted friends' list docs — shared by activity and bulk-data. */
+export async function loadAcceptedFriendsWithDocs(env, uid) {
+  const { results } = await env.DB.prepare(
+    `SELECT u.id, u.display_name, u.email, d.doc
+     FROM friends f
+     JOIN users u ON u.id = CASE WHEN f.user_id = ?1 THEN f.friend_id ELSE f.user_id END
+     LEFT JOIN user_data d ON d.user_id = u.id
+     WHERE (f.user_id = ?1 OR f.friend_id = ?1) AND f.status = 'accepted'`,
+  ).bind(uid).all();
+  return results.map((row) => ({
+    id: row.id,
+    displayName: resolveDisplayName(row),
+    email: row.email,
+    doc: parseStoredDoc(row.doc),
+  }));
+}
+
+async function loadViewerEmail(env, uid) {
+  const row = await env.DB.prepare("SELECT email FROM users WHERE id = ?").bind(uid).first();
+  return row?.email || "";
+}
+
+function mapFriendActivityItems(friends, options) {
+  return friendActivityItems(friends, options).map(({ movieId, watchedOn, friend, rating }) => ({
+    movieId,
+    watchedOn,
+    friend,
+    rating,
+  }));
+}
+
 /** Verify the current password and store a new hash; other sessions are revoked. */
 export async function changeAccountPassword(env, uid, currentPassword, newPassword, keepJti) {
   if (newPassword.length < 8) {
@@ -394,30 +425,26 @@ export async function handleFriends(request, env, session, path, res) {
 
   if (path === "/api/friends/activity" && request.method === "GET") {
     const limit = normalizeActivityLimit(new URL(request.url).searchParams.get("limit"));
-    // The viewer's own email rides along so test accounts can be filtered without a second read.
-    const { results } = await env.DB.prepare(
-      `SELECT u.id, u.display_name, u.email, d.doc,
-              (SELECT email FROM users WHERE id = ?1) AS viewer_email
-       FROM friends f
-       JOIN users u ON u.id = CASE WHEN f.user_id = ?1 THEN f.friend_id ELSE f.user_id END
-       LEFT JOIN user_data d ON d.user_id = u.id
-       WHERE (f.user_id = ?1 OR f.friend_id = ?1) AND f.status = 'accepted'`
-    ).bind(uid).all();
-    const viewerEmail = results[0]?.viewer_email || "";
-    // Activity items carry no email, so the fallback has to be resolved here.
-    const friends = results.map((row) => ({
-      id: row.id,
-      displayName: resolveDisplayName(row),
-      email: row.email,
-      doc: parseStoredDoc(row.doc),
-    }));
-    const items = friendActivityItems(friends, { limit, viewerEmail }).map(({ movieId, watchedOn, friend, rating }) => ({
-      movieId,
-      watchedOn,
-      friend,
-      rating,
-    }));
-    return res.json(200, { items });
+    try {
+      const friends = await loadAcceptedFriendsWithDocs(env, uid);
+      const viewerEmail = await loadViewerEmail(env, uid);
+      const items = mapFriendActivityItems(friends, { limit, viewerEmail });
+      return res.json(200, { items });
+    } catch (_) {
+      return res.json(500, { error: "Activity aggregation failed" });
+    }
+  }
+
+  if (path === "/api/friends/bulk-data" && request.method === "GET") {
+    const friends = await loadAcceptedFriendsWithDocs(env, uid);
+    return res.json(200, {
+      friends: friends.map(({ id, displayName, email, doc }) => ({
+        id,
+        displayName,
+        email,
+        doc,
+      })),
+    });
   }
 
   if (path === "/api/friends" && request.method === "GET") {

@@ -113,10 +113,11 @@ function renderFriendsIndex() {
   syncAppViewChrome();
   refreshAccountSection();
   if (accountSyncEnabled()) {
-    refreshFriendsList();
-    if (typeof refreshFriendActivity === "function") {
-      refreshFriendActivity({ force: true, background: friendActivityLoaded });
-    }
+    refreshFriendsList({ force: true }).then(() => {
+      if (typeof refreshFriendActivity === "function") {
+        refreshFriendActivity({ force: true, background: friendActivityLoaded });
+      }
+    });
   }
 }
 
