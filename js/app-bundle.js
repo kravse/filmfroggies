@@ -17201,11 +17201,16 @@ function friendActivityDocked() {
   return isFriendsIndexActive();
 }
 
+function friendActivityHiddenOnFriendsIndexMobile() {
+  return isFriendsIndexActive() && window.matchMedia("(max-width: 900px)").matches;
+}
+
 function friendActivityVisible() {
   if (!accountSyncEnabled()) return false;
   if (document.body.classList.contains("view-splash")) return false;
   if (isFriendViewActive()) return false;
   if (isAdminViewActive()) return false;
+  if (friendActivityHiddenOnFriendsIndexMobile()) return false;
   // Discover keeps the last preset activeListId, so the preset check below
   // would otherwise let the rail through.
   if (isDiscoverActive()) return false;
@@ -17533,7 +17538,10 @@ function initFriendActivity() {
     if (header) friendActivityHeaderObserver.observe(header);
     if (dock) friendActivityHeaderObserver.observe(dock);
   }
-  window.addEventListener("resize", positionFriendActivityPanel);
+  window.addEventListener("resize", () => {
+    positionFriendActivityPanel();
+    renderFriendActivity();
+  });
   window.addEventListener("scroll", positionFriendActivityPanel, { passive: true });
   renderFriendActivity();
 }
