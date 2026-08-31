@@ -810,6 +810,7 @@ function syncAccountLoginGate() {
     addMovieFab.disabled = !loggedIn;
   }
   updateAddMovieHint();
+  if (typeof renderFriendActivity === "function") renderFriendActivity();
 }
 
 function updateListHeader() {

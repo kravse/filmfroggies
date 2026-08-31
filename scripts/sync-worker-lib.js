@@ -17,6 +17,7 @@ const MODULES = [
   "ratings.js",
   "added-at.js",
   "viewing-history.js",
+  "friend-activity.js",
   "list-query.js",
 ];
 

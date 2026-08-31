@@ -2422,6 +2422,7 @@ async function onAccountAuth() {
     hydrateActiveList();
     refreshFriendsNavBadge();
     startFriendsNavPolling();
+    refreshFriendActivity({ force: true });
   } finally {
     accountSubmitBtn.disabled = false;
     accountAuthTabLogin.disabled = false;
@@ -2434,6 +2435,7 @@ async function onAccountLogout() {
   accountLogoutBtn.disabled = true;
   try {
     await logoutAccount();
+    resetFriendActivity();
     refreshSettings();
     closeSettings();
     refreshViewModeForActiveList();
@@ -2655,6 +2657,7 @@ async function onAddFriend() {
       "ok",
     );
     refreshFriendsList({ force: true });
+    refreshFriendActivity({ force: true });
   } catch (error) {
     setStatus(friendsStatus, error.message, "error");
   } finally {
@@ -2686,6 +2689,7 @@ async function confirmRemoveFriend() {
       navigateFromFriendView();
     }
     refreshFriendsList({ force: true });
+    refreshFriendActivity({ force: true });
   } catch (error) {
     setStatus(friendsStatus, error.message, "error");
   }
@@ -2702,10 +2706,12 @@ async function onFriendsListClick(event) {
     if (action === "accept") {
       await acceptFriend(friendId);
       refreshFriendsList({ force: true });
+      refreshFriendActivity({ force: true });
     } else if (action === "remove") {
       if (button.closest(".friends-roster-item--pending")) {
         await removeFriend(friendId);
         refreshFriendsList({ force: true });
+        refreshFriendActivity({ force: true });
       } else {
         requestRemoveFriendConfirm(friendId, button.dataset.friendName || "this friend");
       }

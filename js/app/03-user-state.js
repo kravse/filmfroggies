@@ -284,6 +284,7 @@ function onVisibilityRefresh() {
   if (accountSyncEnabled()) {
     queueAccountSync();
     refreshFriendsNavBadge({ quiet: true });
+    refreshFriendActivity({ force: true });
     startFriendsNavPolling();
   }
 }
@@ -527,6 +528,10 @@ async function changeRemoteAccountPassword(currentPassword, newPassword) {
 
 function fetchFriends() {
   return accountRequest("/friends");
+}
+
+function fetchFriendsActivity(limit = 20) {
+  return accountRequest(`/friends/activity?limit=${encodeURIComponent(limit)}`);
 }
 
 function sendFriendRequest(email) {

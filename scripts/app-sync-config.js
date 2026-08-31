@@ -11,6 +11,13 @@ const LIB = path.join(__dirname, "lib");
 
 const APP_SYNC_ENTRIES = [
   {
+    sources: [path.join(LIB, "friend-activity.js")],
+    target: "00-app-friend-activity.js",
+    globalName: "appFriendActivity",
+    header: "Generated from scripts/lib/friend-activity.js — run npm run bundle",
+    exports: ["DEFAULT_ACTIVITY_LIMIT", "MAX_ACTIVITY_LIMIT", "normalizeActivityLimit", "friendActivityItems"],
+  },
+  {
     sources: [path.join(LIB, "movie-search-picker.js")],
     target: "00-app-movie-search-picker.js",
     globalName: "appMovieSearchPicker",

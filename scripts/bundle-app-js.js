@@ -20,6 +20,10 @@ const PARTS = [
     title: "Configuration, DOM references, and mutable state",
   },
   {
+    file: "00-app-friend-activity.js",
+    title: "Friends activity aggregation (generated from scripts/lib/friend-activity.js)",
+  },
+  {
     file: "00-app-card-html.js",
     title: "Card HTML helpers (generated from scripts/lib/card-html.js)",
   },
@@ -198,6 +202,10 @@ const PARTS = [
   {
     file: "14-friends-index.js",
     title: "Friends index page",
+  },
+  {
+    file: "17-friend-activity.js",
+    title: "Recent friends activity rail",
   },
   {
     file: "15-admin.js",

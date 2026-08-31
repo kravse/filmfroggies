@@ -127,6 +127,20 @@ function viewingDatePickerHtml(options = {}) {
 </div>`;
 }
 
+const UNLISTED_PRESET_ICON_SVG =
+  '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.75"/><path d="M8.5 12h7" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>';
+
+/** Detail footer preset status icons (`watched` | `watchlist` | `none`). */
+function detailPresetStatusIconHtml(state) {
+  if (state === "watchlist") {
+    return `<span class="add-list-icon add-list-icon-watchlist" aria-hidden="true">${WATCHLIST_PRESET_ICON_SVG}</span>`;
+  }
+  if (state === "watched") {
+    return `<span class="add-list-icon" aria-hidden="true">✓</span>`;
+  }
+  return `<span class="add-list-icon add-list-icon-unlisted" aria-hidden="true">${UNLISTED_PRESET_ICON_SVG}</span>`;
+}
+
 /** Same square icons as the add-movie list picker (`watched` | `watchlist`). */
 function addListPresetIconHtml(preset) {
   if (preset === "watchlist") {
@@ -139,4 +153,4 @@ function discoverPresetButtonInnerHtml(preset, label) {
   return `${addListPresetIconHtml(preset)}<span class="discover-preset-btn-label">${escapeHtml(label)}</span>`;
 }
 
-export { escapeHtml, formatYear, formatReleaseDate, formatRuntime, formatRatingLabel, formatRating, joinNames, addListPresetIconHtml, discoverPresetButtonInnerHtml, viewingDateIconHtml, viewingDatePickerHtml };
+export { escapeHtml, formatYear, formatReleaseDate, formatRuntime, formatRatingLabel, formatRating, joinNames, addListPresetIconHtml, detailPresetStatusIconHtml, discoverPresetButtonInnerHtml, viewingDateIconHtml, viewingDatePickerHtml };

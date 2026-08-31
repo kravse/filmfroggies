@@ -14,6 +14,7 @@ const VIEWER_CSS_FILES = [
   "custom-lists.css",
   "discover.css",
   "friend-view.css",
+  "friend-activity.css",
   "admin.css",
   "mobile.css",
 ];

@@ -675,6 +675,7 @@ document.addEventListener("keydown", (event) => {
 async function startApp() {
   loadAccountConfig();
   loadUserState();
+  initFriendActivity();
   syncCustomListIndexSortFromState();
   refreshViewModeForActiveList();
   updateSearchClearVisibility();
@@ -698,6 +699,7 @@ async function startApp() {
     queueAccountSync();
     refreshFriendsNavBadge();
     startFriendsNavPolling();
+    refreshFriendActivity();
   }
 }
 
