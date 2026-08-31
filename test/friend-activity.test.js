@@ -1,6 +1,11 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { friendActivityItems, normalizeActivityLimit } = require("../scripts/lib/friend-activity");
+const {
+  friendActivityItems,
+  normalizeActivityLimit,
+  isTestAccountEmail,
+  isVisibleActivityFriend,
+} = require("../scripts/lib/friend-activity");
 
 test("friend activity is newest first, rated, deduplicated by movie/date, and limited", () => {
   const items = friendActivityItems([
@@ -43,6 +48,44 @@ test("formatActivityDateLabel uses relative labels and falls back to calendar da
   assert.equal(formatActivityDateLabel("2026-08-28", { today: "2026-08-31" }), "3 days ago");
   assert.equal(formatActivityDateLabel("2026-08-20", { today: "2026-08-31" }), "Last week");
   assert.match(formatActivityDateLabel("2025-12-25", { today: "2026-08-31" }), /Dec/);
+});
+
+test("isTestAccountEmail only matches a plus tag starting with test", () => {
+  assert.equal(isTestAccountEmail("jared987+test@gmail.com"), true);
+  assert.equal(isTestAccountEmail("Jared987+Test2@gmail.com"), true);
+  assert.equal(isTestAccountEmail("jared987@gmail.com"), false);
+  assert.equal(isTestAccountEmail("jared987+beta@gmail.com"), false);
+  assert.equal(isTestAccountEmail("jared987+footest@gmail.com"), false);
+  assert.equal(isTestAccountEmail(""), false);
+});
+
+test("isVisibleActivityFriend hides test accounts from real accounts only", () => {
+  assert.equal(isVisibleActivityFriend("me@mail.com", "sam+test@mail.com"), false);
+  assert.equal(isVisibleActivityFriend("me+test@mail.com", "sam+test@mail.com"), true);
+  assert.equal(isVisibleActivityFriend("me+test@mail.com", "sam@mail.com"), true);
+  assert.equal(isVisibleActivityFriend("me@mail.com", "sam@mail.com"), true);
+  assert.equal(isVisibleActivityFriend(undefined, undefined), true);
+});
+
+test("friend activity drops test-account friends unless the viewer is one", () => {
+  const friends = [
+    {
+      id: 2,
+      displayName: "Sam",
+      email: "sam@mail.com",
+      doc: { viewingHistory: { 10: [{ id: "a", watchedOn: "2026-08-20", updatedAt: "2026-08-20T12:00:00Z" }] } },
+    },
+    {
+      id: 3,
+      displayName: "Tester",
+      email: "jared987+test@gmail.com",
+      doc: { viewingHistory: { 20: [{ id: "b", watchedOn: "2026-08-21", updatedAt: "2026-08-21T12:00:00Z" }] } },
+    },
+  ];
+  const asReal = friendActivityItems(friends, { today: "2026-08-31", viewerEmail: "jared987@gmail.com" });
+  assert.deepEqual(asReal.map((item) => item.friend.id), [2]);
+  const asTester = friendActivityItems(friends, { today: "2026-08-31", viewerEmail: "jared987+test@gmail.com" });
+  assert.deepEqual(asTester.map((item) => item.friend.id), [3, 2]);
 });
 
 test("friend activity rejects impossible and future viewing dates", () => {

@@ -246,6 +246,16 @@ body.view-friends-index .friends-dock-roster-wrap {
   line-height: 1.2;
 }
 
+.friends-roster-email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  color: var(--muted);
+  line-height: 1.2;
+}
+
 .friends-roster-tag {
   font-size: 0.62rem;
   font-weight: 600;

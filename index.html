@@ -1371,7 +1371,26 @@
                     ?
                   </div>
                   <div class="account-session-identity">
-                    <span class="account-session-name" id="account-session-name"></span>
+                    <div class="account-session-name-row">
+                      <span class="account-session-name" id="account-session-name"></span>
+                      <button
+                        type="button"
+                        id="account-display-name-edit"
+                        class="icon-btn account-display-name-btn"
+                        aria-label="Set display name"
+                        title="Set display name"
+                      >
+                        <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true" fill="none">
+                          <path
+                            d="M4.5 15.5l1-3 8-8a1.75 1.75 0 0 1 2.5 2.5l-8 8-3 1zM12.5 5l2.5 2.5"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    </div>
                     <span class="account-session-email" id="account-session-email"></span>
                   </div>
                   <button
@@ -2047,6 +2066,47 @@
           </button>
           <button type="button" id="account-password-ok" class="primary-btn">
             Save password
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="account-display-name-dialog" class="sheet-dialog sheet-dialog--stacked" hidden>
+      <div class="sheet-backdrop" data-close-account-display-name></div>
+      <div
+        class="sheet-panel confirm-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="account-display-name-title"
+      >
+        <div class="sheet-toolbar">
+          <h2 id="account-display-name-title">Display name</h2>
+        </div>
+        <div class="sheet-scroll">
+          <p class="confirm-message">
+            Friends see this instead of your email. Leave it empty to go back to the
+            name from your email address.
+          </p>
+          <label class="sheet-field" for="account-display-name-input">
+            <span class="sheet-field-label">Display name</span>
+            <input
+              type="text"
+              class="sheet-field-input"
+              id="account-display-name-input"
+              placeholder="badmoviehomie"
+              autocomplete="off"
+              spellcheck="false"
+              maxlength="20"
+            />
+          </label>
+          <span class="status-text" id="account-display-name-status"></span>
+        </div>
+        <div class="confirm-actions">
+          <button type="button" id="account-display-name-cancel" class="ghost-btn">
+            Cancel
+          </button>
+          <button type="button" id="account-display-name-ok" class="primary-btn">
+            Save name
           </button>
         </div>
       </div>

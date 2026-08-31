@@ -462,6 +462,13 @@
   flex: 1;
 }
 
+.account-session-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
 .account-session-name {
   font-size: 0.92rem;
   font-weight: 600;
@@ -469,6 +476,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.account-display-name-btn {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--muted);
+}
+
+.account-display-name-btn:hover {
+  color: var(--text);
 }
 
 .account-session-email {

@@ -3,6 +3,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test test.js test-rate-limit.js test-cors.js test-auth-friends.js test-account-delete.js test-account-password.js test-signup-invite.js test-admin.js test-tmdb-proxy.js test-movies-cache.js test-list-routes.js test-sessions.js test-proxy-signature.js test-admin-sessions.js"
+    "test": "node --test test.js test-rate-limit.js test-cors.js test-auth-friends.js test-account-delete.js test-account-password.js test-account-display-name.js test-signup-invite.js test-admin.js test-tmdb-proxy.js test-movies-cache.js test-list-routes.js test-sessions.js test-proxy-signature.js test-admin-sessions.js"
   }
 }

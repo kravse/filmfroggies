@@ -72,6 +72,15 @@ function friendActivityPoster(movie) {
   return `<img src="${appCardHtml.escapeHtml(src)}" alt="" loading="lazy" />`;
 }
 
+/** The rail hides plus-addressed test accounts, so its roster count must too. */
+function acceptedActivityFriends(friends) {
+  return (friends || []).filter(
+    (friend) =>
+      friend.status === "accepted" &&
+      appFriendActivity.isVisibleActivityFriend(accountConfig?.email, friend.email),
+  );
+}
+
 function resolvedFriendActivityAcceptedCount() {
   if (Number.isInteger(friendActivityAcceptedCount) && friendActivityAcceptedCount >= 0) {
     return friendActivityAcceptedCount;
@@ -79,7 +88,7 @@ function resolvedFriendActivityAcceptedCount() {
   if (typeof cachedFriendsRoster === "function") {
     const roster = cachedFriendsRoster();
     if (roster) {
-      return roster.filter((friend) => friend.status === "accepted").length;
+      return acceptedActivityFriends(roster).length;
     }
   }
   return null;
@@ -210,7 +219,7 @@ async function loadFriendActivityRosterCount() {
     if (typeof cachedFriendsRoster === "function") {
       const cached = cachedFriendsRoster();
       if (cached) {
-        friendActivityAcceptedCount = cached.filter((friend) => friend.status === "accepted").length;
+        friendActivityAcceptedCount = acceptedActivityFriends(cached).length;
         return;
       }
     }
@@ -219,7 +228,7 @@ async function loadFriendActivityRosterCount() {
     if (typeof setFriendsNavData === "function") {
       setFriendsNavData(friends);
     }
-    friendActivityAcceptedCount = friends.filter((friend) => friend.status === "accepted").length;
+    friendActivityAcceptedCount = acceptedActivityFriends(friends).length;
   } catch (_) {
     friendActivityAcceptedCount = null;
   }
@@ -257,15 +266,21 @@ async function refreshFriendActivity(options = {}) {
       if (!localDev || error?.status !== 404) throw error;
       await loadFriendActivityRosterCount();
       const roster = typeof cachedFriendsRoster === "function" ? cachedFriendsRoster() : null;
-      const accepted = (roster || []).filter((friend) => friend.status === "accepted");
+      const accepted = acceptedActivityFriends(roster);
       const friends = await Promise.all(
         accepted.map(async (friend) => ({
           id: friend.id,
-          displayName: friend.displayName || friend.email?.split("@")[0] || "Friend",
+          displayName: appDisplayName.resolveDisplayName(friend),
+          email: friend.email,
           doc: await fetchFriendState(friend.id),
         })),
       );
-      body = { items: appFriendActivity.friendActivityItems(friends, { limit: 20 }) };
+      body = {
+        items: appFriendActivity.friendActivityItems(friends, {
+          limit: 20,
+          viewerEmail: accountConfig?.email,
+        }),
+      };
     }
     if (!Number.isInteger(friendActivityAcceptedCount)) {
       await loadFriendActivityRosterCount();

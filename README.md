@@ -107,6 +107,8 @@ A movie can be on any combination of Watched, Watchlist, and custom lists. Custo
 
 **Import & export** (Settings): see [Collection backup CSV](#collection-backup-csv). Import shows a confirmation with row counts before replacing your collection. Use this to migrate lists when moving to account-only storage or after running the local [Letterboxd import tool](#letterboxd-import-local-tool).
 
+**Display name** (Settings → Account): the pencil beside your name sets an optional vanity name — 3-20 characters, letters, numbers, periods, and underscores, unique across accounts and case-insensitive. Friends see it in the activity rail and on their friends page; leaving it empty falls back to the part of your email before the `@`. It is a label only: signup, login, and friend invites still use your email.
+
 **Account:** the footer **Log in** button (logged out) opens the login dialog; log in or sign up with email and password, and new signups also need the invite code you were given. Once logged in, Settings → **Account** shows the session and the delete-account action. Lists sync through the filmfroggies backend (see [Account backend](#account-backend-cloudflare-worker--d1)). Friends can browse each other's lists at `#friend/{userId}` (header **Friends** icon → View lists) once both sides accept a request. The session token stays in this browser and is never part of the synced payload. Connecting pulls remote lists only — local lists are not pushed on signup/login; use CSV export/import to migrate.
 
 ## User state (what gets saved)
@@ -154,7 +156,7 @@ Account sync uses these merge rules (read before write, per-movie stamps, serial
 
 The account feature is a small [Cloudflare Worker](https://developers.cloudflare.com/workers/) with a [D1](https://developers.cloudflare.com/d1/) SQLite database. It stores:
 
-- **Accounts** — email, PBKDF2 password hash, display name
+- **Accounts** — email, PBKDF2 password hash, optional display name (unique, case-insensitive; falls back to the email local part)
 - **User data** — one JSON doc per user
 - **Friends** — pending/accepted relationships; accepted friends can `GET` each other's docs
 - **Movies** — normalized TMDB metadata keyed by `tmdb_id` (batch cache for grid hydration)
@@ -186,6 +188,7 @@ All paths are under `/api`. Authenticated routes expect `Authorization: Bearer <
 | `POST` | `/friends/request` | Yes | Send friend request by email |
 | `POST` | `/friends/{id}/accept` | Yes | Accept an incoming request |
 | `DELETE` | `/friends/{id}` | Yes | Remove friend or cancel outgoing pending request |
+| `POST` | `/account/display-name` | Yes | Set the vanity display name (body: `{ displayName }`; empty clears it) |
 | `DELETE` | `/account` | Yes | Delete account (body: `{ password }`; removes server data only) |
 | `GET` | `/tmdb` | Yes | TMDB proxy (allowlisted paths; server `TMDB_READ_TOKEN`) |
 | `POST` | `/movies/batch` | Yes | Batch movie metadata (D1 cache + TMDB miss fill) |
@@ -229,9 +232,12 @@ wrangler d1 execute cinequeue --remote --file=migrations/002_movies.sql
 wrangler d1 execute cinequeue --remote --file=migrations/003_invite_codes.sql
 wrangler d1 execute cinequeue --remote --file=migrations/004_sessions.sql
 wrangler d1 execute cinequeue --remote --file=migrations/005_admin_sessions.sql
+wrangler d1 execute cinequeue --remote --file=migrations/006_display_names.sql
 ```
 
 Apply `004_sessions.sql` and `005_admin_sessions.sql` **before** deploying Worker code that reads those tables. Existing bearer tokens without a server session row will 401 once; users and admins re-login once.
+
+Apply `006_display_names.sql` **before** deploying too. It clears the `display_name` values that signup derived from each email, so `NULL` can mean "no display name chosen", and adds the case-insensitive unique index the display-name endpoint relies on. Deployed in the other order, every existing account looks like it deliberately chose its email-derived name.
 
 **4. Set secrets** (required):
 
@@ -363,6 +369,7 @@ wrangler d1 execute cinequeue --local --file=schema.sql
 wrangler d1 execute cinequeue --local --file=migrations/003_invite_codes.sql
 wrangler d1 execute cinequeue --local --file=migrations/004_sessions.sql
 wrangler d1 execute cinequeue --local --file=migrations/005_admin_sessions.sql
+wrangler d1 execute cinequeue --local --file=migrations/006_display_names.sql
 wrangler secret put SESSION_SECRET   # prompts; needed for wrangler dev too
 wrangler dev
 ```

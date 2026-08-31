@@ -537,6 +537,19 @@ accountPasswordConfirm.addEventListener("keydown", (event) => {
     onAccountPasswordChangeConfirm();
   }
 });
+accountDisplayNameEditBtn.addEventListener("click", openAccountDisplayName);
+accountDisplayNameCancel.addEventListener("click", closeAccountDisplayName);
+accountDisplayNameOk.addEventListener("click", onAccountDisplayNameConfirm);
+accountDisplayNameDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-account-display-name")) {
+    closeAccountDisplayName();
+  }
+});
+accountDisplayNameInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    onAccountDisplayNameConfirm();
+  }
+});
 accountDeleteBtn.addEventListener("click", openAccountDeleteConfirm);
 accountDeleteCancel.addEventListener("click", closeAccountDeleteConfirm);
 accountDeleteOk.addEventListener("click", onAccountDeleteConfirm);

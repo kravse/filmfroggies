@@ -7,6 +7,11 @@ CREATE TABLE IF NOT EXISTS users (
   created_at INTEGER NOT NULL
 );
 
+-- NULL display_name means "never set"; the email local part is shown instead.
+CREATE UNIQUE INDEX IF NOT EXISTS users_display_name_unique
+  ON users(display_name COLLATE NOCASE)
+  WHERE display_name IS NOT NULL;
+
 -- One JSON doc per user, same shape the gist sync already uses.
 CREATE TABLE IF NOT EXISTS user_data (
   user_id INTEGER PRIMARY KEY REFERENCES users(id),

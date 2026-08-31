@@ -169,6 +169,12 @@ const accountPasswordConfirm = document.getElementById("account-password-confirm
 const accountPasswordStatus = document.getElementById("account-password-status");
 const accountPasswordCancel = document.getElementById("account-password-cancel");
 const accountPasswordOk = document.getElementById("account-password-ok");
+const accountDisplayNameEditBtn = document.getElementById("account-display-name-edit");
+const accountDisplayNameDialog = document.getElementById("account-display-name-dialog");
+const accountDisplayNameInput = document.getElementById("account-display-name-input");
+const accountDisplayNameStatus = document.getElementById("account-display-name-status");
+const accountDisplayNameCancel = document.getElementById("account-display-name-cancel");
+const accountDisplayNameOk = document.getElementById("account-display-name-ok");
 const accountDeleteBtn = document.getElementById("account-delete");
 const accountDeleteDialog = document.getElementById("account-delete-dialog");
 const accountDeletePassword = document.getElementById("account-delete-password");
@@ -637,6 +643,17 @@ const appFriendActivity = (function () {
     return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === text ? text : null;
   }
 
+  /** A plus tag starting with "test" marks a throwaway account, e.g. me+test@mail.com. */
+  function isTestAccountEmail(email) {
+    const local = String(email || "").trim().toLowerCase().split("@")[0];
+    return local.includes("+test");
+  }
+
+  /** Test accounts see every friend; real accounts never see a test account. */
+  function isVisibleActivityFriend(viewerEmail, friendEmail) {
+    return !isTestAccountEmail(friendEmail) || isTestAccountEmail(viewerEmail);
+  }
+
   function friendActivityItems(friends, options = {}) {
     const limit = normalizeActivityLimit(options.limit);
     const latestDate = normalizeDate(options.today) || new Date().toISOString().slice(0, 10);
@@ -648,6 +665,7 @@ const appFriendActivity = (function () {
       if (!Number.isInteger(friendId) || friendId <= 0 || !displayName || !doc || typeof doc !== "object") {
         continue;
       }
+      if (!isVisibleActivityFriend(options.viewerEmail, friend.email)) continue;
       const ratings = doc.ratings && typeof doc.ratings === "object" ? doc.ratings : {};
       const history = doc.viewingHistory;
       if (!history || typeof history !== "object" || Array.isArray(history)) continue;
@@ -713,8 +731,90 @@ const appFriendActivity = (function () {
     DEFAULT_ACTIVITY_LIMIT,
     MAX_ACTIVITY_LIMIT,
     normalizeActivityLimit,
+    isTestAccountEmail,
+    isVisibleActivityFriend,
     friendActivityItems,
     formatActivityDateLabel,
+  };
+})();
+
+/* ===== Vanity display names (generated from scripts/lib/display-name.js) ===== */
+
+/* Generated from scripts/lib/display-name.js — run npm run bundle */
+
+const appDisplayName = (function () {
+  /**
+   * Optional vanity display names. Storage holds the name the user picked, or
+   * nothing at all — an unset name falls back to the email local part, which is
+   * what every account was created with.
+   *
+   * Writes are strict (normalizeDisplayName / displayNameError); reads are lenient
+   * (resolveDisplayName), so a stored value never disappears from the UI because
+   * the rules tightened later.
+   */
+
+  const DISPLAY_NAME_MIN = 3;
+  const DISPLAY_NAME_MAX = 20;
+  const DISPLAY_NAME_PATTERN = /^[a-z0-9][a-z0-9._]*$/i;
+  const DISPLAY_NAME_FALLBACK = "Someone";
+
+  /** Accepts either a D1 row (display_name) or a wire/config object (displayName). */
+  function storedDisplayName(user) {
+    const value = user?.displayName != null ? user.displayName : user?.display_name;
+    return String(value == null ? "" : value).trim();
+  }
+
+  function emailLocalPart(email) {
+    return String(email == null ? "" : email).trim().split("@")[0];
+  }
+
+  /** The trimmed name when it passes the rules, otherwise null. Write path only. */
+  function normalizeDisplayName(raw) {
+    const value = String(raw == null ? "" : raw).trim();
+    if (value.length < DISPLAY_NAME_MIN || value.length > DISPLAY_NAME_MAX) {
+      return null;
+    }
+    return DISPLAY_NAME_PATTERN.test(value) ? value : null;
+  }
+
+  /** Message for a rejected value, or null when it is acceptable. */
+  function displayNameError(raw) {
+    const value = String(raw == null ? "" : raw).trim();
+    if (!value) {
+      return "Enter a display name.";
+    }
+    if (value.length < DISPLAY_NAME_MIN) {
+      return `Use at least ${DISPLAY_NAME_MIN} characters.`;
+    }
+    if (value.length > DISPLAY_NAME_MAX) {
+      return `Use ${DISPLAY_NAME_MAX} characters or fewer.`;
+    }
+    if (!DISPLAY_NAME_PATTERN.test(value)) {
+      return "Letters, numbers, periods, and underscores only, starting with a letter or number.";
+    }
+    return null;
+  }
+
+  /**
+   * Never returns an empty string: friendActivityItems drops any friend whose
+   * displayName is blank, so a nameless account would vanish from the rail.
+   */
+  function resolveDisplayName(user) {
+    return storedDisplayName(user) || emailLocalPart(user?.email) || DISPLAY_NAME_FALLBACK;
+  }
+
+  function hasCustomDisplayName(user) {
+    return storedDisplayName(user).length > 0;
+  }
+
+  return {
+    DISPLAY_NAME_MIN,
+    DISPLAY_NAME_MAX,
+    storedDisplayName,
+    normalizeDisplayName,
+    displayNameError,
+    resolveDisplayName,
+    hasCustomDisplayName,
   };
 })();
 
@@ -7947,6 +8047,21 @@ async function changeRemoteAccountPassword(currentPassword, newPassword) {
   });
 }
 
+/** Empty clears the name; the account config keeps whatever the server stored. */
+async function setRemoteDisplayName(displayName) {
+  const body = await accountRequest("/account/display-name", {
+    method: "POST",
+    body: { displayName },
+  });
+  if (accountConfig && body?.user) {
+    saveAccountConfig({
+      ...accountConfig,
+      displayName: body.user.displayName || "",
+    });
+  }
+  return body;
+}
+
 /* Friends: thin wrappers, the dialog layer owns rendering and status text. */
 
 function fetchFriends() {
@@ -13129,7 +13244,7 @@ function syncDetailFromLocation() {
 /* --- Settings --- */
 
 function accountDisplayInitial(config) {
-  const source = String(config?.displayName || config?.email || "?").trim();
+  const source = config ? appDisplayName.resolveDisplayName(config) : "?";
   return source.charAt(0).toUpperCase() || "?";
 }
 
@@ -13303,10 +13418,8 @@ function refreshAccountSection() {
   accountFriendsSection.hidden = !connected;
   settingsFriendsSignin.hidden = connected;
   if (connected) {
-    const displayName =
-      accountConfig.displayName || accountConfig.email.split("@")[0] || "Account";
     accountAvatar.textContent = accountDisplayInitial(accountConfig);
-    accountSessionName.textContent = displayName;
+    accountSessionName.textContent = appDisplayName.resolveDisplayName(accountConfig);
     accountSessionEmail.textContent = accountConfig.email || "";
     setStatus(accountStatus, "", null);
   } else {
@@ -13454,6 +13567,50 @@ async function onAccountPasswordChangeConfirm() {
   }
 }
 
+// Prefilled with the stored name only, so opening the dialog on an unset account
+// does not offer the email-derived name as something to claim.
+function openAccountDisplayName() {
+  accountDisplayNameInput.value = appDisplayName.storedDisplayName(accountConfig);
+  setStatus(accountDisplayNameStatus, "", null);
+  accountDisplayNameDialog.hidden = false;
+  accountDisplayNameInput.focus({ preventScroll: true });
+  accountDisplayNameInput.select();
+}
+
+function closeAccountDisplayName() {
+  accountDisplayNameDialog.hidden = true;
+  accountDisplayNameInput.value = "";
+  setStatus(accountDisplayNameStatus, "", null);
+}
+
+async function onAccountDisplayNameConfirm() {
+  const value = accountDisplayNameInput.value.trim();
+  if (value) {
+    const problem = appDisplayName.displayNameError(value);
+    if (problem) {
+      setStatus(accountDisplayNameStatus, problem, "error");
+      accountDisplayNameInput.focus({ preventScroll: true });
+      return;
+    }
+  }
+  accountDisplayNameOk.disabled = true;
+  setStatus(accountDisplayNameStatus, "Saving…", null);
+  try {
+    await setRemoteDisplayName(value);
+    closeAccountDisplayName();
+    refreshAccountSection();
+    setStatus(
+      accountSyncStatus,
+      value ? "Display name updated." : "Display name cleared.",
+      "ok",
+    );
+  } catch (error) {
+    setStatus(accountDisplayNameStatus, error.message, "error");
+  } finally {
+    accountDisplayNameOk.disabled = false;
+  }
+}
+
 async function onAccountDeleteConfirm() {
   const password = accountDeletePassword.value;
   if (!password) {
@@ -13483,12 +13640,26 @@ async function onAccountDeleteConfirm() {
 }
 
 function friendDisplayName(friend) {
-  return friend.displayName || friend.email;
+  return appDisplayName.resolveDisplayName(friend);
 }
 
 function friendInitial(friend) {
   const name = friendDisplayName(friend).trim();
   return (name[0] || "?").toUpperCase();
+}
+
+/**
+ * The roster is the one place that shows both identities: the chosen name over
+ * the email. Without a chosen name the email stands alone, since the derived
+ * name is just that email with the domain cut off.
+ */
+function friendRosterIdentityHtml(friend) {
+  const email = appCardHtml.escapeHtml(friend.email || "");
+  if (!appDisplayName.hasCustomDisplayName(friend)) {
+    return `<span class="friends-roster-name">${email}</span>`;
+  }
+  return `<span class="friends-roster-name">${appCardHtml.escapeHtml(friendDisplayName(friend))}</span>
+      <span class="friends-roster-email">${email}</span>`;
 }
 
 function friendRosterItemHtml(friend) {
@@ -13503,7 +13674,7 @@ function friendRosterItemHtml(friend) {
   const main = `<div class="friends-roster-main">
     <span class="friends-roster-avatar" aria-hidden="true">${initial}</span>
     <div class="friends-roster-info">
-      <span class="friends-roster-name">${name}</span>
+      ${friendRosterIdentityHtml(friend)}
       ${tag ? `<span class="friends-roster-tag">${tag}</span>` : ""}
     </div>
   </div>`;
@@ -16569,7 +16740,7 @@ function setFriendsNavData(friends) {
   lastFriendsList = friends || [];
   friendsRosterLoaded = true;
   syncFriendsNavBadge(lastFriendsList);
-  friendActivityAcceptedCount = lastFriendsList.filter((friend) => friend.status === "accepted").length;
+  friendActivityAcceptedCount = acceptedActivityFriends(lastFriendsList).length;
   if (typeof renderFriendActivity === "function") {
     renderFriendActivity();
   }
@@ -16751,6 +16922,15 @@ function friendActivityPoster(movie) {
   return `<img src="${appCardHtml.escapeHtml(src)}" alt="" loading="lazy" />`;
 }
 
+/** The rail hides plus-addressed test accounts, so its roster count must too. */
+function acceptedActivityFriends(friends) {
+  return (friends || []).filter(
+    (friend) =>
+      friend.status === "accepted" &&
+      appFriendActivity.isVisibleActivityFriend(accountConfig?.email, friend.email),
+  );
+}
+
 function resolvedFriendActivityAcceptedCount() {
   if (Number.isInteger(friendActivityAcceptedCount) && friendActivityAcceptedCount >= 0) {
     return friendActivityAcceptedCount;
@@ -16758,7 +16938,7 @@ function resolvedFriendActivityAcceptedCount() {
   if (typeof cachedFriendsRoster === "function") {
     const roster = cachedFriendsRoster();
     if (roster) {
-      return roster.filter((friend) => friend.status === "accepted").length;
+      return acceptedActivityFriends(roster).length;
     }
   }
   return null;
@@ -16889,7 +17069,7 @@ async function loadFriendActivityRosterCount() {
     if (typeof cachedFriendsRoster === "function") {
       const cached = cachedFriendsRoster();
       if (cached) {
-        friendActivityAcceptedCount = cached.filter((friend) => friend.status === "accepted").length;
+        friendActivityAcceptedCount = acceptedActivityFriends(cached).length;
         return;
       }
     }
@@ -16898,7 +17078,7 @@ async function loadFriendActivityRosterCount() {
     if (typeof setFriendsNavData === "function") {
       setFriendsNavData(friends);
     }
-    friendActivityAcceptedCount = friends.filter((friend) => friend.status === "accepted").length;
+    friendActivityAcceptedCount = acceptedActivityFriends(friends).length;
   } catch (_) {
     friendActivityAcceptedCount = null;
   }
@@ -16936,15 +17116,21 @@ async function refreshFriendActivity(options = {}) {
       if (!localDev || error?.status !== 404) throw error;
       await loadFriendActivityRosterCount();
       const roster = typeof cachedFriendsRoster === "function" ? cachedFriendsRoster() : null;
-      const accepted = (roster || []).filter((friend) => friend.status === "accepted");
+      const accepted = acceptedActivityFriends(roster);
       const friends = await Promise.all(
         accepted.map(async (friend) => ({
           id: friend.id,
-          displayName: friend.displayName || friend.email?.split("@")[0] || "Friend",
+          displayName: appDisplayName.resolveDisplayName(friend),
+          email: friend.email,
           doc: await fetchFriendState(friend.id),
         })),
       );
-      body = { items: appFriendActivity.friendActivityItems(friends, { limit: 20 }) };
+      body = {
+        items: appFriendActivity.friendActivityItems(friends, {
+          limit: 20,
+          viewerEmail: accountConfig?.email,
+        }),
+      };
     }
     if (!Number.isInteger(friendActivityAcceptedCount)) {
       await loadFriendActivityRosterCount();
@@ -18138,6 +18324,19 @@ accountPasswordDialog.addEventListener("click", (event) => {
 accountPasswordConfirm.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     onAccountPasswordChangeConfirm();
+  }
+});
+accountDisplayNameEditBtn.addEventListener("click", openAccountDisplayName);
+accountDisplayNameCancel.addEventListener("click", closeAccountDisplayName);
+accountDisplayNameOk.addEventListener("click", onAccountDisplayNameConfirm);
+accountDisplayNameDialog.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-account-display-name")) {
+    closeAccountDisplayName();
+  }
+});
+accountDisplayNameInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    onAccountDisplayNameConfirm();
   }
 });
 accountDeleteBtn.addEventListener("click", openAccountDeleteConfirm);

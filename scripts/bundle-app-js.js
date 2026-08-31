@@ -24,6 +24,10 @@ const PARTS = [
     title: "Friends activity aggregation (generated from scripts/lib/friend-activity.js)",
   },
   {
+    file: "00-app-display-name.js",
+    title: "Vanity display names (generated from scripts/lib/display-name.js)",
+  },
+  {
     file: "00-app-card-html.js",
     title: "Card HTML helpers (generated from scripts/lib/card-html.js)",
   },

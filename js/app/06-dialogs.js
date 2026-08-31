@@ -2186,7 +2186,7 @@ function syncDetailFromLocation() {
 /* --- Settings --- */
 
 function accountDisplayInitial(config) {
-  const source = String(config?.displayName || config?.email || "?").trim();
+  const source = config ? appDisplayName.resolveDisplayName(config) : "?";
   return source.charAt(0).toUpperCase() || "?";
 }
 
@@ -2360,10 +2360,8 @@ function refreshAccountSection() {
   accountFriendsSection.hidden = !connected;
   settingsFriendsSignin.hidden = connected;
   if (connected) {
-    const displayName =
-      accountConfig.displayName || accountConfig.email.split("@")[0] || "Account";
     accountAvatar.textContent = accountDisplayInitial(accountConfig);
-    accountSessionName.textContent = displayName;
+    accountSessionName.textContent = appDisplayName.resolveDisplayName(accountConfig);
     accountSessionEmail.textContent = accountConfig.email || "";
     setStatus(accountStatus, "", null);
   } else {
@@ -2511,6 +2509,50 @@ async function onAccountPasswordChangeConfirm() {
   }
 }
 
+// Prefilled with the stored name only, so opening the dialog on an unset account
+// does not offer the email-derived name as something to claim.
+function openAccountDisplayName() {
+  accountDisplayNameInput.value = appDisplayName.storedDisplayName(accountConfig);
+  setStatus(accountDisplayNameStatus, "", null);
+  accountDisplayNameDialog.hidden = false;
+  accountDisplayNameInput.focus({ preventScroll: true });
+  accountDisplayNameInput.select();
+}
+
+function closeAccountDisplayName() {
+  accountDisplayNameDialog.hidden = true;
+  accountDisplayNameInput.value = "";
+  setStatus(accountDisplayNameStatus, "", null);
+}
+
+async function onAccountDisplayNameConfirm() {
+  const value = accountDisplayNameInput.value.trim();
+  if (value) {
+    const problem = appDisplayName.displayNameError(value);
+    if (problem) {
+      setStatus(accountDisplayNameStatus, problem, "error");
+      accountDisplayNameInput.focus({ preventScroll: true });
+      return;
+    }
+  }
+  accountDisplayNameOk.disabled = true;
+  setStatus(accountDisplayNameStatus, "Saving…", null);
+  try {
+    await setRemoteDisplayName(value);
+    closeAccountDisplayName();
+    refreshAccountSection();
+    setStatus(
+      accountSyncStatus,
+      value ? "Display name updated." : "Display name cleared.",
+      "ok",
+    );
+  } catch (error) {
+    setStatus(accountDisplayNameStatus, error.message, "error");
+  } finally {
+    accountDisplayNameOk.disabled = false;
+  }
+}
+
 async function onAccountDeleteConfirm() {
   const password = accountDeletePassword.value;
   if (!password) {
@@ -2540,12 +2582,26 @@ async function onAccountDeleteConfirm() {
 }
 
 function friendDisplayName(friend) {
-  return friend.displayName || friend.email;
+  return appDisplayName.resolveDisplayName(friend);
 }
 
 function friendInitial(friend) {
   const name = friendDisplayName(friend).trim();
   return (name[0] || "?").toUpperCase();
+}
+
+/**
+ * The roster is the one place that shows both identities: the chosen name over
+ * the email. Without a chosen name the email stands alone, since the derived
+ * name is just that email with the domain cut off.
+ */
+function friendRosterIdentityHtml(friend) {
+  const email = appCardHtml.escapeHtml(friend.email || "");
+  if (!appDisplayName.hasCustomDisplayName(friend)) {
+    return `<span class="friends-roster-name">${email}</span>`;
+  }
+  return `<span class="friends-roster-name">${appCardHtml.escapeHtml(friendDisplayName(friend))}</span>
+      <span class="friends-roster-email">${email}</span>`;
 }
 
 function friendRosterItemHtml(friend) {
@@ -2560,7 +2616,7 @@ function friendRosterItemHtml(friend) {
   const main = `<div class="friends-roster-main">
     <span class="friends-roster-avatar" aria-hidden="true">${initial}</span>
     <div class="friends-roster-info">
-      <span class="friends-roster-name">${name}</span>
+      ${friendRosterIdentityHtml(friend)}
       ${tag ? `<span class="friends-roster-tag">${tag}</span>` : ""}
     </div>
   </div>`;

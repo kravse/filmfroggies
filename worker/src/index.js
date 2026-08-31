@@ -30,6 +30,11 @@ import {
 } from "./sessions.js";
 import { describeProxySignature, netlifyProxyTrusted } from "./proxy-signature.js";
 import { friendActivityItems, normalizeActivityLimit } from "./lib/friend-activity.js";
+import {
+  displayNameError,
+  normalizeDisplayName,
+  resolveDisplayName,
+} from "./lib/display-name.js";
 
 export { rateLimit, rateLimitBlocked, createSessionToken, verifySessionToken };
 
@@ -39,7 +44,6 @@ const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 // killing login requests for CPU.
 const PBKDF2_ITERATIONS = 100_000;
 const MAX_DOC_BYTES = 200_000;
-const MAX_DISPLAY_NAME_LENGTH = 64;
 
 /** Neutral copy for responses that must not reveal whether an email is registered. */
 const FRIEND_REQUEST_ACK = { status: "pending" };
@@ -221,13 +225,6 @@ function normalizeEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value : null;
 }
 
-export function normalizeDisplayName(raw, email) {
-  const fallback = String(email || "").split("@")[0] || "User";
-  const trimmed = String(raw || "").trim();
-  const name = trimmed || fallback;
-  return name.slice(0, MAX_DISPLAY_NAME_LENGTH);
-}
-
 /** Parse a JSON doc column; returns null when missing, invalid, or non-object. */
 export function parseStoredDoc(jsonText) {
   if (jsonText == null || jsonText === "") {
@@ -260,8 +257,10 @@ async function readJsonBody(request) {
   }
 }
 
+// displayName is the raw stored name, empty when unset; callers hold the email
+// and resolve the fallback themselves.
 function publicUser(row) {
-  return { id: row.id, email: row.email, displayName: row.display_name };
+  return { id: row.id, email: row.email, displayName: row.display_name || "" };
 }
 
 // Friendship is one row; either endpoint of an accepted row is a friend.
@@ -302,6 +301,29 @@ export async function changeAccountPassword(env, uid, currentPassword, newPasswo
   return { ok: true };
 }
 
+/** Store a vanity display name, or clear it back to the email-derived fallback. */
+export async function setAccountDisplayName(env, uid, rawDisplayName) {
+  const raw = String(rawDisplayName || "").trim();
+  const displayName = raw ? normalizeDisplayName(raw) : null;
+  if (raw && !displayName) {
+    return { ok: false, status: 400, error: displayNameError(raw) };
+  }
+  let user;
+  try {
+    user = await env.DB.prepare(
+      "UPDATE users SET display_name = ?1 WHERE id = ?2 RETURNING id, email, display_name"
+    ).bind(displayName, uid).first();
+  } catch (_) {
+    // users_display_name_unique is the only constraint on this write, and it is
+    // the guard: two simultaneous claims cannot both succeed.
+    return { ok: false, status: 409, error: "That display name is taken" };
+  }
+  if (!user) {
+    return { ok: false, status: 401, error: "Account no longer exists" };
+  }
+  return { ok: true, user };
+}
+
 /** Remove a user and all server-side rows that reference them. */
 export async function deleteUserAccount(env, uid) {
   await env.DB.batch([
@@ -334,12 +356,12 @@ async function handleAuth(request, env, path, res, ip) {
     }
 
     const hash = await hashPassword(password);
-    const displayName = normalizeDisplayName(body?.displayName, email);
     let result;
     try {
+      // display_name stays NULL until the account picks one in Settings.
       result = await env.DB.prepare(
-        "INSERT INTO users (email, password_hash, display_name, created_at) VALUES (?, ?, ?, ?) RETURNING id, email, display_name"
-      ).bind(email, hash, displayName, Date.now()).first();
+        "INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?) RETURNING id, email, display_name"
+      ).bind(email, hash, Date.now()).first();
     } catch (_) {
       await releaseInviteCode(env, invite.codeHash, invite.reservedAt);
       return res.json(201, SIGNUP_ACK);
@@ -372,19 +394,24 @@ export async function handleFriends(request, env, session, path, res) {
 
   if (path === "/api/friends/activity" && request.method === "GET") {
     const limit = normalizeActivityLimit(new URL(request.url).searchParams.get("limit"));
+    // The viewer's own email rides along so test accounts can be filtered without a second read.
     const { results } = await env.DB.prepare(
-      `SELECT u.id, u.display_name, d.doc
+      `SELECT u.id, u.display_name, u.email, d.doc,
+              (SELECT email FROM users WHERE id = ?1) AS viewer_email
        FROM friends f
        JOIN users u ON u.id = CASE WHEN f.user_id = ?1 THEN f.friend_id ELSE f.user_id END
        LEFT JOIN user_data d ON d.user_id = u.id
        WHERE (f.user_id = ?1 OR f.friend_id = ?1) AND f.status = 'accepted'`
     ).bind(uid).all();
+    const viewerEmail = results[0]?.viewer_email || "";
+    // Activity items carry no email, so the fallback has to be resolved here.
     const friends = results.map((row) => ({
       id: row.id,
-      displayName: row.display_name,
+      displayName: resolveDisplayName(row),
+      email: row.email,
       doc: parseStoredDoc(row.doc),
     }));
-    const items = friendActivityItems(friends, { limit }).map(({ movieId, watchedOn, friend, rating }) => ({
+    const items = friendActivityItems(friends, { limit, viewerEmail }).map(({ movieId, watchedOn, friend, rating }) => ({
       movieId,
       watchedOn,
       friend,
@@ -588,6 +615,15 @@ export default {
         return res.json(result.status, { error: result.error });
       }
       return res.json(200, { status: "ok" });
+    }
+
+    if (path === "/api/account/display-name" && request.method === "POST") {
+      const body = await readJsonBody(request);
+      const result = await setAccountDisplayName(env, session.uid, body?.displayName);
+      if (!result.ok) {
+        return res.json(result.status, { error: result.error });
+      }
+      return res.json(200, { user: publicUser(result.user) });
     }
 
     if (path === "/api/account" && request.method === "DELETE") {

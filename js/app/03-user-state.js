@@ -527,6 +527,21 @@ async function changeRemoteAccountPassword(currentPassword, newPassword) {
   });
 }
 
+/** Empty clears the name; the account config keeps whatever the server stored. */
+async function setRemoteDisplayName(displayName) {
+  const body = await accountRequest("/account/display-name", {
+    method: "POST",
+    body: { displayName },
+  });
+  if (accountConfig && body?.user) {
+    saveAccountConfig({
+      ...accountConfig,
+      displayName: body.user.displayName || "",
+    });
+  }
+  return body;
+}
+
 /* Friends: thin wrappers, the dialog layer owns rendering and status text. */
 
 function fetchFriends() {

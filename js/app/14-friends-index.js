@@ -36,7 +36,7 @@ function setFriendsNavData(friends) {
   lastFriendsList = friends || [];
   friendsRosterLoaded = true;
   syncFriendsNavBadge(lastFriendsList);
-  friendActivityAcceptedCount = lastFriendsList.filter((friend) => friend.status === "accepted").length;
+  friendActivityAcceptedCount = acceptedActivityFriends(lastFriendsList).length;
   if (typeof renderFriendActivity === "function") {
     renderFriendActivity();
   }

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { handleFriends, normalizeDisplayName, parseStoredDoc } from "./src/index.js";
+import { handleFriends, parseStoredDoc } from "./src/index.js";
 
 test("parseStoredDoc accepts objects and rejects bad JSON", () => {
   assert.deepEqual(parseStoredDoc('{"lists":[]}'), { lists: [] });
@@ -11,11 +11,37 @@ test("parseStoredDoc accepts objects and rejects bad JSON", () => {
   assert.equal(parseStoredDoc("42"), null);
 });
 
-test("normalizeDisplayName trims, falls back, and caps length", () => {
-  assert.equal(normalizeDisplayName("  Alex  ", "a@b.co"), "Alex");
-  assert.equal(normalizeDisplayName("", "alex@example.com"), "alex");
-  const long = "x".repeat(80);
-  assert.equal(normalizeDisplayName(long, "a@b.co").length, 64);
+test("friends activity falls back to the email local part when no display name is set", async () => {
+  const env = {
+    DB: {
+      prepare() {
+        return {
+          bind: () => ({
+            all: async () => ({ results: [{
+              id: 2,
+              display_name: null,
+              email: "sam.jones@mail.com",
+              viewer_email: "me@mail.com",
+              doc: JSON.stringify({
+                viewingHistory: { 10: [{ id: "a", watchedOn: "2026-08-20", updatedAt: "2026-08-20T12:00:00Z" }] },
+              }),
+            }] }),
+          }),
+        };
+      },
+    },
+  };
+  const res = { json: (status, body) => ({ status, body }) };
+  const response = await handleFriends(
+    new Request("https://example.com/api/friends/activity?limit=20"),
+    env,
+    { uid: 1 },
+    "/api/friends/activity",
+    res,
+  );
+  assert.deepEqual(response.body.items.map((item) => item.friend), [
+    { id: 2, displayName: "sam.jones" },
+  ]);
 });
 
 test("friends activity returns only the aggregated public fields", async () => {
@@ -58,4 +84,47 @@ test("friends activity returns only the aggregated public fields", async () => {
     friend: { id: 2, displayName: "Sam" },
     rating: 8.5,
   }] } });
+});
+
+test("friends activity hides plus-test accounts from a real viewer", async () => {
+  const activityRows = (viewerEmail) => [
+    {
+      id: 2,
+      display_name: "Sam",
+      email: "sam@mail.com",
+      viewer_email: viewerEmail,
+      doc: JSON.stringify({
+        viewingHistory: { 10: [{ id: "sam", watchedOn: "2026-08-20", updatedAt: "2026-08-20T12:00:00Z" }] },
+      }),
+    },
+    {
+      id: 3,
+      display_name: "Tester",
+      email: "jared987+test@gmail.com",
+      viewer_email: viewerEmail,
+      doc: JSON.stringify({
+        viewingHistory: { 20: [{ id: "test", watchedOn: "2026-08-21", updatedAt: "2026-08-21T12:00:00Z" }] },
+      }),
+    },
+  ];
+  const res = { json: (status, body) => ({ status, body }) };
+  const activityFriendIds = async (viewerEmail) => {
+    const env = {
+      DB: {
+        prepare() {
+          return { bind: () => ({ all: async () => ({ results: activityRows(viewerEmail) }) }) };
+        },
+      },
+    };
+    const response = await handleFriends(
+      new Request("https://example.com/api/friends/activity?limit=20"),
+      env,
+      { uid: 1 },
+      "/api/friends/activity",
+      res,
+    );
+    return response.body.items.map((item) => item.friend.id);
+  };
+  assert.deepEqual(await activityFriendIds("jared987@gmail.com"), [2]);
+  assert.deepEqual(await activityFriendIds("jared987+test@gmail.com"), [3, 2]);
 });
