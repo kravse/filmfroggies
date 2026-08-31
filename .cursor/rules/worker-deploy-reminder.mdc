@@ -1,0 +1,49 @@
+---
+description: Remind to deploy the Cloudflare Worker when backend changes need wrangler
+alwaysApply: true
+---
+
+# Worker deploy reminder
+
+Production account API traffic (lists, sync, friends, TMDB proxy, admin, movies batch) runs on the Cloudflare Worker. Localhost also hits the deployed Worker URL unless a dev-only fallback applies.
+
+## Required in every completion summary
+
+When the session changed anything that affects the Worker, **always** end the summary with a **Deploy** section. Do not skip it, even if the user did not ask.
+
+If no Worker-affecting changes were made, omit the section.
+
+## When a Worker deploy is required
+
+Treat these as needing `wrangler deploy`:
+
+- Any edit under `worker/` (including `worker/src/`, tests that imply production behavior, `wrangler.toml`)
+- Any edit under `scripts/lib/` for a module listed in `scripts/sync-worker-lib.js` (`lists`, `friend-activity`, `list-query`, `sort`, etc.) — run `npm run sync-worker-lib` first, then deploy
+- D1 schema/migration changes referenced by the Worker
+
+Static-only changes (`css/`, `js/app/` UI with no synced lib change, `data/posters/`, `server.js`) do **not** require wrangler. They may need a static site deploy instead.
+
+## What to tell the user
+
+Use this exact command unless the README documents a different flow:
+
+```bash
+cd worker && wrangler deploy
+```
+
+Also mention when relevant:
+
+- Run `npm run sync-worker-lib` before deploy if `scripts/lib/` synced modules changed
+- Production picks up API changes only after deploy; static `npm run build` alone is not enough for Worker routes
+- Optional: static/Netlify deploy if frontend bundle changed too
+
+## Example summary footer
+
+**Deploy:** These changes hit the account API. From the repo root:
+
+```bash
+npm run sync-worker-lib   # if scripts/lib synced modules changed
+cd worker && wrangler deploy
+```
+
+Reload the site after deploy (friend activity polls ~60s).

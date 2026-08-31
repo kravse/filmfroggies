@@ -568,6 +568,7 @@ document.getElementById("friends-invite-form")?.addEventListener("submit", onFri
 document.getElementById("friends-signin-btn")?.addEventListener("click", () => openLogin());
 friendsList?.addEventListener("click", onFriendsListClick);
 friendViewOverview?.addEventListener("change", onFriendFanRatingsToggleChange);
+friendViewOverview?.addEventListener("click", onFriendViewOverviewClick);
 friendViewSectionsEl?.addEventListener("click", onFriendViewSectionsClick);
 friendViewSectionsEl?.addEventListener("keydown", onFriendViewSectionsKeydown);
 

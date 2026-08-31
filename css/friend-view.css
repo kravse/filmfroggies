@@ -471,6 +471,82 @@ body.view-friends-index .empty-state {
   font-weight: 500;
 }
 
+.friend-view-lists-nav {
+  display: none;
+}
+
+.friend-view-lists-nav-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+  font-weight: 600;
+}
+
+.friend-view-lists-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.friend-view-lists-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.28rem 0.35rem;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--ui-font);
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.friend-view-lists-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.friend-view-lists-nav-btn:focus-visible {
+  outline: 2px solid var(--accent-border);
+  outline-offset: 1px;
+}
+
+.friend-view-lists-nav-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friend-view-lists-nav-count {
+  flex: none;
+  min-width: 1.35rem;
+  padding: 0.02rem 0.32rem;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
 body.view-friend .card.card--friend.is-seen-by-you {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent-surface) 72%, var(--panel));
@@ -698,21 +774,300 @@ body.view-friend .empty-state {
   display: none !important;
 }
 
-@media (max-width: 640px) {
+/* Desktop: fixed left overview; lists scroll on the right. */
+@media (min-width: 901px) {
+  body.view-friend {
+    --friend-view-sidebar-width: 13.75rem;
+    --friend-view-sidebar-gap: 1.75rem;
+    --friend-view-header-height: calc(
+      env(safe-area-inset-top, 0px) + 0.9rem + 4rem + var(--header-gap) + 1.75rem + 0.75rem + 1px
+    );
+    --friend-view-overview-top: calc(var(--friend-view-header-height) + 1.25rem);
+    --friend-view-scroll-offset: calc(var(--friend-view-header-height) + 0.35rem);
+    --friend-view-lists-nav-row: 1.55rem;
+    --friend-view-lists-nav-gap: 0.2rem;
+    --friend-view-lists-nav-max-rows: 10;
+  }
+
+  body.view-friend .friend-view-section {
+    scroll-margin-top: var(--friend-view-scroll-offset);
+  }
+
+  body.view-friend .friend-view {
+    display: block;
+    width: 100%;
+    max-width: none;
+  }
+
+  body.view-friend .friend-view-overview {
+    position: fixed;
+    top: var(--friend-view-overview-top);
+    left: max(
+      var(--layout-gutter),
+      calc((100vw - var(--layout-wide-max)) / 2 + var(--layout-gutter))
+    );
+    z-index: 25;
+    width: var(--friend-view-sidebar-width);
+    box-sizing: border-box;
+    padding: 0;
+  }
+
+  body.view-friend .friend-view-hero {
+    margin-bottom: 0.65rem;
+  }
+
+  body.view-friend .friend-view-name {
+    font-size: 1.05rem;
+    line-height: 1.25;
+    margin-bottom: 0.25rem;
+  }
+
+  body.view-friend .friend-view-lead {
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+
+  body.view-friend .friend-view-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
+
+  body.view-friend .friend-view-stat {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.12rem;
+    padding: 0.38rem 0.48rem;
+  }
+
+  body.view-friend .friend-view-stat dt {
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+  }
+
+  body.view-friend .friend-view-stat dd {
+    font-size: 0.88rem;
+  }
+
+  body.view-friend .friend-view-rating-legend {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.45rem;
+    margin-top: 0.65rem;
+    padding: 0.48rem 0.55rem;
+  }
+
+  body.view-friend .friend-view-rating-legend-main {
+    flex: 1 1 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem 1rem;
+  }
+
+  body.view-friend .friend-fan-ratings-toggle {
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  body.view-friend .friend-view-rating-legend-row {
+    gap: 0.45rem 0.65rem;
+  }
+
+  body.view-friend .friend-view-rating-legend-text {
+    font-size: 0.76rem;
+  }
+
+  body.view-friend .friend-view-lists-nav {
+    display: block;
+    margin-top: 0.65rem;
+    padding: 0.48rem 0.55rem;
+    background: var(--bg);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+  }
+
+  body.view-friend .friend-view-lists-nav-list {
+    max-height: calc(
+      var(--friend-view-lists-nav-max-rows) * var(--friend-view-lists-nav-row) +
+        (var(--friend-view-lists-nav-max-rows) - 1) * var(--friend-view-lists-nav-gap)
+    );
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  body.view-friend .friend-view-lists-nav-btn {
+    min-height: var(--friend-view-lists-nav-row);
+  }
+
+  body.view-friend .friend-view-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+    margin-left: calc(var(--friend-view-sidebar-width) + var(--friend-view-sidebar-gap));
+  }
+
   body.view-friend .friend-view-list-card {
-    width: calc(100% + 2 * var(--layout-gutter));
-    margin-inline: calc(-1 * var(--layout-gutter));
-    border-left: none;
-    border-right: none;
-    border-radius: 0;
+    overflow: visible;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
+  }
+
+  body.view-friend .friend-view-list-body {
+    overflow: hidden;
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  }
+
+  body.view-friend .friend-view-list-bar {
+    position: sticky;
+    top: var(--friend-view-header-height);
+    z-index: 20;
+    min-height: 2rem;
+  }
+
+  body.view-friend .friend-view-list-bar--has-overlap {
+    position: sticky;
+  }
+
+  body.view-friend .friend-view-list-card.is-collapsed .friend-view-list-bar {
+    border-radius: var(--radius-sm);
   }
 
   body.view-friend .friend-view-list-toggle {
-    padding-inline: var(--layout-gutter);
+    padding: 0.38rem 0.55rem;
+    gap: 0.4rem;
+    grid-template-columns: 1rem minmax(0, 1fr) auto;
+  }
+
+  body.view-friend .friend-view-list-title {
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+  }
+
+  body.view-friend .friend-view-list-count {
+    min-width: 1.45rem;
+    padding: 0.05rem 0.35rem;
+    font-size: 0.68rem;
+  }
+
+  body.view-friend .friend-view-list-overlap {
+    font-size: 0.68rem;
+    max-width: calc(100% - 6.5rem);
   }
 
   body.view-friend .friend-view-grid {
-    padding: 0.5rem var(--layout-gutter) 0.65rem;
+    padding: 0.45rem 0.55rem 0.55rem;
+  }
+
+  body.view-friend.view-mode-detail .friend-view-grid {
+    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+    gap: 0.65rem;
+  }
+
+  body.view-friend.view-mode-cards .friend-view-grid {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 0.42rem;
+  }
+}
+
+@media (min-width: 1001px) {
+  body.view-friend.view-mode-detail .friend-view-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  body.view-friend {
+    --friend-view-sidebar-width: 15rem;
+    --friend-view-sidebar-gap: 2rem;
+  }
+
+  body.view-friend.view-mode-detail .friend-view-grid {
+    gap: 0.85rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 900px) {
+  body.view-friend .friend-view-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.view-friend .friend-view-sections {
+    gap: 0.85rem;
+  }
+}
+
+@media (max-width: 640px) {
+  body.view-friend .friend-view {
+    gap: 0.85rem;
+  }
+
+  body.view-friend .friend-view-overview {
+    padding: 0;
+  }
+
+  body.view-friend .friend-view-hero {
+    margin-bottom: 0.5rem;
+  }
+
+  body.view-friend .friend-view-name {
+    font-size: 1.1rem;
+    margin-bottom: 0.2rem;
+  }
+
+  body.view-friend .friend-view-lead {
+    font-size: 0.8rem;
+    line-height: 1.35;
+  }
+
+  body.view-friend .friend-view-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.3rem;
+  }
+
+  body.view-friend .friend-view-stat {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.08rem;
+    padding: 0.35rem 0.42rem;
+  }
+
+  body.view-friend .friend-view-stat dt {
+    font-size: 0.6rem;
+    letter-spacing: 0.06em;
+  }
+
+  body.view-friend .friend-view-stat dd {
+    font-size: 0.82rem;
+  }
+
+  body.view-friend .friend-view-rating-legend {
+    margin-top: 0.55rem;
+    padding: 0.45rem 0.5rem;
+    gap: 0.4rem;
+  }
+
+  body.view-friend .friend-view-rating-legend-text {
+    font-size: 0.76rem;
+  }
+
+  body.view-friend .friend-fan-ratings-toggle-label {
+    font-size: 0.72rem;
+  }
+
+  body.view-friend .friend-view-sections {
+    gap: 0.65rem;
+  }
+
+  body.view-friend .friend-view-list-toggle {
+    padding: 0.38rem 0.55rem;
+  }
+
+  body.view-friend .friend-view-grid {
+    padding: 0.45rem 0.55rem 0.55rem;
   }
 
   body.view-friend.view-mode-detail .friend-view-grid {

@@ -279,7 +279,25 @@ function toggleFriendFanRatings() {
   setFriendFanRatings(!friendViewShowsFanRatings());
 }
 
-function friendOverviewHtml(stats, name) {
+function friendOverviewListsNavHtml(sections) {
+  if (!sections?.length) {
+    return "";
+  }
+  const items = sections
+    .map((section) => {
+      const count = section.movieIds?.length ?? 0;
+      const safeId = appCardHtml.escapeHtml(section.id);
+      const safeName = appCardHtml.escapeHtml(section.name);
+      return `<li><button type="button" class="friend-view-lists-nav-btn" data-friend-section-id="${safeId}"><span class="friend-view-lists-nav-name">${safeName}</span><span class="friend-view-lists-nav-count">${count}</span></button></li>`;
+    })
+    .join("");
+  return `<nav class="friend-view-lists-nav" aria-label="Jump to list">
+    <h3 class="friend-view-lists-nav-title">Lists</h3>
+    <ul class="friend-view-lists-nav-list">${items}</ul>
+  </nav>`;
+}
+
+function friendOverviewHtml(stats, name, sections) {
   const safeName = appCardHtml.escapeHtml(name || "Friend");
   return `<div class="friend-view-hero">
     <h2 class="friend-view-name">${safeName}'s collection</h2>
@@ -291,7 +309,8 @@ function friendOverviewHtml(stats, name) {
     <div class="friend-view-stat"><dt>Custom lists</dt><dd>${stats.customListCount}</dd></div>
     <div class="friend-view-stat"><dt>Rated</dt><dd>${stats.ratedCount}</dd></div>
   </dl>
-  ${friendRatingLegendHtml()}`;
+  ${friendRatingLegendHtml()}
+  ${friendOverviewListsNavHtml(sections)}`;
 }
 
 function friendViewSortRuntime() {
@@ -599,7 +618,7 @@ function renderFriendView() {
     return;
   }
   const stats = appFriendView.friendOverviewStats(friendViewState, userState);
-  friendViewOverview.innerHTML = friendOverviewHtml(stats, friendViewName);
+  friendViewOverview.innerHTML = friendOverviewHtml(stats, friendViewName, friendViewSections);
   friendViewSectionsEl.innerHTML = friendViewSections
     .map((section) => friendSectionHtml(section, stats))
     .join("");
@@ -620,6 +639,31 @@ function friendDetailNoteHtml(movieId) {
     <span class="friend-detail-note-label">Friend rating</span>
     ${friendRatingSegmentHtml("them", ratingText, friendRating == null)}
   </div>`;
+}
+
+function scrollToFriendSection(sectionId) {
+  const target = friendViewSectionsEl?.querySelector(
+    `[data-friend-section-id="${CSS.escape(String(sectionId))}"]`,
+  );
+  if (!target) {
+    return;
+  }
+  if (friendViewCollapsedSections.has(sectionId)) {
+    friendViewCollapsedSections.delete(sectionId);
+    syncFriendSectionCollapse(sectionId);
+  }
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function onFriendViewOverviewClick(event) {
+  const navBtn = event.target.closest(".friend-view-lists-nav-btn");
+  if (!navBtn || !friendViewOverview?.contains(navBtn)) {
+    return;
+  }
+  const sectionId = navBtn.dataset.friendSectionId;
+  if (sectionId) {
+    scrollToFriendSection(sectionId);
+  }
 }
 
 function onFriendFanRatingsToggleChange(event) {
