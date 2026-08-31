@@ -1,5 +1,7 @@
 /* Generated from scripts/lib/friend-activity.js — run npm run sync-worker-lib */
 
+import * as __getCustomLists from "./custom-lists.js";
+import * as __getLists from "./lists.js";
 /** Read-only aggregation for the accepted-friends activity rail. */
 
 const DEFAULT_ACTIVITY_LIMIT = 20;
@@ -35,6 +37,39 @@ function isVisibleActivityFriend(viewerEmail, friendEmail) {
   return !isTestAccountEmail(friendEmail) || isTestAccountEmail(viewerEmail);
 }
 
+function getLists() {
+  return __getLists;
+}
+
+function getCustomLists() {
+  return __getCustomLists;
+}
+
+/** Union of preset and custom list ids — fully removed movies are absent from every list. */
+function collectionMovieIds(doc) {
+  const lists = getLists();
+  const customLists = getCustomLists();
+  const ids = new Set();
+  for (const listId of lists.LIST_IDS) {
+    for (const rawId of lists.findList(doc?.lists, listId)?.movieIds || []) {
+      const id = Number(rawId);
+      if (Number.isInteger(id) && id > 0) {
+        ids.add(id);
+      }
+    }
+  }
+  for (const list of Array.isArray(doc?.customLists) ? doc.customLists : []) {
+    if (!customLists.isCustomListId(list?.id)) continue;
+    for (const rawId of list.movieIds || []) {
+      const id = Number(rawId);
+      if (Number.isInteger(id) && id > 0) {
+        ids.add(id);
+      }
+    }
+  }
+  return ids;
+}
+
 function friendActivityItems(friends, options = {}) {
   const limit = normalizeActivityLimit(options.limit);
   const latestDate = normalizeDate(options.today) || new Date().toISOString().slice(0, 10);
@@ -48,11 +83,13 @@ function friendActivityItems(friends, options = {}) {
     }
     if (!isVisibleActivityFriend(options.viewerEmail, friend.email)) continue;
     const ratings = doc.ratings && typeof doc.ratings === "object" ? doc.ratings : {};
+    const inCollection = collectionMovieIds(doc);
     const history = doc.viewingHistory;
     if (!history || typeof history !== "object" || Array.isArray(history)) continue;
     for (const [rawMovieId, rawEntries] of Object.entries(history)) {
       const movieId = Number(rawMovieId);
       if (!Number.isInteger(movieId) || movieId <= 0 || !Array.isArray(rawEntries)) continue;
+      if (!inCollection.has(movieId)) continue;
       const activeByDate = new Map();
       for (const entry of rawEntries) {
         const watchedOn = normalizeDate(entry?.watchedOn);

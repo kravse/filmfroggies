@@ -23,6 +23,7 @@ test("friends activity falls back to the email local part when no display name i
               email: "sam.jones@mail.com",
               viewer_email: "me@mail.com",
               doc: JSON.stringify({
+                lists: [{ id: "watched", movieIds: [10] }, { id: "watchlist", movieIds: [] }],
                 viewingHistory: { 10: [{ id: "a", watchedOn: "2026-08-20", updatedAt: "2026-08-20T12:00:00Z" }] },
               }),
             }] }),
@@ -58,6 +59,7 @@ test("friends activity returns only the aggregated public fields", async () => {
                   id: 2,
                   display_name: "Sam",
                   doc: JSON.stringify({
+                    lists: [{ id: "watched", movieIds: [10] }, { id: "watchlist", movieIds: [] }],
                     ratings: { 10: 8.5 },
                     viewingHistory: { 10: [{ id: "private-entry", watchedOn: "2026-08-20", updatedAt: "2026-08-20T12:00:00Z" }] },
                   }),
@@ -94,6 +96,7 @@ test("friends activity hides plus-test accounts from a real viewer", async () =>
       email: "sam@mail.com",
       viewer_email: viewerEmail,
       doc: JSON.stringify({
+        lists: [{ id: "watched", movieIds: [10] }, { id: "watchlist", movieIds: [] }],
         viewingHistory: { 10: [{ id: "sam", watchedOn: "2026-08-20", updatedAt: "2026-08-20T12:00:00Z" }] },
       }),
     },
@@ -103,6 +106,7 @@ test("friends activity hides plus-test accounts from a real viewer", async () =>
       email: "jared987+test@gmail.com",
       viewer_email: viewerEmail,
       doc: JSON.stringify({
+        lists: [{ id: "watched", movieIds: [20] }, { id: "watchlist", movieIds: [] }],
         viewingHistory: { 20: [{ id: "test", watchedOn: "2026-08-21", updatedAt: "2026-08-21T12:00:00Z" }] },
       }),
     },

@@ -13,6 +13,10 @@ test("friend activity is newest first, rated, deduplicated by movie/date, and li
       id: 2,
       displayName: "Sam",
       doc: {
+        lists: [
+          { id: "watched", movieIds: [20] },
+          { id: "watchlist", movieIds: [] },
+        ],
         ratings: { 10: 8.5 },
         viewingHistory: {
           10: [
@@ -68,18 +72,25 @@ test("isVisibleActivityFriend hides test accounts from real accounts only", () =
 });
 
 test("friend activity drops test-account friends unless the viewer is one", () => {
+  const lists = [{ id: "watched", movieIds: [10] }, { id: "watchlist", movieIds: [] }];
   const friends = [
     {
       id: 2,
       displayName: "Sam",
       email: "sam@mail.com",
-      doc: { viewingHistory: { 10: [{ id: "a", watchedOn: "2026-08-20", updatedAt: "2026-08-20T12:00:00Z" }] } },
+      doc: {
+        lists,
+        viewingHistory: { 10: [{ id: "a", watchedOn: "2026-08-20", updatedAt: "2026-08-20T12:00:00Z" }] },
+      },
     },
     {
       id: 3,
       displayName: "Tester",
       email: "jared987+test@gmail.com",
-      doc: { viewingHistory: { 20: [{ id: "b", watchedOn: "2026-08-21", updatedAt: "2026-08-21T12:00:00Z" }] } },
+      doc: {
+        lists: [{ id: "watched", movieIds: [20] }, { id: "watchlist", movieIds: [] }],
+        viewingHistory: { 20: [{ id: "b", watchedOn: "2026-08-21", updatedAt: "2026-08-21T12:00:00Z" }] },
+      },
     },
   ];
   const asReal = friendActivityItems(friends, { today: "2026-08-31", viewerEmail: "jared987@gmail.com" });
@@ -89,11 +100,46 @@ test("friend activity drops test-account friends unless the viewer is one", () =
 });
 
 test("friend activity rejects impossible and future viewing dates", () => {
-  const items = friendActivityItems([{ id: 2, displayName: "Sam", doc: { viewingHistory: {
+  const items = friendActivityItems([{ id: 2, displayName: "Sam", doc: {
+    lists: [{ id: "watched", movieIds: [10] }, { id: "watchlist", movieIds: [] }],
+    viewingHistory: {
     10: [
       { id: "impossible", watchedOn: "2026-02-30", updatedAt: "2026-01-01T00:00:00Z" },
       { id: "future", watchedOn: "2026-09-01", updatedAt: "2026-01-01T00:00:00Z" },
     ],
   } } }], { today: "2026-08-31" });
   assert.deepEqual(items, []);
+});
+
+test("friend activity ignores viewing history for fully removed movies", () => {
+  const items = friendActivityItems([{
+    id: 2,
+    displayName: "Sam",
+    doc: {
+      lists: [{ id: "watched", movieIds: [20] }, { id: "watchlist", movieIds: [] }],
+      viewingHistory: {
+        10: [{ id: "removed", watchedOn: "2026-08-30", updatedAt: "2026-08-30T12:00:00Z" }],
+        20: [{ id: "kept", watchedOn: "2026-08-20", updatedAt: "2026-08-20T12:00:00Z" }],
+      },
+    },
+  }], { today: "2026-08-31" });
+  assert.deepEqual(items.map((item) => item.movieId), [20]);
+});
+
+test("friend activity shows watch dates for movies still on watchlist or custom lists", () => {
+  const history = {
+    10: [{ id: "a", watchedOn: "2026-08-20", updatedAt: "2026-08-20T12:00:00Z" }],
+    20: [{ id: "b", watchedOn: "2026-08-19", updatedAt: "2026-08-19T12:00:00Z" }],
+    30: [{ id: "c", watchedOn: "2026-08-18", updatedAt: "2026-08-18T12:00:00Z" }],
+  };
+  const items = friendActivityItems([{
+    id: 2,
+    displayName: "Sam",
+    doc: {
+      lists: [{ id: "watched", movieIds: [] }, { id: "watchlist", movieIds: [10, 20] }],
+      customLists: [{ id: "custom-favorites", movieIds: [30] }],
+      viewingHistory: history,
+    },
+  }], { today: "2026-08-31" });
+  assert.deepEqual(items.map((item) => item.movieId), [10, 20, 30]);
 });
