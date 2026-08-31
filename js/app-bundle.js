@@ -16868,12 +16868,15 @@ function renderFriendActivity() {
     const rating = appRatings.normalizeRating(item.rating);
     const friendName = appCardHtml.escapeHtml(item.friend.displayName);
     const dateLabel = appCardHtml.escapeHtml(friendActivityDateLabel(item.watchedOn));
-    return `<li><div class="friend-activity-item" data-friend-activity-movie-id="${item.movieId}" data-friend-activity-friend-id="${item.friend.id}" data-friend-activity-friend-name="${friendName}" data-friend-activity-watched-on="${appCardHtml.escapeHtml(item.watchedOn)}" data-friend-activity-rating="${rating ?? ""}">
-      <span class="friend-activity-poster">${friendActivityPoster(movie)}</span>
+    return `<li><div class="friend-activity-item" data-friend-activity-movie-id="${item.movieId}" data-friend-activity-friend-id="${item.friend.id}" data-friend-activity-friend-name="${friendName}" data-friend-activity-watched-on="${appCardHtml.escapeHtml(item.watchedOn)}" data-friend-activity-rating="${rating ?? ""}" aria-label="${appCardHtml.escapeHtml(title)}">
+      <div class="friend-activity-poster-wrap">
+        <span class="friend-activity-poster">${friendActivityPoster(movie)}</span>
+      </div>
       <span class="friend-activity-copy">
-        <strong>${appCardHtml.escapeHtml(title)}</strong>
+        <strong class="friend-activity-title">${appCardHtml.escapeHtml(title)}</strong>
         <span class="friend-activity-meta">
-          <button type="button" class="friend-activity-friend-link" data-friend-id="${item.friend.id}" data-friend-name="${friendName}">${friendName}</button><span class="friend-activity-meta-sep" aria-hidden="true"> · </span><span class="friend-activity-date">${dateLabel}</span>
+          <button type="button" class="friend-activity-friend-link" data-friend-id="${item.friend.id}" data-friend-name="${friendName}">${friendName}</button>
+          <span class="friend-activity-date">${dateLabel}</span>
         </span>
       </span>
       ${rating == null ? "" : friendActivityRatingHtml(rating)}
