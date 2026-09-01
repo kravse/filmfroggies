@@ -64,6 +64,12 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE INDEX IF NOT EXISTS sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS sessions_expires_at ON sessions(expires_at);
 
+CREATE TABLE IF NOT EXISTS friend_share_links (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id),
+  token_hash TEXT NOT NULL UNIQUE,
+  updated_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS admin_sessions (
   jti TEXT PRIMARY KEY,
   expires_at INTEGER NOT NULL,

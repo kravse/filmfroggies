@@ -186,12 +186,18 @@ const accountSyncStatus = document.getElementById("account-sync-status");
 const accountFriendsSection = document.getElementById("account-friends-section");
 const friendEmailInput = document.getElementById("friend-email-input");
 const friendAddBtn = document.getElementById("friend-add");
+const friendShareCopyBtn = document.getElementById("friend-share-copy");
 const friendsList = document.getElementById("friends-list");
 const friendsStatus = document.getElementById("friends-status");
 const friendRemoveConfirmDialog = document.getElementById("friend-remove-confirm-dialog");
 const friendRemoveConfirmMessage = document.getElementById("friend-remove-confirm-message");
 const friendRemoveConfirmCancel = document.getElementById("friend-remove-confirm-cancel");
 const friendRemoveConfirmOk = document.getElementById("friend-remove-confirm-ok");
+const friendLinkDialog = document.getElementById("friend-link-dialog");
+const friendLinkMessage = document.getElementById("friend-link-message");
+const friendLinkStatus = document.getElementById("friend-link-status");
+const friendLinkCancel = document.getElementById("friend-link-cancel");
+const friendLinkConfirm = document.getElementById("friend-link-confirm");
 
 const friendViewEl = document.getElementById("friend-view");
 const friendViewOverview = document.getElementById("friend-view-overview");
@@ -328,6 +334,7 @@ let pendingDiscoverAddListId = null;
 let pendingDiscoverConfirmRemove = false;
 let pendingCustomListDeleteId = null;
 let pendingFriendRemoveId = null;
+let pendingFriendLinkToken = null;
 let tmdbCredential = "";
 
 /** "main" | "customIndex" | "customDetail" | "discover" | "friend" | "friendsIndex" | "admin" */
@@ -8234,6 +8241,18 @@ function sendFriendRequest(email) {
   return accountRequest("/friends/request", { method: "POST", body: { email } });
 }
 
+function createFriendShareLink() {
+  return accountRequest("/friends/share-link", { method: "POST" });
+}
+
+function previewFriendShareLink(token) {
+  return accountRequest("/friends/share-link/preview", { method: "POST", body: { token } });
+}
+
+function requestFriendFromShareLink(token) {
+  return accountRequest("/friends/share-link/request", { method: "POST", body: { token } });
+}
+
 function acceptFriend(userId) {
   return accountRequest(`/friends/${userId}/accept`, { method: "POST" });
 }
@@ -13731,6 +13750,7 @@ async function onAccountAuth() {
     startFriendsNavPolling();
     startFriendActivityPolling();
     refreshFriendActivity({ force: true });
+    resumePendingFriendLink();
   } finally {
     accountSubmitBtn.disabled = false;
     accountAuthTabLogin.disabled = false;
@@ -14717,6 +14737,16 @@ let watchedPickerAvailableIds = [];
 
 function parseLocationHash() {
   const hash = window.location.hash || "";
+  const friendLinkMatch = /^#add-friend\/([^/?#]+)$/.exec(hash);
+  if (friendLinkMatch) {
+    let token = friendLinkMatch[1];
+    try {
+      token = decodeURIComponent(token);
+    } catch (_) {
+      // Let the Worker reject malformed tokens so the user sees the link modal.
+    }
+    return { kind: "friendLink", token };
+  }
   const movieMatch = /^#movie\/(\d+)$/.exec(hash);
   if (movieMatch) {
     return { kind: "movie", movieId: Number(movieMatch[1]) };
@@ -15114,6 +15144,17 @@ function paintLocationUnderlay() {
 function syncViewFromLocation(options = {}) {
   const parsed = parseLocationHash();
   const fromPopState = Boolean(options.fromPopState);
+
+  if (parsed.kind === "friendLink") {
+    history.replaceState({ appView: "main" }, "", `${window.location.pathname}${window.location.search}`);
+    appView = "main";
+    activeCustomListId = null;
+    syncAppViewChrome();
+    render();
+    hydrateActiveList();
+    openFriendLink(parsed.token);
+    return;
+  }
 
   if (parsed.kind !== "movie") {
     const dismissOverlayOnly =
@@ -17057,6 +17098,95 @@ function syncFriendsNavBadge(friends) {
 let lastFriendsList = [];
 let friendsRosterLoaded = false;
 
+async function copyFriendShareUrl(url) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(url);
+    return;
+  }
+  const input = document.createElement("textarea");
+  input.value = url;
+  input.setAttribute("readonly", "");
+  input.style.position = "fixed";
+  input.style.opacity = "0";
+  document.body.appendChild(input);
+  input.select();
+  const copied = document.execCommand("copy");
+  input.remove();
+  if (!copied) throw new Error("Could not copy friend link");
+}
+
+async function onCopyFriendShareLink() {
+  if (!accountSyncEnabled() || !friendShareCopyBtn) return;
+  friendShareCopyBtn.disabled = true;
+  try {
+    const body = await createFriendShareLink();
+    const url = `${window.location.origin}${window.location.pathname}#add-friend/${body.token}`;
+    await copyFriendShareUrl(url);
+    setStatus(friendsStatus, "Friend link copied. Creating another link will revoke this one.", "ok");
+  } catch (error) {
+    setStatus(friendsStatus, error.message || "Could not copy friend link", "error");
+  } finally {
+    friendShareCopyBtn.disabled = false;
+  }
+}
+
+function closeFriendLink() {
+  pendingFriendLinkToken = null;
+  if (friendLinkDialog) friendLinkDialog.hidden = true;
+  setStatus(friendLinkStatus, "", null);
+}
+
+async function openFriendLink(token) {
+  pendingFriendLinkToken = token;
+  if (!accountSyncEnabled()) {
+    openLogin();
+    setStatus(accountStatus, "Log in to review this friend request.", null);
+    return;
+  }
+  friendLinkDialog.hidden = false;
+  friendLinkConfirm.disabled = true;
+  friendLinkMessage.textContent = "Checking friend link…";
+  setStatus(friendLinkStatus, "", null);
+  try {
+    const body = await previewFriendShareLink(token);
+    const name = body?.friend?.displayName || "this person";
+    if (body.state === "self") {
+      friendLinkMessage.textContent = "This is your own friend link.";
+    } else if (body.state === "accepted") {
+      friendLinkMessage.textContent = `You and ${name} are already friends.`;
+    } else if (body.state === "pending") {
+      friendLinkMessage.textContent = `A friend request with ${name} is already pending.`;
+    } else {
+      friendLinkMessage.textContent = `Send ${name} a friend request?`;
+      friendLinkConfirm.disabled = false;
+    }
+  } catch (error) {
+    friendLinkMessage.textContent = "This friend link is invalid or has expired.";
+    setStatus(friendLinkStatus, error.message, "error");
+  }
+  friendLinkCancel.focus({ preventScroll: true });
+}
+
+async function confirmFriendLink() {
+  if (!pendingFriendLinkToken) return;
+  friendLinkConfirm.disabled = true;
+  setStatus(friendLinkStatus, "Sending request…", null);
+  try {
+    await requestFriendFromShareLink(pendingFriendLinkToken);
+    setStatus(friendLinkStatus, "Request sent. They can accept it from their Friends page.", "ok");
+    friendLinkMessage.textContent = "Friend request pending.";
+    refreshFriendsList({ force: true });
+    refreshFriendActivity({ force: true });
+  } catch (error) {
+    setStatus(friendLinkStatus, error.message, "error");
+    friendLinkConfirm.disabled = false;
+  }
+}
+
+function resumePendingFriendLink() {
+  if (pendingFriendLinkToken && accountSyncEnabled()) openFriendLink(pendingFriendLinkToken);
+}
+
 function setFriendsNavData(friends) {
   lastFriendsList = friends || [];
   friendsRosterLoaded = true;
@@ -18715,6 +18845,12 @@ accountDeletePassword.addEventListener("keydown", (event) => {
   }
 });
 friendAddBtn?.addEventListener("click", onAddFriend);
+friendShareCopyBtn?.addEventListener("click", onCopyFriendShareLink);
+friendLinkCancel?.addEventListener("click", closeFriendLink);
+friendLinkConfirm?.addEventListener("click", confirmFriendLink);
+friendLinkDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-friend-link")) closeFriendLink();
+});
 document.getElementById("friends-invite-form")?.addEventListener("submit", onFriendsInviteSubmit);
 document.getElementById("friends-signin-btn")?.addEventListener("click", () => openLogin());
 friendsList?.addEventListener("click", onFriendsListClick);
@@ -18741,6 +18877,10 @@ headerLogo.addEventListener("click", () => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
+    if (friendLinkDialog && !friendLinkDialog.hidden) {
+      closeFriendLink();
+      return;
+    }
     if (!collectionImportDialog.hidden) {
       closeCollectionImportConfirm();
       return;

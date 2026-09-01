@@ -15,16 +15,14 @@ function friendsDbEnv(friendRows, viewerEmail = "me@mail.com") {
   return {
     DB: {
       prepare(sql) {
-        if (String(sql).includes("SELECT email FROM users WHERE id")) {
-          return {
-            bind: () => ({
-              first: async () => ({ email: viewerEmail }),
-            }),
-          };
-        }
+        const includesViewerEmail = String(sql).includes("AS viewer_email");
         return {
           bind: () => ({
-            all: async () => ({ results: friendRows }),
+            all: async () => ({
+              results: friendRows.map((row) =>
+                includesViewerEmail ? { ...row, viewer_email: viewerEmail } : row,
+              ),
+            }),
           }),
         };
       },
@@ -76,9 +74,6 @@ test("friends activity returns only the aggregated public fields", async () => {
   const env = {
     DB: {
       prepare(sql) {
-        if (String(sql).includes("SELECT email FROM users WHERE id")) {
-          return { bind: () => ({ first: async () => ({ email: "me@mail.com" }) }) };
-        }
         friendsSql = sql;
         return {
           bind() {
@@ -93,6 +88,7 @@ test("friends activity returns only the aggregated public fields", async () => {
                     ratings: { 10: 8.5 },
                     viewingHistory: { 10: [{ id: "private-entry", watchedOn: "2026-08-20", updatedAt: "2026-08-20T12:00:00Z" }] },
                   }),
+                  viewer_email: "me@mail.com",
                 }] };
               },
             };
@@ -177,7 +173,13 @@ test("friends bulk-data returns accepted friends with parsed docs in one respons
         id: 2,
         displayName: "Sam",
         email: "sam@mail.com",
-        doc: { lists: [{ id: "watched", movieIds: [10] }] },
+        doc: {
+          lists: [{ id: "watched", movieIds: [10] }],
+          customLists: undefined,
+          statuses: undefined,
+          ratings: undefined,
+          viewingHistory: undefined,
+        },
       }],
     },
   });

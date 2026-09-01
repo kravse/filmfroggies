@@ -184,12 +184,18 @@ const accountSyncStatus = document.getElementById("account-sync-status");
 const accountFriendsSection = document.getElementById("account-friends-section");
 const friendEmailInput = document.getElementById("friend-email-input");
 const friendAddBtn = document.getElementById("friend-add");
+const friendShareCopyBtn = document.getElementById("friend-share-copy");
 const friendsList = document.getElementById("friends-list");
 const friendsStatus = document.getElementById("friends-status");
 const friendRemoveConfirmDialog = document.getElementById("friend-remove-confirm-dialog");
 const friendRemoveConfirmMessage = document.getElementById("friend-remove-confirm-message");
 const friendRemoveConfirmCancel = document.getElementById("friend-remove-confirm-cancel");
 const friendRemoveConfirmOk = document.getElementById("friend-remove-confirm-ok");
+const friendLinkDialog = document.getElementById("friend-link-dialog");
+const friendLinkMessage = document.getElementById("friend-link-message");
+const friendLinkStatus = document.getElementById("friend-link-status");
+const friendLinkCancel = document.getElementById("friend-link-cancel");
+const friendLinkConfirm = document.getElementById("friend-link-confirm");
 
 const friendViewEl = document.getElementById("friend-view");
 const friendViewOverview = document.getElementById("friend-view-overview");
@@ -326,6 +332,7 @@ let pendingDiscoverAddListId = null;
 let pendingDiscoverConfirmRemove = false;
 let pendingCustomListDeleteId = null;
 let pendingFriendRemoveId = null;
+let pendingFriendLinkToken = null;
 let tmdbCredential = "";
 
 /** "main" | "customIndex" | "customDetail" | "discover" | "friend" | "friendsIndex" | "admin" */

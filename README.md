@@ -188,6 +188,9 @@ All paths are under `/api`. Authenticated routes expect `Authorization: Bearer <
 | `GET` | `/friends/activity?limit=…` | Yes | Aggregated watch activity for accepted friends (single query) |
 | `GET` | `/friends/bulk-data` | Yes | All accepted friends' list docs in one read |
 | `POST` | `/friends/request` | Yes | Send friend request by email |
+| `POST` | `/friends/share-link` | Yes | Rotate and return the account's opaque friend link token |
+| `POST` | `/friends/share-link/preview` | Yes | Resolve a token to a display name and relationship state |
+| `POST` | `/friends/share-link/request` | Yes | Confirm a pending friend request from a share token |
 | `POST` | `/friends/{id}/accept` | Yes | Accept an incoming request |
 | `DELETE` | `/friends/{id}` | Yes | Remove friend or cancel outgoing pending request |
 | `POST` | `/account/display-name` | Yes | Set the vanity display name (body: `{ displayName }`; empty clears it) |
@@ -235,11 +238,14 @@ wrangler d1 execute cinequeue --remote --file=migrations/003_invite_codes.sql
 wrangler d1 execute cinequeue --remote --file=migrations/004_sessions.sql
 wrangler d1 execute cinequeue --remote --file=migrations/005_admin_sessions.sql
 wrangler d1 execute cinequeue --remote --file=migrations/006_display_names.sql
+wrangler d1 execute cinequeue --remote --file=migrations/007_friend_share_links.sql
 ```
 
 Apply `004_sessions.sql` and `005_admin_sessions.sql` **before** deploying Worker code that reads those tables. Existing bearer tokens without a server session row will 401 once; users and admins re-login once.
 
 Apply `006_display_names.sql` **before** deploying too. It clears the `display_name` values that signup derived from each email, so `NULL` can mean "no display name chosen", and adds the case-insensitive unique index the display-name endpoint relies on. Deployed in the other order, every existing account looks like it deliberately chose its email-derived name.
+
+Apply `007_friend_share_links.sql` **before** deploying Worker code that creates or resolves friend share links.
 
 **4. Set secrets** (required):
 
@@ -372,6 +378,7 @@ wrangler d1 execute cinequeue --local --file=migrations/003_invite_codes.sql
 wrangler d1 execute cinequeue --local --file=migrations/004_sessions.sql
 wrangler d1 execute cinequeue --local --file=migrations/005_admin_sessions.sql
 wrangler d1 execute cinequeue --local --file=migrations/006_display_names.sql
+wrangler d1 execute cinequeue --local --file=migrations/007_friend_share_links.sql
 wrangler secret put SESSION_SECRET   # prompts; needed for wrangler dev too
 wrangler dev
 ```

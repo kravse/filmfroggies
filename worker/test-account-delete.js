@@ -22,11 +22,12 @@ test("deleteUserAccount removes friends, data, and user row", async () => {
 
   await deleteUserAccount(env, 42);
 
-  assert.equal(statements.length, 4);
+  assert.equal(statements.length, 5);
   assert.match(statements[0].sql, /DELETE FROM sessions/);
   assert.deepEqual(statements[0].args, [42]);
-  assert.match(statements[1].sql, /DELETE FROM friends/);
-  assert.deepEqual(statements[1].args, [42]);
-  assert.match(statements[2].sql, /DELETE FROM user_data/);
-  assert.match(statements[3].sql, /DELETE FROM users/);
+  assert.match(statements[1].sql, /DELETE FROM friend_share_links/);
+  assert.match(statements[2].sql, /DELETE FROM friends/);
+  assert.deepEqual(statements[2].args, [42]);
+  assert.match(statements[3].sql, /DELETE FROM user_data/);
+  assert.match(statements[4].sql, /DELETE FROM users/);
 });

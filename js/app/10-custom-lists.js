@@ -11,6 +11,16 @@ let watchedPickerAvailableIds = [];
 
 function parseLocationHash() {
   const hash = window.location.hash || "";
+  const friendLinkMatch = /^#add-friend\/([^/?#]+)$/.exec(hash);
+  if (friendLinkMatch) {
+    let token = friendLinkMatch[1];
+    try {
+      token = decodeURIComponent(token);
+    } catch (_) {
+      // Let the Worker reject malformed tokens so the user sees the link modal.
+    }
+    return { kind: "friendLink", token };
+  }
   const movieMatch = /^#movie\/(\d+)$/.exec(hash);
   if (movieMatch) {
     return { kind: "movie", movieId: Number(movieMatch[1]) };
@@ -408,6 +418,17 @@ function paintLocationUnderlay() {
 function syncViewFromLocation(options = {}) {
   const parsed = parseLocationHash();
   const fromPopState = Boolean(options.fromPopState);
+
+  if (parsed.kind === "friendLink") {
+    history.replaceState({ appView: "main" }, "", `${window.location.pathname}${window.location.search}`);
+    appView = "main";
+    activeCustomListId = null;
+    syncAppViewChrome();
+    render();
+    hydrateActiveList();
+    openFriendLink(parsed.token);
+    return;
+  }
 
   if (parsed.kind !== "movie") {
     const dismissOverlayOnly =

@@ -102,6 +102,19 @@ body.view-friends-index .friends-dock-roster-wrap {
   border-bottom: 1px solid var(--border);
 }
 
+.friends-share-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.friends-share-row > div { display: flex; min-width: 0; flex-direction: column; }
+.friends-share-row strong { color: var(--text); font-size: 0.76rem; }
+.friends-share-row span { color: var(--muted); font-size: 0.68rem; }
+
 .friends-dock-invite-field {
   flex: 1;
   min-width: 0;

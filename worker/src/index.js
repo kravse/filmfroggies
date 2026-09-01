@@ -29,6 +29,7 @@ import {
   revokeOtherUserSessions,
 } from "./sessions.js";
 import { describeProxySignature, netlifyProxyTrusted } from "./proxy-signature.js";
+import { resolveFriendShareLink, rotateFriendShareLink } from "./friend-share-links.js";
 import { friendActivityItems, normalizeActivityLimit } from "./lib/friend-activity.js";
 import {
   displayNameError,
@@ -62,6 +63,8 @@ export const TMDB_RATE_LIMITS = {
   user: { limit: 120, windowMs: 15 * 60 * 1000 },
   ip: { limit: 120, windowMs: 15 * 60 * 1000 },
 };
+
+const FRIEND_LINK_RATE_LIMIT = { limit: 20, windowMs: 60 * 60 * 1000 };
 
 const RATE_LIMIT_ERROR = "Too many attempts. Try again later.";
 
@@ -375,6 +378,7 @@ export async function setAccountDisplayName(env, uid, rawDisplayName) {
 export async function deleteUserAccount(env, uid) {
   await env.DB.batch([
     env.DB.prepare("DELETE FROM sessions WHERE user_id = ?1").bind(uid),
+    env.DB.prepare("DELETE FROM friend_share_links WHERE user_id = ?1").bind(uid),
     env.DB.prepare("DELETE FROM friends WHERE user_id = ?1 OR friend_id = ?1").bind(uid),
     env.DB.prepare("DELETE FROM user_data WHERE user_id = ?1").bind(uid),
     env.DB.prepare("DELETE FROM users WHERE id = ?1").bind(uid),
@@ -438,6 +442,35 @@ async function handleAuth(request, env, path, res, ip) {
 
 export async function handleFriends(request, env, session, path, res) {
   const uid = session.uid;
+
+  if (path === "/api/friends/share-link" && request.method === "POST") {
+    const token = await rotateFriendShareLink(env, uid);
+    return res.json(201, { token });
+  }
+
+  if (path === "/api/friends/share-link/preview" && request.method === "POST") {
+    const body = await readJsonBody(request);
+    const target = await resolveFriendShareLink(env, body?.token);
+    if (!target) return res.json(404, { error: "Friend link is invalid or expired" });
+    const existing = target.id === uid ? null : await findFriendship(env, uid, target.id);
+    const state = target.id === uid ? "self" : existing?.status || "available";
+    return res.json(200, { friend: target, state });
+  }
+
+  if (path === "/api/friends/share-link/request" && request.method === "POST") {
+    const limited = await enforceRateLimit(env, `friend-link:uid:${uid}`, FRIEND_LINK_RATE_LIMIT, res);
+    if (limited) return limited;
+    const body = await readJsonBody(request);
+    const target = await resolveFriendShareLink(env, body?.token);
+    if (!target) return res.json(404, { error: "Friend link is invalid or expired" });
+    if (target.id === uid) return res.json(200, { status: "self" });
+    const existing = await findFriendship(env, uid, target.id);
+    if (existing) return res.json(200, { status: existing.status });
+    await env.DB.prepare(
+      "INSERT INTO friends (user_id, friend_id, status, created_at) VALUES (?, ?, 'pending', ?)",
+    ).bind(uid, target.id, Date.now()).run();
+    return res.json(201, { status: "pending" });
+  }
 
   if (path === "/api/friends/activity" && request.method === "GET") {
     const limit = normalizeActivityLimit(new URL(request.url).searchParams.get("limit"));

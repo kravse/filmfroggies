@@ -568,6 +568,18 @@ function sendFriendRequest(email) {
   return accountRequest("/friends/request", { method: "POST", body: { email } });
 }
 
+function createFriendShareLink() {
+  return accountRequest("/friends/share-link", { method: "POST" });
+}
+
+function previewFriendShareLink(token) {
+  return accountRequest("/friends/share-link/preview", { method: "POST", body: { token } });
+}
+
+function requestFriendFromShareLink(token) {
+  return accountRequest("/friends/share-link/request", { method: "POST", body: { token } });
+}
+
 function acceptFriend(userId) {
   return accountRequest(`/friends/${userId}/accept`, { method: "POST" });
 }

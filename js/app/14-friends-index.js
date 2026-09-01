@@ -32,6 +32,95 @@ function syncFriendsNavBadge(friends) {
 let lastFriendsList = [];
 let friendsRosterLoaded = false;
 
+async function copyFriendShareUrl(url) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(url);
+    return;
+  }
+  const input = document.createElement("textarea");
+  input.value = url;
+  input.setAttribute("readonly", "");
+  input.style.position = "fixed";
+  input.style.opacity = "0";
+  document.body.appendChild(input);
+  input.select();
+  const copied = document.execCommand("copy");
+  input.remove();
+  if (!copied) throw new Error("Could not copy friend link");
+}
+
+async function onCopyFriendShareLink() {
+  if (!accountSyncEnabled() || !friendShareCopyBtn) return;
+  friendShareCopyBtn.disabled = true;
+  try {
+    const body = await createFriendShareLink();
+    const url = `${window.location.origin}${window.location.pathname}#add-friend/${body.token}`;
+    await copyFriendShareUrl(url);
+    setStatus(friendsStatus, "Friend link copied. Creating another link will revoke this one.", "ok");
+  } catch (error) {
+    setStatus(friendsStatus, error.message || "Could not copy friend link", "error");
+  } finally {
+    friendShareCopyBtn.disabled = false;
+  }
+}
+
+function closeFriendLink() {
+  pendingFriendLinkToken = null;
+  if (friendLinkDialog) friendLinkDialog.hidden = true;
+  setStatus(friendLinkStatus, "", null);
+}
+
+async function openFriendLink(token) {
+  pendingFriendLinkToken = token;
+  if (!accountSyncEnabled()) {
+    openLogin();
+    setStatus(accountStatus, "Log in to review this friend request.", null);
+    return;
+  }
+  friendLinkDialog.hidden = false;
+  friendLinkConfirm.disabled = true;
+  friendLinkMessage.textContent = "Checking friend link…";
+  setStatus(friendLinkStatus, "", null);
+  try {
+    const body = await previewFriendShareLink(token);
+    const name = body?.friend?.displayName || "this person";
+    if (body.state === "self") {
+      friendLinkMessage.textContent = "This is your own friend link.";
+    } else if (body.state === "accepted") {
+      friendLinkMessage.textContent = `You and ${name} are already friends.`;
+    } else if (body.state === "pending") {
+      friendLinkMessage.textContent = `A friend request with ${name} is already pending.`;
+    } else {
+      friendLinkMessage.textContent = `Send ${name} a friend request?`;
+      friendLinkConfirm.disabled = false;
+    }
+  } catch (error) {
+    friendLinkMessage.textContent = "This friend link is invalid or has expired.";
+    setStatus(friendLinkStatus, error.message, "error");
+  }
+  friendLinkCancel.focus({ preventScroll: true });
+}
+
+async function confirmFriendLink() {
+  if (!pendingFriendLinkToken) return;
+  friendLinkConfirm.disabled = true;
+  setStatus(friendLinkStatus, "Sending request…", null);
+  try {
+    await requestFriendFromShareLink(pendingFriendLinkToken);
+    setStatus(friendLinkStatus, "Request sent. They can accept it from their Friends page.", "ok");
+    friendLinkMessage.textContent = "Friend request pending.";
+    refreshFriendsList({ force: true });
+    refreshFriendActivity({ force: true });
+  } catch (error) {
+    setStatus(friendLinkStatus, error.message, "error");
+    friendLinkConfirm.disabled = false;
+  }
+}
+
+function resumePendingFriendLink() {
+  if (pendingFriendLinkToken && accountSyncEnabled()) openFriendLink(pendingFriendLinkToken);
+}
+
 function setFriendsNavData(friends) {
   lastFriendsList = friends || [];
   friendsRosterLoaded = true;

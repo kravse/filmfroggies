@@ -564,6 +564,12 @@ accountDeletePassword.addEventListener("keydown", (event) => {
   }
 });
 friendAddBtn?.addEventListener("click", onAddFriend);
+friendShareCopyBtn?.addEventListener("click", onCopyFriendShareLink);
+friendLinkCancel?.addEventListener("click", closeFriendLink);
+friendLinkConfirm?.addEventListener("click", confirmFriendLink);
+friendLinkDialog?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-friend-link")) closeFriendLink();
+});
 document.getElementById("friends-invite-form")?.addEventListener("submit", onFriendsInviteSubmit);
 document.getElementById("friends-signin-btn")?.addEventListener("click", () => openLogin());
 friendsList?.addEventListener("click", onFriendsListClick);
@@ -590,6 +596,10 @@ headerLogo.addEventListener("click", () => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
+    if (friendLinkDialog && !friendLinkDialog.hidden) {
+      closeFriendLink();
+      return;
+    }
     if (!collectionImportDialog.hidden) {
       closeCollectionImportConfirm();
       return;

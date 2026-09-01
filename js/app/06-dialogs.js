@@ -2424,6 +2424,7 @@ async function onAccountAuth() {
     startFriendsNavPolling();
     startFriendActivityPolling();
     refreshFriendActivity({ force: true });
+    resumePendingFriendLink();
   } finally {
     accountSubmitBtn.disabled = false;
     accountAuthTabLogin.disabled = false;
