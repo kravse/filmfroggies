@@ -425,6 +425,68 @@ function usesCustomDisplayOrder() {
   return isWatchlistActive();
 }
 
+let latestWatchedOnByMovieCache = null;
+let latestWatchedOnByMovieSource = null;
+
+function getLatestWatchedOnByMovie() {
+  if (
+    latestWatchedOnByMovieSource === userState.viewingHistory &&
+    latestWatchedOnByMovieCache
+  ) {
+    return latestWatchedOnByMovieCache;
+  }
+  const latestByMovie = new Map();
+  const normalized = appViewingHistory.normalizeViewingHistory(userState.viewingHistory);
+  for (const [movieId, entries] of Object.entries(normalized)) {
+    let latest = null;
+    for (const entry of entries) {
+      if (!entry.deletedAt && (!latest || entry.watchedOn > latest)) {
+        latest = entry.watchedOn;
+      }
+    }
+    if (latest) {
+      latestByMovie.set(Number(movieId), latest);
+    }
+  }
+  latestWatchedOnByMovieSource = userState.viewingHistory;
+  latestWatchedOnByMovieCache = latestByMovie;
+  return latestByMovie;
+}
+
+function buildDisplaySortContext(ctx) {
+  const sortContext = {
+    getRecord: (id) => movieById.get(id) ?? null,
+    getUserRating: (id) => appRatings.getRating(userState.ratings, id),
+    getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
+    getWatchedOn: (id) => appViewingHistory.latestViewingDate(userState.viewingHistory, id),
+  };
+  if (appSort.getSortField(userState.preferences.sort) === "watched") {
+    const latestByMovie = getLatestWatchedOnByMovie();
+    sortContext.getWatchedOn = (id) => latestByMovie.get(Number(id)) ?? null;
+  }
+  if (ctx.listKind === "custom") {
+    const joinOrder = appSort.buildOrderIndex(ctx.movieIds);
+    sortContext.getListJoinIndex = (id) => joinOrder.get(Number(id)) ?? null;
+  }
+  return sortContext;
+}
+
+function sortDisplayMovieIds(ids, ctx) {
+  if (!ctx.sortable) {
+    return ids;
+  }
+  return appSort.sortMovieIds(
+    ids,
+    appSort.resolveSortMode(userState.preferences.sort),
+    buildDisplaySortContext(ctx),
+  );
+}
+
+function unfilteredDisplayMovieIds() {
+  const ctx = getActiveDisplayContext();
+  return sortDisplayMovieIds(ctx.movieIds, ctx);
+}
+
 function displayMovieIds() {
   const ctx = getActiveDisplayContext();
   let ids = ctx.movieIds;
@@ -433,36 +495,7 @@ function displayMovieIds() {
       movieById.get(id) ?? null,
     );
   }
-  if (ctx.sortable) {
-    const sortContext = {
-      getRecord: (id) => movieById.get(id) ?? null,
-      getUserRating: (id) => appRatings.getRating(userState.ratings, id),
-      getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
-      getWatchedOn: (id) => appViewingHistory.latestViewingDate(userState.viewingHistory, id),
-    };
-    if (appSort.getSortField(userState.preferences.sort) === "watched") {
-      const latestByMovie = new Map();
-      const normalized = appViewingHistory.normalizeViewingHistory(userState.viewingHistory);
-      for (const [movieId, entries] of Object.entries(normalized)) {
-        let latest = null;
-        for (const entry of entries) {
-          if (!entry.deletedAt && (!latest || entry.watchedOn > latest)) {
-            latest = entry.watchedOn;
-          }
-        }
-        if (latest) {
-          latestByMovie.set(Number(movieId), latest);
-        }
-      }
-      sortContext.getWatchedOn = (id) => latestByMovie.get(Number(id)) ?? null;
-    }
-    if (ctx.listKind === "custom") {
-      const joinOrder = appSort.buildOrderIndex(ctx.movieIds);
-      sortContext.getListJoinIndex = (id) => joinOrder.get(Number(id)) ?? null;
-    }
-    return appSort.sortMovieIds(ids, appSort.resolveSortMode(userState.preferences.sort), sortContext);
-  }
-  return ids;
+  return sortDisplayMovieIds(ids, ctx);
 }
 
 function setStatus(element, message, tone) {

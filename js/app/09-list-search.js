@@ -10,6 +10,36 @@ const listSearchClearBtn = document.getElementById("list-search-clear");
 const listSearchFilterChips = [];
 let listSearchSuggestIndex = -1;
 let listSearchRenderTimer = null;
+let listSearchKnownValuesCacheKey = "";
+/** @type {Map<string, string[]>} */
+let listSearchKnownValuesCache = new Map();
+let listSearchLastGridSignature = null;
+
+function watchedListIdsSignature() {
+  return watchedListIdsForSearch().join(",");
+}
+
+function invalidateListSearchKnownValuesCache() {
+  listSearchKnownValuesCacheKey = "";
+  listSearchKnownValuesCache.clear();
+}
+
+function listSearchGridSignature() {
+  return JSON.stringify({
+    filter: listSearchFilterSignature(),
+    active: hasActiveListSearch(),
+    watched: watchedListIdsSignature(),
+  });
+}
+
+function listSearchGridNeedsRender() {
+  const signature = listSearchGridSignature();
+  if (signature === listSearchLastGridSignature) {
+    return false;
+  }
+  listSearchLastGridSignature = signature;
+  return true;
+}
 
 function getActiveListSuggestField() {
   if (appListSearch.getYearSuggestDraft(listSearchInput.value)) {
@@ -66,13 +96,24 @@ function ensureListSearchMetadata() {
     .catch(() => {})
     .then(() => {
       listSearchMetadataLoading = false;
+      invalidateListSearchKnownValuesCache();
       if (hasActiveListSearch()) {
+        listSearchLastGridSignature = null;
         listSearchRenderNow();
       }
     });
 }
 
 function getKnownListFieldValues(fieldKey) {
+  const cacheKey = `${fieldKey}:${watchedListIdsSignature()}:${JSON.stringify(listSearchFilterChips)}`;
+  if (cacheKey === listSearchKnownValuesCacheKey && listSearchKnownValuesCache.has(fieldKey)) {
+    return listSearchKnownValuesCache.get(fieldKey);
+  }
+  if (cacheKey !== listSearchKnownValuesCacheKey) {
+    listSearchKnownValuesCacheKey = cacheKey;
+    listSearchKnownValuesCache.clear();
+  }
+
   const field = appListSearch.getFieldByKey(fieldKey);
   if (!field) {
     return [];
@@ -81,7 +122,9 @@ function getKnownListFieldValues(fieldKey) {
     watchedMoviesForListSearch(),
     appListSearch.chipsToFieldTermsPartial(listSearchFilterChips, fieldKey),
   );
-  return field.collectValues(scopedMovies);
+  const values = field.collectValues(scopedMovies);
+  listSearchKnownValuesCache.set(fieldKey, values);
+  return values;
 }
 
 function getListSearchFilter() {
@@ -118,6 +161,15 @@ function listSearchRenderNow() {
     clearTimeout(listSearchRenderTimer);
     listSearchRenderTimer = null;
   }
+  if (!listSearchGridNeedsRender()) {
+    return;
+  }
+  if (hasActiveListSearch()) {
+    ensureListSearchMetadata();
+  }
+  if (tryListSearchVisibilityOnlyUpdate()) {
+    return;
+  }
   render();
 }
 
@@ -127,8 +179,17 @@ function debouncedListSearchRender() {
   }
   listSearchRenderTimer = setTimeout(() => {
     listSearchRenderTimer = null;
+    if (!listSearchGridNeedsRender()) {
+      return;
+    }
+    if (hasActiveListSearch()) {
+      ensureListSearchMetadata();
+    }
+    if (tryListSearchVisibilityOnlyUpdate()) {
+      return;
+    }
     render();
-  }, 200);
+  }, 300);
 }
 
 function renderListSearchChips() {
@@ -225,6 +286,7 @@ function addListSearchChip(fieldKey, label, options = {}) {
     return false;
   }
   listSearchFilterChips.push({ type: fieldKey, label: canonical });
+  invalidateListSearchKnownValuesCache();
   renderListSearchChips();
   if (!options.silent) {
     updateListSearchClearVisibility();
@@ -239,6 +301,7 @@ function removeListSearchChipAt(index) {
     return;
   }
   listSearchFilterChips.splice(index, 1);
+  invalidateListSearchKnownValuesCache();
   renderListSearchChips();
   updateListSearchClearVisibility();
   updateListSearchSuggest();
@@ -304,6 +367,8 @@ function pickListSearchSuggestion(index) {
 function clearListSearchState() {
   listSearchFilterChips.length = 0;
   listSearchInput.value = "";
+  invalidateListSearchKnownValuesCache();
+  listSearchLastGridSignature = null;
   renderListSearchChips();
   hideListSearchSuggest();
   updateListSearchClearVisibility();
@@ -329,7 +394,6 @@ function syncListSearchVisibility() {
 }
 
 function onListSearchInput() {
-  ensureListSearchMetadata();
   updateListSearchClearVisibility();
   updateListSearchSuggest();
   debouncedListSearchRender();

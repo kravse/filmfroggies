@@ -427,6 +427,68 @@ function usesCustomDisplayOrder() {
   return isWatchlistActive();
 }
 
+let latestWatchedOnByMovieCache = null;
+let latestWatchedOnByMovieSource = null;
+
+function getLatestWatchedOnByMovie() {
+  if (
+    latestWatchedOnByMovieSource === userState.viewingHistory &&
+    latestWatchedOnByMovieCache
+  ) {
+    return latestWatchedOnByMovieCache;
+  }
+  const latestByMovie = new Map();
+  const normalized = appViewingHistory.normalizeViewingHistory(userState.viewingHistory);
+  for (const [movieId, entries] of Object.entries(normalized)) {
+    let latest = null;
+    for (const entry of entries) {
+      if (!entry.deletedAt && (!latest || entry.watchedOn > latest)) {
+        latest = entry.watchedOn;
+      }
+    }
+    if (latest) {
+      latestByMovie.set(Number(movieId), latest);
+    }
+  }
+  latestWatchedOnByMovieSource = userState.viewingHistory;
+  latestWatchedOnByMovieCache = latestByMovie;
+  return latestByMovie;
+}
+
+function buildDisplaySortContext(ctx) {
+  const sortContext = {
+    getRecord: (id) => movieById.get(id) ?? null,
+    getUserRating: (id) => appRatings.getRating(userState.ratings, id),
+    getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
+    getWatchedOn: (id) => appViewingHistory.latestViewingDate(userState.viewingHistory, id),
+  };
+  if (appSort.getSortField(userState.preferences.sort) === "watched") {
+    const latestByMovie = getLatestWatchedOnByMovie();
+    sortContext.getWatchedOn = (id) => latestByMovie.get(Number(id)) ?? null;
+  }
+  if (ctx.listKind === "custom") {
+    const joinOrder = appSort.buildOrderIndex(ctx.movieIds);
+    sortContext.getListJoinIndex = (id) => joinOrder.get(Number(id)) ?? null;
+  }
+  return sortContext;
+}
+
+function sortDisplayMovieIds(ids, ctx) {
+  if (!ctx.sortable) {
+    return ids;
+  }
+  return appSort.sortMovieIds(
+    ids,
+    appSort.resolveSortMode(userState.preferences.sort),
+    buildDisplaySortContext(ctx),
+  );
+}
+
+function unfilteredDisplayMovieIds() {
+  const ctx = getActiveDisplayContext();
+  return sortDisplayMovieIds(ctx.movieIds, ctx);
+}
+
 function displayMovieIds() {
   const ctx = getActiveDisplayContext();
   let ids = ctx.movieIds;
@@ -435,36 +497,7 @@ function displayMovieIds() {
       movieById.get(id) ?? null,
     );
   }
-  if (ctx.sortable) {
-    const sortContext = {
-      getRecord: (id) => movieById.get(id) ?? null,
-      getUserRating: (id) => appRatings.getRating(userState.ratings, id),
-      getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
-      getWatchedOn: (id) => appViewingHistory.latestViewingDate(userState.viewingHistory, id),
-    };
-    if (appSort.getSortField(userState.preferences.sort) === "watched") {
-      const latestByMovie = new Map();
-      const normalized = appViewingHistory.normalizeViewingHistory(userState.viewingHistory);
-      for (const [movieId, entries] of Object.entries(normalized)) {
-        let latest = null;
-        for (const entry of entries) {
-          if (!entry.deletedAt && (!latest || entry.watchedOn > latest)) {
-            latest = entry.watchedOn;
-          }
-        }
-        if (latest) {
-          latestByMovie.set(Number(movieId), latest);
-        }
-      }
-      sortContext.getWatchedOn = (id) => latestByMovie.get(Number(id)) ?? null;
-    }
-    if (ctx.listKind === "custom") {
-      const joinOrder = appSort.buildOrderIndex(ctx.movieIds);
-      sortContext.getListJoinIndex = (id) => joinOrder.get(Number(id)) ?? null;
-    }
-    return appSort.sortMovieIds(ids, appSort.resolveSortMode(userState.preferences.sort), sortContext);
-  }
-  return ids;
+  return sortDisplayMovieIds(ids, ctx);
 }
 
 function setStatus(element, message, tone) {
@@ -10426,14 +10459,60 @@ let serverSortFetchGeneration = 0;
 let serverSortCacheKey = "";
 let serverSortCachedIds = null;
 
-function serverSortCacheToken() {
+function serverSortRatingsFingerprint(movieIds) {
+  const parts = [];
+  for (const id of movieIds) {
+    const rating = appRatings.getRating(userState.ratings, id);
+    if (rating != null) {
+      parts.push(`${id}:${rating}`);
+    }
+  }
+  return parts.join(",");
+}
+
+function serverSortAddedAtFingerprint(movieIds) {
+  const parts = [];
+  for (const id of movieIds) {
+    const stamp = appAddedAt.getAddedAt(userState.addedAt, id);
+    if (stamp) {
+      parts.push(`${id}:${stamp}`);
+    }
+  }
+  return parts.join(",");
+}
+
+function serverSortWatchedFingerprint(movieIds) {
+  const latestByMovie = getLatestWatchedOnByMovie();
+  return movieIds.map((id) => `${id}:${latestByMovie.get(Number(id)) ?? ""}`).join(",");
+}
+
+function serverSortMetadataFingerprint(movieIds) {
+  let detailed = 0;
+  for (const id of movieIds) {
+    if (appTmdb.isDetailedMovieRecord(movieById.get(id))) {
+      detailed += 1;
+    }
+  }
+  return `${detailed}/${movieIds.length}`;
+}
+
+/** Inputs that change the Worker sort response — search filter is applied client-side. */
+function serverSortFetchToken() {
   const ctx = getActiveDisplayContext();
   const sort = appSort.resolveSortMode(userState.preferences.sort);
-  const searchKey =
-    ctx.searchable && typeof hasActiveListSearch === "function" && hasActiveListSearch()
-      ? JSON.stringify(getListSearchFilter())
-      : "";
-  return `${ctx.listId}:${sort}:${searchKey}`;
+  const field = appSort.getSortField(sort);
+  const movieIds = ctx.movieIds;
+  let token = `${ctx.listId}:${sort}:${movieIds.join(",")}`;
+  if (field === "user-rating") {
+    token += `|r:${serverSortRatingsFingerprint(movieIds)}`;
+  } else if (field === "added") {
+    token += `|a:${serverSortAddedAtFingerprint(movieIds)}`;
+  } else if (field === "watched") {
+    token += `|w:${serverSortWatchedFingerprint(movieIds)}`;
+  } else if (field === "title" || field === "year" || field === "rating") {
+    token += `|m:${serverSortMetadataFingerprint(movieIds)}`;
+  }
+  return token;
 }
 
 function usesServerSortedIds() {
@@ -10460,6 +10539,66 @@ function applyDisplayListFilters(ids) {
   return ids;
 }
 
+function listSearchPaintBaseIds() {
+  if (usesServerSortedIds() && serverSortCachedIds) {
+    return serverSortCachedIds;
+  }
+  return unfilteredDisplayMovieIds();
+}
+
+function listSearchBaseGridMatchesDom() {
+  const ctx = getActiveDisplayContext();
+  if (!ctx.searchable || !grid || !isWatchedListActive()) {
+    return false;
+  }
+  const baseIds = listSearchPaintBaseIds();
+  if (!baseIds.length) {
+    return false;
+  }
+  const rows = grid.querySelectorAll(".movie-row[data-movie-id]");
+  if (rows.length !== baseIds.length) {
+    return false;
+  }
+  for (let index = 0; index < baseIds.length; index += 1) {
+    if (Number(rows[index].dataset.movieId) !== baseIds[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function syncListSearchRowVisibility() {
+  const ctx = getActiveDisplayContext();
+  if (!ctx.searchable || !grid) {
+    return 0;
+  }
+  const baseIds = listSearchPaintBaseIds();
+  let visibleIds = baseIds;
+  if (typeof hasActiveListSearch === "function" && hasActiveListSearch()) {
+    visibleIds = applyDisplayListFilters(baseIds);
+    const visibleSet = new Set(visibleIds);
+    for (const row of grid.querySelectorAll(".movie-row[data-movie-id]")) {
+      const movieId = Number(row.dataset.movieId);
+      row.hidden = !visibleSet.has(movieId);
+    }
+  } else {
+    for (const row of grid.querySelectorAll(".movie-row[data-movie-id]")) {
+      row.hidden = false;
+    }
+  }
+  renderedMovieIds = [...visibleIds];
+  return visibleIds.length;
+}
+
+function tryListSearchVisibilityOnlyUpdate() {
+  if (!listSearchBaseGridMatchesDom()) {
+    return false;
+  }
+  const visibleCount = syncListSearchRowVisibility();
+  syncMovieListChrome(visibleCount);
+  return true;
+}
+
 function invalidateServerSortCache() {
   serverSortCacheKey = "";
   serverSortCachedIds = null;
@@ -10468,21 +10607,24 @@ function invalidateServerSortCache() {
 async function renderServerSortedGrid() {
   const ctx = getActiveDisplayContext();
   const sort = appSort.resolveSortMode(userState.preferences.sort);
-  const cacheKey = serverSortCacheToken();
-  const generation = (serverSortFetchGeneration += 1);
-  const initialIds =
-    cacheKey === serverSortCacheKey && serverSortCachedIds ? serverSortCachedIds : ctx.movieIds;
+  const fetchToken = serverSortFetchToken();
 
-  paintMovieGrid(applyDisplayListFilters(initialIds));
+  if (fetchToken === serverSortCacheKey && serverSortCachedIds) {
+    paintMovieGrid(serverSortCachedIds);
+    return;
+  }
+
+  const generation = (serverSortFetchGeneration += 1);
+  paintMovieGrid(ctx.movieIds);
 
   try {
     const ids = await fetchSortedListIds(ctx.listId, sort);
     if (generation !== serverSortFetchGeneration) {
       return;
     }
-    serverSortCacheKey = cacheKey;
+    serverSortCacheKey = fetchToken;
     serverSortCachedIds = ids;
-    paintMovieGrid(applyDisplayListFilters(ids));
+    paintMovieGrid(ids);
   } catch (_) {
     if (generation !== serverSortFetchGeneration) {
       return;
@@ -10715,6 +10857,7 @@ function renderEmptyState(count) {
  * redraws instead of sitting on a list that no longer matches storage.
  */
 function onRemoteStateAdopted() {
+  invalidateServerSortCache();
   onRemoteCustomListsAdopted();
   refreshViewModeForActiveList();
   syncViewFromLocation();
@@ -10761,12 +10904,18 @@ function syncMovieListChrome(ids) {
 }
 
 function paintMovieGrid(ids) {
-  renderedMovieIds = [...ids];
+  const ctx = getActiveDisplayContext();
+  const paintIds = ctx.searchable ? listSearchPaintBaseIds() : ids;
+  renderedMovieIds = [...paintIds];
   disconnectRowHydrateObserver();
   grid.removeAttribute("aria-busy");
-  grid.innerHTML = ids.map((id) => rowHtml(id)).join("");
+  grid.innerHTML = paintIds.map((id) => rowHtml(id)).join("");
   bindPosterImages(grid);
-  syncMovieListChrome(ids);
+  if (ctx.searchable) {
+    syncMovieListChrome(syncListSearchRowVisibility());
+  } else {
+    syncMovieListChrome(paintIds.length);
+  }
   hydrateActiveList();
 }
 
@@ -10791,13 +10940,19 @@ function reorderGridRows() {
   if (!grid || isCustomListIndexActive() || isDiscoverActive()) {
     return false;
   }
-  const ids = displayMovieIds();
-  renderedMovieIds = [...ids];
-  return appGridReorder.reorderElementsById(
+  const ctx = getActiveDisplayContext();
+  const ids = ctx.searchable ? unfilteredDisplayMovieIds() : displayMovieIds();
+  const reordered = appGridReorder.reorderElementsById(
     grid,
     ids,
     appViewportHydration.movieIdFromRowElement,
   );
+  if (ctx.searchable) {
+    syncListSearchRowVisibility();
+  } else {
+    renderedMovieIds = [...ids];
+  }
+  return reordered;
 }
 
 let rowHydrateObserver;
@@ -14259,6 +14414,36 @@ const listSearchClearBtn = document.getElementById("list-search-clear");
 const listSearchFilterChips = [];
 let listSearchSuggestIndex = -1;
 let listSearchRenderTimer = null;
+let listSearchKnownValuesCacheKey = "";
+/** @type {Map<string, string[]>} */
+let listSearchKnownValuesCache = new Map();
+let listSearchLastGridSignature = null;
+
+function watchedListIdsSignature() {
+  return watchedListIdsForSearch().join(",");
+}
+
+function invalidateListSearchKnownValuesCache() {
+  listSearchKnownValuesCacheKey = "";
+  listSearchKnownValuesCache.clear();
+}
+
+function listSearchGridSignature() {
+  return JSON.stringify({
+    filter: listSearchFilterSignature(),
+    active: hasActiveListSearch(),
+    watched: watchedListIdsSignature(),
+  });
+}
+
+function listSearchGridNeedsRender() {
+  const signature = listSearchGridSignature();
+  if (signature === listSearchLastGridSignature) {
+    return false;
+  }
+  listSearchLastGridSignature = signature;
+  return true;
+}
 
 function getActiveListSuggestField() {
   if (appListSearch.getYearSuggestDraft(listSearchInput.value)) {
@@ -14315,13 +14500,24 @@ function ensureListSearchMetadata() {
     .catch(() => {})
     .then(() => {
       listSearchMetadataLoading = false;
+      invalidateListSearchKnownValuesCache();
       if (hasActiveListSearch()) {
+        listSearchLastGridSignature = null;
         listSearchRenderNow();
       }
     });
 }
 
 function getKnownListFieldValues(fieldKey) {
+  const cacheKey = `${fieldKey}:${watchedListIdsSignature()}:${JSON.stringify(listSearchFilterChips)}`;
+  if (cacheKey === listSearchKnownValuesCacheKey && listSearchKnownValuesCache.has(fieldKey)) {
+    return listSearchKnownValuesCache.get(fieldKey);
+  }
+  if (cacheKey !== listSearchKnownValuesCacheKey) {
+    listSearchKnownValuesCacheKey = cacheKey;
+    listSearchKnownValuesCache.clear();
+  }
+
   const field = appListSearch.getFieldByKey(fieldKey);
   if (!field) {
     return [];
@@ -14330,7 +14526,9 @@ function getKnownListFieldValues(fieldKey) {
     watchedMoviesForListSearch(),
     appListSearch.chipsToFieldTermsPartial(listSearchFilterChips, fieldKey),
   );
-  return field.collectValues(scopedMovies);
+  const values = field.collectValues(scopedMovies);
+  listSearchKnownValuesCache.set(fieldKey, values);
+  return values;
 }
 
 function getListSearchFilter() {
@@ -14367,6 +14565,15 @@ function listSearchRenderNow() {
     clearTimeout(listSearchRenderTimer);
     listSearchRenderTimer = null;
   }
+  if (!listSearchGridNeedsRender()) {
+    return;
+  }
+  if (hasActiveListSearch()) {
+    ensureListSearchMetadata();
+  }
+  if (tryListSearchVisibilityOnlyUpdate()) {
+    return;
+  }
   render();
 }
 
@@ -14376,8 +14583,17 @@ function debouncedListSearchRender() {
   }
   listSearchRenderTimer = setTimeout(() => {
     listSearchRenderTimer = null;
+    if (!listSearchGridNeedsRender()) {
+      return;
+    }
+    if (hasActiveListSearch()) {
+      ensureListSearchMetadata();
+    }
+    if (tryListSearchVisibilityOnlyUpdate()) {
+      return;
+    }
     render();
-  }, 200);
+  }, 300);
 }
 
 function renderListSearchChips() {
@@ -14474,6 +14690,7 @@ function addListSearchChip(fieldKey, label, options = {}) {
     return false;
   }
   listSearchFilterChips.push({ type: fieldKey, label: canonical });
+  invalidateListSearchKnownValuesCache();
   renderListSearchChips();
   if (!options.silent) {
     updateListSearchClearVisibility();
@@ -14488,6 +14705,7 @@ function removeListSearchChipAt(index) {
     return;
   }
   listSearchFilterChips.splice(index, 1);
+  invalidateListSearchKnownValuesCache();
   renderListSearchChips();
   updateListSearchClearVisibility();
   updateListSearchSuggest();
@@ -14553,6 +14771,8 @@ function pickListSearchSuggestion(index) {
 function clearListSearchState() {
   listSearchFilterChips.length = 0;
   listSearchInput.value = "";
+  invalidateListSearchKnownValuesCache();
+  listSearchLastGridSignature = null;
   renderListSearchChips();
   hideListSearchSuggest();
   updateListSearchClearVisibility();
@@ -14578,7 +14798,6 @@ function syncListSearchVisibility() {
 }
 
 function onListSearchInput() {
-  ensureListSearchMetadata();
   updateListSearchClearVisibility();
   updateListSearchSuggest();
   debouncedListSearchRender();
