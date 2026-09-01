@@ -234,10 +234,13 @@ function navigateToMain(options = {}) {
   }
   syncAppViewChrome();
   refreshViewModeForActiveList();
-  render();
-  if (!options.skipHydrate) {
-    hydrateActiveList();
-  }
+  showListLoadingFrame();
+  afterNextPaint(() => {
+    render();
+    if (!options.skipHydrate) {
+      hydrateActiveList();
+    }
+  });
 }
 
 function navigateHomeToWatched(options = {}) {
@@ -248,10 +251,10 @@ function navigateHomeToWatched(options = {}) {
   }
   appView = "main";
   activeCustomListId = null;
-  if (userState.activeListId !== appLists.WATCHED_ID) {
+  const listChanged = userState.activeListId !== appLists.WATCHED_ID;
+  if (listChanged) {
     userState = { ...userState, activeListId: appLists.WATCHED_ID };
     reorderModeActive = false;
-    persistUserState();
   }
   if (options.pushHistory !== false) {
     const base = window.location.pathname + window.location.search;
@@ -259,8 +262,14 @@ function navigateHomeToWatched(options = {}) {
   }
   syncAppViewChrome();
   refreshViewModeForActiveList();
-  render();
-  hydrateActiveList();
+  showListLoadingFrame();
+  afterNextPaint(() => {
+    if (listChanged) {
+      persistUserState();
+    }
+    render();
+    hydrateActiveList();
+  });
 }
 
 function navigateToCustomListsIndex(options = {}) {
@@ -302,8 +311,11 @@ function navigateToCustomList(listId, options = {}) {
   }
   syncAppViewChrome();
   refreshViewModeForActiveList();
-  render();
-  hydrateActiveList();
+  showListLoadingFrame();
+  afterNextPaint(() => {
+    render();
+    hydrateActiveList();
+  });
 }
 
 function appViewMatchesLocation(parsed) {

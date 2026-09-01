@@ -51,9 +51,25 @@ function chooseEntry(a, b) {
   return b.watchedOn > a.watchedOn ? b : a;
 }
 
+/**
+ * Normalizing walks every movie in the history. Render paths look one movie up
+ * per card and again inside sort comparators, so an unmemoized pass turns a
+ * single list paint into O(movies x history). Callers only ever read the result
+ * or copy it, so the same object can be shared for a given input reference.
+ */
+const normalizedHistoryCache = new WeakMap();
+
 function normalizeViewingHistory(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const cached = normalizedHistoryCache.get(raw);
+  if (cached) return cached;
+  const out = buildNormalizedViewingHistory(raw);
+  normalizedHistoryCache.set(raw, out);
+  return out;
+}
+
+function buildNormalizedViewingHistory(raw) {
   const out = {};
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
   for (const [key, entries] of Object.entries(raw)) {
     const movieId = Number(key);
     if (!Number.isInteger(movieId) || movieId <= 0 || !Array.isArray(entries)) continue;
@@ -103,14 +119,18 @@ function viewingEntries(history, movieId, options = {}) {
     );
 }
 
+/** Hot path: read the normalized entries directly rather than sorting a copy. */
 function latestViewingDate(history, movieId) {
-  const entries = viewingEntries(history, movieId);
-  if (!entries.length) {
+  const entries = normalizeViewingHistory(history)[String(Number(movieId))];
+  if (!entries) {
     return null;
   }
-  let latest = entries[0].watchedOn;
+  let latest = null;
   for (const entry of entries) {
-    if (entry.watchedOn > latest) {
+    if (entry.deletedAt) {
+      continue;
+    }
+    if (latest === null || entry.watchedOn > latest) {
       latest = entry.watchedOn;
     }
   }

@@ -113,3 +113,32 @@ test("hasActiveViewingOnDate detects active calendar dates only", () => {
   history = removeViewing(history, 42, "a", T2);
   assert.equal(hasActiveViewingOnDate(history, 42, "2026-01-01"), false);
 });
+
+test("latestViewingDate ignores tombstoned viewings", () => {
+  let history = addViewing({}, 42, "2026-01-01", T1, "a");
+  history = addViewing(history, 42, "2026-02-02", T2, "b");
+  assert.equal(latestViewingDate(history, 42), "2026-02-02");
+  history = removeViewing(history, 42, "b", T3);
+  assert.equal(latestViewingDate(history, 42), "2026-01-01");
+  assert.equal(latestViewingDate(history, 99), null);
+  assert.equal(latestViewingDate(null, 42), null);
+});
+
+test("normalizeViewingHistory reuses the result for an unchanged reference", () => {
+  const raw = { 42: [{ id: "a", watchedOn: "2026-01-01", updatedAt: T1.toISOString() }] };
+  const first = normalizeViewingHistory(raw);
+  assert.equal(normalizeViewingHistory(raw), first);
+  // A new object with identical contents is still normalized independently.
+  const clone = JSON.parse(JSON.stringify(raw));
+  const second = normalizeViewingHistory(clone);
+  assert.notEqual(second, first);
+  assert.deepEqual(second, first);
+});
+
+test("normalizeViewingHistory reflects edits that produce a new history object", () => {
+  const history = addViewing({}, 42, "2026-01-01", T1, "a");
+  assert.deepEqual(Object.keys(normalizeViewingHistory(history)), ["42"]);
+  const updated = addViewing(history, 7, "2026-02-02", T2, "b");
+  assert.deepEqual(Object.keys(normalizeViewingHistory(updated)).sort(), ["42", "7"]);
+  assert.deepEqual(Object.keys(normalizeViewingHistory(history)), ["42"]);
+});

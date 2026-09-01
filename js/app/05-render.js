@@ -606,8 +606,14 @@ function setSortMode(mode) {
     return;
   }
   userState = { ...userState, preferences: { ...userState.preferences, sort: next } };
-  persistUserState();
-  render();
+  syncSortControlUi();
+  // A sort change on a server-sorted list waits on the Worker, so show the
+  // control's new state and a skeleton grid before that round trip starts.
+  showListLoadingFrame();
+  afterNextPaint(() => {
+    persistUserState();
+    render();
+  });
 }
 
 function setSortField(field) {
@@ -829,12 +835,12 @@ function listSearchBaseGridMatchesDom() {
   return true;
 }
 
-function syncListSearchRowVisibility() {
+function syncListSearchRowVisibility(knownBaseIds) {
   const ctx = getActiveDisplayContext();
   if (!ctx.searchable || !grid) {
     return 0;
   }
-  const baseIds = listSearchPaintBaseIds();
+  const baseIds = knownBaseIds ?? listSearchPaintBaseIds();
   let visibleIds = baseIds;
   if (typeof hasActiveListSearch === "function" && hasActiveListSearch()) {
     visibleIds = applyDisplayListFilters(baseIds);
@@ -958,6 +964,40 @@ function paintMovieGridLoading(ids) {
     return;
   }
   grid.innerHTML = paintIds.map((id) => skeletonRowHtml(id)).join("");
+}
+
+/**
+ * Run after the browser has painted. A rAF callback still runs before paint, so
+ * scheduling heavy work there keeps the placeholder frame from ever reaching the
+ * screen; the nested task is the first point where paint has already happened.
+ */
+function afterNextPaint(callback) {
+  if (typeof window.requestAnimationFrame !== "function") {
+    window.setTimeout(callback, 0);
+    return;
+  }
+  window.requestAnimationFrame(() => {
+    window.setTimeout(callback, 0);
+  });
+}
+
+/**
+ * Give a navigation instant feedback: chrome and a skeleton grid paint in the
+ * click's own frame, and the expensive sort/paint/hydrate pass waits until the
+ * user has actually seen the new screen.
+ */
+function showListLoadingFrame() {
+  const ids = activeMovieIds();
+  if (!grid) {
+    return;
+  }
+  if (!ids.length) {
+    grid.innerHTML = "";
+    grid.removeAttribute("aria-busy");
+    return;
+  }
+  paintMovieGridLoading(ids);
+  syncMovieListChrome(ids.length);
 }
 
 function syncHeaderViewTitle() {
@@ -1095,29 +1135,15 @@ function setActiveList(listId) {
   }
   userState = { ...userState, activeListId: listId };
   reorderModeActive = false;
-  persistUserState();
   closeDetail({ popHistory: false });
   refreshViewModeForActiveList();
   serverSortFetchGeneration += 1;
 
   syncListTabSelection();
-  syncListSearchVisibility();
-  syncReorderModeUi();
-  syncSortControlUi();
-  updateListHeader();
-  syncAddMovieFabVisibility(activeMovieIds().length);
+  showListLoadingFrame();
 
-  window.requestAnimationFrame(() => {
-    const ids = activeMovieIds();
-    if (ids.length && grid) {
-      if (!grid.hasAttribute("aria-busy")) {
-        paintMovieGridLoading(ids);
-        syncMovieListChrome(ids.length);
-      }
-    } else if (grid) {
-      grid.innerHTML = "";
-      grid.removeAttribute("aria-busy");
-    }
+  afterNextPaint(() => {
+    persistUserState();
     render();
     hydrateActiveList();
     if (typeof renderFriendActivity === "function") {
@@ -1259,7 +1285,7 @@ function paintMovieGrid(ids) {
   grid.innerHTML = paintIds.map((id) => rowHtml(id)).join("");
   bindPosterImages(grid);
   if (ctx.searchable) {
-    syncMovieListChrome(syncListSearchRowVisibility());
+    syncMovieListChrome(syncListSearchRowVisibility(paintIds));
   } else {
     syncMovieListChrome(paintIds.length);
   }

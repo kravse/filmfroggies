@@ -456,16 +456,15 @@ function getLatestWatchedOnByMovie() {
 }
 
 function buildDisplaySortContext(ctx) {
+  // Comparators call getWatchedOn O(n log n) times, so it always reads the
+  // prebuilt map rather than re-deriving a date per comparison.
+  const latestByMovie = getLatestWatchedOnByMovie();
   const sortContext = {
     getRecord: (id) => movieById.get(id) ?? null,
     getUserRating: (id) => appRatings.getRating(userState.ratings, id),
     getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
-    getWatchedOn: (id) => appViewingHistory.latestViewingDate(userState.viewingHistory, id),
+    getWatchedOn: (id) => latestByMovie.get(Number(id)) ?? null,
   };
-  if (appSort.getSortField(userState.preferences.sort) === "watched") {
-    const latestByMovie = getLatestWatchedOnByMovie();
-    sortContext.getWatchedOn = (id) => latestByMovie.get(Number(id)) ?? null;
-  }
   if (ctx.listKind === "custom") {
     const joinOrder = appSort.buildOrderIndex(ctx.movieIds);
     sortContext.getListJoinIndex = (id) => joinOrder.get(Number(id)) ?? null;
@@ -4314,9 +4313,25 @@ const appViewingHistory = (function () {
     return b.watchedOn > a.watchedOn ? b : a;
   }
 
+  /**
+   * Normalizing walks every movie in the history. Render paths look one movie up
+   * per card and again inside sort comparators, so an unmemoized pass turns a
+   * single list paint into O(movies x history). Callers only ever read the result
+   * or copy it, so the same object can be shared for a given input reference.
+   */
+  const normalizedHistoryCache = new WeakMap();
+
   function normalizeViewingHistory(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+    const cached = normalizedHistoryCache.get(raw);
+    if (cached) return cached;
+    const out = buildNormalizedViewingHistory(raw);
+    normalizedHistoryCache.set(raw, out);
+    return out;
+  }
+
+  function buildNormalizedViewingHistory(raw) {
     const out = {};
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
     for (const [key, entries] of Object.entries(raw)) {
       const movieId = Number(key);
       if (!Number.isInteger(movieId) || movieId <= 0 || !Array.isArray(entries)) continue;
@@ -4366,14 +4381,18 @@ const appViewingHistory = (function () {
       );
   }
 
+  /** Hot path: read the normalized entries directly rather than sorting a copy. */
   function latestViewingDate(history, movieId) {
-    const entries = viewingEntries(history, movieId);
-    if (!entries.length) {
+    const entries = normalizeViewingHistory(history)[String(Number(movieId))];
+    if (!entries) {
       return null;
     }
-    let latest = entries[0].watchedOn;
+    let latest = null;
     for (const entry of entries) {
-      if (entry.watchedOn > latest) {
+      if (entry.deletedAt) {
+        continue;
+      }
+      if (latest === null || entry.watchedOn > latest) {
         latest = entry.watchedOn;
       }
     }
@@ -10371,8 +10390,14 @@ function setSortMode(mode) {
     return;
   }
   userState = { ...userState, preferences: { ...userState.preferences, sort: next } };
-  persistUserState();
-  render();
+  syncSortControlUi();
+  // A sort change on a server-sorted list waits on the Worker, so show the
+  // control's new state and a skeleton grid before that round trip starts.
+  showListLoadingFrame();
+  afterNextPaint(() => {
+    persistUserState();
+    render();
+  });
 }
 
 function setSortField(field) {
@@ -10594,12 +10619,12 @@ function listSearchBaseGridMatchesDom() {
   return true;
 }
 
-function syncListSearchRowVisibility() {
+function syncListSearchRowVisibility(knownBaseIds) {
   const ctx = getActiveDisplayContext();
   if (!ctx.searchable || !grid) {
     return 0;
   }
-  const baseIds = listSearchPaintBaseIds();
+  const baseIds = knownBaseIds ?? listSearchPaintBaseIds();
   let visibleIds = baseIds;
   if (typeof hasActiveListSearch === "function" && hasActiveListSearch()) {
     visibleIds = applyDisplayListFilters(baseIds);
@@ -10723,6 +10748,40 @@ function paintMovieGridLoading(ids) {
     return;
   }
   grid.innerHTML = paintIds.map((id) => skeletonRowHtml(id)).join("");
+}
+
+/**
+ * Run after the browser has painted. A rAF callback still runs before paint, so
+ * scheduling heavy work there keeps the placeholder frame from ever reaching the
+ * screen; the nested task is the first point where paint has already happened.
+ */
+function afterNextPaint(callback) {
+  if (typeof window.requestAnimationFrame !== "function") {
+    window.setTimeout(callback, 0);
+    return;
+  }
+  window.requestAnimationFrame(() => {
+    window.setTimeout(callback, 0);
+  });
+}
+
+/**
+ * Give a navigation instant feedback: chrome and a skeleton grid paint in the
+ * click's own frame, and the expensive sort/paint/hydrate pass waits until the
+ * user has actually seen the new screen.
+ */
+function showListLoadingFrame() {
+  const ids = activeMovieIds();
+  if (!grid) {
+    return;
+  }
+  if (!ids.length) {
+    grid.innerHTML = "";
+    grid.removeAttribute("aria-busy");
+    return;
+  }
+  paintMovieGridLoading(ids);
+  syncMovieListChrome(ids.length);
 }
 
 function syncHeaderViewTitle() {
@@ -10860,29 +10919,15 @@ function setActiveList(listId) {
   }
   userState = { ...userState, activeListId: listId };
   reorderModeActive = false;
-  persistUserState();
   closeDetail({ popHistory: false });
   refreshViewModeForActiveList();
   serverSortFetchGeneration += 1;
 
   syncListTabSelection();
-  syncListSearchVisibility();
-  syncReorderModeUi();
-  syncSortControlUi();
-  updateListHeader();
-  syncAddMovieFabVisibility(activeMovieIds().length);
+  showListLoadingFrame();
 
-  window.requestAnimationFrame(() => {
-    const ids = activeMovieIds();
-    if (ids.length && grid) {
-      if (!grid.hasAttribute("aria-busy")) {
-        paintMovieGridLoading(ids);
-        syncMovieListChrome(ids.length);
-      }
-    } else if (grid) {
-      grid.innerHTML = "";
-      grid.removeAttribute("aria-busy");
-    }
+  afterNextPaint(() => {
+    persistUserState();
     render();
     hydrateActiveList();
     if (typeof renderFriendActivity === "function") {
@@ -11024,7 +11069,7 @@ function paintMovieGrid(ids) {
   grid.innerHTML = paintIds.map((id) => rowHtml(id)).join("");
   bindPosterImages(grid);
   if (ctx.searchable) {
-    syncMovieListChrome(syncListSearchRowVisibility());
+    syncMovieListChrome(syncListSearchRowVisibility(paintIds));
   } else {
     syncMovieListChrome(paintIds.length);
   }
@@ -15296,10 +15341,13 @@ function navigateToMain(options = {}) {
   }
   syncAppViewChrome();
   refreshViewModeForActiveList();
-  render();
-  if (!options.skipHydrate) {
-    hydrateActiveList();
-  }
+  showListLoadingFrame();
+  afterNextPaint(() => {
+    render();
+    if (!options.skipHydrate) {
+      hydrateActiveList();
+    }
+  });
 }
 
 function navigateHomeToWatched(options = {}) {
@@ -15310,10 +15358,10 @@ function navigateHomeToWatched(options = {}) {
   }
   appView = "main";
   activeCustomListId = null;
-  if (userState.activeListId !== appLists.WATCHED_ID) {
+  const listChanged = userState.activeListId !== appLists.WATCHED_ID;
+  if (listChanged) {
     userState = { ...userState, activeListId: appLists.WATCHED_ID };
     reorderModeActive = false;
-    persistUserState();
   }
   if (options.pushHistory !== false) {
     const base = window.location.pathname + window.location.search;
@@ -15321,8 +15369,14 @@ function navigateHomeToWatched(options = {}) {
   }
   syncAppViewChrome();
   refreshViewModeForActiveList();
-  render();
-  hydrateActiveList();
+  showListLoadingFrame();
+  afterNextPaint(() => {
+    if (listChanged) {
+      persistUserState();
+    }
+    render();
+    hydrateActiveList();
+  });
 }
 
 function navigateToCustomListsIndex(options = {}) {
@@ -15364,8 +15418,11 @@ function navigateToCustomList(listId, options = {}) {
   }
   syncAppViewChrome();
   refreshViewModeForActiveList();
-  render();
-  hydrateActiveList();
+  showListLoadingFrame();
+  afterNextPaint(() => {
+    render();
+    hydrateActiveList();
+  });
 }
 
 function appViewMatchesLocation(parsed) {

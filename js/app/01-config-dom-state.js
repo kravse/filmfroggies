@@ -454,16 +454,15 @@ function getLatestWatchedOnByMovie() {
 }
 
 function buildDisplaySortContext(ctx) {
+  // Comparators call getWatchedOn O(n log n) times, so it always reads the
+  // prebuilt map rather than re-deriving a date per comparison.
+  const latestByMovie = getLatestWatchedOnByMovie();
   const sortContext = {
     getRecord: (id) => movieById.get(id) ?? null,
     getUserRating: (id) => appRatings.getRating(userState.ratings, id),
     getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
-    getWatchedOn: (id) => appViewingHistory.latestViewingDate(userState.viewingHistory, id),
+    getWatchedOn: (id) => latestByMovie.get(Number(id)) ?? null,
   };
-  if (appSort.getSortField(userState.preferences.sort) === "watched") {
-    const latestByMovie = getLatestWatchedOnByMovie();
-    sortContext.getWatchedOn = (id) => latestByMovie.get(Number(id)) ?? null;
-  }
   if (ctx.listKind === "custom") {
     const joinOrder = appSort.buildOrderIndex(ctx.movieIds);
     sortContext.getListJoinIndex = (id) => joinOrder.get(Number(id)) ?? null;
