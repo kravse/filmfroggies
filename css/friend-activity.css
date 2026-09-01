@@ -33,26 +33,26 @@
   transform: translateX(calc(100% - var(--friend-activity-tab-width)));
 }
 
-body.friend-activity-expanded main.page-shell {
+body.friend-activity-expanded.friend-activity-overlaps-content main.page-shell {
   padding-right: calc(var(--layout-gutter) + var(--friend-activity-width));
 }
 
-body.friend-activity-expanded .add-movie-fab {
+body.friend-activity-expanded.friend-activity-overlaps-content .add-movie-fab {
   right: calc(var(--friend-activity-width) + var(--friend-activity-gutter));
 }
 
 @media (max-width: 640px) {
-  body.friend-activity-expanded.view-mode-cards .grid {
+  body.friend-activity-expanded.friend-activity-overlaps-content.view-mode-cards .grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  body.friend-activity-expanded.view-mode-detail .grid {
+  body.friend-activity-expanded.friend-activity-overlaps-content.view-mode-detail .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (min-width: 1001px) {
-  body.friend-activity-expanded.view-mode-detail .grid {
+  body.friend-activity-expanded.friend-activity-overlaps-content.view-mode-detail .grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
@@ -463,7 +463,7 @@ body.friend-activity-expanded .add-movie-fab {
 @media (prefers-reduced-motion: reduce) {
   .friend-activity,
   .friend-activity-chevron,
-  body.friend-activity-expanded .add-movie-fab {
+  body.friend-activity-expanded.friend-activity-overlaps-content .add-movie-fab {
     transition: none;
   }
 }

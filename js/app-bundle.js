@@ -17255,26 +17255,69 @@ function maybeCollapseEmptyFriendActivity() {
   }
 }
 
+function cssVarLengthPx(name, fallbackPx) {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  if (!raw) return fallbackPx;
+  if (raw.endsWith("px")) {
+    const px = Number.parseFloat(raw);
+    return Number.isFinite(px) ? px : fallbackPx;
+  }
+  const probe = document.createElement("div");
+  probe.style.position = "absolute";
+  probe.style.visibility = "hidden";
+  probe.style.pointerEvents = "none";
+  probe.style.width = raw;
+  document.body.appendChild(probe);
+  const px = probe.getBoundingClientRect().width;
+  probe.remove();
+  return px > 0 ? px : fallbackPx;
+}
+
+/** True when a fixed right rail would cover the centered main column. */
+function friendActivityOverlapsContent() {
+  const layoutMax = cssVarLengthPx("--layout-wide-max", 1400);
+  const gutter = cssVarLengthPx("--layout-gutter", 20);
+  const railWidth = cssVarLengthPx("--friend-activity-width", 110);
+  const viewportWidth = window.innerWidth;
+  const shellWidth = Math.min(viewportWidth, layoutMax);
+  const contentRight = (viewportWidth + shellWidth) / 2 - gutter;
+  const railLeft = viewportWidth - railWidth;
+  return contentRight > railLeft - 1;
+}
+
+function syncFriendActivityOverlapClass() {
+  const overlaps = friendActivityOpen() && friendActivityOverlapsContent();
+  document.body.classList.toggle("friend-activity-overlaps-content", overlaps);
+}
+
 function positionFriendActivityPanel() {
   if (!friendActivityEl) return;
 
   if (isFriendsIndexActive()) {
     const dock = document.querySelector(".friends-dock");
-    if (!dock) return;
+    if (!dock) {
+      syncFriendActivityOverlapClass();
+      return;
+    }
     const dockRect = dock.getBoundingClientRect();
     friendActivityEl.style.setProperty("--friend-activity-top", `${Math.round(dockRect.top)}px`);
     friendActivityEl.style.setProperty(
       "--friend-activity-bottom",
       `${Math.round(window.innerHeight - dockRect.bottom)}px`,
     );
+    syncFriendActivityOverlapClass();
     return;
   }
 
   const header = document.querySelector("body > header");
-  if (!header || typeof header.getBoundingClientRect !== "function") return;
+  if (!header || typeof header.getBoundingClientRect !== "function") {
+    syncFriendActivityOverlapClass();
+    return;
+  }
   const bottom = Math.max(0, header.getBoundingClientRect()?.bottom || 0);
   friendActivityEl.style.setProperty("--friend-activity-top", `${Math.round(bottom + 12)}px`);
   friendActivityEl.style.removeProperty("--friend-activity-bottom");
+  syncFriendActivityOverlapClass();
 }
 
 function friendActivityDateLabel(value) {
@@ -17384,6 +17427,7 @@ function renderFriendActivity() {
   document.body.classList.toggle("friend-activity-expanded", open);
   if (!visible) {
     friendActivityEl.classList.remove("is-collapsed");
+    document.body.classList.remove("friend-activity-overlaps-content");
     return;
   }
   if (docked) {
@@ -17410,6 +17454,7 @@ function renderFriendActivity() {
     }
   }
   positionFriendActivityPanel();
+  syncFriendActivityOverlapClass();
 
   if (friendActivityLoading && !friendActivityLoaded) {
     friendActivityStatus.hidden = false;
