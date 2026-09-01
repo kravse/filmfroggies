@@ -892,7 +892,10 @@ async function renderServerSortedGrid() {
   }
 
   const generation = (serverSortFetchGeneration += 1);
-  paintMovieGrid(ctx.movieIds);
+  if (!grid?.hasAttribute("aria-busy")) {
+    paintMovieGridLoading(ctx.movieIds);
+    syncMovieListChrome(ctx.movieIds.length);
+  }
 
   try {
     const ids = await fetchSortedListIds(ctx.listId, sort);
@@ -924,6 +927,37 @@ function renderListTabs() {
 </button>`;
     })
     .join("");
+}
+
+function syncListTabSelection() {
+  if (!listTabs || isCustomListView() || isDiscoverActive()) {
+    return;
+  }
+  const tabs = listTabs.querySelectorAll(".list-tab");
+  if (!tabs.length) {
+    renderListTabs();
+    return;
+  }
+  for (const tab of tabs) {
+    const active = tab.dataset.listId === userState.activeListId;
+    tab.setAttribute("aria-selected", String(active));
+    tab.setAttribute("tabindex", active ? "0" : "-1");
+  }
+}
+
+function paintMovieGridLoading(ids) {
+  if (!grid) {
+    return;
+  }
+  const paintIds = Array.isArray(ids) ? ids : [];
+  renderedMovieIds = [...paintIds];
+  disconnectRowHydrateObserver();
+  grid.setAttribute("aria-busy", "true");
+  if (!paintIds.length) {
+    grid.innerHTML = "";
+    return;
+  }
+  grid.innerHTML = paintIds.map((id) => skeletonRowHtml(id)).join("");
 }
 
 function syncHeaderViewTitle() {
@@ -1064,11 +1098,32 @@ function setActiveList(listId) {
   persistUserState();
   closeDetail({ popHistory: false });
   refreshViewModeForActiveList();
-  render();
-  hydrateActiveList();
-  if (typeof renderFriendActivity === "function") {
-    renderFriendActivity();
-  }
+  serverSortFetchGeneration += 1;
+
+  syncListTabSelection();
+  syncListSearchVisibility();
+  syncReorderModeUi();
+  syncSortControlUi();
+  updateListHeader();
+  syncAddMovieFabVisibility(activeMovieIds().length);
+
+  window.requestAnimationFrame(() => {
+    const ids = activeMovieIds();
+    if (ids.length && grid) {
+      if (!grid.hasAttribute("aria-busy")) {
+        paintMovieGridLoading(ids);
+        syncMovieListChrome(ids.length);
+      }
+    } else if (grid) {
+      grid.innerHTML = "";
+      grid.removeAttribute("aria-busy");
+    }
+    render();
+    hydrateActiveList();
+    if (typeof renderFriendActivity === "function") {
+      renderFriendActivity();
+    }
+  });
 }
 
 function syncAddMovieFabVisibility(count) {
