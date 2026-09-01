@@ -57,10 +57,10 @@ export const AUTH_RATE_LIMITS = {
   loginEmailFail: { limit: 5, windowMs: 15 * 60 * 1000 },
 };
 
-/** Per-user and per-IP caps on proxied TMDB reads. */
+/** Per-user and per-IP caps on proxied TMDB reads, sized like BATCH_RATE_LIMITS. */
 export const TMDB_RATE_LIMITS = {
-  user: { limit: 120, windowMs: 15 * 60 * 1000 },
-  ip: { limit: 120, windowMs: 15 * 60 * 1000 },
+  user: { limit: 120, windowMs: 60 * 1000 },
+  ip: { limit: 480, windowMs: 60 * 1000 },
 };
 
 const RATE_LIMIT_ERROR = "Too many attempts. Try again later.";

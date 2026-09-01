@@ -1901,6 +1901,17 @@ const appViewportHydration = (function () {
 
   const ROW_HYDRATE_ROOT_MARGIN = "320px 0px";
 
+  /**
+   * Retry budget for a batch that came back with neither a record nor an error.
+   * A row that stays on screen never re-fires the observer, so an unresolved id
+   * has to re-queue itself or it renders as a skeleton for the rest of the
+   * session. Rate limiting is the common cause, hence the much longer base wait.
+   */
+  const HYDRATE_MAX_ATTEMPTS = 4;
+  const HYDRATE_RETRY_BASE_MS = 500;
+  const HYDRATE_RETRY_RATE_LIMITED_MS = 4000;
+  const HYDRATE_RETRY_MAX_MS = 20000;
+
   function movieIdFromRowElement(element) {
     if (!element || typeof element !== "object") {
       return null;
@@ -1912,15 +1923,35 @@ const appViewportHydration = (function () {
     return Number.isInteger(id) && id > 0 ? id : null;
   }
 
-  /** True when no viewport hydration batches are queued or in flight. */
-  function isHydrationQuiescent({ batchTimer = 0, inflightCount = 0, pendingCount = 0 } = {}) {
-    return !batchTimer && inflightCount === 0 && pendingCount === 0;
+  /** True when no viewport hydration batches are queued, in flight, or awaiting retry. */
+  function isHydrationQuiescent({
+    batchTimer = 0,
+    inflightCount = 0,
+    pendingCount = 0,
+    retryCount = 0,
+  } = {}) {
+    return !batchTimer && inflightCount === 0 && pendingCount === 0 && retryCount === 0;
+  }
+
+  /** Whether an id that failed to resolve has retries left. */
+  function shouldRetryHydrate(attempt, maxAttempts = HYDRATE_MAX_ATTEMPTS) {
+    return Number.isInteger(attempt) && attempt > 0 && attempt < maxAttempts;
+  }
+
+  /** Exponential backoff for the next retry, capped so a stalled row still recovers. */
+  function hydrateRetryDelayMs(attempt, { rateLimited = false } = {}) {
+    const step = Number.isInteger(attempt) && attempt > 0 ? attempt : 1;
+    const base = rateLimited ? HYDRATE_RETRY_RATE_LIMITED_MS : HYDRATE_RETRY_BASE_MS;
+    return Math.min(base * 2 ** (step - 1), HYDRATE_RETRY_MAX_MS);
   }
 
   return {
     ROW_HYDRATE_ROOT_MARGIN,
+    HYDRATE_MAX_ATTEMPTS,
     movieIdFromRowElement,
     isHydrationQuiescent,
+    shouldRetryHydrate,
+    hydrateRetryDelayMs,
   };
 })();
 
@@ -8729,7 +8760,9 @@ async function hydrateMovies(ids, handlers = {}) {
     );
   } catch (error) {
     if (error?.batchStatus === 429) {
-      return { hydratedFromNetwork };
+      // Per-id TMDB would hit the same limiter. Report it so the caller can
+      // back off and retry instead of leaving the ids as permanent skeletons.
+      return { hydratedFromNetwork, rateLimited: true };
     }
     /* Fall through to per-id TMDB for remaining ids. */
   }
@@ -10570,8 +10603,38 @@ let rowHydrateObserver;
 const rowHydrateInflight = new Set();
 const rowHydratePendingIds = new Set();
 const rowHydratePendingRows = new Map();
+const rowHydrateAttempts = new Map();
+const rowHydrateRetryTimers = new Set();
 let rowHydrateBatchTimer = 0;
 let rowHydrateResortTimer;
+
+/**
+ * Re-queue an id whose batch resolved to neither a record nor an error. The
+ * observer will not fire again while the row stays on screen, so without this
+ * the card shimmers for the rest of the session. Once the budget is spent the
+ * id is marked failed so the card offers a retry instead of a blank skeleton.
+ */
+function retryRowHydrate(movieId, row, rateLimited) {
+  if (!row?.isConnected) {
+    return;
+  }
+  const attempt = (rowHydrateAttempts.get(movieId) || 0) + 1;
+  if (!appViewportHydration.shouldRetryHydrate(attempt)) {
+    rowHydrateAttempts.delete(movieId);
+    movieErrors.add(movieId);
+    applyHydratedRecord(movieId);
+    return;
+  }
+  rowHydrateAttempts.set(movieId, attempt);
+  const timer = setTimeout(() => {
+    rowHydrateRetryTimers.delete(timer);
+    if (!row.isConnected || appTmdb.isDetailedMovieRecord(movieById.get(movieId))) {
+      return;
+    }
+    scheduleRowHydrateBatch(movieId, row);
+  }, appViewportHydration.hydrateRetryDelayMs(attempt, { rateLimited }));
+  rowHydrateRetryTimers.add(timer);
+}
 
 function flushRowHydrateBatch() {
   rowHydrateBatchTimer = 0;
@@ -10588,14 +10651,21 @@ function flushRowHydrateBatch() {
   hydrateMovies(ids, {
     onRecord: applyHydratedRecord,
     onUpdate: applyHydratedRecord,
-  }).finally(() => {
+  })
+    .catch(() => ({}))
+    .then((result) => {
+      const rateLimited = Boolean(result?.rateLimited);
       for (const id of ids) {
         rowHydrateInflight.delete(id);
         const row = rowsById.get(id);
-        const hydrated = appTmdb.isDetailedMovieRecord(movieById.get(id)) || movieErrors.has(id);
-        if (rowHydrateObserver && row?.isConnected && hydrated) {
-          rowHydrateObserver.unobserve(row);
+        if (appTmdb.isDetailedMovieRecord(movieById.get(id)) || movieErrors.has(id)) {
+          rowHydrateAttempts.delete(id);
+          if (rowHydrateObserver && row?.isConnected) {
+            rowHydrateObserver.unobserve(row);
+          }
+          continue;
         }
+        retryRowHydrate(id, row, rateLimited);
       }
     });
 }
@@ -10617,6 +10687,11 @@ function disconnectRowHydrateObserver() {
   rowHydrateInflight.clear();
   rowHydratePendingIds.clear();
   rowHydratePendingRows.clear();
+  rowHydrateAttempts.clear();
+  for (const timer of rowHydrateRetryTimers) {
+    clearTimeout(timer);
+  }
+  rowHydrateRetryTimers.clear();
   if (rowHydrateBatchTimer) {
     clearTimeout(rowHydrateBatchTimer);
     rowHydrateBatchTimer = 0;
@@ -10640,6 +10715,7 @@ function scheduleResortAfterHydration() {
       batchTimer: rowHydrateBatchTimer,
       inflightCount: rowHydrateInflight.size,
       pendingCount: rowHydratePendingIds.size,
+      retryCount: rowHydrateRetryTimers.size,
     })) {
       scheduleResortAfterHydration();
       return;

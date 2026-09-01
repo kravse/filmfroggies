@@ -18,9 +18,19 @@ export const TMDB_FETCH_MAX_PER_REQUEST = 40;
 /** SQLite bind limit is 999; chunk IN queries below that. */
 export const D1_IN_CHUNK_SIZE = 400;
 
+/**
+ * Capacity caps, not a security control — the endpoint already requires a session.
+ *
+ * Viewport hydration fires one batch per 50ms debounce window, so scrolling a large
+ * collection is tens of requests in a minute. A 15-minute window turned that into a
+ * 15-minute lockout, well past any client backoff, which stranded rows as skeletons.
+ * Short windows keep retry-after inside the client's retry budget. The IP cap is 4x
+ * the user cap so a shared or proxied IP (see proxy-signature.js) does not 429
+ * everyone behind it.
+ */
 export const BATCH_RATE_LIMITS = {
-  user: { limit: 30, windowMs: 15 * 60 * 1000 },
-  ip: { limit: 60, windowMs: 15 * 60 * 1000 },
+  user: { limit: 120, windowMs: 60 * 1000 },
+  ip: { limit: 480, windowMs: 60 * 1000 },
 };
 
 const TMDB_MOVIE_APPEND = "append_to_response=credits&language=en-US";

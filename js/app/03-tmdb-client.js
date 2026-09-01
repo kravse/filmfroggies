@@ -712,7 +712,9 @@ async function hydrateMovies(ids, handlers = {}) {
     );
   } catch (error) {
     if (error?.batchStatus === 429) {
-      return { hydratedFromNetwork };
+      // Per-id TMDB would hit the same limiter. Report it so the caller can
+      // back off and retry instead of leaving the ids as permanent skeletons.
+      return { hydratedFromNetwork, rateLimited: true };
     }
     /* Fall through to per-id TMDB for remaining ids. */
   }

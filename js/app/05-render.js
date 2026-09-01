@@ -1067,8 +1067,38 @@ let rowHydrateObserver;
 const rowHydrateInflight = new Set();
 const rowHydratePendingIds = new Set();
 const rowHydratePendingRows = new Map();
+const rowHydrateAttempts = new Map();
+const rowHydrateRetryTimers = new Set();
 let rowHydrateBatchTimer = 0;
 let rowHydrateResortTimer;
+
+/**
+ * Re-queue an id whose batch resolved to neither a record nor an error. The
+ * observer will not fire again while the row stays on screen, so without this
+ * the card shimmers for the rest of the session. Once the budget is spent the
+ * id is marked failed so the card offers a retry instead of a blank skeleton.
+ */
+function retryRowHydrate(movieId, row, rateLimited) {
+  if (!row?.isConnected) {
+    return;
+  }
+  const attempt = (rowHydrateAttempts.get(movieId) || 0) + 1;
+  if (!appViewportHydration.shouldRetryHydrate(attempt)) {
+    rowHydrateAttempts.delete(movieId);
+    movieErrors.add(movieId);
+    applyHydratedRecord(movieId);
+    return;
+  }
+  rowHydrateAttempts.set(movieId, attempt);
+  const timer = setTimeout(() => {
+    rowHydrateRetryTimers.delete(timer);
+    if (!row.isConnected || appTmdb.isDetailedMovieRecord(movieById.get(movieId))) {
+      return;
+    }
+    scheduleRowHydrateBatch(movieId, row);
+  }, appViewportHydration.hydrateRetryDelayMs(attempt, { rateLimited }));
+  rowHydrateRetryTimers.add(timer);
+}
 
 function flushRowHydrateBatch() {
   rowHydrateBatchTimer = 0;
@@ -1085,14 +1115,21 @@ function flushRowHydrateBatch() {
   hydrateMovies(ids, {
     onRecord: applyHydratedRecord,
     onUpdate: applyHydratedRecord,
-  }).finally(() => {
+  })
+    .catch(() => ({}))
+    .then((result) => {
+      const rateLimited = Boolean(result?.rateLimited);
       for (const id of ids) {
         rowHydrateInflight.delete(id);
         const row = rowsById.get(id);
-        const hydrated = appTmdb.isDetailedMovieRecord(movieById.get(id)) || movieErrors.has(id);
-        if (rowHydrateObserver && row?.isConnected && hydrated) {
-          rowHydrateObserver.unobserve(row);
+        if (appTmdb.isDetailedMovieRecord(movieById.get(id)) || movieErrors.has(id)) {
+          rowHydrateAttempts.delete(id);
+          if (rowHydrateObserver && row?.isConnected) {
+            rowHydrateObserver.unobserve(row);
+          }
+          continue;
         }
+        retryRowHydrate(id, row, rateLimited);
       }
     });
 }
@@ -1114,6 +1151,11 @@ function disconnectRowHydrateObserver() {
   rowHydrateInflight.clear();
   rowHydratePendingIds.clear();
   rowHydratePendingRows.clear();
+  rowHydrateAttempts.clear();
+  for (const timer of rowHydrateRetryTimers) {
+    clearTimeout(timer);
+  }
+  rowHydrateRetryTimers.clear();
   if (rowHydrateBatchTimer) {
     clearTimeout(rowHydrateBatchTimer);
     rowHydrateBatchTimer = 0;
@@ -1137,6 +1179,7 @@ function scheduleResortAfterHydration() {
       batchTimer: rowHydrateBatchTimer,
       inflightCount: rowHydrateInflight.size,
       pendingCount: rowHydratePendingIds.size,
+      retryCount: rowHydrateRetryTimers.size,
     })) {
       scheduleResortAfterHydration();
       return;

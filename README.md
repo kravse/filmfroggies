@@ -314,9 +314,10 @@ Default CORS origins (hardcoded): `https://filmfroggies.com`, `https://www.filmf
 
 - Passwords: PBKDF2-SHA256, 100k iterations, per-user salt
 - Sessions: HMAC-signed bearer token (`{ uid, jti, exp }`) plus a D1 `sessions` row per login; logout and account delete revoke server-side
-- Rate limits (by IP / email): signup 5/hr per IP; login 15/15 min per IP; 5 failed logins/15 min per email
+- Auth rate limits (by IP / email): signup 5/hr per IP; login 15/15 min per IP; 5 failed logins/15 min per email
+- Browsing rate limits are capacity caps on already-authenticated routes, not security controls: movie batch, list ids, and the TMDB proxy each allow 120/min per user and 480/min per IP. The window is deliberately short — viewport hydration fires a batch per 50 ms debounce window, so a scroll burst is tens of requests, and a long window turns a brief spike into a lockout that outlasts the client's retry backoff
 - Rate-limit keys use `CF-Connecting-IP`, which Cloudflare sets and a caller cannot forge. Netlify-proxied requests arrive from Netlify's edge, so the real user IP is in `X-Forwarded-For` — a caller-settable header, honoured only when [`worker/src/proxy-signature.js`](worker/src/proxy-signature.js) verifies the HS256 `x-nf-sign` JWS from Netlify's signed proxy redirects. Without `NETLIFY_PROXY_SIGNING_SECRET` on both sides the Worker falls back to the weaker `x-nf-request-id` check, so set it in both places
-- **`#admin` reports whether that signature is verifying** (see below). A silent failure keys every visitor to Netlify's edge IP, and because the per-IP caps are only 1–2× the per-user caps it stays invisible to one user while 429ing everyone else
+- **`#admin` reports whether that signature is verifying** (see below). A silent failure keys every visitor to Netlify's edge IP, so everyone shares one bucket. The browsing caps allow 4× the per-user rate per IP to absorb that, but auth caps are per-IP only, so a login spike still stays invisible to one user while 429ing everyone else
 - **Closed signups:** new accounts require a one-time invite code (**Log in → Sign up**); wrong or used codes get the same neutral response as a duplicate email
 - Signup and friend-request responses are intentionally neutral (no email enumeration).
 
