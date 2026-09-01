@@ -42,6 +42,46 @@ function movieIdFromRowElement(element) {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+/**
+ * Card state a grid row currently shows: `"record"`, `"skeleton"`, `"error"`, or
+ * null when the element holds no card.
+ *
+ * Row markup, not movieById, is what says whether a row rendered its record. A
+ * record can land from a path that never touches the grid — the friend activity
+ * rail, custom list covers, the watched picker, CSV export — so a row painted
+ * before that landed still shows a skeleton with the record sitting in memory.
+ */
+function rowRenderState(row) {
+  if (!row || typeof row.querySelector !== "function") {
+    return null;
+  }
+  const card = row.querySelector(".card");
+  if (!card) {
+    return null;
+  }
+  if (card.classList?.contains("is-skeleton")) {
+    return "skeleton";
+  }
+  if (card.classList?.contains("is-error")) {
+    return "error";
+  }
+  return "record";
+}
+
+/** Whether a row's markup disagrees with the record state now held in memory. */
+function rowNeedsRepaint(state, { hasRecord = false, hasError = false } = {}) {
+  if (state == null) {
+    return false;
+  }
+  if (hasRecord) {
+    return state !== "record";
+  }
+  if (hasError) {
+    return state !== "error";
+  }
+  return false;
+}
+
 /** True when no viewport hydration batches are queued, in flight, or awaiting retry. */
 function isHydrationQuiescent({
   batchTimer = 0,
@@ -69,6 +109,8 @@ module.exports = {
   ROW_HYDRATE_DEBOUNCE_MS,
   HYDRATE_MAX_ATTEMPTS,
   movieIdFromRowElement,
+  rowRenderState,
+  rowNeedsRepaint,
   isHydrationQuiescent,
   shouldRetryHydrate,
   hydrateRetryDelayMs,

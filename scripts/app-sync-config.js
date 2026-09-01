@@ -161,6 +161,8 @@ const APP_SYNC_ENTRIES = [
       "ROW_HYDRATE_DEBOUNCE_MS",
       "HYDRATE_MAX_ATTEMPTS",
       "movieIdFromRowElement",
+      "rowRenderState",
+      "rowNeedsRepaint",
       "isHydrationQuiescent",
       "shouldRetryHydrate",
       "hydrateRetryDelayMs",

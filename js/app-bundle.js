@@ -1987,6 +1987,46 @@ const appViewportHydration = (function () {
     return Number.isInteger(id) && id > 0 ? id : null;
   }
 
+  /**
+   * Card state a grid row currently shows: `"record"`, `"skeleton"`, `"error"`, or
+   * null when the element holds no card.
+   *
+   * Row markup, not movieById, is what says whether a row rendered its record. A
+   * record can land from a path that never touches the grid — the friend activity
+   * rail, custom list covers, the watched picker, CSV export — so a row painted
+   * before that landed still shows a skeleton with the record sitting in memory.
+   */
+  function rowRenderState(row) {
+    if (!row || typeof row.querySelector !== "function") {
+      return null;
+    }
+    const card = row.querySelector(".card");
+    if (!card) {
+      return null;
+    }
+    if (card.classList?.contains("is-skeleton")) {
+      return "skeleton";
+    }
+    if (card.classList?.contains("is-error")) {
+      return "error";
+    }
+    return "record";
+  }
+
+  /** Whether a row's markup disagrees with the record state now held in memory. */
+  function rowNeedsRepaint(state, { hasRecord = false, hasError = false } = {}) {
+    if (state == null) {
+      return false;
+    }
+    if (hasRecord) {
+      return state !== "record";
+    }
+    if (hasError) {
+      return state !== "error";
+    }
+    return false;
+  }
+
   /** True when no viewport hydration batches are queued, in flight, or awaiting retry. */
   function isHydrationQuiescent({
     batchTimer = 0,
@@ -2014,6 +2054,8 @@ const appViewportHydration = (function () {
     ROW_HYDRATE_DEBOUNCE_MS,
     HYDRATE_MAX_ATTEMPTS,
     movieIdFromRowElement,
+    rowRenderState,
+    rowNeedsRepaint,
     isHydrationQuiescent,
     shouldRetryHydrate,
     hydrateRetryDelayMs,
@@ -10733,6 +10775,30 @@ let rowHydrateBatchTimer = 0;
 let rowHydrateResortTimer;
 
 /**
+ * Repaint a grid row left behind by a hydration that did not patch the grid.
+ *
+ * A record in movieById does not mean this row rendered it: the friend activity
+ * rail, custom list covers, and the watched picker all resolve ids through
+ * hydrateMovies without touching grid rows, and an off-screen row painted before
+ * one of those landed has no other trigger to redraw it.
+ */
+function repaintStaleRow(movieId) {
+  const row = grid?.querySelector(`.movie-row[data-movie-id="${movieId}"]`);
+  const needsRepaint = appViewportHydration.rowNeedsRepaint(
+    appViewportHydration.rowRenderState(row),
+    {
+      hasRecord: appTmdb.isDetailedMovieRecord(movieById.get(movieId)),
+      hasError: movieErrors.has(movieId),
+    },
+  );
+  if (!needsRepaint) {
+    return false;
+  }
+  applyHydratedRecord(movieId, { skipDetail: true });
+  return true;
+}
+
+/**
  * Re-queue an id whose batch resolved to neither a record nor an error. The
  * observer will not fire again while the row stays on screen, so without this
  * the card shimmers for the rest of the session. Once the budget is spent the
@@ -10784,6 +10850,7 @@ function flushRowHydrateBatch() {
         const row = rowsById.get(id);
         if (appTmdb.isDetailedMovieRecord(movieById.get(id)) || movieErrors.has(id)) {
           rowHydrateAttempts.delete(id);
+          repaintStaleRow(id);
           if (rowHydrateObserver && row?.isConnected) {
             rowHydrateObserver.unobserve(row);
           }
@@ -10863,8 +10930,13 @@ function ensureRowHydrateObserver() {
         }
         const row = entry.target;
         const movieId = appViewportHydration.movieIdFromRowElement(row);
-        if (!movieId || appTmdb.isDetailedMovieRecord(movieById.get(movieId))) {
+        if (!movieId) {
           rowHydrateObserver.unobserve(row);
+          continue;
+        }
+        if (appTmdb.isDetailedMovieRecord(movieById.get(movieId))) {
+          rowHydrateObserver.unobserve(row);
+          repaintStaleRow(movieId);
           continue;
         }
         if (rowHydrateInflight.has(movieId) || rowHydratePendingIds.has(movieId)) {

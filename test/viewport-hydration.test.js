@@ -6,9 +6,20 @@ const {
   ROW_HYDRATE_DEBOUNCE_MS,
   HYDRATE_MAX_ATTEMPTS,
   movieIdFromRowElement,
+  rowRenderState,
+  rowNeedsRepaint,
   shouldRetryHydrate,
   hydrateRetryDelayMs,
 } = require("../scripts/lib/viewport-hydration");
+
+/** Minimal stand-in for a `.movie-row` holding one card with these classes. */
+function stubRow(classes) {
+  if (classes == null) {
+    return { querySelector: () => null };
+  }
+  const card = { classList: { contains: (name) => classes.includes(name) } };
+  return { querySelector: (selector) => (selector === ".card" ? card : null) };
+}
 
 test("movieIdFromRowElement reads data-movie-id", () => {
   assert.equal(movieIdFromRowElement({ dataset: { movieId: "603" } }), 603);
@@ -18,6 +29,37 @@ test("movieIdFromRowElement reads data-movie-id", () => {
   );
   assert.equal(movieIdFromRowElement({ dataset: { movieId: "0" } }), null);
   assert.equal(movieIdFromRowElement(null), null);
+});
+
+test("rowRenderState reads the card state out of the row markup", () => {
+  assert.equal(rowRenderState(stubRow(["card", "is-skeleton"])), "skeleton");
+  assert.equal(rowRenderState(stubRow(["card", "is-error"])), "error");
+  assert.equal(rowRenderState(stubRow(["card"])), "record");
+  assert.equal(rowRenderState(stubRow(null)), null);
+  assert.equal(rowRenderState(null), null);
+  assert.equal(rowRenderState({}), null);
+});
+
+test("rowNeedsRepaint catches a row still showing a skeleton over a held record", () => {
+  // The bug this guards: friend activity (and other non-grid hydration paths)
+  // fill movieById, so the grid's observer saw a resolved id and unobserved the
+  // row without ever repainting it, stranding the skeleton for the session.
+  assert.equal(rowNeedsRepaint("skeleton", { hasRecord: true }), true);
+  assert.equal(rowNeedsRepaint("error", { hasRecord: true }), true);
+  assert.equal(rowNeedsRepaint("record", { hasRecord: true }), false);
+});
+
+test("rowNeedsRepaint repaints a skeleton once the id is known to have failed", () => {
+  assert.equal(rowNeedsRepaint("skeleton", { hasError: true }), true);
+  assert.equal(rowNeedsRepaint("error", { hasError: true }), false);
+  // A record wins over a stale failure flag.
+  assert.equal(rowNeedsRepaint("record", { hasRecord: true, hasError: true }), false);
+});
+
+test("rowNeedsRepaint leaves rows alone when nothing is known or the row is gone", () => {
+  assert.equal(rowNeedsRepaint("skeleton"), false);
+  assert.equal(rowNeedsRepaint(null, { hasRecord: true }), false);
+  assert.equal(rowNeedsRepaint(rowRenderState(null), { hasRecord: true }), false);
 });
 
 test("ROW_HYDRATE_ROOT_MARGIN matches poster lazy margin", () => {

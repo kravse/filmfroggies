@@ -1078,6 +1078,30 @@ let rowHydrateBatchTimer = 0;
 let rowHydrateResortTimer;
 
 /**
+ * Repaint a grid row left behind by a hydration that did not patch the grid.
+ *
+ * A record in movieById does not mean this row rendered it: the friend activity
+ * rail, custom list covers, and the watched picker all resolve ids through
+ * hydrateMovies without touching grid rows, and an off-screen row painted before
+ * one of those landed has no other trigger to redraw it.
+ */
+function repaintStaleRow(movieId) {
+  const row = grid?.querySelector(`.movie-row[data-movie-id="${movieId}"]`);
+  const needsRepaint = appViewportHydration.rowNeedsRepaint(
+    appViewportHydration.rowRenderState(row),
+    {
+      hasRecord: appTmdb.isDetailedMovieRecord(movieById.get(movieId)),
+      hasError: movieErrors.has(movieId),
+    },
+  );
+  if (!needsRepaint) {
+    return false;
+  }
+  applyHydratedRecord(movieId, { skipDetail: true });
+  return true;
+}
+
+/**
  * Re-queue an id whose batch resolved to neither a record nor an error. The
  * observer will not fire again while the row stays on screen, so without this
  * the card shimmers for the rest of the session. Once the budget is spent the
@@ -1129,6 +1153,7 @@ function flushRowHydrateBatch() {
         const row = rowsById.get(id);
         if (appTmdb.isDetailedMovieRecord(movieById.get(id)) || movieErrors.has(id)) {
           rowHydrateAttempts.delete(id);
+          repaintStaleRow(id);
           if (rowHydrateObserver && row?.isConnected) {
             rowHydrateObserver.unobserve(row);
           }
@@ -1208,8 +1233,13 @@ function ensureRowHydrateObserver() {
         }
         const row = entry.target;
         const movieId = appViewportHydration.movieIdFromRowElement(row);
-        if (!movieId || appTmdb.isDetailedMovieRecord(movieById.get(movieId))) {
+        if (!movieId) {
           rowHydrateObserver.unobserve(row);
+          continue;
+        }
+        if (appTmdb.isDetailedMovieRecord(movieById.get(movieId))) {
+          rowHydrateObserver.unobserve(row);
+          repaintStaleRow(movieId);
           continue;
         }
         if (rowHydrateInflight.has(movieId) || rowHydratePendingIds.has(movieId)) {
