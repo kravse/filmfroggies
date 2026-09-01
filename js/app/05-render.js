@@ -784,11 +784,28 @@ function listSearchPaintBaseIds() {
   return unfilteredDisplayMovieIds();
 }
 
-function listSearchVisibleRowCount() {
+function gridVisibleMovieCount() {
   if (!grid) {
     return 0;
   }
   return grid.querySelectorAll(".movie-row[data-movie-id]:not([hidden])").length;
+}
+
+function movieListChromeCount(reportedCount) {
+  const visibleRows = gridVisibleMovieCount();
+  if (visibleRows > 0) {
+    return visibleRows;
+  }
+  const totalCount = activeMovieIds().length;
+  const ctx = getActiveDisplayContext();
+  const searchActive =
+    ctx.searchable &&
+    typeof hasActiveListSearch === "function" &&
+    hasActiveListSearch();
+  if (totalCount > 0 && !searchActive) {
+    return totalCount;
+  }
+  return reportedCount;
 }
 
 function listSearchBaseGridMatchesDom() {
@@ -821,7 +838,7 @@ function syncListSearchRowVisibility() {
   let visibleIds = baseIds;
   if (typeof hasActiveListSearch === "function" && hasActiveListSearch()) {
     visibleIds = applyDisplayListFilters(baseIds);
-    const visibleSet = new Set(visibleIds);
+    const visibleSet = new Set(visibleIds.map((id) => Number(id)));
     for (const row of grid.querySelectorAll(".movie-row[data-movie-id]")) {
       const movieId = Number(row.dataset.movieId);
       row.hidden = !visibleSet.has(movieId);
@@ -840,14 +857,14 @@ function syncListSearchRowVisibility() {
     !hasActiveListSearch() &&
     !visibleIds.length
   ) {
-    const domCount = listSearchVisibleRowCount();
+    const domCount = gridVisibleMovieCount();
     if (domCount) {
       visibleIds = unfilteredDisplayMovieIds();
       renderedMovieIds = [...visibleIds];
       return visibleIds.length;
     }
   }
-  return visibleIds.length;
+  return movieListChromeCount(visibleIds.length);
 }
 
 function tryListSearchVisibilityOnlyUpdate() {
@@ -1064,27 +1081,27 @@ function syncAddMovieFabVisibility(count) {
   }
 }
 
-function renderEmptyState(count) {
+function renderEmptyState(reportedCount) {
   const totalCount = activeMovieIds().length;
+  const visibleRows = gridVisibleMovieCount();
   const ctx = getActiveDisplayContext();
-  const effectiveCount =
-    ctx.searchable && typeof hasActiveListSearch === "function" && hasActiveListSearch()
-      ? count
-      : Math.max(count, listSearchVisibleRowCount());
-  if (effectiveCount) {
-    emptyState.hidden = true;
-    emptyState.innerHTML = "";
-    return;
-  }
-  if (
-    totalCount > 0 &&
+  const searchActive =
+    ctx.searchable &&
     typeof hasActiveListSearch === "function" &&
-    !hasActiveListSearch()
-  ) {
+    hasActiveListSearch();
+
+  if (visibleRows > 0) {
     emptyState.hidden = true;
     emptyState.innerHTML = "";
     return;
   }
+
+  if (totalCount > 0 && !searchActive) {
+    emptyState.hidden = true;
+    emptyState.innerHTML = "";
+    return;
+  }
+
   emptyState.hidden = false;
   if (isCustomListDetailActive()) {
     if (!hasTmdbAccess()) {
@@ -1168,13 +1185,14 @@ function render() {
   paintMovieGrid(displayMovieIds());
 }
 
-function syncMovieListChrome(ids) {
+function syncMovieListChrome(reportedCount) {
+  const visibleCount = movieListChromeCount(reportedCount);
   renderListTabs();
   syncReorderModeUi();
   syncListSearchVisibility();
   syncAppViewChrome();
-  renderEmptyState(ids.length);
-  syncAddMovieFabVisibility(ids.length);
+  renderEmptyState(visibleCount);
+  syncAddMovieFabVisibility(visibleCount);
 }
 
 function paintMovieGrid(ids) {

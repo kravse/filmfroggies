@@ -161,6 +161,9 @@ function listSearchRenderNow() {
     clearTimeout(listSearchRenderTimer);
     listSearchRenderTimer = null;
   }
+  if (!isWatchedListActive()) {
+    return;
+  }
   if (!listSearchGridNeedsRender()) {
     return;
   }
@@ -179,6 +182,9 @@ function debouncedListSearchRender() {
   }
   listSearchRenderTimer = setTimeout(() => {
     listSearchRenderTimer = null;
+    if (!isWatchedListActive()) {
+      return;
+    }
     if (!listSearchGridNeedsRender()) {
       return;
     }
