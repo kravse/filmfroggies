@@ -157,6 +157,7 @@ const APP_SYNC_ENTRIES = [
     header: "Generated from scripts/lib/viewport-hydration.js — run npm run bundle",
     exports: [
       "ROW_HYDRATE_ROOT_MARGIN",
+      "ROW_HYDRATE_DEBOUNCE_MS",
       "HYDRATE_MAX_ATTEMPTS",
       "movieIdFromRowElement",
       "isHydrationQuiescent",

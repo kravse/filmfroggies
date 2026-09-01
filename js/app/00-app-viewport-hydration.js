@@ -12,6 +12,18 @@ const appViewportHydration = (function () {
   const ROW_HYDRATE_ROOT_MARGIN = "320px 0px";
 
   /**
+   * How long ids collect before one POST goes out. The timer does not extend when
+   * more ids arrive, so this is the coalescing granularity, not a settle delay:
+   * a scroll emits one request per window for as long as it lasts, carrying only
+   * the rows that crossed the boundary in that slice. Too short and each request
+   * carries a single grid row, which is what turned one pass over a collection
+   * into dozens of requests. The rootMargin prefetch band is what pays for the
+   * wait — rows are requested well before they are visible, so coalescing several
+   * grid rows per request costs no perceived latency.
+   */
+  const ROW_HYDRATE_DEBOUNCE_MS = 200;
+
+  /**
    * Retry budget for a batch that came back with neither a record nor an error.
    * A row that stays on screen never re-fires the observer, so an unresolved id
    * has to re-queue itself or it renders as a skeleton for the rest of the
@@ -57,6 +69,7 @@ const appViewportHydration = (function () {
 
   return {
     ROW_HYDRATE_ROOT_MARGIN,
+    ROW_HYDRATE_DEBOUNCE_MS,
     HYDRATE_MAX_ATTEMPTS,
     movieIdFromRowElement,
     isHydrationQuiescent,

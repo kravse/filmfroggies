@@ -1140,7 +1140,10 @@ function scheduleRowHydrateBatch(movieId, row) {
   if (rowHydrateBatchTimer) {
     return;
   }
-  rowHydrateBatchTimer = setTimeout(flushRowHydrateBatch, 50);
+  rowHydrateBatchTimer = setTimeout(
+    flushRowHydrateBatch,
+    appViewportHydration.ROW_HYDRATE_DEBOUNCE_MS,
+  );
 }
 
 function disconnectRowHydrateObserver() {

@@ -57,10 +57,16 @@ export const AUTH_RATE_LIMITS = {
   loginEmailFail: { limit: 5, windowMs: 15 * 60 * 1000 },
 };
 
-/** Per-user and per-IP caps on proxied TMDB reads, sized like BATCH_RATE_LIMITS. */
+/**
+ * Per-user and per-IP caps on proxied TMDB reads. Sized well above the movie batch
+ * because this path fans out rather than coalescing: a cached-but-stale movie is
+ * revalidated one request per id, so a single hydrate batch can emit as many TMDB
+ * reads as it had ids. A collection imported in one go also goes stale in one go,
+ * making the month-boundary session the peak this has to absorb.
+ */
 export const TMDB_RATE_LIMITS = {
-  user: { limit: 120, windowMs: 60 * 1000 },
-  ip: { limit: 480, windowMs: 60 * 1000 },
+  user: { limit: 240, windowMs: 60 * 1000 },
+  ip: { limit: 720, windowMs: 60 * 1000 },
 };
 
 const RATE_LIMIT_ERROR = "Too many attempts. Try again later.";

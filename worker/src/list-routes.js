@@ -15,10 +15,14 @@ import {
   resolveListSort,
 } from "./lib/list-query.js";
 
-/** Browsing capacity cap, sized like BATCH_RATE_LIMITS: short window, 4x IP headroom. */
+/**
+ * One request per list view or sort change, so real volume is far below the movie
+ * batch. Sized on the same short window as BATCH_RATE_LIMITS so a burst recovers
+ * within the client's retry budget rather than locking the tab out.
+ */
 export const LIST_RATE_LIMITS = {
-  user: { limit: 120, windowMs: 60 * 1000 },
-  ip: { limit: 480, windowMs: 60 * 1000 },
+  user: { limit: 60, windowMs: 60 * 1000 },
+  ip: { limit: 240, windowMs: 60 * 1000 },
 };
 
 const STORED_DOC_CORRUPT_ERROR = "Stored data is corrupt";

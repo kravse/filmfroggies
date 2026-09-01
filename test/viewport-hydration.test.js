@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
   ROW_HYDRATE_ROOT_MARGIN,
+  ROW_HYDRATE_DEBOUNCE_MS,
   HYDRATE_MAX_ATTEMPTS,
   movieIdFromRowElement,
   shouldRetryHydrate,
@@ -21,6 +22,15 @@ test("movieIdFromRowElement reads data-movie-id", () => {
 
 test("ROW_HYDRATE_ROOT_MARGIN matches poster lazy margin", () => {
   assert.equal(ROW_HYDRATE_ROOT_MARGIN, "320px 0px");
+});
+
+test("ROW_HYDRATE_DEBOUNCE_MS coalesces several grid rows per request", () => {
+  // The timer does not extend on new ids, so this is the request cadence during a
+  // scroll. Below ~100ms each request carries a single grid row, which is what made
+  // one pass over a collection cost dozens of requests.
+  assert.equal(ROW_HYDRATE_DEBOUNCE_MS, 200);
+  assert.ok(ROW_HYDRATE_DEBOUNCE_MS >= 100, "too short to coalesce a scroll");
+  assert.ok(ROW_HYDRATE_DEBOUNCE_MS <= 400, "long enough to be felt as lag");
 });
 
 test("isHydrationQuiescent is true only when nothing is queued or in flight", () => {

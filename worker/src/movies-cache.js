@@ -21,16 +21,21 @@ export const D1_IN_CHUNK_SIZE = 400;
 /**
  * Capacity caps, not a security control — the endpoint already requires a session.
  *
- * Viewport hydration fires one batch per 50ms debounce window, so scrolling a large
- * collection is tens of requests in a minute. A 15-minute window turned that into a
- * 15-minute lockout, well past any client backoff, which stranded rows as skeletons.
- * Short windows keep retry-after inside the client's retry budget. The IP cap is 4x
- * the user cap so a shared or proxied IP (see proxy-signature.js) does not 429
- * everyone behind it.
+ * Volume is bounded by un-hydrated grid rows, not collection size: the client
+ * coalesces ids per ROW_HYDRATE_DEBOUNCE_MS window and never re-requests an id it
+ * already holds, so one pass over a few hundred movies is well under 20 requests.
+ * The cap is sized several times above that, leaving it an abuse backstop rather
+ * than something normal browsing brushes against.
+ *
+ * The window is deliberately short. A 15-minute window meant one burst could return
+ * a retry-after longer than any client backoff, stranding rows as skeletons; at one
+ * minute the worst case is inside the client's retry budget. The IP cap is well above
+ * the user cap so a shared or proxied IP (see proxy-signature.js) — which every
+ * visitor collapses into when the Netlify signature fails — does not 429 everyone.
  */
 export const BATCH_RATE_LIMITS = {
-  user: { limit: 120, windowMs: 60 * 1000 },
-  ip: { limit: 480, windowMs: 60 * 1000 },
+  user: { limit: 90, windowMs: 60 * 1000 },
+  ip: { limit: 300, windowMs: 60 * 1000 },
 };
 
 const TMDB_MOVIE_APPEND = "append_to_response=credits&language=en-US";
