@@ -589,6 +589,11 @@ headerLogo.addEventListener("click", () => {
 /* --- Global keys --- */
 
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.isComposing && !removeConfirmDialog.hidden) {
+    event.preventDefault();
+    confirmRemoveMovie();
+    return;
+  }
   if (event.key === "Escape") {
     if (!collectionImportDialog.hidden) {
       closeCollectionImportConfirm();
