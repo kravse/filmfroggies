@@ -431,12 +431,12 @@ function displayMovieIds() {
   let ids = ctx.movieIds;
   if (ctx.searchable && typeof hasActiveListSearch === "function" && hasActiveListSearch()) {
     ids = appListSearch.filterMovieIds(ids, getListSearchFilter(), (id) =>
-      movieById.get(id) ?? localMovieRecord(id),
+      movieById.get(id) ?? null,
     );
   }
   if (ctx.sortable) {
     const sortContext = {
-      getRecord: (id) => movieById.get(id) ?? localMovieRecord(id),
+      getRecord: (id) => movieById.get(id) ?? null,
       getUserRating: (id) => appRatings.getRating(userState.ratings, id),
       getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
       getWatchedOn: (id) => appViewingHistory.latestViewingDate(userState.viewingHistory, id),
@@ -2311,250 +2311,6 @@ const appPosterCache = (function () {
   };
 })();
 
-/* ===== Committed data/ snapshot (generated from scripts/lib/local-data.js) ===== */
-
-/* Generated from scripts/lib/local-data.js — run npm run bundle */
-
-const appLocalData = (function () {
-  /**
-   * Committed poster assets under data/.
-   *
-   * `npm run scrape` downloads poster files for ids in data/my_list.csv and writes
-   * data/posters.json so the app can serve them from the repo. Movie metadata
-   * comes from the account D1 batch cache, not from data/.
-   *
-   * Legacy data/movies.json helpers remain for tests and one-time scraper migration.
-   */
-
-  const LOCAL_DATA_VERSION = 1;
-  const LOCAL_DATA_URL = "data/movies.json";
-  const LOCAL_POSTERS_VERSION = 1;
-  const LOCAL_POSTERS_URL = "data/posters.json";
-  const LOCAL_POSTER_DIR = "data/posters";
-  /** Ascending. Card and suggest requests scale down from the smallest stored. */
-  const LOCAL_POSTER_SIZES = ["w342", "w500"];
-
-  const POSTER_SIZE_PATTERN = /^w(\d+)$/;
-  const POSTER_FILE_PATTERN = /^[A-Za-z0-9._-]+\.(jpg|jpeg|png|webp)$/i;
-
-  function getTmdb() {
-    if (typeof appTmdb !== "undefined") {
-      return appTmdb;
-    }
-    if (typeof require === "function") {
-      return require("./tmdb");
-    }
-    throw new Error("appTmdb is not available");
-  }
-
-  function cleanText(value) {
-    const text = String(value == null ? "" : value).trim();
-    return text || null;
-  }
-
-  function cleanNames(value) {
-    if (!Array.isArray(value)) {
-      return [];
-    }
-    return value.map(cleanText).filter(Boolean);
-  }
-
-  function cleanPositiveNumber(value) {
-    const number = Number(value);
-    return Number.isFinite(number) && number > 0 ? number : null;
-  }
-
-  function cleanImagePath(value) {
-    return getTmdb().isValidImagePath(value) ? String(value) : null;
-  }
-
-  /** Stored poster filenames are basenames, so validate them with a leading slash. */
-  function isPosterFile(value) {
-    const file = String(value == null ? "" : value);
-    return POSTER_FILE_PATTERN.test(file) && getTmdb().isValidImagePath(`/${file}`);
-  }
-
-  function posterFileFromPath(imagePath) {
-    if (!getTmdb().isValidImagePath(imagePath)) {
-      return null;
-    }
-    return String(imagePath).slice(1);
-  }
-
-  /** `original` has no width, so it sorts above every numbered size. */
-  function posterSizeWidth(size) {
-    if (size === "original") {
-      return Number.POSITIVE_INFINITY;
-    }
-    const match = POSTER_SIZE_PATTERN.exec(String(size || ""));
-    return match ? Number(match[1]) : null;
-  }
-
-  function normalizePosterSizes(raw) {
-    if (!Array.isArray(raw)) {
-      return [];
-    }
-    const seen = new Set();
-    const sizes = [];
-    for (const entry of raw) {
-      const size = String(entry || "");
-      if (posterSizeWidth(size) == null || seen.has(size)) {
-        continue;
-      }
-      seen.add(size);
-      sizes.push(size);
-    }
-    return sizes.sort((a, b) => posterSizeWidth(a) - posterSizeWidth(b));
-  }
-
-  /**
-   * The smallest stored size that is at least as wide as the one asked for, so a
-   * w185 card is served the stored w342 and scaled down by the browser. A request
-   * wider than anything stored falls back to the largest available.
-   */
-  function pickPosterSize(size, storedSizes) {
-    const sizes = normalizePosterSizes(storedSizes);
-    if (!sizes.length) {
-      return null;
-    }
-    const wanted = posterSizeWidth(size);
-    if (wanted == null) {
-      return null;
-    }
-    return sizes.find((stored) => posterSizeWidth(stored) >= wanted) || sizes[sizes.length - 1];
-  }
-
-  /** Null whenever the snapshot cannot serve this image, which means fall back to TMDB. */
-  function localPosterUrl(posterFile, size, storedSizes) {
-    if (!isPosterFile(posterFile)) {
-      return null;
-    }
-    const stored = pickPosterSize(size, storedSizes);
-    if (!stored) {
-      return null;
-    }
-    return `${LOCAL_POSTER_DIR}/${stored}/${posterFile}`;
-  }
-
-  function normalizeLocalRecord(raw) {
-    const id = Number(raw?.id);
-    if (!Number.isInteger(id) || id <= 0) {
-      return null;
-    }
-    return {
-      id,
-      title: cleanText(raw.title) || "Untitled",
-      releaseDate: cleanText(raw.releaseDate),
-      overview: cleanText(raw.overview),
-      tagline: cleanText(raw.tagline),
-      posterPath: cleanImagePath(raw.posterPath),
-      backdropPath: cleanImagePath(raw.backdropPath),
-      runtime: cleanPositiveNumber(raw.runtime),
-      voteAverage: cleanPositiveNumber(raw.voteAverage),
-      genres: cleanNames(raw.genres),
-      directors: cleanNames(raw.directors),
-      cast: cleanNames(raw.cast),
-      poster: isPosterFile(raw.poster) ? String(raw.poster) : null,
-    };
-  }
-
-  /**
-   * A snapshot the app cannot read is treated as absent rather than fatal: the
-   * app then behaves exactly as it did before there was a data folder.
-   */
-  function normalizeLocalData(raw) {
-    const empty = { generatedAt: null, posterSizes: [], records: [] };
-    if (!raw || typeof raw !== "object" || Number(raw.version) !== LOCAL_DATA_VERSION) {
-      return empty;
-    }
-    const movies = raw.movies;
-    if (!movies || typeof movies !== "object") {
-      return empty;
-    }
-    const records = Object.values(movies).map(normalizeLocalRecord).filter(Boolean);
-    return {
-      generatedAt: cleanText(raw.generatedAt),
-      posterSizes: normalizePosterSizes(raw.posterSizes),
-      records,
-    };
-  }
-
-  /** Ids ascend so the file diffs cleanly between scrapes. */
-  function serializeLocalData(records, options = {}) {
-    const movies = {};
-    for (const record of records.map(normalizeLocalRecord).filter(Boolean).sort((a, b) => a.id - b.id)) {
-      movies[record.id] = record;
-    }
-    return {
-      version: LOCAL_DATA_VERSION,
-      generatedAt: cleanText(options.generatedAt) || new Date().toISOString(),
-      posterSizes: normalizePosterSizes(options.posterSizes || LOCAL_POSTER_SIZES),
-      movies,
-    };
-  }
-
-  function normalizePostersManifest(raw) {
-    const empty = { generatedAt: null, posterSizes: [], posters: {} };
-    if (!raw || typeof raw !== "object" || Number(raw.version) !== LOCAL_POSTERS_VERSION) {
-      return empty;
-    }
-    const postersRaw = raw.posters;
-    if (!postersRaw || typeof postersRaw !== "object") {
-      return empty;
-    }
-    const posters = {};
-    for (const [key, value] of Object.entries(postersRaw)) {
-      const id = Number(key);
-      if (!Number.isInteger(id) || id <= 0 || !isPosterFile(value)) {
-        continue;
-      }
-      posters[id] = String(value);
-    }
-    return {
-      generatedAt: cleanText(raw.generatedAt),
-      posterSizes: normalizePosterSizes(raw.posterSizes),
-      posters,
-    };
-  }
-
-  function serializePostersManifest(postersById, options = {}) {
-    const posters = {};
-    for (const id of Object.keys(postersById)
-      .map(Number)
-      .filter((value) => Number.isInteger(value) && value > 0)
-      .sort((a, b) => a - b)) {
-      const file = postersById[id];
-      if (isPosterFile(file)) {
-        posters[id] = String(file);
-      }
-    }
-    return {
-      version: LOCAL_POSTERS_VERSION,
-      generatedAt: cleanText(options.generatedAt) || new Date().toISOString(),
-      posterSizes: normalizePosterSizes(options.posterSizes || LOCAL_POSTER_SIZES),
-      posters,
-    };
-  }
-
-  return {
-    LOCAL_DATA_VERSION,
-    LOCAL_DATA_URL,
-    LOCAL_POSTERS_VERSION,
-    LOCAL_POSTERS_URL,
-    LOCAL_POSTER_DIR,
-    LOCAL_POSTER_SIZES,
-    posterSizeWidth,
-    posterFileFromPath,
-    isPosterFile,
-    pickPosterSize,
-    localPosterUrl,
-    normalizeLocalRecord,
-    normalizeLocalData,
-    serializeLocalData,
-    normalizePostersManifest,
-  };
-})();
-
 /* ===== List operations (generated from scripts/lib/lists.js) ===== */
 
 /* Generated from scripts/lib/lists.js — run npm run bundle */
@@ -3205,15 +2961,14 @@ const appCustomLists = (function () {
 
 const appListCsv = (function () {
   /**
-   * Collection backup CSV: export from the browser, import to restore, scrape ids only.
+   * Collection backup CSV: export from the browser, import to restore.
    *
-   * The browser is the only place that knows the collection, and the scraper runs
-   * on a machine that cannot read localStorage or the Gist. Settings exports this
-   * file, you commit it, and `npm run scrape` reads it back. Both ends share these
+   * The browser is the only place that knows the collection, so Settings exports
+   * this file and reads it back on import. Export and import share these
    * functions so the format has exactly one definition.
    *
-   * Only `tmdb_id` is load-bearing for scrape. The other columns carry list
-   * membership, ratings, and viewing dates for backup/restore.
+   * Only `tmdb_id` identifies a movie. The other columns carry list membership,
+   * ratings, and viewing dates for backup/restore.
    */
 
   function parseCsv(text) {
@@ -3675,7 +3430,7 @@ const appListCsv = (function () {
   /**
    * Reads the first column of every line as an id. The header, blank lines, and
    * anything hand-edited into an unparseable state are skipped rather than
-   * refused: a typo in a comment column should not stop a scrape.
+   * refused: a typo in a comment column should not stop an import.
    */
   function parseListCsv(text) {
     const seen = new Set();
@@ -5902,53 +5657,54 @@ const appSplash = (function () {
   /**
    * Content for the logged-out splash page.
    *
-   * Titles and years are a small committed snapshot, restored from the retired
-   * data/movies.json, covering only ids whose posters ship in data/posters/. That
-   * lets the marketing page render real tiles with no session and no TMDB call.
-   * It is not a metadata source for collections — hydrateMovies still resolves
-   * those from D1/TMDB, and nothing here reaches user state.
+   * Titles, years, and TMDB poster paths are a small committed snapshot so the
+   * marketing page renders real tiles with no session and no TMDB API call — the
+   * poster images come straight from TMDB's CDN, which needs no token. It is not
+   * a metadata source for collections: hydrateMovies still resolves those from
+   * D1/TMDB, and nothing here reaches user state. A poster path pins the artwork
+   * as of the snapshot; TMDB replacing the art does not change what renders here.
    */
 
   const SPLASH_MOVIES = [
-    { id: 38, title: "Eternal Sunshine of the Spotless Mind", year: 2004 },
-    { id: 73, title: "American History X", year: 1998 },
-    { id: 129, title: "Spirited Away", year: 2001 },
-    { id: 141, title: "Donnie Darko", year: 2001 },
-    { id: 238, title: "The Godfather", year: 1972 },
-    { id: 278, title: "The Shawshank Redemption", year: 1994 },
-    { id: 387, title: "Das Boot", year: 1981 },
-    { id: 389, title: "12 Angry Men", year: 1957 },
-    { id: 401, title: "Garden State", year: 2004 },
-    { id: 550, title: "Fight Club", year: 1999 },
-    { id: 603, title: "The Matrix", year: 1999 },
-    { id: 670, title: "Oldboy", year: 2003 },
-    { id: 680, title: "Pulp Fiction", year: 1994 },
-    { id: 694, title: "The Shining", year: 1980 },
-    { id: 837, title: "Videodrome", year: 1983 },
-    { id: 1091, title: "The Thing", year: 1982 },
-    { id: 1398, title: "Stalker", year: 1979 },
-    { id: 1548, title: "Ghost World", year: 2001 },
-    { id: 1946, title: "eXistenZ", year: 1999 },
-    { id: 4538, title: "The Darjeeling Limited", year: 2007 },
-    { id: 8337, title: "They Live", year: 1988 },
-    { id: 9426, title: "The Fly", year: 1986 },
-    { id: 9538, title: "Scanners", year: 1981 },
-    { id: 10774, title: "Network", year: 1976 },
-    { id: 110415, title: "Snowpiercer", year: 2013 },
-    { id: 11305, title: "Mystery Train", year: 1989 },
-    { id: 11423, title: "Memories of Murder", year: 2003 },
-    { id: 1255, title: "The Host", year: 2006 },
-    { id: 30018, title: "Mother", year: 2009 },
-    { id: 76341, title: "Mad Max: Fury Road", year: 2015 },
-    { id: 120467, title: "The Grand Budapest Hotel", year: 2014 },
-    { id: 246741, title: "What We Do in the Shadows", year: 2014 },
-    { id: 329865, title: "Arrival", year: 2016 },
-    { id: 387426, title: "Okja", year: 2017 },
-    { id: 496243, title: "Parasite", year: 2019 },
-    { id: 1154538, title: "Nirvanna the Band the Show the Movie", year: 2026 },
-    { id: 1272837, title: "28 Years Later: The Bone Temple", year: 2026 },
-    { id: 1339713, title: "Obsession", year: 2026 },
-    { id: 1368337, title: "The Odyssey", year: 2026 },
+    { id: 38, title: "Eternal Sunshine of the Spotless Mind", year: 2004, posterPath: "/5MwkWH9tYHv3mV9OdYTMR5qreIz.jpg" },
+    { id: 73, title: "American History X", year: 1998, posterPath: "/x2drgoXYZ8484lqyDj7L1CEVR4T.jpg" },
+    { id: 129, title: "Spirited Away", year: 2001, posterPath: "/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg" },
+    { id: 141, title: "Donnie Darko", year: 2001, posterPath: "/j2AtZFsflxiluaNtajMTI0Avm8C.jpg" },
+    { id: 238, title: "The Godfather", year: 1972, posterPath: "/3bhkrj58Vtu7enYsRolD1fZdja1.jpg" },
+    { id: 278, title: "The Shawshank Redemption", year: 1994, posterPath: "/9cqNxx0GxF0bflZmeSMuL5tnGzr.jpg" },
+    { id: 387, title: "Das Boot", year: 1981, posterPath: "/u8FhQPncOAkwcei2OI9orPWhV6K.jpg" },
+    { id: 389, title: "12 Angry Men", year: 1957, posterPath: "/ppd84D2i9W8jXmsyInGyihiSyqz.jpg" },
+    { id: 401, title: "Garden State", year: 2004, posterPath: "/h3iqYiGS6F3y7GxaS4AT8nFxZ2i.jpg" },
+    { id: 550, title: "Fight Club", year: 1999, posterPath: "/jSziioSwPVrOy9Yow3XhWIBDjq1.jpg" },
+    { id: 603, title: "The Matrix", year: 1999, posterPath: "/dXNAPwY7VrqMAo51EKhhCJfaGb5.jpg" },
+    { id: 670, title: "Oldboy", year: 2003, posterPath: "/pWDtjs568ZfOTMbURQBYuT4Qxka.jpg" },
+    { id: 680, title: "Pulp Fiction", year: 1994, posterPath: "/vQWk5YBFWF4bZaofAbv0tShwBvQ.jpg" },
+    { id: 694, title: "The Shining", year: 1980, posterPath: "/uAR0AWqhQL1hQa69UDEbb2rE5Wx.jpg" },
+    { id: 837, title: "Videodrome", year: 1983, posterPath: "/qqqkiZSU9EBGZ1KiDmfn07S7qvv.jpg" },
+    { id: 1091, title: "The Thing", year: 1982, posterPath: "/tzGY49kseSE9QAKk47uuDGwnSCu.jpg" },
+    { id: 1398, title: "Stalker", year: 1979, posterPath: "/1qhOyf5C4s9ZdvY8d5JDx9DFMeT.jpg" },
+    { id: 1548, title: "Ghost World", year: 2001, posterPath: "/uwKqnUPE4dSM0kKuMW0vXpURh2T.jpg" },
+    { id: 1946, title: "eXistenZ", year: 1999, posterPath: "/kETKF0JhdTPn1knci8CAdYL0d79.jpg" },
+    { id: 4538, title: "The Darjeeling Limited", year: 2007, posterPath: "/oSW5OVXTulaIXcoNwJAp5YEKpbP.jpg" },
+    { id: 8337, title: "They Live", year: 1988, posterPath: "/ngnybFTuopfbfmmEeX9jjBQQmF6.jpg" },
+    { id: 9426, title: "The Fly", year: 1986, posterPath: "/8gZWMhJHRvaXdXsNhERtqNHYpH3.jpg" },
+    { id: 9538, title: "Scanners", year: 1981, posterPath: "/VTqLdveNXxGsIAZL5I4RliTTt7.jpg" },
+    { id: 10774, title: "Network", year: 1976, posterPath: "/qZomlHsaALUtkFeMDwdYmwS2Pbo.jpg" },
+    { id: 110415, title: "Snowpiercer", year: 2013, posterPath: "/kw6YQudA0TMcNmGUGy5XIw7zbnV.jpg" },
+    { id: 11305, title: "Mystery Train", year: 1989, posterPath: "/f11xq7dBGhz9UDc3dabldAGeXVH.jpg" },
+    { id: 11423, title: "Memories of Murder", year: 2003, posterPath: "/jcgUjx1QcupGzjntTVlnQ15lHqy.jpg" },
+    { id: 1255, title: "The Host", year: 2006, posterPath: "/dEDLY3KeghKFzks5nTDWdigVikr.jpg" },
+    { id: 30018, title: "Mother", year: 2009, posterPath: "/8oBnSkZE6GDVugAbLPO6uJd4GcS.jpg" },
+    { id: 76341, title: "Mad Max: Fury Road", year: 2015, posterPath: "/ulcAi4dKpAjHwYGS08vNyx9H6I9.jpg" },
+    { id: 120467, title: "The Grand Budapest Hotel", year: 2014, posterPath: "/eWdyYQreja6JGCzqHWXpWHDrrPo.jpg" },
+    { id: 246741, title: "What We Do in the Shadows", year: 2014, posterPath: "/a2rD3i3DBMeYbA34rBv6z3B9S3a.jpg" },
+    { id: 329865, title: "Arrival", year: 2016, posterPath: "/pEzNVQfdzYDzVK0XqxERIw2x2se.jpg" },
+    { id: 387426, title: "Okja", year: 2017, posterPath: "/pHlRr2MfjK77VIIAO7p0R4jhsJI.jpg" },
+    { id: 496243, title: "Parasite", year: 2019, posterPath: "/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg" },
+    { id: 1154538, title: "Nirvanna the Band the Show the Movie", year: 2026, posterPath: "/sm5TGX8WbnCd9Uo26cLyTxVwA1n.jpg" },
+    { id: 1272837, title: "28 Years Later: The Bone Temple", year: 2026, posterPath: "/kK1BGkG3KAvWB0WMV1DfOx9yTMZ.jpg" },
+    { id: 1339713, title: "Obsession", year: 2026, posterPath: "/bRwnj8WEKBCvmfeUNOukJPwB43K.jpg" },
+    { id: 1368337, title: "The Odyssey", year: 2026, posterPath: "/5rhTDKUhPYvpdQIijFIs5VoWsON.jpg" },
   ];
 
   /**
@@ -6024,8 +5780,8 @@ const appSplash = (function () {
 
   /**
    * Tiles for one group, in the order they are curated. An entry is dropped when
-   * its poster is not on disk, so a trimmed data/posters/ degrades to fewer tiles
-   * instead of broken images.
+   * the caller cannot resolve a poster URL for it, so a curated id with a bad
+   * poster path degrades to one fewer tile instead of a broken image.
    */
   function splashTiles(name, options = {}) {
     const posterUrl = typeof options.posterUrl === "function" ? options.posterUrl : () => null;
@@ -8268,10 +8024,10 @@ async function fetchFriendState(userId) {
  * only after appTmdbMovieCache.MOVIE_CACHE_REVALIDATE_MS (30 days). Search is
  * transient and only memoized for the session.
  *
- * Ahead of network hydration, committed poster files under data/posters/ are
- * served when data/posters.json lists the id. Movie metadata hydrates from the
- * TMDB Cache API first, then the account D1 batch cache (POST /api/movies/batch),
- * then per-id TMDB fallback.
+ * Movie metadata hydrates from the TMDB Cache API first, then the account D1
+ * batch cache (POST /api/movies/batch), then per-id TMDB fallback. Poster
+ * images come straight from TMDB's image CDN, which takes no credential and
+ * never touches the Worker.
  *
  * When logged in, all TMDB traffic goes through the account-gated Worker proxy
  * at /api/tmdb (Netlify redirect in production, direct Worker URL on localhost).
@@ -8328,10 +8084,6 @@ const posterUrlInflight = new Map();
 const posterLoadQueue = [];
 let posterLoadsInFlight = 0;
 let posterObserver;
-/** Poster filenames from data/posters.json, keyed by TMDB id. */
-const localPosterById = new Map();
-let localPosterSizes = [];
-let localPosterGeneratedAt = null;
 
 function hasTmdbAccess() {
   return accountSyncEnabled();
@@ -8379,76 +8131,9 @@ function buildProxyUrl(path, searchParams) {
   return url.toString();
 }
 
-/* --- Committed poster files --- */
-
-/**
- * Read once at startup. A repo with no manifest yet 404s here, which is not an
- * error condition: posters simply fall back to TMDB's CDN.
- */
-async function loadLocalPosterData() {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const response = await fetch(appLocalData.LOCAL_POSTERS_URL, {
-      signal: controller.signal,
-      headers: { accept: "application/json" },
-    });
-    if (!response.ok) {
-      return false;
-    }
-    const data = appLocalData.normalizePostersManifest(await response.json());
-    localPosterById.clear();
-    for (const [id, poster] of Object.entries(data.posters)) {
-      localPosterById.set(Number(id), poster);
-    }
-    localPosterSizes = data.posterSizes.length
-      ? data.posterSizes
-      : appLocalData.LOCAL_POSTER_SIZES;
-    localPosterGeneratedAt = data.generatedAt;
-    return localPosterById.size > 0;
-  } catch (_) {
-    return false;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function hasLocalPosterData() {
-  return localPosterById.size > 0;
-}
-
-function localPosterCount() {
-  return localPosterById.size;
-}
-
-/** Legacy hook; metadata no longer lives in data/. */
-function localMovieRecord(_movieId) {
-  return null;
-}
-
-function localPosterStamp() {
-  return localPosterGeneratedAt;
-}
-
-/** Metadata requires an account session; local posters only speed up images. */
+/** Metadata requires an account session; poster images do not. */
 function hasMovieData() {
   return hasTmdbAccess();
-}
-
-/** Null whenever the manifest cannot serve this poster, so callers fall back. */
-function localPosterUrlFor(record, size) {
-  if (!record) {
-    return null;
-  }
-  const posterFile = localPosterById.get(record.id);
-  if (!posterFile) {
-    return null;
-  }
-  const fromPath = appLocalData.posterFileFromPath(record.posterPath);
-  if (fromPath && fromPath !== posterFile) {
-    return null;
-  }
-  return appLocalData.localPosterUrl(posterFile, size, localPosterSizes);
 }
 
 /* --- Cache --- */
@@ -9904,17 +9589,11 @@ function posterPlaceholderHtml(record, options = {}) {
 }
 
 function posterHtml(record, size) {
-  const remote = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
-  const local = record ? localPosterUrlFor(record, size) : null;
-  const url = local || remote;
+  const url = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
   if (!url) {
     return posterPlaceholderHtml(record);
   }
-  // A snapshot entry whose file has gone missing retries TMDB rather than
-  // leaving a hole where the poster was.
-  const fallback =
-    local && remote ? ` data-poster-fallback="${appCardHtml.escapeHtml(remote)}"` : "";
-  return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async"${fallback}>`;
+  return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async">`;
 }
 
 function detailPosterSkeletonHtml() {
@@ -9928,9 +9607,7 @@ function discoverDetailPosterEmptyHtml() {
 }
 
 function detailPosterFrameHtml(record, size) {
-  const remote = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
-  const local = record ? localPosterUrlFor(record, size) : null;
-  const url = local || remote;
+  const url = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
   const skeleton = `<div class="movie-detail-poster-skeleton" aria-hidden="true"></div>`;
   if (!url) {
     if (isDiscoverActive()) {
@@ -9938,9 +9615,7 @@ function detailPosterFrameHtml(record, size) {
     }
     return `<div class="movie-detail-poster-frame is-loaded is-empty">${skeleton}</div>`;
   }
-  const fallback =
-    local && remote ? ` data-poster-fallback="${appCardHtml.escapeHtml(remote)}"` : "";
-  const img = `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" decoding="async"${fallback}>`;
+  const img = `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" decoding="async">`;
   return `<div class="movie-detail-poster-frame">${skeleton}${img}</div>`;
 }
 
@@ -10550,7 +10225,7 @@ function applyDisplayListFilters(ids) {
   const ctx = getActiveDisplayContext();
   if (ctx.searchable && typeof hasActiveListSearch === "function" && hasActiveListSearch()) {
     return appListSearch.filterMovieIds(ids, getListSearchFilter(), (id) =>
-      movieById.get(id) ?? localMovieRecord(id),
+      movieById.get(id) ?? null,
     );
   }
   return ids;
@@ -11041,14 +10716,6 @@ function hydrateActiveList() {
 function handleImageError(event) {
   const img = event.target;
   if (!(img instanceof HTMLImageElement) || !img.closest(".poster-wrap")) {
-    return;
-  }
-  const fallback = img.getAttribute("data-poster-fallback");
-  if (fallback) {
-    img.removeAttribute("data-poster-fallback");
-    img.setAttribute("data-poster-src", fallback);
-    img.removeAttribute("src");
-    attachPosterImage(img);
     return;
   }
   const card = img.closest(".card");
@@ -13613,7 +13280,7 @@ async function onClearCache() {
  * from the account batch cache when a token is available.
  */
 function csvRecordFor(movieId) {
-  const record = movieById.get(movieId) || localMovieRecord(movieId);
+  const record = movieById.get(movieId);
   return {
     title: record?.title || "",
     releaseDate: record?.releaseDate || "",
@@ -13631,7 +13298,7 @@ async function onExportCsv() {
   try {
     const missingIds = previewRows
       .map((row) => row.id)
-      .filter((id) => !movieById.has(id) && !localMovieRecord(id));
+      .filter((id) => !movieById.has(id));
     if (missingIds.length && hasTmdbAccess()) {
       await hydrateMovies(missingIds);
     }
@@ -15615,7 +15282,7 @@ function syncAddMovieSubmitState() {
 }
 
 function customListIndexCoverHtml(movieId) {
-  const record = movieById.get(movieId) ?? localMovieRecord(movieId);
+  const record = movieById.get(movieId) ?? null;
   const inner = record
     ? posterHtml(record, appTmdb.POSTER_SIZES.card)
     : `<div class="placeholder custom-list-card-cover-placeholder" aria-hidden="true"></div>`;
@@ -15652,7 +15319,7 @@ function patchCustomListIndexCover(movieId) {
     return;
   }
   const id = Number(movieId);
-  const record = movieById.get(id) ?? localMovieRecord(id);
+  const record = movieById.get(id) ?? null;
   if (!record) {
     return;
   }
@@ -15692,7 +15359,7 @@ function hydrateCustomListIndexCovers(lists) {
 
 function watchedPickerDisplayIds() {
   return appSort.sortMovieIds(watchedPickerAvailableIds, "title-asc", {
-    getRecord: (id) => movieById.get(id) ?? localMovieRecord(id),
+    getRecord: (id) => movieById.get(id) ?? null,
   });
 }
 
@@ -16314,7 +15981,7 @@ function friendRatingChitClassHtml(inner, ariaLabel, extraClass) {
 }
 
 function friendRatingValues(movieId) {
-  const record = movieById.get(movieId) ?? localMovieRecord(movieId);
+  const record = movieById.get(movieId) ?? null;
   const friendRating = friendViewState?.ratings
     ? appRatings.getRating(friendViewState.ratings, movieId)
     : null;
@@ -16398,7 +16065,7 @@ function friendShowsRatingChit() {
 }
 
 function friendReleaseYearFooterHtml(movieId) {
-  const record = movieById.get(movieId) ?? localMovieRecord(movieId);
+  const record = movieById.get(movieId) ?? null;
   const year = record ? appCardHtml.formatYear(record.releaseDate) : "";
   const text = year || "—";
   const emptyClass = year ? "" : " is-empty";
@@ -16490,7 +16157,7 @@ function friendCardSortDimClass(movieId) {
     movieId,
     userState,
     friendViewState,
-    (id) => movieById.get(id) ?? localMovieRecord(id),
+    (id) => movieById.get(id) ?? null,
   );
   return cls ? ` ${cls}` : "";
 }
@@ -16627,7 +16294,7 @@ function friendOverviewHtml(stats, name, sections) {
 
 function friendViewSortRuntime() {
   return {
-    getRecord: (id) => movieById.get(id) ?? localMovieRecord(id),
+    getRecord: (id) => movieById.get(id) ?? null,
     sortMode: userState.preferences.sort,
   };
 }
@@ -18088,8 +17755,9 @@ syncAdminInviteCountUi();
 /* --- Logged-out splash --- */
 
 /**
- * The marketing page for visitors with no session. Tiles come from committed
- * posters plus the curated titles in appSplash, so nothing here needs a token.
+ * The marketing page for visitors with no session. Tiles come from the curated
+ * titles and poster paths in appSplash, rendered off TMDB's image CDN, so
+ * nothing here needs a token or a network round trip to build the markup.
  */
 
 const SPLASH_POSTER_SIZE = "w342";
@@ -18102,13 +17770,10 @@ function isSplashActive() {
 }
 
 function splashPosterUrl(movieId) {
-  return localPosterUrlFor({ id: movieId }, SPLASH_POSTER_SIZE);
+  return appTmdb.buildImageUrl(appSplash.splashMovie(movieId)?.posterPath, SPLASH_POSTER_SIZE);
 }
 
-/**
- * Paints every mount once. Nothing is painted until the poster manifest has
- * loaded, so an empty pass leaves the page unpainted and the next sync retries.
- */
+/** Paints every mount once; an empty pass leaves the page for the next sync. */
 function renderSplash() {
   if (!splashEl || splashPainted) {
     return;
@@ -18854,10 +18519,6 @@ async function startApp() {
   refreshViewModeForActiveList();
   updateSearchClearVisibility();
   syncAccountLoginGate();
-
-  // One static file, read before the first paint. When it covers the list that
-  // paint shows real cards instead of skeletons, which is the whole point.
-  await loadLocalPosterData();
 
   try {
     history.scrollRestoration = "manual";

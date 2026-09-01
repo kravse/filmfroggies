@@ -429,12 +429,12 @@ function displayMovieIds() {
   let ids = ctx.movieIds;
   if (ctx.searchable && typeof hasActiveListSearch === "function" && hasActiveListSearch()) {
     ids = appListSearch.filterMovieIds(ids, getListSearchFilter(), (id) =>
-      movieById.get(id) ?? localMovieRecord(id),
+      movieById.get(id) ?? null,
     );
   }
   if (ctx.sortable) {
     const sortContext = {
-      getRecord: (id) => movieById.get(id) ?? localMovieRecord(id),
+      getRecord: (id) => movieById.get(id) ?? null,
       getUserRating: (id) => appRatings.getRating(userState.ratings, id),
       getAddedAt: (id) => appAddedAt.getAddedAt(userState.addedAt, id),
       getWatchedOn: (id) => appViewingHistory.latestViewingDate(userState.viewingHistory, id),

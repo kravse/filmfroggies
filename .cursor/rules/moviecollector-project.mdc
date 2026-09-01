@@ -11,10 +11,10 @@ Personal TMDB-backed movie list site. Keep changes small, match existing pattern
 
 These are deliberate design decisions, not gaps to fill:
 
-- **No edit layer.** You search and add. TMDB's titles, overviews, and posters are what render. Do not add an override store, edit dialog, or compaction logic. Committed poster files under `data/posters/` are TMDB images only; metadata comes from D1/TMDB at runtime.
-- **Nothing local writes user data.** The browser is the only writer of lists, ratings, and preferences, into `localStorage` and the CineQueue account API. `server.js` is a read-only static file server and exposes no API. The one local writer is `npm run scrape`, and it only writes committed poster files under `data/posters/` plus `data/posters.json`.
+- **No edit layer.** You search and add. TMDB's titles, overviews, and posters are what render. Do not add an override store, edit dialog, or compaction logic. All movie metadata comes from D1/TMDB at runtime.
+- **Nothing local writes user data.** The browser is the only writer of lists, ratings, and preferences, into `localStorage` and the CineQueue account API. `server.js` is a read-only static file server and exposes no API. No local script writes site assets.
 - **Only ids are persisted.** The user state holds lists of TMDB ids in display order, plus a `statuses` map of id → `{ status, at }` for sync, a `ratings` map, and an `addedAt` map of id → ISO stamp for when the movie first entered the collection. Movie records are never duplicated into user state; they are rehydrated by id from the account D1 batch cache (`POST /api/movies/batch`), then the Cache API wrapper, then per-id TMDB.
-- **Metadata from D1, posters from data/.** `hydrateMovies` in `js/app/03-tmdb-client.js` resolves ids via the account batch endpoint first, then per-id TMDB fallback. Committed poster files in `data/posters/` are served when listed in `data/posters.json`; missing files fall back to TMDB CDN. `npm run scrape` only downloads posters for ids in `data/my_list.csv`.
+- **Metadata from D1, posters from TMDB's CDN.** `hydrateMovies` in `js/app/03-tmdb-client.js` resolves ids via the account batch endpoint first, then per-id TMDB fallback. Poster images are always `image.tmdb.org` URLs built by `buildImageUrl`: unauthenticated, direct from the browser, never through the Worker or Netlify. Do not reintroduce a committed poster cache, a scraper, or a poster proxy — the API budget does not cover images, so there is nothing to save.
 - **Preset lists stay fixed; custom lists are optional tags.** Watched and Watchlist are statuses defined by `PRESET_LISTS` in `scripts/lib/lists.js`. Up to 10 user-defined custom lists live in `customLists` / `customListTombstones` (`scripts/lib/custom-lists.js`, `scripts/lib/custom-list-merge.js`) and are independent of preset membership. Do not fold custom lists into `PRESET_LISTS` or add a third preset list.
 - **One preset invariant, enforced on read.** Watchlist is disjoint from Watched. `assignMovieToList` and `removeMovieFromList` in `scripts/lib/lists.js` are the only ways to change preset membership, and `normalizeLists` repairs any stored payload that violates the rule. Never add or remove ids from a preset `movieIds` array directly. Custom list membership uses `addMovieToCustomList` / `removeMovieFromCustomList` only.
 - **Every membership change records a status.** Adding, marking watched, and removing must call `recordMovieStatus` so `scripts/lib/sync-merge.js` has a per-movie stamp to merge on. Skipping it lets a stale tab out-vote the change. `removed` is a sync record only — it never appears in a `movieIds` array and is never rendered or fetched.
@@ -34,13 +34,11 @@ These are deliberate design decisions, not gaps to fill:
 | `js/app/00-*.js` | **Generated** from `scripts/lib/` — never hand-edit |
 | `css/` | All styles — no inline `<style>` in `index.html` |
 | `scripts/lib/` | Pure CommonJS domain logic, one concern per file |
-| `data/` | Committed poster cache; `my_list.csv` in, `posters.json` + `posters/` out |
 | `test/` | Node tests (`npm test`) |
 | `server.js` | Read-only static server (`npm run serve`) |
-| `scripts/scrape-data.js` | Refills `data/` from TMDB (`npm run scrape`) |
 | `build.js` → `build/` | Static deploy output (`npm run build`) |
 
-Anything added to `data/` must also be copied by `copyData()` in `build.js`, or the deployed site will not see it. `my_list.csv` is deliberately excluded — it is scraper input, not a site asset.
+`build.js` ships no `data/` directory. A new site asset needs an explicit copy step in `build()`, or the deployed site will not see it.
 
 ## JavaScript
 
@@ -102,9 +100,9 @@ Canonical order: `VIEWER_CSS_FILES` in [`scripts/css-manifest.js`](../../scripts
 ## Security
 
 - The account session token lives in `localStorage` and is **never** written into the synced list doc. The TMDB read token lives only on the Worker as `TMDB_READ_TOKEN`.
-- Never commit an API key. There is no key in the repo and there must not be one. `npm run scrape` reads `TMDB_READ_TOKEN` from the environment or the gitignored `.env`, and nothing writes it into `data/`.
+- Never commit an API key. There is no key in the repo and there must not be one. `npm run letterboxd-import` reads `TMDB_READ_TOKEN` from the environment or the gitignored `.env`, and nothing writes it into a committed file.
 - Only the query string is user-derived in TMDB URLs; hosts are hardcoded constants. Validate `poster_path` before interpolating it into an image URL.
-- `data/movies.json` ships with the site but still arrives over the network, so it is validated on read by `normalizeLocalData`. Poster filenames are re-validated before they become a path, so a hand-edited manifest cannot traverse out of `data/posters/`.
+- `poster_path` from TMDB is validated by `isValidImagePath` before it is interpolated into an image URL, and the size must be in `ALLOWED_IMAGE_SIZES`. Both host constants are hardcoded, so no API response can redirect an image request.
 - Every network call sets an explicit timeout.
 
 ## General editing principles

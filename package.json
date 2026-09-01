@@ -8,7 +8,6 @@
     "bundle": "node scripts/bundle-app-js.js",
     "sync-worker-lib": "node scripts/sync-worker-lib.js",
     "bundle:letterboxd": "node scripts/bundle-letterboxd-tool.js",
-    "scrape": "node scripts/scrape-data.js",
     "letterboxd-import": "node scripts/letterboxd-import.js",
     "test": "node --test \"test/*.test.js\"",
     "build": "node build.js"

@@ -86,17 +86,11 @@ function posterPlaceholderHtml(record, options = {}) {
 }
 
 function posterHtml(record, size) {
-  const remote = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
-  const local = record ? localPosterUrlFor(record, size) : null;
-  const url = local || remote;
+  const url = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
   if (!url) {
     return posterPlaceholderHtml(record);
   }
-  // A snapshot entry whose file has gone missing retries TMDB rather than
-  // leaving a hole where the poster was.
-  const fallback =
-    local && remote ? ` data-poster-fallback="${appCardHtml.escapeHtml(remote)}"` : "";
-  return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async"${fallback}>`;
+  return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async">`;
 }
 
 function detailPosterSkeletonHtml() {
@@ -110,9 +104,7 @@ function discoverDetailPosterEmptyHtml() {
 }
 
 function detailPosterFrameHtml(record, size) {
-  const remote = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
-  const local = record ? localPosterUrlFor(record, size) : null;
-  const url = local || remote;
+  const url = record ? appTmdb.buildImageUrl(record.posterPath, size) : null;
   const skeleton = `<div class="movie-detail-poster-skeleton" aria-hidden="true"></div>`;
   if (!url) {
     if (isDiscoverActive()) {
@@ -120,9 +112,7 @@ function detailPosterFrameHtml(record, size) {
     }
     return `<div class="movie-detail-poster-frame is-loaded is-empty">${skeleton}</div>`;
   }
-  const fallback =
-    local && remote ? ` data-poster-fallback="${appCardHtml.escapeHtml(remote)}"` : "";
-  const img = `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" decoding="async"${fallback}>`;
+  const img = `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" decoding="async">`;
   return `<div class="movie-detail-poster-frame">${skeleton}${img}</div>`;
 }
 
@@ -732,7 +722,7 @@ function applyDisplayListFilters(ids) {
   const ctx = getActiveDisplayContext();
   if (ctx.searchable && typeof hasActiveListSearch === "function" && hasActiveListSearch()) {
     return appListSearch.filterMovieIds(ids, getListSearchFilter(), (id) =>
-      movieById.get(id) ?? localMovieRecord(id),
+      movieById.get(id) ?? null,
     );
   }
   return ids;
@@ -1223,14 +1213,6 @@ function hydrateActiveList() {
 function handleImageError(event) {
   const img = event.target;
   if (!(img instanceof HTMLImageElement) || !img.closest(".poster-wrap")) {
-    return;
-  }
-  const fallback = img.getAttribute("data-poster-fallback");
-  if (fallback) {
-    img.removeAttribute("data-poster-fallback");
-    img.setAttribute("data-poster-src", fallback);
-    img.removeAttribute("src");
-    attachPosterImage(img);
     return;
   }
   const card = img.closest(".card");

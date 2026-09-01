@@ -1,53 +1,54 @@
 /**
  * Content for the logged-out splash page.
  *
- * Titles and years are a small committed snapshot, restored from the retired
- * data/movies.json, covering only ids whose posters ship in data/posters/. That
- * lets the marketing page render real tiles with no session and no TMDB call.
- * It is not a metadata source for collections — hydrateMovies still resolves
- * those from D1/TMDB, and nothing here reaches user state.
+ * Titles, years, and TMDB poster paths are a small committed snapshot so the
+ * marketing page renders real tiles with no session and no TMDB API call — the
+ * poster images come straight from TMDB's CDN, which needs no token. It is not
+ * a metadata source for collections: hydrateMovies still resolves those from
+ * D1/TMDB, and nothing here reaches user state. A poster path pins the artwork
+ * as of the snapshot; TMDB replacing the art does not change what renders here.
  */
 
 const SPLASH_MOVIES = [
-  { id: 38, title: "Eternal Sunshine of the Spotless Mind", year: 2004 },
-  { id: 73, title: "American History X", year: 1998 },
-  { id: 129, title: "Spirited Away", year: 2001 },
-  { id: 141, title: "Donnie Darko", year: 2001 },
-  { id: 238, title: "The Godfather", year: 1972 },
-  { id: 278, title: "The Shawshank Redemption", year: 1994 },
-  { id: 387, title: "Das Boot", year: 1981 },
-  { id: 389, title: "12 Angry Men", year: 1957 },
-  { id: 401, title: "Garden State", year: 2004 },
-  { id: 550, title: "Fight Club", year: 1999 },
-  { id: 603, title: "The Matrix", year: 1999 },
-  { id: 670, title: "Oldboy", year: 2003 },
-  { id: 680, title: "Pulp Fiction", year: 1994 },
-  { id: 694, title: "The Shining", year: 1980 },
-  { id: 837, title: "Videodrome", year: 1983 },
-  { id: 1091, title: "The Thing", year: 1982 },
-  { id: 1398, title: "Stalker", year: 1979 },
-  { id: 1548, title: "Ghost World", year: 2001 },
-  { id: 1946, title: "eXistenZ", year: 1999 },
-  { id: 4538, title: "The Darjeeling Limited", year: 2007 },
-  { id: 8337, title: "They Live", year: 1988 },
-  { id: 9426, title: "The Fly", year: 1986 },
-  { id: 9538, title: "Scanners", year: 1981 },
-  { id: 10774, title: "Network", year: 1976 },
-  { id: 110415, title: "Snowpiercer", year: 2013 },
-  { id: 11305, title: "Mystery Train", year: 1989 },
-  { id: 11423, title: "Memories of Murder", year: 2003 },
-  { id: 1255, title: "The Host", year: 2006 },
-  { id: 30018, title: "Mother", year: 2009 },
-  { id: 76341, title: "Mad Max: Fury Road", year: 2015 },
-  { id: 120467, title: "The Grand Budapest Hotel", year: 2014 },
-  { id: 246741, title: "What We Do in the Shadows", year: 2014 },
-  { id: 329865, title: "Arrival", year: 2016 },
-  { id: 387426, title: "Okja", year: 2017 },
-  { id: 496243, title: "Parasite", year: 2019 },
-  { id: 1154538, title: "Nirvanna the Band the Show the Movie", year: 2026 },
-  { id: 1272837, title: "28 Years Later: The Bone Temple", year: 2026 },
-  { id: 1339713, title: "Obsession", year: 2026 },
-  { id: 1368337, title: "The Odyssey", year: 2026 },
+  { id: 38, title: "Eternal Sunshine of the Spotless Mind", year: 2004, posterPath: "/5MwkWH9tYHv3mV9OdYTMR5qreIz.jpg" },
+  { id: 73, title: "American History X", year: 1998, posterPath: "/x2drgoXYZ8484lqyDj7L1CEVR4T.jpg" },
+  { id: 129, title: "Spirited Away", year: 2001, posterPath: "/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg" },
+  { id: 141, title: "Donnie Darko", year: 2001, posterPath: "/j2AtZFsflxiluaNtajMTI0Avm8C.jpg" },
+  { id: 238, title: "The Godfather", year: 1972, posterPath: "/3bhkrj58Vtu7enYsRolD1fZdja1.jpg" },
+  { id: 278, title: "The Shawshank Redemption", year: 1994, posterPath: "/9cqNxx0GxF0bflZmeSMuL5tnGzr.jpg" },
+  { id: 387, title: "Das Boot", year: 1981, posterPath: "/u8FhQPncOAkwcei2OI9orPWhV6K.jpg" },
+  { id: 389, title: "12 Angry Men", year: 1957, posterPath: "/ppd84D2i9W8jXmsyInGyihiSyqz.jpg" },
+  { id: 401, title: "Garden State", year: 2004, posterPath: "/h3iqYiGS6F3y7GxaS4AT8nFxZ2i.jpg" },
+  { id: 550, title: "Fight Club", year: 1999, posterPath: "/jSziioSwPVrOy9Yow3XhWIBDjq1.jpg" },
+  { id: 603, title: "The Matrix", year: 1999, posterPath: "/dXNAPwY7VrqMAo51EKhhCJfaGb5.jpg" },
+  { id: 670, title: "Oldboy", year: 2003, posterPath: "/pWDtjs568ZfOTMbURQBYuT4Qxka.jpg" },
+  { id: 680, title: "Pulp Fiction", year: 1994, posterPath: "/vQWk5YBFWF4bZaofAbv0tShwBvQ.jpg" },
+  { id: 694, title: "The Shining", year: 1980, posterPath: "/uAR0AWqhQL1hQa69UDEbb2rE5Wx.jpg" },
+  { id: 837, title: "Videodrome", year: 1983, posterPath: "/qqqkiZSU9EBGZ1KiDmfn07S7qvv.jpg" },
+  { id: 1091, title: "The Thing", year: 1982, posterPath: "/tzGY49kseSE9QAKk47uuDGwnSCu.jpg" },
+  { id: 1398, title: "Stalker", year: 1979, posterPath: "/1qhOyf5C4s9ZdvY8d5JDx9DFMeT.jpg" },
+  { id: 1548, title: "Ghost World", year: 2001, posterPath: "/uwKqnUPE4dSM0kKuMW0vXpURh2T.jpg" },
+  { id: 1946, title: "eXistenZ", year: 1999, posterPath: "/kETKF0JhdTPn1knci8CAdYL0d79.jpg" },
+  { id: 4538, title: "The Darjeeling Limited", year: 2007, posterPath: "/oSW5OVXTulaIXcoNwJAp5YEKpbP.jpg" },
+  { id: 8337, title: "They Live", year: 1988, posterPath: "/ngnybFTuopfbfmmEeX9jjBQQmF6.jpg" },
+  { id: 9426, title: "The Fly", year: 1986, posterPath: "/8gZWMhJHRvaXdXsNhERtqNHYpH3.jpg" },
+  { id: 9538, title: "Scanners", year: 1981, posterPath: "/VTqLdveNXxGsIAZL5I4RliTTt7.jpg" },
+  { id: 10774, title: "Network", year: 1976, posterPath: "/qZomlHsaALUtkFeMDwdYmwS2Pbo.jpg" },
+  { id: 110415, title: "Snowpiercer", year: 2013, posterPath: "/kw6YQudA0TMcNmGUGy5XIw7zbnV.jpg" },
+  { id: 11305, title: "Mystery Train", year: 1989, posterPath: "/f11xq7dBGhz9UDc3dabldAGeXVH.jpg" },
+  { id: 11423, title: "Memories of Murder", year: 2003, posterPath: "/jcgUjx1QcupGzjntTVlnQ15lHqy.jpg" },
+  { id: 1255, title: "The Host", year: 2006, posterPath: "/dEDLY3KeghKFzks5nTDWdigVikr.jpg" },
+  { id: 30018, title: "Mother", year: 2009, posterPath: "/8oBnSkZE6GDVugAbLPO6uJd4GcS.jpg" },
+  { id: 76341, title: "Mad Max: Fury Road", year: 2015, posterPath: "/ulcAi4dKpAjHwYGS08vNyx9H6I9.jpg" },
+  { id: 120467, title: "The Grand Budapest Hotel", year: 2014, posterPath: "/eWdyYQreja6JGCzqHWXpWHDrrPo.jpg" },
+  { id: 246741, title: "What We Do in the Shadows", year: 2014, posterPath: "/a2rD3i3DBMeYbA34rBv6z3B9S3a.jpg" },
+  { id: 329865, title: "Arrival", year: 2016, posterPath: "/pEzNVQfdzYDzVK0XqxERIw2x2se.jpg" },
+  { id: 387426, title: "Okja", year: 2017, posterPath: "/pHlRr2MfjK77VIIAO7p0R4jhsJI.jpg" },
+  { id: 496243, title: "Parasite", year: 2019, posterPath: "/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg" },
+  { id: 1154538, title: "Nirvanna the Band the Show the Movie", year: 2026, posterPath: "/sm5TGX8WbnCd9Uo26cLyTxVwA1n.jpg" },
+  { id: 1272837, title: "28 Years Later: The Bone Temple", year: 2026, posterPath: "/kK1BGkG3KAvWB0WMV1DfOx9yTMZ.jpg" },
+  { id: 1339713, title: "Obsession", year: 2026, posterPath: "/bRwnj8WEKBCvmfeUNOukJPwB43K.jpg" },
+  { id: 1368337, title: "The Odyssey", year: 2026, posterPath: "/5rhTDKUhPYvpdQIijFIs5VoWsON.jpg" },
 ];
 
 /**
@@ -123,8 +124,8 @@ function splashGroupEntries(name) {
 
 /**
  * Tiles for one group, in the order they are curated. An entry is dropped when
- * its poster is not on disk, so a trimmed data/posters/ degrades to fewer tiles
- * instead of broken images.
+ * the caller cannot resolve a poster URL for it, so a curated id with a bad
+ * poster path degrades to one fewer tile instead of a broken image.
  */
 function splashTiles(name, options = {}) {
   const posterUrl = typeof options.posterUrl === "function" ? options.posterUrl : () => null;

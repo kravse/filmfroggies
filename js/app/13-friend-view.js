@@ -22,7 +22,7 @@ function friendRatingChitClassHtml(inner, ariaLabel, extraClass) {
 }
 
 function friendRatingValues(movieId) {
-  const record = movieById.get(movieId) ?? localMovieRecord(movieId);
+  const record = movieById.get(movieId) ?? null;
   const friendRating = friendViewState?.ratings
     ? appRatings.getRating(friendViewState.ratings, movieId)
     : null;
@@ -106,7 +106,7 @@ function friendShowsRatingChit() {
 }
 
 function friendReleaseYearFooterHtml(movieId) {
-  const record = movieById.get(movieId) ?? localMovieRecord(movieId);
+  const record = movieById.get(movieId) ?? null;
   const year = record ? appCardHtml.formatYear(record.releaseDate) : "";
   const text = year || "—";
   const emptyClass = year ? "" : " is-empty";
@@ -198,7 +198,7 @@ function friendCardSortDimClass(movieId) {
     movieId,
     userState,
     friendViewState,
-    (id) => movieById.get(id) ?? localMovieRecord(id),
+    (id) => movieById.get(id) ?? null,
   );
   return cls ? ` ${cls}` : "";
 }
@@ -335,7 +335,7 @@ function friendOverviewHtml(stats, name, sections) {
 
 function friendViewSortRuntime() {
   return {
-    getRecord: (id) => movieById.get(id) ?? localMovieRecord(id),
+    getRecord: (id) => movieById.get(id) ?? null,
     sortMode: userState.preferences.sort,
   };
 }

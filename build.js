@@ -109,24 +109,6 @@ function copyManifest() {
   }
 }
 
-/**
- * Ships committed poster files for faster, stable grid images. my_list.csv is
- * scraper input and stays out of the build.
- */
-function copyData() {
-  const src = path.join(ROOT, "data");
-  const dest = path.join(BUILD_DIR, "data");
-  const postersManifest = path.join(src, "posters.json");
-  if (fs.existsSync(postersManifest)) {
-    fs.mkdirSync(dest, { recursive: true });
-    fs.copyFileSync(postersManifest, path.join(dest, "posters.json"));
-  }
-  const posters = path.join(src, "posters");
-  if (fs.existsSync(posters)) {
-    fs.cpSync(posters, path.join(dest, "posters"), { recursive: true });
-  }
-}
-
 /** A personal collection has no business in search results. */
 function writeRobots() {
   fs.writeFileSync(
@@ -143,14 +125,13 @@ function build() {
   copyBundle();
   rewriteHtml();
   copyManifest();
-  copyData();
   writeRobots();
 }
 
 if (require.main === module) {
   build();
   console.log(
-    `Wrote build/ (index.html, manifest.webmanifest, css/${CSS_BUNDLE_NAME}, js/app-bundle.js, images/, data/, robots.txt)`,
+    `Wrote build/ (index.html, manifest.webmanifest, css/${CSS_BUNDLE_NAME}, js/app-bundle.js, images/, robots.txt)`,
   );
 }
 

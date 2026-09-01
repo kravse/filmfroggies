@@ -104,6 +104,44 @@ const appCardHtml = (function () {
   const WATCHLIST_PRESET_ICON_SVG =
     '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>';
 
+  const VIEWING_DATE_ICON_SVG =
+    '<svg class="viewing-date-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none"><path d="M7.5 8 5.5 3M12.5 8 14.5 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="3.5" y="8" width="13" height="8.5" rx="1.25" stroke="currentColor" stroke-width="1.5"/><rect x="5.25" y="9.75" width="9.5" height="5" rx="0.5" stroke="currentColor" stroke-width="1.25"/><path d="M6.25 16.5v1.25M13.75 16.5v1.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+
+  function viewingDateIconHtml() {
+    return VIEWING_DATE_ICON_SVG;
+  }
+
+  function viewingDatePickerHtml(options = {}) {
+    const toggleId = String(options.toggleId || "viewing-date-toggle");
+    const fieldId = String(options.fieldId || "viewing-date-field");
+    const inputId = String(options.inputId || "viewing-date-input");
+    const clearId = String(options.clearId || "viewing-date-clear");
+    const toggleClass = escapeHtml(
+      String(options.toggleClass || "ghost-btn viewing-date-picker-toggle"),
+    );
+    const fieldClass = escapeHtml(String(options.fieldClass || "viewing-date-picker-field"));
+    const icon = viewingDateIconHtml();
+    return `<button type="button" class="${toggleClass}" id="${escapeHtml(toggleId)}">${icon}Add viewing date</button>
+  <div class="${fieldClass}" id="${escapeHtml(fieldId)}" hidden>
+    <div class="viewing-date-input-row">${icon}<input type="date" id="${escapeHtml(inputId)}" aria-label="Date watched" /></div>
+    <button type="button" class="user-rating-clear-btn" id="${escapeHtml(clearId)}">Clear viewing date</button>
+  </div>`;
+  }
+
+  const UNLISTED_PRESET_ICON_SVG =
+    '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.75"/><path d="M8.5 12h7" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>';
+
+  /** Detail footer preset status icons (`watched` | `watchlist` | `none`). */
+  function detailPresetStatusIconHtml(state) {
+    if (state === "watchlist") {
+      return `<span class="add-list-icon add-list-icon-watchlist" aria-hidden="true">${WATCHLIST_PRESET_ICON_SVG}</span>`;
+    }
+    if (state === "watched") {
+      return `<span class="add-list-icon" aria-hidden="true">✓</span>`;
+    }
+    return `<span class="add-list-icon add-list-icon-unlisted" aria-hidden="true">${UNLISTED_PRESET_ICON_SVG}</span>`;
+  }
+
   /** Same square icons as the add-movie list picker (`watched` | `watchlist`). */
   function addListPresetIconHtml(preset) {
     if (preset === "watchlist") {
@@ -156,6 +194,12 @@ const appTmdb = (function () {
 
   const CAST_LIMIT = 8;
   const DEFAULT_NOW_PLAYING_WINDOW_DAYS = 84;
+  /** World premiere must fall in the same window as the US theatrical run (new only). */
+  const DEFAULT_NOW_PLAYING_PRIMARY_WINDOW_DAYS = DEFAULT_NOW_PLAYING_WINDOW_DAYS;
+  /** Match TMDB’s /movie/upcoming window (~4 weeks of US theatrical dates). */
+  const DEFAULT_UPCOMING_WINDOW_DAYS = 28;
+  /** Minimum TMDB vote count for discover browse queries (drops zero-interest listings). */
+  const DEFAULT_DISCOVER_MIN_VOTE_COUNT = 10;
 
   /**
    * Only the v4 API Read Access Token is accepted. It is a JWT: three
@@ -257,15 +301,6 @@ const appTmdb = (function () {
     return buildUrl("/configuration", {});
   }
 
-  function buildDiscoverListUrl(pathname, options = {}) {
-    const page = Number(options.page);
-    return buildUrl(pathname, {
-      language: options.language || "en-US",
-      page: Number.isInteger(page) && page > 0 ? String(page) : "1",
-      region: options.region || "US",
-    });
-  }
-
   function formatIsoDate(date) {
     const value = date instanceof Date ? date : new Date(date);
     if (Number.isNaN(value.getTime())) {
@@ -286,12 +321,68 @@ const appTmdb = (function () {
     return formatIsoDate(value);
   }
 
+  function buildDiscoverMovieUrl(options = {}) {
+    const page = Number(options.page);
+    const params = {
+      include_adult: "false",
+      include_video: "false",
+      language: options.language || "en-US",
+      page: Number.isInteger(page) && page > 0 ? String(page) : "1",
+      region: options.region || "US",
+      with_release_type: "2|3",
+      sort_by: options.sortBy || "popularity.desc",
+    };
+    if (options.releaseDateGte) {
+      params["release_date.gte"] = options.releaseDateGte;
+    }
+    if (options.releaseDateLte) {
+      params["release_date.lte"] = options.releaseDateLte;
+    }
+    if (options.primaryReleaseDateGte) {
+      params["primary_release_date.gte"] = options.primaryReleaseDateGte;
+    }
+    if (options.primaryReleaseDateLte) {
+      params["primary_release_date.lte"] = options.primaryReleaseDateLte;
+    }
+    if (options.voteCountGte != null) {
+      params["vote_count.gte"] = String(options.voteCountGte);
+    }
+    return buildUrl("/discover/movie", params);
+  }
+
   function buildUpcomingUrl(options = {}) {
-    return buildDiscoverListUrl("/movie/upcoming", options);
+    const today = options.today || formatIsoDate(new Date());
+    const windowDays = Number(options.windowDays) || DEFAULT_UPCOMING_WINDOW_DAYS;
+    const windowEnd = offsetIsoDate(today, windowDays);
+    return buildDiscoverMovieUrl({
+      language: options.language,
+      page: options.page,
+      region: options.region,
+      releaseDateGte: today,
+      releaseDateLte: windowEnd,
+      primaryReleaseDateGte: today,
+      primaryReleaseDateLte: windowEnd,
+      sortBy: "popularity.desc",
+    });
   }
 
   function buildNowPlayingUrl(options = {}) {
-    return buildDiscoverListUrl("/movie/now_playing", options);
+    const today = options.today || formatIsoDate(new Date());
+    const windowDays = Number(options.windowDays) || DEFAULT_NOW_PLAYING_WINDOW_DAYS;
+    const primaryWindowDays =
+      Number(options.primaryWindowDays) || DEFAULT_NOW_PLAYING_PRIMARY_WINDOW_DAYS;
+    const minVotes = Number(options.minVoteCount) || DEFAULT_DISCOVER_MIN_VOTE_COUNT;
+    return buildDiscoverMovieUrl({
+      language: options.language,
+      page: options.page,
+      region: options.region,
+      releaseDateGte: offsetIsoDate(today, -windowDays),
+      releaseDateLte: today,
+      primaryReleaseDateGte: offsetIsoDate(today, -primaryWindowDays),
+      primaryReleaseDateLte: today,
+      voteCountGte: minVotes,
+      sortBy: "popularity.desc",
+    });
   }
 
   function isValidImagePath(imagePath) {
@@ -327,6 +418,7 @@ const appTmdb = (function () {
       id: Number(entry.id),
       title: cleanText(entry.title) || cleanText(entry.original_title) || "Untitled",
       releaseDate: cleanText(entry.release_date),
+      primaryReleaseDate: cleanText(entry.primary_release_date),
       posterPath: cleanImagePath(entry.poster_path),
       overview: cleanText(entry.overview),
       voteCount: Number(entry.vote_count) || 0,
@@ -789,22 +881,8 @@ const appRatings = (function () {
   }
 
   function collectRateableMovieIds(lists, customLists) {
-    const ids = collectWatchedMovieIds(lists);
-    if (!Array.isArray(customLists)) {
-      return ids;
-    }
-    for (const list of customLists) {
-      if (!list || !Array.isArray(list.movieIds)) {
-        continue;
-      }
-      for (const id of list.movieIds) {
-        const movieId = Number(id);
-        if (Number.isInteger(movieId) && movieId > 0) {
-          ids.add(movieId);
-        }
-      }
-    }
-    return ids;
+    void customLists;
+    return collectWatchedMovieIds(lists);
   }
 
   function isRatingAllowed(lists, movieId, customLists) {
@@ -886,15 +964,14 @@ const appRatings = (function () {
 
 const appListCsv = (function () {
   /**
-   * Collection backup CSV: export from the browser, import to restore, scrape ids only.
+   * Collection backup CSV: export from the browser, import to restore.
    *
-   * The browser is the only place that knows the collection, and the scraper runs
-   * on a machine that cannot read localStorage or the Gist. Settings exports this
-   * file, you commit it, and `npm run scrape` reads it back. Both ends share these
+   * The browser is the only place that knows the collection, so Settings exports
+   * this file and reads it back on import. Export and import share these
    * functions so the format has exactly one definition.
    *
-   * Only `tmdb_id` is load-bearing for scrape. The other columns carry list
-   * membership, ratings, and viewing dates for backup/restore.
+   * Only `tmdb_id` identifies a movie. The other columns carry list membership,
+   * ratings, and viewing dates for backup/restore.
    */
 
   function parseCsv(text) {
@@ -1356,7 +1433,7 @@ const appListCsv = (function () {
   /**
    * Reads the first column of every line as an id. The header, blank lines, and
    * anything hand-edited into an unparseable state are skipped rather than
-   * refused: a typo in a comment column should not stop a scrape.
+   * refused: a typo in a comment column should not stop an import.
    */
   function parseListCsv(text) {
     const seen = new Set();

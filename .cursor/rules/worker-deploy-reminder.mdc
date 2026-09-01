@@ -21,7 +21,7 @@ Treat these as needing `wrangler deploy`:
 - Any edit under `scripts/lib/` for a module listed in `scripts/sync-worker-lib.js` (`lists`, `friend-activity`, `list-query`, `sort`, etc.) — run `npm run sync-worker-lib` first, then deploy
 - D1 schema/migration changes referenced by the Worker
 
-Static-only changes (`css/`, `js/app/` UI with no synced lib change, `data/posters/`, `server.js`) do **not** require wrangler. They may need a static site deploy instead.
+Static-only changes (`css/`, `js/app/` UI with no synced lib change, `server.js`) do **not** require wrangler. They may need a static site deploy instead.
 
 ## What to tell the user
 

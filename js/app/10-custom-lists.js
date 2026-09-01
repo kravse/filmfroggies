@@ -909,7 +909,7 @@ function syncAddMovieSubmitState() {
 }
 
 function customListIndexCoverHtml(movieId) {
-  const record = movieById.get(movieId) ?? localMovieRecord(movieId);
+  const record = movieById.get(movieId) ?? null;
   const inner = record
     ? posterHtml(record, appTmdb.POSTER_SIZES.card)
     : `<div class="placeholder custom-list-card-cover-placeholder" aria-hidden="true"></div>`;
@@ -946,7 +946,7 @@ function patchCustomListIndexCover(movieId) {
     return;
   }
   const id = Number(movieId);
-  const record = movieById.get(id) ?? localMovieRecord(id);
+  const record = movieById.get(id) ?? null;
   if (!record) {
     return;
   }
@@ -986,7 +986,7 @@ function hydrateCustomListIndexCovers(lists) {
 
 function watchedPickerDisplayIds() {
   return appSort.sortMovieIds(watchedPickerAvailableIds, "title-asc", {
-    getRecord: (id) => movieById.get(id) ?? localMovieRecord(id),
+    getRecord: (id) => movieById.get(id) ?? null,
   });
 }
 

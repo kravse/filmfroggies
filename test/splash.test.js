@@ -14,15 +14,17 @@ const {
   splashTileHtml,
   splashTilesHtml,
 } = require("../scripts/lib/splash");
+const { buildImageUrl, isValidImagePath } = require("../scripts/lib/tmdb");
 
-const posterUrl = (id) => `data/posters/w342/${id}.jpg`;
+const posterUrl = (id) => `https://image.tmdb.org/t/p/w342/${id}.jpg`;
 
-test("every curated movie has an id, title, and year", () => {
+test("every curated movie has an id, title, year, and poster path", () => {
   assert.ok(SPLASH_MOVIES.length > 0);
   for (const movie of SPLASH_MOVIES) {
     assert.ok(Number.isInteger(movie.id) && movie.id > 0, `bad id: ${movie.id}`);
     assert.ok(movie.title.length > 0, `missing title for ${movie.id}`);
     assert.ok(Number.isInteger(movie.year), `missing year for ${movie.id}`);
+    assert.ok(isValidImagePath(movie.posterPath), `bad poster path for ${movie.id}`);
   }
 });
 
@@ -41,13 +43,12 @@ test("every group entry resolves to a curated movie", () => {
   }
 });
 
-/** A poster listed here but missing from data/ would render as a broken tile. */
-test("every group id has a committed poster", () => {
-  const manifestPath = path.join(__dirname, "..", "data", "posters.json");
-  const { posters } = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+/** A curated id with no usable poster path would be silently dropped from its group. */
+test("every group id resolves to a TMDB poster url", () => {
   for (const name of SPLASH_GROUP_NAMES) {
     for (const entry of splashGroupEntries(name)) {
-      assert.ok(posters[String(entry.id)], `no committed poster for ${entry.id} in ${name}`);
+      const url = buildImageUrl(splashMovie(entry.id)?.posterPath, "w342");
+      assert.ok(url, `no poster url for ${entry.id} in ${name}`);
     }
   }
 });
@@ -100,7 +101,7 @@ test("splashTiles keeps curated order and carries ratings", () => {
   assert.ok(tiles[0].title.length > 0);
 });
 
-test("splashTiles drops entries with no poster on disk", () => {
+test("splashTiles drops entries with no resolvable poster", () => {
   const only = SPLASH_GROUPS.watchlist[0];
   const tiles = splashTiles("watchlist", {
     posterUrl: (id) => (id === only ? posterUrl(id) : null),
@@ -116,7 +117,7 @@ test("splashTiles is empty without a poster resolver", () => {
   assert.deepEqual(splashTiles("hero", { posterUrl: () => null }), []);
 });
 
-const tile = { id: 1, title: 'Kiss & "Tell"', year: 1999, rating: 8.5, posterUrl: "data/posters/w342/a.jpg" };
+const tile = { id: 1, title: 'Kiss & "Tell"', year: 1999, rating: 8.5, posterUrl: posterUrl(1) };
 
 test("poster tiles carry no text body", () => {
   const html = splashTileHtml(tile, "poster");

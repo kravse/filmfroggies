@@ -2306,7 +2306,7 @@ async function onClearCache() {
  * from the account batch cache when a token is available.
  */
 function csvRecordFor(movieId) {
-  const record = movieById.get(movieId) || localMovieRecord(movieId);
+  const record = movieById.get(movieId);
   return {
     title: record?.title || "",
     releaseDate: record?.releaseDate || "",
@@ -2324,7 +2324,7 @@ async function onExportCsv() {
   try {
     const missingIds = previewRows
       .map((row) => row.id)
-      .filter((id) => !movieById.has(id) && !localMovieRecord(id));
+      .filter((id) => !movieById.has(id));
     if (missingIds.length && hasTmdbAccess()) {
       await hydrateMovies(missingIds);
     }

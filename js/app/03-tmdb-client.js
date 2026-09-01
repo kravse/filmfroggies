@@ -7,10 +7,10 @@
  * only after appTmdbMovieCache.MOVIE_CACHE_REVALIDATE_MS (30 days). Search is
  * transient and only memoized for the session.
  *
- * Ahead of network hydration, committed poster files under data/posters/ are
- * served when data/posters.json lists the id. Movie metadata hydrates from the
- * TMDB Cache API first, then the account D1 batch cache (POST /api/movies/batch),
- * then per-id TMDB fallback.
+ * Movie metadata hydrates from the TMDB Cache API first, then the account D1
+ * batch cache (POST /api/movies/batch), then per-id TMDB fallback. Poster
+ * images come straight from TMDB's image CDN, which takes no credential and
+ * never touches the Worker.
  *
  * When logged in, all TMDB traffic goes through the account-gated Worker proxy
  * at /api/tmdb (Netlify redirect in production, direct Worker URL on localhost).
@@ -67,10 +67,6 @@ const posterUrlInflight = new Map();
 const posterLoadQueue = [];
 let posterLoadsInFlight = 0;
 let posterObserver;
-/** Poster filenames from data/posters.json, keyed by TMDB id. */
-const localPosterById = new Map();
-let localPosterSizes = [];
-let localPosterGeneratedAt = null;
 
 function hasTmdbAccess() {
   return accountSyncEnabled();
@@ -118,76 +114,9 @@ function buildProxyUrl(path, searchParams) {
   return url.toString();
 }
 
-/* --- Committed poster files --- */
-
-/**
- * Read once at startup. A repo with no manifest yet 404s here, which is not an
- * error condition: posters simply fall back to TMDB's CDN.
- */
-async function loadLocalPosterData() {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const response = await fetch(appLocalData.LOCAL_POSTERS_URL, {
-      signal: controller.signal,
-      headers: { accept: "application/json" },
-    });
-    if (!response.ok) {
-      return false;
-    }
-    const data = appLocalData.normalizePostersManifest(await response.json());
-    localPosterById.clear();
-    for (const [id, poster] of Object.entries(data.posters)) {
-      localPosterById.set(Number(id), poster);
-    }
-    localPosterSizes = data.posterSizes.length
-      ? data.posterSizes
-      : appLocalData.LOCAL_POSTER_SIZES;
-    localPosterGeneratedAt = data.generatedAt;
-    return localPosterById.size > 0;
-  } catch (_) {
-    return false;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function hasLocalPosterData() {
-  return localPosterById.size > 0;
-}
-
-function localPosterCount() {
-  return localPosterById.size;
-}
-
-/** Legacy hook; metadata no longer lives in data/. */
-function localMovieRecord(_movieId) {
-  return null;
-}
-
-function localPosterStamp() {
-  return localPosterGeneratedAt;
-}
-
-/** Metadata requires an account session; local posters only speed up images. */
+/** Metadata requires an account session; poster images do not. */
 function hasMovieData() {
   return hasTmdbAccess();
-}
-
-/** Null whenever the manifest cannot serve this poster, so callers fall back. */
-function localPosterUrlFor(record, size) {
-  if (!record) {
-    return null;
-  }
-  const posterFile = localPosterById.get(record.id);
-  if (!posterFile) {
-    return null;
-  }
-  const fromPath = appLocalData.posterFileFromPath(record.posterPath);
-  if (fromPath && fromPath !== posterFile) {
-    return null;
-  }
-  return appLocalData.localPosterUrl(posterFile, size, localPosterSizes);
 }
 
 /* --- Cache --- */

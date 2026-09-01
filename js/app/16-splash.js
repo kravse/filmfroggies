@@ -1,8 +1,9 @@
 /* --- Logged-out splash --- */
 
 /**
- * The marketing page for visitors with no session. Tiles come from committed
- * posters plus the curated titles in appSplash, so nothing here needs a token.
+ * The marketing page for visitors with no session. Tiles come from the curated
+ * titles and poster paths in appSplash, rendered off TMDB's image CDN, so
+ * nothing here needs a token or a network round trip to build the markup.
  */
 
 const SPLASH_POSTER_SIZE = "w342";
@@ -15,13 +16,10 @@ function isSplashActive() {
 }
 
 function splashPosterUrl(movieId) {
-  return localPosterUrlFor({ id: movieId }, SPLASH_POSTER_SIZE);
+  return appTmdb.buildImageUrl(appSplash.splashMovie(movieId)?.posterPath, SPLASH_POSTER_SIZE);
 }
 
-/**
- * Paints every mount once. Nothing is painted until the poster manifest has
- * loaded, so an empty pass leaves the page unpainted and the next sync retries.
- */
+/** Paints every mount once; an empty pass leaves the page for the next sync. */
 function renderSplash() {
   if (!splashEl || splashPainted) {
     return;

@@ -1,13 +1,12 @@
 /**
- * Collection backup CSV: export from the browser, import to restore, scrape ids only.
+ * Collection backup CSV: export from the browser, import to restore.
  *
- * The browser is the only place that knows the collection, and the scraper runs
- * on a machine that cannot read localStorage or the Gist. Settings exports this
- * file, you commit it, and `npm run scrape` reads it back. Both ends share these
+ * The browser is the only place that knows the collection, so Settings exports
+ * this file and reads it back on import. Export and import share these
  * functions so the format has exactly one definition.
  *
- * Only `tmdb_id` is load-bearing for scrape. The other columns carry list
- * membership, ratings, and viewing dates for backup/restore.
+ * Only `tmdb_id` identifies a movie. The other columns carry list membership,
+ * ratings, and viewing dates for backup/restore.
  */
 
 function parseCsv(text) {
@@ -469,7 +468,7 @@ function applyCollectionImport(state, rows, options = {}) {
 /**
  * Reads the first column of every line as an id. The header, blank lines, and
  * anything hand-edited into an unparseable state are skipped rather than
- * refused: a typo in a comment column should not stop a scrape.
+ * refused: a typo in a comment column should not stop an import.
  */
 function parseListCsv(text) {
   const seen = new Set();

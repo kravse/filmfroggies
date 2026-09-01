@@ -704,10 +704,6 @@ async function startApp() {
   updateSearchClearVisibility();
   syncAccountLoginGate();
 
-  // One static file, read before the first paint. When it covers the list that
-  // paint shows real cards instead of skeletons, which is the whole point.
-  await loadLocalPosterData();
-
   try {
     history.scrollRestoration = "manual";
   } catch (_) {

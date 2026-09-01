@@ -32,6 +32,12 @@ const appTmdb = (function () {
 
   const CAST_LIMIT = 8;
   const DEFAULT_NOW_PLAYING_WINDOW_DAYS = 84;
+  /** World premiere must fall in the same window as the US theatrical run (new only). */
+  const DEFAULT_NOW_PLAYING_PRIMARY_WINDOW_DAYS = DEFAULT_NOW_PLAYING_WINDOW_DAYS;
+  /** Match TMDB’s /movie/upcoming window (~4 weeks of US theatrical dates). */
+  const DEFAULT_UPCOMING_WINDOW_DAYS = 28;
+  /** Minimum TMDB vote count for discover browse queries (drops zero-interest listings). */
+  const DEFAULT_DISCOVER_MIN_VOTE_COUNT = 10;
 
   /**
    * Only the v4 API Read Access Token is accepted. It is a JWT: three
@@ -133,15 +139,6 @@ const appTmdb = (function () {
     return buildUrl("/configuration", {});
   }
 
-  function buildDiscoverListUrl(pathname, options = {}) {
-    const page = Number(options.page);
-    return buildUrl(pathname, {
-      language: options.language || "en-US",
-      page: Number.isInteger(page) && page > 0 ? String(page) : "1",
-      region: options.region || "US",
-    });
-  }
-
   function formatIsoDate(date) {
     const value = date instanceof Date ? date : new Date(date);
     if (Number.isNaN(value.getTime())) {
@@ -162,12 +159,68 @@ const appTmdb = (function () {
     return formatIsoDate(value);
   }
 
+  function buildDiscoverMovieUrl(options = {}) {
+    const page = Number(options.page);
+    const params = {
+      include_adult: "false",
+      include_video: "false",
+      language: options.language || "en-US",
+      page: Number.isInteger(page) && page > 0 ? String(page) : "1",
+      region: options.region || "US",
+      with_release_type: "2|3",
+      sort_by: options.sortBy || "popularity.desc",
+    };
+    if (options.releaseDateGte) {
+      params["release_date.gte"] = options.releaseDateGte;
+    }
+    if (options.releaseDateLte) {
+      params["release_date.lte"] = options.releaseDateLte;
+    }
+    if (options.primaryReleaseDateGte) {
+      params["primary_release_date.gte"] = options.primaryReleaseDateGte;
+    }
+    if (options.primaryReleaseDateLte) {
+      params["primary_release_date.lte"] = options.primaryReleaseDateLte;
+    }
+    if (options.voteCountGte != null) {
+      params["vote_count.gte"] = String(options.voteCountGte);
+    }
+    return buildUrl("/discover/movie", params);
+  }
+
   function buildUpcomingUrl(options = {}) {
-    return buildDiscoverListUrl("/movie/upcoming", options);
+    const today = options.today || formatIsoDate(new Date());
+    const windowDays = Number(options.windowDays) || DEFAULT_UPCOMING_WINDOW_DAYS;
+    const windowEnd = offsetIsoDate(today, windowDays);
+    return buildDiscoverMovieUrl({
+      language: options.language,
+      page: options.page,
+      region: options.region,
+      releaseDateGte: today,
+      releaseDateLte: windowEnd,
+      primaryReleaseDateGte: today,
+      primaryReleaseDateLte: windowEnd,
+      sortBy: "popularity.desc",
+    });
   }
 
   function buildNowPlayingUrl(options = {}) {
-    return buildDiscoverListUrl("/movie/now_playing", options);
+    const today = options.today || formatIsoDate(new Date());
+    const windowDays = Number(options.windowDays) || DEFAULT_NOW_PLAYING_WINDOW_DAYS;
+    const primaryWindowDays =
+      Number(options.primaryWindowDays) || DEFAULT_NOW_PLAYING_PRIMARY_WINDOW_DAYS;
+    const minVotes = Number(options.minVoteCount) || DEFAULT_DISCOVER_MIN_VOTE_COUNT;
+    return buildDiscoverMovieUrl({
+      language: options.language,
+      page: options.page,
+      region: options.region,
+      releaseDateGte: offsetIsoDate(today, -windowDays),
+      releaseDateLte: today,
+      primaryReleaseDateGte: offsetIsoDate(today, -primaryWindowDays),
+      primaryReleaseDateLte: today,
+      voteCountGte: minVotes,
+      sortBy: "popularity.desc",
+    });
   }
 
   function isValidImagePath(imagePath) {
@@ -203,6 +256,7 @@ const appTmdb = (function () {
       id: Number(entry.id),
       title: cleanText(entry.title) || cleanText(entry.original_title) || "Untitled",
       releaseDate: cleanText(entry.release_date),
+      primaryReleaseDate: cleanText(entry.primary_release_date),
       posterPath: cleanImagePath(entry.poster_path),
       overview: cleanText(entry.overview),
       voteCount: Number(entry.vote_count) || 0,
