@@ -16252,41 +16252,52 @@ function friendActiveRatingSegmentKind() {
   return null;
 }
 
+function friendRatingJointSegmentsHtml(values, showFan) {
+  const fanSegment = showFan
+    ? friendRatingSegmentHtml("fan", values.fanText, !values.fanLabel)
+    : "";
+  return `${friendRatingSegmentHtml("them", values.themText, values.friendRating == null)}${friendRatingSegmentHtml("mine", values.mineText, false)}${fanSegment}`;
+}
+
+function friendRatingJointAriaLabel(values, showFan) {
+  return showFan
+    ? `Ratings friend ${values.themText}, yours ${values.mineText}, fan ${values.fanText}`
+    : `Ratings friend ${values.themText}, yours ${values.mineText}`;
+}
+
 function friendRatingChitFullHtml(movieId) {
-  const { friendRating, themText, mineText, fanLabel, fanText } = friendRatingValues(movieId);
+  const values = friendRatingValues(movieId);
   const showFan = friendViewShowsFanRatings();
-  const ariaLabel = showFan
-    ? `Ratings friend ${themText}, yours ${mineText}, fan ${fanText}`
-    : `Ratings friend ${themText}, yours ${mineText}`;
-  const fanSegment = showFan ? friendRatingSegmentHtml("fan", fanText, !fanLabel) : "";
   return friendRatingChitClassHtml(
-    `${friendRatingSegmentHtml("them", themText, friendRating == null)}${friendRatingSegmentHtml("mine", mineText, false)}${fanSegment}`,
-    ariaLabel,
+    friendRatingJointSegmentsHtml(values, showFan),
+    friendRatingJointAriaLabel(values, showFan),
     "rating-chit--all",
   );
 }
 
 function friendRatingChitSortHtml(movieId) {
   const kind = friendActiveRatingSegmentKind();
-  if (!kind || (kind === "fan" && !friendViewShowsFanRatings())) {
+  if (!kind) {
     return "";
   }
-  const { friendRating, themText, mineText, fanLabel, fanText } = friendRatingValues(movieId);
-  const labels = {
-    them: "Friend rating",
-    mine: "Your rating",
-    fan: "Fan rating",
-  };
-  let segment = "";
-  if (kind === "them") {
-    segment = friendRatingSegmentHtml("them", themText, friendRating == null);
-  } else if (kind === "mine") {
-    segment = friendRatingSegmentHtml("mine", mineText, false);
-  } else {
-    segment = friendRatingSegmentHtml("fan", fanText, !fanLabel);
+  const values = friendRatingValues(movieId);
+  if (kind === "fan") {
+    // Sorting by fan rating asks for the number outright, so it shows even when
+    // the fan-ratings preference keeps it out of the joint chit.
+    return friendRatingChitClassHtml(
+      friendRatingSegmentHtml("fan", values.fanText, !values.fanLabel),
+      `Fan rating ${values.fanText}`,
+      "rating-chit--sort",
+    );
   }
-  const value = kind === "them" ? themText : kind === "mine" ? mineText : fanText;
-  return friendRatingChitClassHtml(segment, `${labels[kind]} ${value}`, "rating-chit--sort");
+  const showFan = friendViewShowsFanRatings();
+  // Sorting by a person's rating only makes sense next to the other person's,
+  // so poster cards get the same joint chit the detail rows already show.
+  return friendRatingChitClassHtml(
+    friendRatingJointSegmentsHtml(values, showFan),
+    friendRatingJointAriaLabel(values, showFan),
+    "rating-chit--sort",
+  );
 }
 
 function friendRatingChitHtml(movieId) {
