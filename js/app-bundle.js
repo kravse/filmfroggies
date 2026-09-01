@@ -10540,10 +10540,20 @@ function applyDisplayListFilters(ids) {
 }
 
 function listSearchPaintBaseIds() {
-  if (usesServerSortedIds() && serverSortCachedIds) {
-    return serverSortCachedIds;
+  const membership = getActiveDisplayContext().movieIds;
+  if (usesServerSortedIds() && serverSortCachedIds != null) {
+    if (serverSortCachedIds.length || !membership.length) {
+      return serverSortCachedIds;
+    }
   }
   return unfilteredDisplayMovieIds();
+}
+
+function listSearchVisibleRowCount() {
+  if (!grid) {
+    return 0;
+  }
+  return grid.querySelectorAll(".movie-row[data-movie-id]:not([hidden])").length;
 }
 
 function listSearchBaseGridMatchesDom() {
@@ -10585,8 +10595,23 @@ function syncListSearchRowVisibility() {
     for (const row of grid.querySelectorAll(".movie-row[data-movie-id]")) {
       row.hidden = false;
     }
+    if (!visibleIds.length) {
+      visibleIds = unfilteredDisplayMovieIds();
+    }
   }
   renderedMovieIds = [...visibleIds];
+  if (
+    typeof hasActiveListSearch === "function" &&
+    !hasActiveListSearch() &&
+    !visibleIds.length
+  ) {
+    const domCount = listSearchVisibleRowCount();
+    if (domCount) {
+      visibleIds = unfilteredDisplayMovieIds();
+      renderedMovieIds = [...visibleIds];
+      return visibleIds.length;
+    }
+  }
   return visibleIds.length;
 }
 
@@ -10609,7 +10634,7 @@ async function renderServerSortedGrid() {
   const sort = appSort.resolveSortMode(userState.preferences.sort);
   const fetchToken = serverSortFetchToken();
 
-  if (fetchToken === serverSortCacheKey && serverSortCachedIds) {
+  if (fetchToken === serverSortCacheKey && serverSortCachedIds != null) {
     paintMovieGrid(serverSortCachedIds);
     return;
   }
@@ -10806,7 +10831,21 @@ function syncAddMovieFabVisibility(count) {
 
 function renderEmptyState(count) {
   const totalCount = activeMovieIds().length;
-  if (count) {
+  const ctx = getActiveDisplayContext();
+  const effectiveCount =
+    ctx.searchable && typeof hasActiveListSearch === "function" && hasActiveListSearch()
+      ? count
+      : Math.max(count, listSearchVisibleRowCount());
+  if (effectiveCount) {
+    emptyState.hidden = true;
+    emptyState.innerHTML = "";
+    return;
+  }
+  if (
+    totalCount > 0 &&
+    typeof hasActiveListSearch === "function" &&
+    !hasActiveListSearch()
+  ) {
     emptyState.hidden = true;
     emptyState.innerHTML = "";
     return;
