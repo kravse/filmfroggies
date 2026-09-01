@@ -9,7 +9,7 @@ const appListCsv = (function () {
    * functions so the format has exactly one definition.
    *
    * Only `tmdb_id` identifies a movie. The other columns carry list membership,
-   * ratings, and viewing dates for backup/restore.
+   * ratings, viewing dates, and added-at stamps for backup/restore.
    */
 
   function parseCsv(text) {
@@ -53,7 +53,16 @@ const appListCsv = (function () {
     return rows;
   }
 
-  const CSV_HEADER = ["tmdb_id", "title", "list_id", "list_name", "my_rating", "release_year", "watch_dates"];
+  const CSV_HEADER = [
+    "tmdb_id",
+    "title",
+    "list_id",
+    "list_name",
+    "my_rating",
+    "release_year",
+    "watch_dates",
+    "added_at",
+  ];
   const CSV_FILENAME = "my_list.csv";
 
   function getLists() {
@@ -121,7 +130,8 @@ const appListCsv = (function () {
       .map((entry) => entry.watchedOn)
       .sort()
       .join(";");
-    return { title, releaseYear, myRating, watchDates: watchDates || "" };
+    const addedAt = getAddedAt().getAddedAt(state?.addedAt, id) || "";
+    return { title, releaseYear, myRating, watchDates: watchDates || "", addedAt };
   }
 
   function listNameFor(state, listId) {
@@ -203,6 +213,7 @@ const appListCsv = (function () {
           row.myRating,
           row.releaseYear,
           row.watchDates,
+          row.addedAt,
         ]),
       );
     }
@@ -222,6 +233,14 @@ const appListCsv = (function () {
       return null;
     }
     return getRatings().normalizeRating(Number(text));
+  }
+
+  function parseAddedAtField(value) {
+    const text = String(value || "").trim();
+    if (!text) {
+      return null;
+    }
+    return getAddedAt().normalizeStamp(text);
   }
 
   function parseWatchDatesField(value) {
@@ -272,6 +291,7 @@ const appListCsv = (function () {
         myRating: parseRatingField(read("myrating")),
         releaseYear: read("releaseyear"),
         watchDates: parseWatchDatesField(read("watchdates")),
+        addedAt: parseAddedAtField(read("addedat")),
       });
     }
     return rows;
@@ -320,10 +340,18 @@ const appListCsv = (function () {
 
   function mergeMovieFields(rowsForMovie) {
     let myRating = null;
+    let addedAt = null;
     const watchDates = new Set();
+    const addedAtLib = getAddedAt();
     for (const row of rowsForMovie) {
       if (row.myRating != null) {
         myRating = row.myRating;
+      }
+      if (row.addedAt != null) {
+        const stamp = addedAtLib.normalizeStamp(row.addedAt);
+        if (stamp && (addedAt == null || stamp < addedAt)) {
+          addedAt = stamp;
+        }
       }
       for (const date of row.watchDates) {
         watchDates.add(date);
@@ -331,6 +359,7 @@ const appListCsv = (function () {
     }
     return {
       myRating,
+      addedAt,
       watchDates: [...watchDates].sort(),
     };
   }
@@ -360,6 +389,10 @@ const appListCsv = (function () {
         byMovie.set(row.tmdbId, []);
       }
       byMovie.get(row.tmdbId).push(row);
+    }
+    const mergedByMovie = new Map();
+    for (const [movieId, movieRows] of byMovie) {
+      mergedByMovie.set(movieId, mergeMovieFields(movieRows));
     }
 
     let lists = listsLib.defaultLists();
@@ -412,7 +445,8 @@ const appListCsv = (function () {
     for (const id of watchedOrder) {
       lists = listsLib.assignMovieToList(lists, listsLib.WATCHED_ID, id);
       statuses = syncLib.setMovieStatus(statuses, id, listsLib.WATCHED_ID, now);
-      addedAt = addedAtLib.recordAddedAt(addedAt, id, now);
+      const stamp = mergedByMovie.get(id)?.addedAt || now;
+      addedAt = addedAtLib.setAddedAt(addedAt, id, stamp);
     }
 
     for (const id of watchlistOrder) {
@@ -421,7 +455,8 @@ const appListCsv = (function () {
       }
       lists = listsLib.assignMovieToList(lists, listsLib.WATCHLIST_ID, id);
       statuses = syncLib.setMovieStatus(statuses, id, listsLib.WATCHLIST_ID, now);
-      addedAt = addedAtLib.recordAddedAt(addedAt, id, now);
+      const stamp = mergedByMovie.get(id)?.addedAt || now;
+      addedAt = addedAtLib.setAddedAt(addedAt, id, stamp);
     }
 
     for (const [listId, order] of customOrder) {
@@ -430,8 +465,8 @@ const appListCsv = (function () {
       }
     }
 
-    for (const [movieId, movieRows] of byMovie) {
-      const { myRating, watchDates } = mergeMovieFields(movieRows);
+    for (const [movieId] of byMovie) {
+      const { myRating, watchDates } = mergedByMovie.get(movieId) || {};
       if (myRating != null) {
         ratings = ratingsLib.setRating(ratings, movieId, myRating);
       }

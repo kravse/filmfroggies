@@ -87,6 +87,10 @@ test("export parse import round-trip preserves collection data", () => {
   const state = {
     ...stateWith([[603, "watched"], [1891, "watchlist"]]),
     ratings: { 603: 8.5 },
+    addedAt: {
+      603: "2024-01-15T10:00:00.000Z",
+      1891: "2024-02-20T08:30:00.000Z",
+    },
     viewingHistory: {
       603: [{ id: "v1", watchedOn: "2024-05-01", updatedAt: now.toISOString() }],
     },
@@ -112,6 +116,38 @@ test("export parse import round-trip preserves collection data", () => {
   assert.deepEqual(imported.state.customLists[0].movieIds, [603]);
   assert.equal(imported.state.ratings[603], 8.5);
   assert.equal(imported.state.viewingHistory[603][0].watchedOn, "2024-05-01");
+  assert.equal(imported.state.addedAt[603], "2024-01-15T10:00:00.000Z");
+  assert.equal(imported.state.addedAt[1891], "2024-02-20T08:30:00.000Z");
+});
+
+test("applyCollectionImport preserves added_at from csv rows", () => {
+  const now = new Date("2026-08-19T12:00:00.000Z");
+  const rows = parseCollectionCsv(
+    "tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates,added_at\n" +
+      "603,The Matrix,watched,Watched,,1999,,2024-01-15T10:00:00.000Z\n" +
+      "1891,Star Wars,watchlist,Watchlist,,1977,,2024-02-20T08:30:00.000Z\n",
+  );
+  const result = applyCollectionImport(defaultUserState(), rows, { mode: "replace", now });
+  assert.equal(result.state.addedAt[603], "2024-01-15T10:00:00.000Z");
+  assert.equal(result.state.addedAt[1891], "2024-02-20T08:30:00.000Z");
+});
+
+test("applyCollectionImport falls back to import time when added_at is missing", () => {
+  const now = new Date("2026-08-19T12:00:00.000Z");
+  const rows = parseCollectionCsv(
+    "tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates\n" +
+      "603,The Matrix,watched,Watched,,1999,\n",
+  );
+  const result = applyCollectionImport(defaultUserState(), rows, { mode: "replace", now });
+  assert.equal(result.state.addedAt[603], now.toISOString());
+});
+
+test("parseCollectionCsv reads added_at on legacy rows without the column", () => {
+  const rows = parseCollectionCsv(
+    "tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates\n" +
+      "603,The Matrix,watched,Watched,,1999,\n",
+  );
+  assert.equal(rows[0].addedAt, null);
 });
 
 test("summarizeCollectionImport counts movies and memberships", () => {

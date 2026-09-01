@@ -33,6 +33,7 @@ test("rows are watched first, then watchlist, each in stored order", () => {
       myRating: "",
       releaseYear: "",
       watchDates: "",
+      addedAt: "",
     },
     {
       id: 604,
@@ -42,6 +43,7 @@ test("rows are watched first, then watchlist, each in stored order", () => {
       myRating: "",
       releaseYear: "",
       watchDates: "",
+      addedAt: "",
     },
     {
       id: 1891,
@@ -51,6 +53,7 @@ test("rows are watched first, then watchlist, each in stored order", () => {
       myRating: "",
       releaseYear: "",
       watchDates: "",
+      addedAt: "",
     },
   ]);
 });
@@ -77,6 +80,7 @@ test("listCsvRows includes my_rating and release_year when available", () => {
         myRating: "8.5",
         releaseYear: "1999",
         watchDates: "",
+        addedAt: "",
       },
     ],
   );
@@ -152,6 +156,7 @@ test("listCsvRows includes custom-list movies not on watched or watchlist", () =
         myRating: "",
         releaseYear: "1999",
         watchDates: "",
+        addedAt: "",
       },
       {
         id: 603,
@@ -161,6 +166,7 @@ test("listCsvRows includes custom-list movies not on watched or watchlist", () =
         myRating: "",
         releaseYear: "1999",
         watchDates: "",
+        addedAt: "",
       },
       {
         id: 999,
@@ -170,6 +176,7 @@ test("listCsvRows includes custom-list movies not on watched or watchlist", () =
         myRating: "",
         releaseYear: "1979",
         watchDates: "",
+        addedAt: "",
       },
       {
         id: 1000,
@@ -179,6 +186,7 @@ test("listCsvRows includes custom-list movies not on watched or watchlist", () =
         myRating: "",
         releaseYear: "",
         watchDates: "",
+        addedAt: "",
       },
     ],
   );
@@ -213,6 +221,7 @@ test("listCsvRows emits one row per custom list membership", () => {
       myRating: "",
       releaseYear: "",
       watchDates: "",
+      addedAt: "",
     },
     {
       id: 42,
@@ -222,6 +231,7 @@ test("listCsvRows emits one row per custom list membership", () => {
       myRating: "",
       releaseYear: "",
       watchDates: "",
+      addedAt: "",
     },
   ]);
 });
@@ -235,11 +245,12 @@ test("buildListCsv writes a header and one row per movie", () => {
       listName: "Watched",
       myRating: "8.5",
       releaseYear: "1999",
+      addedAt: "2024-01-15T10:00:00.000Z",
     },
   ]);
   assert.equal(
     csv,
-    "tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates\n603,The Matrix,watched,Watched,8.5,1999,\n",
+    "tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates,added_at\n603,The Matrix,watched,Watched,8.5,1999,,2024-01-15T10:00:00.000Z\n",
   );
 });
 
@@ -272,11 +283,24 @@ test("buildListCsv quotes titles that would otherwise break the row", () => {
   ]);
   assert.equal(
     csv,
-    "tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates\n" +
-      '1,"Lock, Stock and Two Smoking Barrels",watched,Watched,,1998,\n' +
-      '2,"The ""Burbs",watched,Watched,7.0,,\n' +
-      '3,"Line\nBreak",watchlist,Watchlist,,2020,\n',
+    "tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates,added_at\n" +
+      '1,"Lock, Stock and Two Smoking Barrels",watched,Watched,,1998,,\n' +
+      '2,"The ""Burbs",watched,Watched,7.0,,,\n' +
+      '3,"Line\nBreak",watchlist,Watchlist,,2020,,\n',
   );
+});
+
+test("listCsvRows exports added_at for watched and watchlist movies", () => {
+  const state = {
+    ...stateWith([[603, "watched"], [1891, "watchlist"]]),
+    addedAt: {
+      603: "2024-01-15T10:00:00.000Z",
+      1891: "2024-02-20T08:30:00.000Z",
+    },
+  };
+  const rows = listCsvRows(state, records({}));
+  assert.equal(rows[0].addedAt, "2024-01-15T10:00:00.000Z");
+  assert.equal(rows[1].addedAt, "2024-02-20T08:30:00.000Z");
 });
 
 test("parseListCsv reads ids and skips the header", () => {

@@ -392,13 +392,13 @@ Export, import, and Letterboxd CLI output all use the same file shape.
 
 | Workflow | Where | What it does |
 |----------|-------|--------------|
-| **Backup / restore** | Settings → Import & export | **Export** downloads `my_list.csv`; **Import** replaces Watched, Watchlist, custom list memberships, ratings, and viewing history (custom lists in the file are recreated if missing). |
+| **Backup / restore** | Settings → Import & export | **Export** downloads `my_list.csv`; **Import** replaces Watched, Watchlist, custom list memberships, ratings, viewing history, and added-at stamps (custom lists in the file are recreated if missing). |
 
 Header:
 
-`tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates`
+`tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates,added_at`
 
-**Multi-row export:** one row per list membership (Watched, Watchlist, each custom list). The same movie can appear on several rows; import merges `my_rating` and semicolon-separated `watch_dates` per `tmdb_id`.
+**Multi-row export:** one row per list membership (Watched, Watchlist, each custom list). The same movie can appear on several rows; import merges `my_rating`, semicolon-separated `watch_dates`, and `added_at` per `tmdb_id`.
 
 Letterboxd conversion is local only — it produces this CSV; it never writes browser state directly. See [Letterboxd import](#letterboxd-import-local-only).
 
