@@ -1,22 +1,32 @@
 /**
  * TMDB access with a Cache API layer for movie detail responses.
  *
- * Movie detail responses are cached under a synthetic key that omits the
- * credential, so the cache survives a credential change and never stores the
- * secret itself. Cached movies are served immediately; TMDB is checked again
- * only after appTmdbMovieCache.MOVIE_CACHE_REVALIDATE_MS (30 days). Search is
+ * Movie records are cached under a synthetic key that omits the credential, so the
+ * cache survives a credential change and never stores the secret itself. Search is
  * transient and only memoized for the session.
  *
- * Movie metadata hydrates from the TMDB Cache API first, then the account D1
- * batch cache (POST /api/movies/batch), then per-id TMDB fallback. Poster
- * images come straight from TMDB's image CDN, which takes no credential and
+ * Movie metadata hydrates from the movie cache first, then the account D1 batch
+ * cache (POST /api/movies/batch), then per-id TMDB fallback. Every layer that
+ * resolves a record writes it back to the cache — including the batch, which is the
+ * path list browsing actually uses — so a repeat visit paints with no network at
+ * all. A cached record past the revalidation interval (30 days) still renders
+ * immediately and is refreshed by folding its id into the batch already going out.
+ *
+ * The cache stores normalized records, the same shape D1 and the batch return, and
+ * is read with appTmdb.parseStoredMovieRecord. Raw TMDB payloads go through
+ * normalizeMovie instead; the two are not interchangeable.
+ *
+ * Poster images come straight from TMDB's image CDN, which takes no credential and
  * never touches the Worker.
  *
  * When logged in, all TMDB traffic goes through the account-gated Worker proxy
  * at /api/tmdb (Netlify redirect in production, direct Worker URL on localhost).
  */
 
-const TMDB_CACHE_NAME = "moviecollector-tmdb-v1";
+const TMDB_CACHE_NAME = "moviecollector-tmdb-v2";
+/** v1 held raw TMDB payloads; v2 holds normalized records. Reading one as the other
+ * silently blanks every field, so the old bucket is dropped rather than migrated. */
+const LEGACY_TMDB_CACHE_NAMES = ["moviecollector-tmdb-v1"];
 const CACHE_KEY_ORIGIN = "https://moviecollector.invalid/tmdb";
 const REQUEST_TIMEOUT_MS = 12000;
 const HYDRATE_CONCURRENCY = 6;
@@ -124,12 +134,31 @@ function hasMovieData() {
 /** The Cache API is unavailable on file:// and in some privacy modes. */
 function openTmdbCache() {
   if (cachePromise === undefined) {
-    cachePromise =
-      typeof caches === "undefined"
-        ? Promise.resolve(null)
-        : caches.open(TMDB_CACHE_NAME).catch(() => null);
+    if (typeof caches === "undefined") {
+      cachePromise = Promise.resolve(null);
+    } else {
+      cachePromise = caches.open(TMDB_CACHE_NAME).catch(() => null);
+      for (const name of LEGACY_TMDB_CACHE_NAMES) {
+        caches.delete(name).catch(() => {});
+      }
+    }
   }
   return cachePromise;
+}
+
+/** Best effort: a full or blocked cache must never fail hydration. */
+async function putMovieInCache(cache, movieId, record) {
+  if (!cache || !record) {
+    return;
+  }
+  try {
+    await cache.put(
+      movieCacheKey(movieId),
+      appTmdbMovieCache.buildCachedMovieResponse(JSON.stringify(record)),
+    );
+  } catch (_) {
+    /* Nothing to do; the record is already in memory. */
+  }
 }
 
 function movieCacheKey(movieId) {
@@ -153,6 +182,7 @@ async function clearMovieCache() {
     const results = await Promise.all([
       caches.delete(TMDB_CACHE_NAME),
       caches.delete(appPosterCache.POSTER_CACHE_NAME),
+      ...LEGACY_TMDB_CACHE_NAMES.map((name) => caches.delete(name)),
     ]);
     return results.some(Boolean);
   } catch (_) {
@@ -425,6 +455,8 @@ async function fetchTmdb(url, options = {}) {
   }
 }
 
+/** Raw TMDB payloads only. Cached and batched records are already normalized — read
+ * those with appTmdb.parseStoredMovieRecord, which is not the same transform. */
 function parseMovieText(text) {
   try {
     return appTmdb.normalizeMovie(JSON.parse(text));
@@ -434,114 +466,91 @@ function parseMovieText(text) {
 }
 
 /**
- * Populate movieById from the TMDB Cache API for ids not already in memory.
- * Returns ids still missing a detailed record. Stale entries revalidate in the background.
+ * Populate movieById from the movie cache for ids not already in memory.
+ *
+ * Returns `pending` (no usable cached record) and `stale` (rendered from a cache
+ * entry past the revalidation interval). Stale ids are refreshed by the batch that
+ * was going out anyway rather than one request each — a collection cached in one
+ * import also expires in one go, so per-id refresh turned that into a burst.
  */
 async function warmMoviesFromCache(ids, handlers = {}) {
   const cache = await openTmdbCache();
   if (!cache || !ids.length) {
-    return ids.slice();
+    return { pending: ids.slice(), stale: [] };
   }
   const outcomes = await Promise.all(
     ids.map(async (id) => {
       const movieId = Number(id);
       try {
-        const cacheKey = movieCacheKey(movieId);
-        const cached = await cache.match(cacheKey);
+        const cached = await cache.match(movieCacheKey(movieId));
         if (!cached) {
-          return { movieId, record: null };
+          return { movieId, record: null, stale: false };
         }
-        const cachedText = await cached.text();
-        const record = parseMovieText(cachedText);
+        const record = appTmdb.parseStoredMovieRecord(await cached.text());
         if (!record || !appTmdb.isDetailedMovieRecord(record)) {
-          return { movieId, record: null };
+          return { movieId, record: null, stale: false };
         }
-        if (appTmdbMovieCache.shouldRevalidateMovieCache(cached)) {
-          revalidateMovie(movieId, cacheKey, cache, cachedText, handlers.onUpdate);
-        }
-        return { movieId, record };
+        return {
+          movieId,
+          record,
+          stale: appTmdbMovieCache.shouldRevalidateMovieCache(cached),
+        };
       } catch (_) {
-        return { movieId, record: null };
+        return { movieId, record: null, stale: false };
       }
     }),
   );
-  const stillPending = [];
-  for (const { movieId, record } of outcomes) {
-    if (record) {
-      movieById.set(movieId, record);
-      movieErrors.delete(movieId);
-      handlers.onRecord?.(movieId, record);
-    } else {
-      stillPending.push(movieId);
+  const pending = [];
+  const stale = [];
+  for (const outcome of outcomes) {
+    if (!outcome.record) {
+      pending.push(outcome.movieId);
+      continue;
+    }
+    movieById.set(outcome.movieId, outcome.record);
+    movieErrors.delete(outcome.movieId);
+    handlers.onRecord?.(outcome.movieId, outcome.record);
+    if (outcome.stale) {
+      stale.push(outcome.movieId);
     }
   }
-  return stillPending;
+  return { pending, stale };
 }
 
-/**
- * Background refresh when a cache entry is older than the revalidation interval.
- * Failures are intentionally silent: the caller already has a usable record.
- */
-async function revalidateMovie(movieId, cacheKey, cache, cachedText, onUpdate) {
-  try {
-    const response = await fetchTmdb(appTmdb.buildMovieUrl(movieId));
-    const text = await response.text();
-    if (text === cachedText) {
-      if (cache) {
-        await cache.put(cacheKey, appTmdbMovieCache.buildCachedMovieResponse(text));
-      }
-      return;
-    }
-    const record = parseMovieText(text);
-    if (!record) {
-      return;
-    }
-    if (cache) {
-      await cache.put(cacheKey, appTmdbMovieCache.buildCachedMovieResponse(text));
-    }
-    movieById.set(movieId, record);
-    if (typeof onUpdate === "function") {
-      onUpdate(movieId, record);
-    }
-  } catch (_) {
-    /* Stale data stays on screen. */
-  }
-}
-
-async function fetchAndCacheMovie(movieId, cacheKey, cache) {
+async function fetchAndCacheMovie(movieId, cache) {
   const response = await fetchTmdb(appTmdb.buildMovieUrl(movieId));
-  const text = await response.text();
-  const record = parseMovieText(text);
+  const record = parseMovieText(await response.text());
   if (!record) {
     throw new Error(`Unexpected TMDB payload for movie ${movieId}`);
   }
-  if (cache) {
-    await cache.put(cacheKey, appTmdbMovieCache.buildCachedMovieResponse(text));
-  }
+  await putMovieInCache(cache, movieId, record);
   return record;
 }
 
-/** Resolves from cache when possible, then refreshes behind the caller. */
-async function getMovie(movieId, options = {}) {
+/**
+ * Single-movie read for the per-id fallback. A stale entry is refetched here rather
+ * than served and refreshed behind the caller: this path only runs when the batch
+ * could not resolve the id, so there is no batch left to fold the refresh into.
+ */
+async function getMovie(movieId) {
   const id = Number(movieId);
-  const cacheKey = movieCacheKey(id);
   const cache = await openTmdbCache();
 
   if (cache) {
-    const cached = await cache.match(cacheKey);
-    if (cached) {
-      const cachedText = await cached.text();
-      const record = parseMovieText(cachedText);
-      if (record) {
-        if (appTmdbMovieCache.shouldRevalidateMovieCache(cached)) {
-          revalidateMovie(id, cacheKey, cache, cachedText, options.onUpdate);
+    try {
+      const cached = await cache.match(movieCacheKey(id));
+      if (cached && !appTmdbMovieCache.shouldRevalidateMovieCache(cached)) {
+        const record = appTmdb.parseStoredMovieRecord(await cached.text());
+        if (record) {
+          return record;
         }
-        return record;
       }
+    } catch (_) {
+      /* Fall through to the network. */
     }
   }
 
-  return fetchAndCacheMovie(id, cacheKey, cache);
+  return fetchAndCacheMovie(id, cache);
 }
 
 async function searchMovies(query, options = {}) {
@@ -689,24 +698,36 @@ async function hydrateMovies(ids, handlers = {}) {
   }
 
   let hydratedFromNetwork = false;
-  let stillPending = pending;
 
-  stillPending = await warmMoviesFromCache(stillPending, handlers);
-  if (!stillPending.length) {
+  const warmed = await warmMoviesFromCache(pending, handlers);
+  let stillPending = warmed.pending;
+  // Stale ids already rendered from cache; refreshing them is free because they
+  // ride along with a batch that was going out for the pending ids anyway.
+  const batchIds = [...stillPending, ...warmed.stale];
+  if (!batchIds.length) {
     return { hydratedFromNetwork };
   }
 
   try {
     await devArtificialDelay();
-    const batchMovies = await fetchMoviesBatch(stillPending);
+    const batchMovies = await fetchMoviesBatch(batchIds);
+    const cache = await openTmdbCache();
+    const writes = [];
     for (const id of Object.keys(batchMovies)) {
       const record = batchMovies[id];
       const movieId = Number(id);
+      const wasRendered = appTmdb.isDetailedMovieRecord(movieById.get(movieId));
       movieById.set(movieId, record);
       movieErrors.delete(movieId);
-      handlers.onRecord?.(movieId, record);
+      writes.push(putMovieInCache(cache, movieId, record));
+      if (wasRendered) {
+        handlers.onUpdate?.(movieId, record);
+      } else {
+        handlers.onRecord?.(movieId, record);
+      }
       hydratedFromNetwork = true;
     }
+    await Promise.all(writes);
     stillPending = stillPending.filter(
       (id) => !appTmdb.isDetailedMovieRecord(movieById.get(id)),
     );
@@ -728,7 +749,7 @@ async function hydrateMovies(ids, handlers = {}) {
       const id = stillPending.shift();
       try {
         await devArtificialDelay();
-        const record = await getMovie(id, { onUpdate: handlers.onUpdate });
+        const record = await getMovie(id);
         movieById.set(id, record);
         movieErrors.delete(id);
         handlers.onRecord?.(id, record);

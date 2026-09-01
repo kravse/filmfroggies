@@ -6,9 +6,13 @@ Search [TMDB](https://www.themoviedb.org/), add movies to ordered lists, and bro
 
 The only thing this site stores is **which TMDB ids are in which list, and in what order**, plus your ratings, viewing history, and a few preferences. Nothing about a movie is duplicated into your lists. Every page load rehydrates movie records by id:
 
-1. **Account D1 batch cache** (`POST /api/movies/batch`) when logged in — one request per **visible viewport batch** (not the full list), with a short prefetch band below the fold
-2. **Browser Cache API** for TMDB movie JSON and poster blobs (revalidated at most once every 30 days)
+1. **Browser Cache API** for movie records and poster blobs — a repeat visit paints with no network at all
+2. **Account D1 batch cache** (`POST /api/movies/batch`) when logged in — one request per **visible viewport batch** (not the full list), with a short prefetch band below the fold
 3. **Per-id TMDB** via the account-gated Worker proxy for anything still missing
+
+Every layer that resolves a record writes it back to the browser cache, including the batch. A record older than 30 days still renders immediately and refreshes by riding along with a batch that was going out anyway, so staleness never costs an extra request.
+
+The browser cache stores **normalized records** — the same shape D1 and the batch return, read back with `parseStoredMovieRecord`. Raw TMDB payloads go through `normalizeMovie` instead. The two transforms are not interchangeable and `normalizeMovie` is not idempotent: run it on its own output and every field blanks while `genres` stays an array, so `isDetailedMovieRecord` still calls it healthy. Pick the reader that matches the shape.
 
 Poster images load directly from **TMDB's image CDN** (`image.tmdb.org`), which takes no credential and never touches the Worker or the shared read token. Only metadata is proxied.
 
@@ -315,8 +319,8 @@ Default CORS origins (hardcoded): `https://filmfroggies.com`, `https://www.filmf
 - Passwords: PBKDF2-SHA256, 100k iterations, per-user salt
 - Sessions: HMAC-signed bearer token (`{ uid, jti, exp }`) plus a D1 `sessions` row per login; logout and account delete revoke server-side
 - Auth rate limits (by IP / email): signup 5/hr per IP; login 15/15 min per IP; 5 failed logins/15 min per email
-- Browsing rate limits are capacity caps on already-authenticated routes, not security controls: movie batch 90/min per user, list ids 60/min, TMDB proxy 240/min, each with a per-IP cap roughly 3× the per-user one. Windows are one minute so a burst clears inside the client's retry backoff instead of locking the tab out for the rest of a long window
-- Hydration volume is bounded by un-hydrated grid rows, not collection size: ids coalesce per `ROW_HYDRATE_DEBOUNCE_MS` and an id already in memory is never re-requested, so one pass over a few hundred movies stays well under 20 batch requests. The TMDB proxy cap is higher because revalidating a stale cached movie costs one request per id rather than coalescing
+- Browsing rate limits are capacity caps on already-authenticated routes, not security controls: movie batch 90/min per user, list ids 60/min, TMDB proxy 120/min, each with a per-IP cap roughly 3× the per-user one. Windows are one minute so a burst clears inside the client's retry backoff instead of locking the tab out for the rest of a long window
+- Hydration volume is bounded by un-hydrated grid rows, not collection size: ids coalesce per `ROW_HYDRATE_DEBOUNCE_MS`, an id already in memory is never re-requested, and a warm browser cache means a repeat visit sends nothing at all. The TMDB proxy cap covers search, discover paging, and the per-id fallback rather than list hydration
 - Rate-limit keys use `CF-Connecting-IP`, which Cloudflare sets and a caller cannot forge. Netlify-proxied requests arrive from Netlify's edge, so the real user IP is in `X-Forwarded-For` — a caller-settable header, honoured only when [`worker/src/proxy-signature.js`](worker/src/proxy-signature.js) verifies the HS256 `x-nf-sign` JWS from Netlify's signed proxy redirects. Without `NETLIFY_PROXY_SIGNING_SECRET` on both sides the Worker falls back to the weaker `x-nf-request-id` check, so set it in both places
 - **`#admin` reports whether that signature is verifying** (see below). A silent failure keys every visitor to Netlify's edge IP, so everyone shares one bucket. The browsing caps allow roughly 3× the per-user rate per IP to absorb that, but auth caps are per-IP only, so a login spike still stays invisible to one user while 429ing everyone else
 - **Closed signups:** new accounts require a one-time invite code (**Log in → Sign up**); wrong or used codes get the same neutral response as a duplicate email

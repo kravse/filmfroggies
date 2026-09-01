@@ -384,6 +384,56 @@ const appTmdb = (function () {
     };
   }
 
+  /**
+   * Read a record already in the normalized shape above — what D1, the movies batch
+   * response, and the browser movie cache all store.
+   *
+   * This exists because normalizeMovie is not idempotent: it reads raw TMDB fields
+   * (release_date, poster_path, genres as objects), so running it on its own output
+   * blanks every field while leaving genres an array, which still satisfies
+   * isDetailedMovieRecord. The corruption would validate as healthy. Pick the reader
+   * that matches the shape rather than trying to make one handle both.
+   */
+  function parseStoredMovieRecord(json) {
+    if (json == null || json === "") {
+      return null;
+    }
+    try {
+      const parsed = typeof json === "string" ? JSON.parse(json) : json;
+      if (!isDetailedMovieRecord(parsed)) {
+        return null;
+      }
+      const id = Number(parsed.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        return null;
+      }
+      const runtime = Number(parsed.runtime);
+      const voteAverage = Number(parsed.voteAverage);
+      return {
+        id,
+        title: cleanText(parsed.title) || "Untitled",
+        releaseDate: cleanText(parsed.releaseDate),
+        overview: cleanText(parsed.overview),
+        tagline: cleanText(parsed.tagline),
+        posterPath: cleanImagePath(parsed.posterPath),
+        backdropPath: cleanImagePath(parsed.backdropPath),
+        runtime: Number.isFinite(runtime) && runtime > 0 ? runtime : null,
+        voteAverage: Number.isFinite(voteAverage) && voteAverage > 0 ? voteAverage : null,
+        genres: Array.isArray(parsed.genres)
+          ? parsed.genres.map((genre) => cleanText(genre)).filter(Boolean)
+          : [],
+        directors: Array.isArray(parsed.directors)
+          ? parsed.directors.map((name) => cleanText(name)).filter(Boolean)
+          : [],
+        cast: Array.isArray(parsed.cast)
+          ? parsed.cast.map((name) => cleanText(name)).filter(Boolean)
+          : [],
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
   return {
     API_BASE,
     IMAGE_BASE,
@@ -414,6 +464,7 @@ const appTmdb = (function () {
     mergeMovieSearchResults,
     flattenDirectorSearchResults,
     normalizeMovie,
+    parseStoredMovieRecord,
     isDetailedMovieRecord,
   };
 })();

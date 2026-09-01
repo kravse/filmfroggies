@@ -58,15 +58,14 @@ export const AUTH_RATE_LIMITS = {
 };
 
 /**
- * Per-user and per-IP caps on proxied TMDB reads. Sized well above the movie batch
- * because this path fans out rather than coalescing: a cached-but-stale movie is
- * revalidated one request per id, so a single hydrate batch can emit as many TMDB
- * reads as it had ids. A collection imported in one go also goes stale in one go,
- * making the month-boundary session the peak this has to absorb.
+ * Per-user and per-IP caps on proxied TMDB reads: search, discover paging, and the
+ * per-id fallback for ids the movie batch could not resolve. Hydration no longer
+ * lands here in bulk — stale cached movies refresh through the batch instead of one
+ * request each — so this carries interactive traffic rather than list volume.
  */
 export const TMDB_RATE_LIMITS = {
-  user: { limit: 240, windowMs: 60 * 1000 },
-  ip: { limit: 720, windowMs: 60 * 1000 },
+  user: { limit: 120, windowMs: 60 * 1000 },
+  ip: { limit: 360, windowMs: 60 * 1000 },
 };
 
 const RATE_LIMIT_ERROR = "Too many attempts. Try again later.";

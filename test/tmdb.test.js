@@ -22,6 +22,7 @@ const {
   mergeMovieSearchResults,
   flattenDirectorSearchResults,
   normalizeMovie,
+  parseStoredMovieRecord,
   isDetailedMovieRecord,
 } = require("../scripts/lib/tmdb");
 
@@ -353,4 +354,49 @@ test("normalizeMovie returns null when there is no usable id", () => {
 test("normalizeMovie falls back to the original title then to Untitled", () => {
   assert.equal(normalizeMovie({ id: 1, original_title: "Original" }).title, "Original");
   assert.equal(normalizeMovie({ id: 1 }).title, "Untitled");
+});
+
+const RAW_TMDB_MOVIE = {
+  id: 1554,
+  title: "Down by Law",
+  release_date: "1986-09-20",
+  overview: "Three men escape from jail in New Orleans.",
+  poster_path: "/4IyxoUQ7BB5kcSd7gASe2dTyWu7.jpg",
+  runtime: 106,
+  vote_average: 7.3,
+  genres: [{ name: "Comedy" }, { name: "Crime" }],
+  credits: { crew: [{ job: "Director", name: "Jim Jarmusch" }], cast: [{ name: "Tom Waits" }] },
+};
+
+test("parseStoredMovieRecord round-trips a normalized record through JSON", () => {
+  const record = normalizeMovie(RAW_TMDB_MOVIE);
+  const restored = parseStoredMovieRecord(JSON.stringify(record));
+  assert.deepEqual(restored, record);
+});
+
+test("parseStoredMovieRecord accepts an object as well as a JSON string", () => {
+  const record = normalizeMovie(RAW_TMDB_MOVIE);
+  assert.deepEqual(parseStoredMovieRecord(record), record);
+});
+
+test("parseStoredMovieRecord rejects unusable input instead of returning a husk", () => {
+  assert.equal(parseStoredMovieRecord(null), null);
+  assert.equal(parseStoredMovieRecord(""), null);
+  assert.equal(parseStoredMovieRecord("{not json"), null);
+  assert.equal(parseStoredMovieRecord(JSON.stringify({ id: 1, title: "Stub" })), null);
+  assert.equal(parseStoredMovieRecord(JSON.stringify({ genres: [], title: "No id" })), null);
+});
+
+test("normalizeMovie is not idempotent, which is why the stored reader exists", () => {
+  // Guards the reason for parseStoredMovieRecord: re-normalizing an already
+  // normalized record blanks every field but leaves genres an array, so
+  // isDetailedMovieRecord still reports it healthy. Silent corruption.
+  const record = normalizeMovie(RAW_TMDB_MOVIE);
+  const doubled = normalizeMovie(record);
+  assert.deepEqual(doubled.genres, []);
+  assert.equal(doubled.releaseDate, null);
+  assert.equal(doubled.posterPath, null);
+  assert.equal(isDetailedMovieRecord(doubled), true);
+  assert.notDeepEqual(doubled, record);
+  assert.deepEqual(parseStoredMovieRecord(record), record);
 });

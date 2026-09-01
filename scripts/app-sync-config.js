@@ -128,6 +128,7 @@ const APP_SYNC_ENTRIES = [
       "mergeMovieSearchResults",
       "flattenDirectorSearchResults",
       "normalizeMovie",
+      "parseStoredMovieRecord",
       "isDetailedMovieRecord",
     ],
   },
