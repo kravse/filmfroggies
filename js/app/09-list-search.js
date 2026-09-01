@@ -25,12 +25,51 @@ function getListFieldDraftForSuggest(field) {
   return appListSearch.parseFieldDraftInput(listSearchInput.value, field);
 }
 
+function watchedListIdsForSearch() {
+  return appLists.findList(userState.lists, appLists.WATCHED_ID)?.movieIds || [];
+}
+
 function watchedMoviesForListSearch() {
-  const list = appLists.findList(userState.lists, appLists.WATCHED_ID);
-  const ids = list?.movieIds || [];
-  return ids
+  return watchedListIdsForSearch()
     .map((id) => movieById.get(id))
     .filter(Boolean);
+}
+
+/**
+ * The filter can only judge ids whose metadata sits in movieById, and the grid
+ * hydrates rows lazily as they scroll into view. Until the whole searchable list is
+ * resolved, a miss means "not loaded yet" rather than "not in your collection".
+ */
+function listSearchMetadataReady() {
+  return watchedListIdsForSearch().every(
+    (id) => appTmdb.isDetailedMovieRecord(movieById.get(id)) || movieErrors.has(id),
+  );
+}
+
+let listSearchMetadataLoading = false;
+
+function ensureListSearchMetadata() {
+  if (listSearchMetadataLoading || !hasTmdbAccess()) {
+    return;
+  }
+  const missing = watchedListIdsForSearch().filter(
+    (id) => !appTmdb.isDetailedMovieRecord(movieById.get(id)) && !movieErrors.has(id),
+  );
+  if (!missing.length) {
+    return;
+  }
+  listSearchMetadataLoading = true;
+  hydrateMovies(missing, {
+    onRecord: applyHydratedRecord,
+    onUpdate: applyHydratedRecord,
+  })
+    .catch(() => {})
+    .then(() => {
+      listSearchMetadataLoading = false;
+      if (hasActiveListSearch()) {
+        listSearchRenderNow();
+      }
+    });
 }
 
 function getKnownListFieldValues(fieldKey) {
@@ -290,6 +329,7 @@ function syncListSearchVisibility() {
 }
 
 function onListSearchInput() {
+  ensureListSearchMetadata();
   updateListSearchClearVisibility();
   updateListSearchSuggest();
   debouncedListSearchRender();
@@ -324,6 +364,9 @@ if (listSearchFieldSuggest) {
 }
 
 if (listSearchInput) {
+  // Warm on focus so the first keystrokes filter a complete list, not a partial one.
+  listSearchInput.addEventListener("focus", ensureListSearchMetadata);
+
   listSearchInput.addEventListener("keydown", (event) => {
     const items = getListSuggestItems();
     const suggestOpen = items.length > 0 && !listSearchFieldSuggest.hidden;

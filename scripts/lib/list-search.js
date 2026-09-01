@@ -9,7 +9,11 @@ function normalizePersonKey(name) {
 }
 
 function emptyFieldTerms() {
-  return { genre: [], actor: [], director: [], year: [] };
+  const terms = {};
+  for (const field of SEARCH_FIELD_TYPES) {
+    terms[field.key] = [];
+  }
+  return terms;
 }
 
 function emptySearchFilter() {
@@ -206,28 +210,65 @@ function ensureSearchHaystack(movie) {
   movie._titleTokens = tokenizeSearchText(movie.title);
 }
 
+function titleTokensMatchEveryQueryToken(titleTokens, queryTokens) {
+  const unused = titleTokens.slice();
+  for (const token of queryTokens) {
+    const index = unused.findIndex((word) => word.startsWith(token));
+    if (index === -1) {
+      return false;
+    }
+    unused.splice(index, 1);
+  }
+  return true;
+}
+
+const MIN_SQUASHED_QUERY_LENGTH = 4;
+
+/**
+ * "bladerunner" has to find "Blade Runner". The spaceless query must line up with a
+ * run of whole title words starting on a word boundary, so a needle that only
+ * happens to straddle two words ("her" inside "The Others") still misses.
+ */
+function titleTokensMatchSquashedQuery(titleTokens, queryTokens) {
+  const needle = queryTokens.join("");
+  if (needle.length < MIN_SQUASHED_QUERY_LENGTH) {
+    return false;
+  }
+  for (let start = 0; start < titleTokens.length; start += 1) {
+    let joined = "";
+    for (let index = start; index < titleTokens.length; index += 1) {
+      joined += titleTokens[index];
+      if (joined.length >= needle.length) {
+        if (joined.startsWith(needle)) {
+          return true;
+        }
+        break;
+      }
+      if (!needle.startsWith(joined)) {
+        break;
+      }
+    }
+  }
+  return false;
+}
+
 function movieMatchesTitleTerms(movie, terms) {
   if (!terms || terms.length === 0) {
     return true;
   }
   ensureSearchHaystack(movie);
-  const unused = (movie._titleTokens || []).slice();
-  let usedAToken = false;
+  const queryTokens = [];
   for (const term of terms) {
-    const tokens = tokenizeSearchText(term);
-    if (!tokens.length) {
-      continue;
-    }
-    usedAToken = true;
-    for (const token of tokens) {
-      const index = unused.findIndex((word) => word.startsWith(token));
-      if (index === -1) {
-        return false;
-      }
-      unused.splice(index, 1);
-    }
+    queryTokens.push(...tokenizeSearchText(term));
   }
-  return usedAToken;
+  if (!queryTokens.length) {
+    return false;
+  }
+  const titleTokens = movie._titleTokens || [];
+  return (
+    titleTokensMatchEveryQueryToken(titleTokens, queryTokens) ||
+    titleTokensMatchSquashedQuery(titleTokens, queryTokens)
+  );
 }
 
 const GENRE_FIELD = {
@@ -263,51 +304,6 @@ const GENRE_FIELD = {
     const values = [];
     for (const movie of movies || []) {
       for (const label of Array.isArray(movie?.genres) ? movie.genres : []) {
-        const key = this.labelKey(label);
-        if (!key || seen.has(key)) {
-          continue;
-        }
-        seen.add(key);
-        values.push(String(label).trim());
-      }
-    }
-    return values.sort((a, b) => this.labelKey(a).localeCompare(this.labelKey(b)));
-  },
-};
-
-const ACTOR_FIELD = {
-  key: "actor",
-  prefix: "actor",
-  suppressTextOnLiteralPrefix: false,
-  chipAriaPrefix: "actor",
-  labelKey: normalizePersonKey,
-  formatQuery(label) {
-    return formatFieldSearchQuery("actor", label);
-  },
-  formatLabel(raw, knownValues) {
-    const needle = this.labelKey(raw);
-    if (!needle) {
-      return null;
-    }
-    for (const label of knownValues || []) {
-      if (this.labelKey(label) === needle) {
-        return String(label).trim();
-      }
-    }
-    return String(raw || "").trim() || null;
-  },
-  matchMovie(movie, term) {
-    if (!term) {
-      return true;
-    }
-    const cast = Array.isArray(movie?.cast) ? movie.cast : [];
-    return cast.some((name) => this.labelKey(name).includes(term));
-  },
-  collectValues(movies) {
-    const seen = new Set();
-    const values = [];
-    for (const movie of movies || []) {
-      for (const label of Array.isArray(movie?.cast) ? movie.cast : []) {
         const key = this.labelKey(label);
         if (!key || seen.has(key)) {
           continue;
@@ -471,6 +467,10 @@ function splitYearDecadeTextTerms(textTerms) {
   return { decadeTermsFromText, yearTerms, otherTextTerms };
 }
 
+function hasYearLikeTextTerms(textTerms) {
+  return (textTerms || []).some((term) => /^\d{4}s?$/i.test(String(term)));
+}
+
 function dedupeLowerTerms(terms) {
   const seen = new Set();
   const out = [];
@@ -513,7 +513,7 @@ function movieMatchesYearDecadeCriteria(movie, criteria) {
   return false;
 }
 
-const SEARCH_FIELD_TYPES = [GENRE_FIELD, ACTOR_FIELD, DIRECTOR_FIELD, YEAR_FIELD];
+const SEARCH_FIELD_TYPES = [GENRE_FIELD, DIRECTOR_FIELD, YEAR_FIELD];
 
 function getActiveDraftField(draftQuery) {
   const text = String(draftQuery || "").trim();
@@ -584,12 +584,10 @@ function parseCompoundSearchQuery(query) {
 
 function mergeFieldTermsFromChips(chips, parsedFieldTerms) {
   const fieldTerms = emptyFieldTerms();
-  const seen = {
-    genre: new Set(),
-    actor: new Set(),
-    director: new Set(),
-    year: new Set(),
-  };
+  const seen = {};
+  for (const field of SEARCH_FIELD_TYPES) {
+    seen[field.key] = new Set();
+  }
 
   for (const chip of chips || []) {
     const field = getFieldByKey(chip?.type);
@@ -649,7 +647,7 @@ function resolveKnownFieldLabel(term, field, knownValues) {
       return String(label).trim();
     }
   }
-  if (field.key === "year" || field.key === "actor" || field.key === "director") {
+  if (field.key === "year" || field.key === "director") {
     const matches = (knownValues || []).filter((label) => {
       if (field.matchesSuggestion) {
         return field.matchesSuggestion.call(field, needle, label);
@@ -714,15 +712,11 @@ function normalizeSearchFilter(filter) {
     return emptySearchFilter();
   }
   if (filter.fieldTerms) {
-    return {
-      fieldTerms: {
-        genre: [...(filter.fieldTerms.genre || [])],
-        actor: [...(filter.fieldTerms.actor || [])],
-        director: [...(filter.fieldTerms.director || [])],
-        year: [...(filter.fieldTerms.year || [])],
-      },
-      textTerms: [...(filter.textTerms || [])],
-    };
+    const fieldTerms = emptyFieldTerms();
+    for (const field of SEARCH_FIELD_TYPES) {
+      fieldTerms[field.key] = [...(filter.fieldTerms[field.key] || [])];
+    }
+    return { fieldTerms, textTerms: [...(filter.textTerms || [])] };
   }
   return emptySearchFilter();
 }
@@ -757,7 +751,14 @@ function matchesCompoundSearch(movie, filter) {
     yearDecadeCriteria.years.length > 0
   ) {
     if (!movieMatchesYearDecadeCriteria(movie, yearDecadeCriteria)) {
-      return false;
+      // A four-digit word can belong to the title ("Blade Runner 2049") instead of
+      // naming a release year, so read the whole query as a title before rejecting.
+      // An explicit year: chip is a deliberate filter and stays strict.
+      return (
+        (fieldTerms.year || []).length === 0 &&
+        hasYearLikeTextTerms(textTerms) &&
+        movieMatchesTitleTerms(movie, textTerms)
+      );
     }
   }
 
@@ -784,7 +785,7 @@ function chipsToFieldTermsPartial(chips, excludeFieldKey) {
     }
     const label = field.formatLabel(chip.label, [chip.label]);
     const term = field.labelKey(label);
-    if (term) {
+    if (term && partial[chip.type]) {
       partial[chip.type].push(term);
     }
   }
@@ -798,7 +799,9 @@ function filterMovieIds(ids, filter, getRecord) {
   return (ids || []).filter((id) => {
     const movie = getRecord(id);
     if (!movie) {
-      return true;
+      // Metadata that has not loaded yet cannot be claimed as a match, or the
+      // unhydrated tail of the list renders as results for any query.
+      return false;
     }
     return matchesCompoundSearch(movie, filter);
   });

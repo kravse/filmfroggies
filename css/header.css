@@ -215,16 +215,6 @@ header {
   --search-field-text: var(--search-field-genre-text);
 }
 
-.search-field-chip--actor {
-  --search-field-bg: var(--search-field-actor-bg);
-  --search-field-border: var(--search-field-actor-border);
-  --search-field-text: var(--search-field-actor-text);
-  text-transform: none;
-  letter-spacing: 0.01em;
-  font-size: 0.68rem;
-  font-weight: 500;
-}
-
 .search-field-chip--director {
   --search-field-bg: var(--search-field-director-bg);
   --search-field-border: var(--search-field-director-border);

@@ -96,6 +96,7 @@ const addMoviePickStep = document.getElementById("add-movie-pick-step");
 const addMoviePicked = document.getElementById("add-movie-picked");
 const addMoviePresetSection = document.getElementById("add-movie-preset-section");
 const addMoviePresetLabel = document.getElementById("add-movie-preset-label");
+const addMoviePresetStatus = document.getElementById("add-movie-preset-status");
 const addMovieAlsoAddSection = document.getElementById("add-movie-also-add-section");
 const addMoviePresetChips = document.getElementById("add-movie-preset-chips");
 const addMovieListPicker = document.getElementById("add-movie-list-picker");

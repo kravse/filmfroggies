@@ -98,6 +98,7 @@ const addMoviePickStep = document.getElementById("add-movie-pick-step");
 const addMoviePicked = document.getElementById("add-movie-picked");
 const addMoviePresetSection = document.getElementById("add-movie-preset-section");
 const addMoviePresetLabel = document.getElementById("add-movie-preset-label");
+const addMoviePresetStatus = document.getElementById("add-movie-preset-status");
 const addMovieAlsoAddSection = document.getElementById("add-movie-also-add-section");
 const addMoviePresetChips = document.getElementById("add-movie-preset-chips");
 const addMovieListPicker = document.getElementById("add-movie-list-picker");
@@ -6684,7 +6685,11 @@ const appListSearch = (function () {
   }
 
   function emptyFieldTerms() {
-    return { genre: [], actor: [], director: [], year: [] };
+    const terms = {};
+    for (const field of SEARCH_FIELD_TYPES) {
+      terms[field.key] = [];
+    }
+    return terms;
   }
 
   function emptySearchFilter() {
@@ -6881,28 +6886,65 @@ const appListSearch = (function () {
     movie._titleTokens = tokenizeSearchText(movie.title);
   }
 
+  function titleTokensMatchEveryQueryToken(titleTokens, queryTokens) {
+    const unused = titleTokens.slice();
+    for (const token of queryTokens) {
+      const index = unused.findIndex((word) => word.startsWith(token));
+      if (index === -1) {
+        return false;
+      }
+      unused.splice(index, 1);
+    }
+    return true;
+  }
+
+  const MIN_SQUASHED_QUERY_LENGTH = 4;
+
+  /**
+   * "bladerunner" has to find "Blade Runner". The spaceless query must line up with a
+   * run of whole title words starting on a word boundary, so a needle that only
+   * happens to straddle two words ("her" inside "The Others") still misses.
+   */
+  function titleTokensMatchSquashedQuery(titleTokens, queryTokens) {
+    const needle = queryTokens.join("");
+    if (needle.length < MIN_SQUASHED_QUERY_LENGTH) {
+      return false;
+    }
+    for (let start = 0; start < titleTokens.length; start += 1) {
+      let joined = "";
+      for (let index = start; index < titleTokens.length; index += 1) {
+        joined += titleTokens[index];
+        if (joined.length >= needle.length) {
+          if (joined.startsWith(needle)) {
+            return true;
+          }
+          break;
+        }
+        if (!needle.startsWith(joined)) {
+          break;
+        }
+      }
+    }
+    return false;
+  }
+
   function movieMatchesTitleTerms(movie, terms) {
     if (!terms || terms.length === 0) {
       return true;
     }
     ensureSearchHaystack(movie);
-    const unused = (movie._titleTokens || []).slice();
-    let usedAToken = false;
+    const queryTokens = [];
     for (const term of terms) {
-      const tokens = tokenizeSearchText(term);
-      if (!tokens.length) {
-        continue;
-      }
-      usedAToken = true;
-      for (const token of tokens) {
-        const index = unused.findIndex((word) => word.startsWith(token));
-        if (index === -1) {
-          return false;
-        }
-        unused.splice(index, 1);
-      }
+      queryTokens.push(...tokenizeSearchText(term));
     }
-    return usedAToken;
+    if (!queryTokens.length) {
+      return false;
+    }
+    const titleTokens = movie._titleTokens || [];
+    return (
+      titleTokensMatchEveryQueryToken(titleTokens, queryTokens) ||
+      titleTokensMatchSquashedQuery(titleTokens, queryTokens)
+    );
   }
 
   const GENRE_FIELD = {
@@ -6938,51 +6980,6 @@ const appListSearch = (function () {
       const values = [];
       for (const movie of movies || []) {
         for (const label of Array.isArray(movie?.genres) ? movie.genres : []) {
-          const key = this.labelKey(label);
-          if (!key || seen.has(key)) {
-            continue;
-          }
-          seen.add(key);
-          values.push(String(label).trim());
-        }
-      }
-      return values.sort((a, b) => this.labelKey(a).localeCompare(this.labelKey(b)));
-    },
-  };
-
-  const ACTOR_FIELD = {
-    key: "actor",
-    prefix: "actor",
-    suppressTextOnLiteralPrefix: false,
-    chipAriaPrefix: "actor",
-    labelKey: normalizePersonKey,
-    formatQuery(label) {
-      return formatFieldSearchQuery("actor", label);
-    },
-    formatLabel(raw, knownValues) {
-      const needle = this.labelKey(raw);
-      if (!needle) {
-        return null;
-      }
-      for (const label of knownValues || []) {
-        if (this.labelKey(label) === needle) {
-          return String(label).trim();
-        }
-      }
-      return String(raw || "").trim() || null;
-    },
-    matchMovie(movie, term) {
-      if (!term) {
-        return true;
-      }
-      const cast = Array.isArray(movie?.cast) ? movie.cast : [];
-      return cast.some((name) => this.labelKey(name).includes(term));
-    },
-    collectValues(movies) {
-      const seen = new Set();
-      const values = [];
-      for (const movie of movies || []) {
-        for (const label of Array.isArray(movie?.cast) ? movie.cast : []) {
           const key = this.labelKey(label);
           if (!key || seen.has(key)) {
             continue;
@@ -7146,6 +7143,10 @@ const appListSearch = (function () {
     return { decadeTermsFromText, yearTerms, otherTextTerms };
   }
 
+  function hasYearLikeTextTerms(textTerms) {
+    return (textTerms || []).some((term) => /^\d{4}s?$/i.test(String(term)));
+  }
+
   function dedupeLowerTerms(terms) {
     const seen = new Set();
     const out = [];
@@ -7188,7 +7189,7 @@ const appListSearch = (function () {
     return false;
   }
 
-  const SEARCH_FIELD_TYPES = [GENRE_FIELD, ACTOR_FIELD, DIRECTOR_FIELD, YEAR_FIELD];
+  const SEARCH_FIELD_TYPES = [GENRE_FIELD, DIRECTOR_FIELD, YEAR_FIELD];
 
   function getActiveDraftField(draftQuery) {
     const text = String(draftQuery || "").trim();
@@ -7259,12 +7260,10 @@ const appListSearch = (function () {
 
   function mergeFieldTermsFromChips(chips, parsedFieldTerms) {
     const fieldTerms = emptyFieldTerms();
-    const seen = {
-      genre: new Set(),
-      actor: new Set(),
-      director: new Set(),
-      year: new Set(),
-    };
+    const seen = {};
+    for (const field of SEARCH_FIELD_TYPES) {
+      seen[field.key] = new Set();
+    }
 
     for (const chip of chips || []) {
       const field = getFieldByKey(chip?.type);
@@ -7324,7 +7323,7 @@ const appListSearch = (function () {
         return String(label).trim();
       }
     }
-    if (field.key === "year" || field.key === "actor" || field.key === "director") {
+    if (field.key === "year" || field.key === "director") {
       const matches = (knownValues || []).filter((label) => {
         if (field.matchesSuggestion) {
           return field.matchesSuggestion.call(field, needle, label);
@@ -7389,15 +7388,11 @@ const appListSearch = (function () {
       return emptySearchFilter();
     }
     if (filter.fieldTerms) {
-      return {
-        fieldTerms: {
-          genre: [...(filter.fieldTerms.genre || [])],
-          actor: [...(filter.fieldTerms.actor || [])],
-          director: [...(filter.fieldTerms.director || [])],
-          year: [...(filter.fieldTerms.year || [])],
-        },
-        textTerms: [...(filter.textTerms || [])],
-      };
+      const fieldTerms = emptyFieldTerms();
+      for (const field of SEARCH_FIELD_TYPES) {
+        fieldTerms[field.key] = [...(filter.fieldTerms[field.key] || [])];
+      }
+      return { fieldTerms, textTerms: [...(filter.textTerms || [])] };
     }
     return emptySearchFilter();
   }
@@ -7432,7 +7427,14 @@ const appListSearch = (function () {
       yearDecadeCriteria.years.length > 0
     ) {
       if (!movieMatchesYearDecadeCriteria(movie, yearDecadeCriteria)) {
-        return false;
+        // A four-digit word can belong to the title ("Blade Runner 2049") instead of
+        // naming a release year, so read the whole query as a title before rejecting.
+        // An explicit year: chip is a deliberate filter and stays strict.
+        return (
+          (fieldTerms.year || []).length === 0 &&
+          hasYearLikeTextTerms(textTerms) &&
+          movieMatchesTitleTerms(movie, textTerms)
+        );
       }
     }
 
@@ -7459,7 +7461,7 @@ const appListSearch = (function () {
       }
       const label = field.formatLabel(chip.label, [chip.label]);
       const term = field.labelKey(label);
-      if (term) {
+      if (term && partial[chip.type]) {
         partial[chip.type].push(term);
       }
     }
@@ -7473,7 +7475,9 @@ const appListSearch = (function () {
     return (ids || []).filter((id) => {
       const movie = getRecord(id);
       if (!movie) {
-        return true;
+        // Metadata that has not loaded yet cannot be claimed as a match, or the
+        // unhydrated tail of the list renders as results for any query.
+        return false;
       }
       return matchesCompoundSearch(movie, filter);
     });
@@ -9086,18 +9090,44 @@ function hasAddMovieDestinations() {
   );
 }
 
+/**
+ * Saved Watched / Watchlist membership for the staged movie, or null when it is
+ * uncollected. A saved preset makes both preset pickers no-ops, so the dialog
+ * shows this status instead and leaves promotion to the detail overlay.
+ */
+function addMovieSavedPresetStatus() {
+  if (!pendingAddResult || !userState) {
+    return null;
+  }
+  const status = detailPresetStatusForMovie(pendingAddResult.id);
+  return status.state === "none" ? null : status;
+}
+
+function syncAddMoviePresetStatus(status) {
+  if (!addMoviePresetStatus) {
+    return;
+  }
+  if (status) {
+    addMoviePresetStatus.className = `add-movie-preset-status add-movie-preset-status--${status.state}`;
+    addMoviePresetStatus.innerHTML = `${appCardHtml.detailPresetStatusIconHtml(status.state)}<span class="add-movie-preset-status-label">${appCardHtml.escapeHtml(status.label)}</span>`;
+  }
+  addMoviePresetStatus.hidden = !status;
+}
+
 function syncAddMovieDialogChrome() {
   const customDetail = isCustomListDetailActive();
   const listName = customDetail ? getActiveDisplayContext().listName : "";
+  const savedPreset = addMovieSavedPresetStatus();
 
   if (addMovieTitle) {
     addMovieTitle.textContent = customDetail ? `Add a movie to ${listName}` : "Add a movie";
   }
+  syncAddMoviePresetStatus(savedPreset);
   if (addMoviePresetSection) {
-    addMoviePresetSection.hidden = customDetail;
+    addMoviePresetSection.hidden = customDetail || savedPreset != null;
   }
   if (addMovieAlsoAddSection) {
-    addMovieAlsoAddSection.hidden = !customDetail;
+    addMovieAlsoAddSection.hidden = !customDetail || savedPreset != null;
   }
   if (addMoviePresetLabel) {
     addMoviePresetLabel.textContent = "Add to";
@@ -9449,7 +9479,12 @@ function focusAddMoviePickStep() {
   const presetOption = addMoviePresetSection?.hidden
     ? null
     : addMovieListPicker?.querySelector("[data-list-id]");
-  (presetOption ?? addMovieSubmit)?.focus({ preventScroll: true });
+  // With no preset to choose, custom lists are the only remaining destination —
+  // and Add is disabled until one is picked, so it cannot take focus.
+  const collectedOption = addMovieSavedPresetStatus()
+    ? addMovieCustomListPicker?.querySelector("[data-custom-list-id]")
+    : null;
+  (presetOption ?? collectedOption ?? addMovieSubmit)?.focus({ preventScroll: true });
 }
 
 function confirmAddMovie() {
@@ -10319,7 +10354,7 @@ function serverSortCacheToken() {
   const sort = appSort.resolveSortMode(userState.preferences.sort);
   const searchKey =
     ctx.searchable && typeof hasActiveListSearch === "function" && hasActiveListSearch()
-      ? getListSearchFilter()
+      ? JSON.stringify(getListSearchFilter())
       : "";
   return `${ctx.listId}:${sort}:${searchKey}`;
 }
@@ -10577,8 +10612,13 @@ function renderEmptyState(count) {
     typeof hasActiveListSearch === "function" &&
     hasActiveListSearch()
   ) {
+    if (typeof listSearchMetadataReady === "function" && !listSearchMetadataReady()) {
+      emptyState.innerHTML = `<strong>Loading your collection…</strong>
+<p class="empty-state-hint">Search covers every movie in this list, not just the ones on screen.</p>`;
+      return;
+    }
     emptyState.innerHTML = `<strong>No matches</strong>
-<p class="empty-state-hint">Try a different title, or director:, genre:, actor:, or year.</p>`;
+<p class="empty-state-hint">Try a different title, or director:, genre:, or year.</p>`;
     return;
   }
   if (!hasTmdbAccess()) {
@@ -14127,12 +14167,51 @@ function getListFieldDraftForSuggest(field) {
   return appListSearch.parseFieldDraftInput(listSearchInput.value, field);
 }
 
+function watchedListIdsForSearch() {
+  return appLists.findList(userState.lists, appLists.WATCHED_ID)?.movieIds || [];
+}
+
 function watchedMoviesForListSearch() {
-  const list = appLists.findList(userState.lists, appLists.WATCHED_ID);
-  const ids = list?.movieIds || [];
-  return ids
+  return watchedListIdsForSearch()
     .map((id) => movieById.get(id))
     .filter(Boolean);
+}
+
+/**
+ * The filter can only judge ids whose metadata sits in movieById, and the grid
+ * hydrates rows lazily as they scroll into view. Until the whole searchable list is
+ * resolved, a miss means "not loaded yet" rather than "not in your collection".
+ */
+function listSearchMetadataReady() {
+  return watchedListIdsForSearch().every(
+    (id) => appTmdb.isDetailedMovieRecord(movieById.get(id)) || movieErrors.has(id),
+  );
+}
+
+let listSearchMetadataLoading = false;
+
+function ensureListSearchMetadata() {
+  if (listSearchMetadataLoading || !hasTmdbAccess()) {
+    return;
+  }
+  const missing = watchedListIdsForSearch().filter(
+    (id) => !appTmdb.isDetailedMovieRecord(movieById.get(id)) && !movieErrors.has(id),
+  );
+  if (!missing.length) {
+    return;
+  }
+  listSearchMetadataLoading = true;
+  hydrateMovies(missing, {
+    onRecord: applyHydratedRecord,
+    onUpdate: applyHydratedRecord,
+  })
+    .catch(() => {})
+    .then(() => {
+      listSearchMetadataLoading = false;
+      if (hasActiveListSearch()) {
+        listSearchRenderNow();
+      }
+    });
 }
 
 function getKnownListFieldValues(fieldKey) {
@@ -14392,6 +14471,7 @@ function syncListSearchVisibility() {
 }
 
 function onListSearchInput() {
+  ensureListSearchMetadata();
   updateListSearchClearVisibility();
   updateListSearchSuggest();
   debouncedListSearchRender();
@@ -14426,6 +14506,9 @@ if (listSearchFieldSuggest) {
 }
 
 if (listSearchInput) {
+  // Warm on focus so the first keystrokes filter a complete list, not a partial one.
+  listSearchInput.addEventListener("focus", ensureListSearchMetadata);
+
   listSearchInput.addEventListener("keydown", (event) => {
     const items = getListSuggestItems();
     const suggestOpen = items.length > 0 && !listSearchFieldSuggest.hidden;

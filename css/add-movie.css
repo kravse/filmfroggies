@@ -402,6 +402,32 @@
   color: var(--muted-dim);
 }
 
+.add-movie-preset-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text);
+}
+
+.add-movie-preset-status .add-list-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  font-size: 0.75rem;
+  border-radius: 5px;
+}
+
+.add-movie-preset-status .add-list-icon-watchlist svg {
+  width: 13px;
+  height: 13px;
+}
+
+.add-movie-preset-status-label {
+  font-family: var(--ui-font);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 .add-movie-dialog:not(.is-watched-selected) #add-movie-rating-field,
 .add-movie-dialog:not(.is-watched-selected) #add-movie-watch-date-wrap {
   display: none !important;

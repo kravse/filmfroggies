@@ -699,7 +699,7 @@ function serverSortCacheToken() {
   const sort = appSort.resolveSortMode(userState.preferences.sort);
   const searchKey =
     ctx.searchable && typeof hasActiveListSearch === "function" && hasActiveListSearch()
-      ? getListSearchFilter()
+      ? JSON.stringify(getListSearchFilter())
       : "";
   return `${ctx.listId}:${sort}:${searchKey}`;
 }
@@ -957,8 +957,13 @@ function renderEmptyState(count) {
     typeof hasActiveListSearch === "function" &&
     hasActiveListSearch()
   ) {
+    if (typeof listSearchMetadataReady === "function" && !listSearchMetadataReady()) {
+      emptyState.innerHTML = `<strong>Loading your collection…</strong>
+<p class="empty-state-hint">Search covers every movie in this list, not just the ones on screen.</p>`;
+      return;
+    }
     emptyState.innerHTML = `<strong>No matches</strong>
-<p class="empty-state-hint">Try a different title, or director:, genre:, actor:, or year.</p>`;
+<p class="empty-state-hint">Try a different title, or director:, genre:, or year.</p>`;
     return;
   }
   if (!hasTmdbAccess()) {

@@ -70,8 +70,10 @@ Click any card to open the detail overlay — poster, year, runtime, genres, fan
 When Watched has hydrated movies, a filter bar appears below the header. It is display-only and does not change stored order.
 
 - Plain words match title words (each query word needs its own title word)
-- `genre:horror`, `actor:name`, `director:name`, `year:1980s` (or trailing `19…` while typing)
+- A query typed without spaces still matches consecutive title words, so `bladerunner` finds *Blade Runner*
+- `genre:horror`, `director:name`, `year:1980s` (or trailing `19…` while typing)
 - Multiple chips combine as AND filters
+- Focusing the filter loads metadata for the whole list, so a query that matches nothing reports **No matches** instead of showing the rows that had not loaded yet
 
 ### Custom lists
 

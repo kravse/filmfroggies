@@ -37,15 +37,14 @@ function movie(overrides = {}) {
   return record;
 }
 
-test("parseCompoundSearchQuery splits genre, actor, director, year, and text", () => {
+test("parseCompoundSearchQuery splits genre, director, year, and text", () => {
   assert.deepEqual(
     parseCompoundSearchQuery(
-      'genre:horror actor:"Kurt Russell" director:"John Carpenter" year:1980s thing',
+      'genre:horror director:"John Carpenter" year:1980s thing',
     ),
     {
       fieldTerms: {
         genre: ["horror"],
-        actor: ["kurt russell"],
         director: ["john carpenter"],
         year: ["1980s"],
       },
@@ -54,9 +53,21 @@ test("parseCompoundSearchQuery splits genre, actor, director, year, and text", (
   );
 });
 
-test("parseFieldDraftInput supports genre, actor, director, and year prefixes", () => {
+test("cast is not searchable", () => {
+  assert.equal(getFieldByKey("actor"), null);
+  assert.deepEqual(parseCompoundSearchQuery("actor:russell").fieldTerms, {
+    genre: [],
+    director: [],
+    year: [],
+  });
+  assert.equal(
+    matchesCompoundSearch(movie(), buildSearchFilter([], "russell")),
+    false,
+  );
+});
+
+test("parseFieldDraftInput supports genre, director, and year prefixes", () => {
   const genreField = getFieldByKey("genre");
-  const actorField = getFieldByKey("actor");
   const directorField = getFieldByKey("director");
   const yearField = getFieldByKey("year");
 
@@ -65,12 +76,6 @@ test("parseFieldDraftInput supports genre, actor, director, and year prefixes", 
     partial: "hor",
     quoted: false,
     prefix: "",
-  });
-  assert.deepEqual(parseFieldDraftInput("horror actor:kur", actorField), {
-    fieldKey: "actor",
-    partial: "kur",
-    quoted: false,
-    prefix: "horror",
   });
   assert.deepEqual(parseFieldDraftInput("director:carp", directorField), {
     fieldKey: "director",
@@ -96,59 +101,52 @@ test("parseFieldDraftInput supports genre, actor, director, and year prefixes", 
 
 test("buildSearchFilter keeps typed year suffixes as text search", () => {
   assert.deepEqual(buildSearchFilter([], "19"), {
-    fieldTerms: { genre: [], actor: [], director: [], year: [] },
+    fieldTerms: { genre: [], director: [], year: [] },
     textTerms: [],
   });
   assert.deepEqual(buildSearchFilter([], "1982"), {
-    fieldTerms: { genre: [], actor: [], director: [], year: [] },
+    fieldTerms: { genre: [], director: [], year: [] },
     textTerms: ["1982"],
   });
   assert.deepEqual(buildSearchFilter([], "1980s"), {
-    fieldTerms: { genre: [], actor: [], director: [], year: [] },
+    fieldTerms: { genre: [], director: [], year: [] },
     textTerms: ["1980s"],
   });
 });
 
-test("genre, actor, director, and year field filters match only their movie fields", () => {
+test("genre, director, and year field filters match only their movie fields", () => {
   const sample = movie();
   assert.equal(
     matchesCompoundSearch(sample, {
-      fieldTerms: { genre: ["horror"], actor: [], director: [], year: [] },
+      fieldTerms: { genre: ["horror"], director: [], year: [] },
       textTerms: [],
     }),
     true,
   );
   assert.equal(
     matchesCompoundSearch(sample, {
-      fieldTerms: { genre: ["comedy"], actor: [], director: [], year: [] },
+      fieldTerms: { genre: ["comedy"], director: [], year: [] },
       textTerms: [],
     }),
     false,
   );
   assert.equal(
     matchesCompoundSearch(sample, {
-      fieldTerms: { genre: [], actor: ["kurt russell"], director: [], year: [] },
+      fieldTerms: { genre: [], director: ["carpenter"], year: [] },
       textTerms: [],
     }),
     true,
   );
   assert.equal(
     matchesCompoundSearch(sample, {
-      fieldTerms: { genre: [], actor: [], director: ["carpenter"], year: [] },
-      textTerms: [],
-    }),
-    true,
-  );
-  assert.equal(
-    matchesCompoundSearch(sample, {
-      fieldTerms: { genre: [], actor: [], director: ["spielberg"], year: [] },
+      fieldTerms: { genre: [], director: ["spielberg"], year: [] },
       textTerms: [],
     }),
     false,
   );
   assert.equal(
     matchesCompoundSearch(sample, {
-      fieldTerms: { genre: [], actor: [], director: [], year: ["1980s"] },
+      fieldTerms: { genre: [], director: [], year: ["1980s"] },
       textTerms: [],
     }),
     true,
@@ -159,35 +157,35 @@ test("plain text search matches title words, not director or cast", () => {
   const sample = movie();
   assert.equal(
     matchesCompoundSearch(sample, {
-      fieldTerms: { genre: [], actor: [], director: [], year: [] },
+      fieldTerms: { genre: [], director: [], year: [] },
       textTerms: ["thing"],
     }),
     true,
   );
   assert.equal(
     matchesCompoundSearch(sample, {
-      fieldTerms: { genre: [], actor: [], director: [], year: [] },
+      fieldTerms: { genre: [], director: [], year: [] },
       textTerms: ["carpenter"],
     }),
     false,
   );
   assert.equal(
     matchesCompoundSearch(sample, {
-      fieldTerms: { genre: [], actor: [], director: [], year: [] },
+      fieldTerms: { genre: [], director: [], year: [] },
       textTerms: ["russell"],
     }),
     false,
   );
   assert.equal(
     matchesCompoundSearch(sample, {
-      fieldTerms: { genre: [], actor: [], director: [], year: [] },
+      fieldTerms: { genre: [], director: [], year: [] },
       textTerms: ["horror"],
     }),
     false,
   );
   assert.equal(
     matchesCompoundSearch(sample, {
-      fieldTerms: { genre: [], actor: [], director: [], year: [] },
+      fieldTerms: { genre: [], director: [], year: [] },
       textTerms: ["thi"],
     }),
     true,
@@ -196,7 +194,7 @@ test("plain text search matches title words, not director or cast", () => {
 
 test("title search requires a distinct title word for each query word", () => {
   const escape = movie({ title: "The Great Escape" });
-  const empty = { fieldTerms: { genre: [], actor: [], director: [], year: [] } };
+  const empty = { fieldTerms: { genre: [], director: [], year: [] } };
   assert.equal(
     matchesCompoundSearch(escape, { ...empty, textTerms: ["great", "escape"] }),
     true,
@@ -212,6 +210,68 @@ test("title search requires a distinct title word for each query word", () => {
     }),
     false,
   );
+});
+
+test("a query typed without spaces matches consecutive title words", () => {
+  const bladeRunner = movie({ title: "Blade Runner" });
+  const sequel = movie({ id: 2, title: "Blade Runner 2049", releaseDate: "2017-10-06" });
+  const knight = movie({ id: 3, title: "The Dark Knight", releaseDate: "2008-07-18" });
+
+  for (const query of ["bladerunner", "bladerun", "blade runner"]) {
+    assert.deepEqual(
+      [bladeRunner, sequel, knight].filter((record) =>
+        matchesCompoundSearch(record, buildSearchFilter([], query)),
+      ),
+      [bladeRunner, sequel],
+      query,
+    );
+  }
+
+  assert.equal(
+    matchesCompoundSearch(knight, buildSearchFilter([], "darkknight")),
+    true,
+  );
+  assert.equal(
+    matchesCompoundSearch(knight, buildSearchFilter([], "thedarkknight")),
+    true,
+  );
+});
+
+test("a four-digit word can name a title instead of a release year", () => {
+  const sequel = movie({ id: 2, title: "Blade Runner 2049", releaseDate: "2017-10-06" });
+  const original = movie({ title: "Blade Runner", releaseDate: "1982-06-25" });
+
+  for (const query of ["blade runner 2049", "bladerunner 2049", "2049"]) {
+    assert.equal(matchesCompoundSearch(sequel, buildSearchFilter([], query)), true, query);
+  }
+  assert.equal(
+    matchesCompoundSearch(original, buildSearchFilter([], "blade runner 2049")),
+    false,
+  );
+  // A bare year still filters by release year.
+  assert.equal(matchesCompoundSearch(original, buildSearchFilter([], "1982")), true);
+  assert.equal(matchesCompoundSearch(sequel, buildSearchFilter([], "1982")), false);
+  // An explicit year chip stays a strict filter.
+  assert.equal(
+    matchesCompoundSearch(sequel, {
+      fieldTerms: { genre: [], director: [], year: ["1980s"] },
+      textTerms: ["2049"],
+    }),
+    false,
+  );
+});
+
+test("a spaceless query only matches on a title word boundary", () => {
+  const others = movie({ title: "The Others", releaseDate: "2001-08-10" });
+  // "theothers" contains "heoth", but the run has to start on a word.
+  assert.equal(matchesCompoundSearch(others, buildSearchFilter([], "heoth")), false);
+  assert.equal(matchesCompoundSearch(others, buildSearchFilter([], "theoth")), true);
+});
+
+test("a title search that matches nothing returns nothing", () => {
+  const sample = movie();
+  assert.equal(matchesCompoundSearch(sample, buildSearchFilter([], "bladerunner")), false);
+  assert.equal(matchesCompoundSearch(sample, buildSearchFilter([], "thething")), true);
 });
 
 test("year suggestions prefix-match decades from the collection", () => {
@@ -251,24 +311,29 @@ test("decadeFromYear buckets release years", () => {
   assert.equal(decadeFromYear(2001), "2000s");
 });
 
-test("filterMovieIds keeps loading ids when filter is active", () => {
+test("filterMovieIds drops ids whose metadata has not loaded", () => {
   const ids = [1, 2, 3];
   const records = new Map([[1, movie()]]);
   const filtered = filterMovieIds(
     ids,
     {
-      fieldTerms: { genre: ["horror"], actor: [], director: [], year: [] },
+      fieldTerms: { genre: ["horror"], director: [], year: [] },
       textTerms: [],
     },
     (id) => records.get(id),
   );
-  assert.deepEqual(filtered, [1, 2, 3]);
+  assert.deepEqual(filtered, [1]);
 });
 
-test("SEARCH_FIELD_TYPES includes genre, actor, director, and year", () => {
+test("filterMovieIds leaves ids untouched with no filter terms", () => {
+  const ids = [1, 2, 3];
+  assert.deepEqual(filterMovieIds(ids, buildSearchFilter([], ""), () => null), ids);
+});
+
+test("SEARCH_FIELD_TYPES includes genre, director, and year", () => {
   assert.deepEqual(
     SEARCH_FIELD_TYPES.map((field) => field.key),
-    ["genre", "actor", "director", "year"],
+    ["genre", "director", "year"],
   );
 });
 
@@ -287,10 +352,6 @@ test("absorbFieldDraftInput resolves known genre labels", () => {
     remainder: "",
   });
   assert.equal(
-    resolveKnownFieldLabel("kur", getFieldByKey("actor"), ["Kurt Russell"]),
-    "Kurt Russell",
-  );
-  assert.equal(
     resolveKnownFieldLabel("carp", getFieldByKey("director"), ["John Carpenter"]),
     "John Carpenter",
   );
@@ -298,12 +359,12 @@ test("absorbFieldDraftInput resolves known genre labels", () => {
 
 test("hasAnyFilterTerms detects active filters", () => {
   assert.equal(
-    hasAnyFilterTerms({ fieldTerms: { genre: [], actor: [], director: [], year: [] }, textTerms: [] }),
+    hasAnyFilterTerms({ fieldTerms: { genre: [], director: [], year: [] }, textTerms: [] }),
     false,
   );
   assert.equal(
     hasAnyFilterTerms({
-      fieldTerms: { genre: ["horror"], actor: [], director: [], year: [] },
+      fieldTerms: { genre: ["horror"], director: [], year: [] },
       textTerms: [],
     }),
     true,

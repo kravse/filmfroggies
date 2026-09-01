@@ -134,18 +134,44 @@ function hasAddMovieDestinations() {
   );
 }
 
+/**
+ * Saved Watched / Watchlist membership for the staged movie, or null when it is
+ * uncollected. A saved preset makes both preset pickers no-ops, so the dialog
+ * shows this status instead and leaves promotion to the detail overlay.
+ */
+function addMovieSavedPresetStatus() {
+  if (!pendingAddResult || !userState) {
+    return null;
+  }
+  const status = detailPresetStatusForMovie(pendingAddResult.id);
+  return status.state === "none" ? null : status;
+}
+
+function syncAddMoviePresetStatus(status) {
+  if (!addMoviePresetStatus) {
+    return;
+  }
+  if (status) {
+    addMoviePresetStatus.className = `add-movie-preset-status add-movie-preset-status--${status.state}`;
+    addMoviePresetStatus.innerHTML = `${appCardHtml.detailPresetStatusIconHtml(status.state)}<span class="add-movie-preset-status-label">${appCardHtml.escapeHtml(status.label)}</span>`;
+  }
+  addMoviePresetStatus.hidden = !status;
+}
+
 function syncAddMovieDialogChrome() {
   const customDetail = isCustomListDetailActive();
   const listName = customDetail ? getActiveDisplayContext().listName : "";
+  const savedPreset = addMovieSavedPresetStatus();
 
   if (addMovieTitle) {
     addMovieTitle.textContent = customDetail ? `Add a movie to ${listName}` : "Add a movie";
   }
+  syncAddMoviePresetStatus(savedPreset);
   if (addMoviePresetSection) {
-    addMoviePresetSection.hidden = customDetail;
+    addMoviePresetSection.hidden = customDetail || savedPreset != null;
   }
   if (addMovieAlsoAddSection) {
-    addMovieAlsoAddSection.hidden = !customDetail;
+    addMovieAlsoAddSection.hidden = !customDetail || savedPreset != null;
   }
   if (addMoviePresetLabel) {
     addMoviePresetLabel.textContent = "Add to";
@@ -497,7 +523,12 @@ function focusAddMoviePickStep() {
   const presetOption = addMoviePresetSection?.hidden
     ? null
     : addMovieListPicker?.querySelector("[data-list-id]");
-  (presetOption ?? addMovieSubmit)?.focus({ preventScroll: true });
+  // With no preset to choose, custom lists are the only remaining destination —
+  // and Add is disabled until one is picked, so it cannot take focus.
+  const collectedOption = addMovieSavedPresetStatus()
+    ? addMovieCustomListPicker?.querySelector("[data-custom-list-id]")
+    : null;
+  (presetOption ?? collectedOption ?? addMovieSubmit)?.focus({ preventScroll: true });
 }
 
 function confirmAddMovie() {
