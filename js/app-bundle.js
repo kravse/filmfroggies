@@ -7804,15 +7804,15 @@ function onUserStateStorageEvent(event) {
 function onVisibilityRefresh() {
   if (document.visibilityState !== "visible") {
     stopFriendsNavPolling();
-    stopFriendActivityPolling();
     return;
   }
   if (accountSyncEnabled()) {
     queueAccountSync();
     refreshFriendsNavBadge({ quiet: true });
+    // Friend activity has no timer; refocusing is the only thing that refreshes it
+    // without a navigation, and it is a no-op unless the rail is open.
     refreshFriendActivity({ force: true, background: true });
     startFriendsNavPolling();
-    startFriendActivityPolling();
   }
 }
 
@@ -8020,7 +8020,6 @@ function disconnectAccount() {
   userState = { ...userState, storageMode: "account" };
   writeUserStateToStorage();
   stopFriendsNavPolling();
-  stopFriendActivityPolling();
 }
 
 async function logoutAccount() {
@@ -13560,7 +13559,6 @@ async function onAccountAuth() {
     hydrateActiveList();
     refreshFriendsNavBadge();
     startFriendsNavPolling();
-    startFriendActivityPolling();
     refreshFriendActivity({ force: true });
   } finally {
     accountSubmitBtn.disabled = false;
@@ -16896,6 +16894,12 @@ function setFriendsNavData(friends) {
   if (typeof renderFriendActivity === "function") {
     renderFriendActivity();
   }
+  // The roster decides whether the activity rail shows at all, so this is the first
+  // point a read deferred at startup can become due. Unforced, so it is a no-op
+  // when the rail is closed or the items are already in hand.
+  if (typeof refreshFriendActivity === "function") {
+    refreshFriendActivity({ background: true });
+  }
 }
 
 /** Logging out or losing the read drops the cache so the next open really loads. */
@@ -17006,9 +17010,7 @@ function navigateToFriendsIndex(options = {}) {
 
 const FRIEND_ACTIVITY_COLLAPSED_KEY = "moviecollector-friend-activity-collapsed";
 const FRIEND_ACTIVITY_COLLAPSED_EXPLICIT_KEY = "moviecollector-friend-activity-collapsed-explicit";
-const FRIEND_ACTIVITY_POLL_MS = 60_000;
 let friendActivityHeaderObserver = null;
-let friendActivityPollTimer = null;
 let friendActivityNavigateKey = null;
 
 function friendActivityCollapsedExplicit() {
@@ -17037,6 +17039,12 @@ function setFriendActivityCollapsed(collapsed, options = {}) {
     }
   } catch (_) {}
   renderFriendActivity();
+  if (!collapsed) {
+    // Reads are skipped while closed, so whatever is in hand is as old as the last
+    // time the rail was open. Refresh quietly if there is something to show
+    // meanwhile, with the spinner only when there is nothing at all.
+    refreshFriendActivity({ force: true, background: friendActivityLoaded });
+  }
 }
 
 function maybeCollapseEmptyFriendActivity() {
@@ -17116,6 +17124,21 @@ function friendActivityHiddenOnFriendsIndexMobile() {
   return isFriendsIndexActive() && window.matchMedia("(max-width: 900px)").matches;
 }
 
+/**
+ * Whether the rail is actually showing content, as opposed to merely mounted.
+ *
+ * This is the gate for every network read. Visible-but-collapsed renders nothing,
+ * so fetching for it is pure waste; docked (friends index) has no collapse control
+ * and is open whenever it is visible. Opening a closed rail is what triggers the
+ * deferred read — see setFriendActivityCollapsed.
+ */
+function friendActivityOpen() {
+  if (!friendActivityVisible()) {
+    return false;
+  }
+  return friendActivityDocked() || !friendActivityCollapsed;
+}
+
 function friendActivityVisible() {
   if (!accountSyncEnabled()) return false;
   if (document.body.classList.contains("view-splash")) return false;
@@ -17154,7 +17177,7 @@ function renderFriendActivity() {
   if (!friendActivityEl) return;
   const visible = friendActivityVisible();
   const docked = visible && friendActivityDocked();
-  const open = visible && (docked || !friendActivityCollapsed);
+  const open = friendActivityOpen();
   friendActivityEl.hidden = !visible;
   friendActivityEl.classList.toggle("is-docked", docked);
   document.body.classList.toggle("friend-activity-expanded", open);
@@ -17291,7 +17314,11 @@ async function refreshFriendActivity(options = {}) {
     renderFriendActivity();
     return;
   }
-  if (!friendActivityVisible() && !options.force && friendActivityLoaded) {
+  // Single gate on GET /api/friends/activity. There is no timer behind this: the
+  // read happens on load, on navigating to a view that shows the rail, on refocus,
+  // and on opening the rail — and only ever while it is open. A closed rail
+  // displays nothing, so no caller earns a read for it.
+  if (!friendActivityOpen()) {
     renderFriendActivity();
     return;
   }
@@ -17327,14 +17354,14 @@ async function refreshFriendActivity(options = {}) {
     const ids = [...new Set(friendActivityItems.map((item) => Number(item.movieId)).filter(Number.isInteger))];
     await hydrateMovies(ids, { onRecord: () => renderFriendActivity() });
   } catch (error) {
-    if (showLoading && friendActivityVisible()) {
+    if (showLoading && friendActivityOpen()) {
       friendActivityError = error;
     }
   } finally {
     if (showLoading) {
       friendActivityLoading = false;
     }
-    if (friendActivityVisible()) {
+    if (friendActivityOpen()) {
       const key = friendActivityNavigateRefreshKey();
       if (friendActivityNavigateKey == null) {
         friendActivityNavigateKey = key;
@@ -17343,7 +17370,7 @@ async function refreshFriendActivity(options = {}) {
     renderFriendActivity();
     if (friendActivityForcePending) {
       friendActivityForcePending = false;
-      refreshFriendActivity({ force: true, background: !friendActivityVisible() });
+      refreshFriendActivity({ force: true, background: !friendActivityOpen() });
     }
   }
 }
@@ -17358,7 +17385,9 @@ function refreshFriendActivityOnNavigate() {
     return;
   }
   const key = friendActivityNavigateRefreshKey();
-  if (!friendActivityVisible()) {
+  if (!friendActivityOpen()) {
+    // Clearing the key means reopening the rail counts as a new navigation and
+    // earns a fresh read, rather than being treated as already refreshed.
     friendActivityNavigateKey = null;
     return;
   }
@@ -17369,28 +17398,6 @@ function refreshFriendActivityOnNavigate() {
   refreshFriendActivity({ force: true, background: true });
 }
 
-function pollFriendActivity() {
-  if (!accountSyncEnabled() || document.visibilityState !== "visible") {
-    return;
-  }
-  refreshFriendActivity({ force: true, background: true });
-}
-
-function startFriendActivityPolling() {
-  stopFriendActivityPolling();
-  if (!accountSyncEnabled()) {
-    return;
-  }
-  friendActivityPollTimer = setInterval(pollFriendActivity, FRIEND_ACTIVITY_POLL_MS);
-}
-
-function stopFriendActivityPolling() {
-  if (friendActivityPollTimer != null) {
-    clearInterval(friendActivityPollTimer);
-    friendActivityPollTimer = null;
-  }
-}
-
 function resetFriendActivity() {
   friendActivityItems = [];
   friendActivityLoaded = false;
@@ -17399,7 +17406,6 @@ function resetFriendActivity() {
   friendActivityForcePending = false;
   friendActivityAcceptedCount = null;
   friendActivityNavigateKey = null;
-  stopFriendActivityPolling();
   renderFriendActivity();
 }
 
@@ -18698,7 +18704,6 @@ async function startApp() {
     queueAccountSync();
     refreshFriendsNavBadge();
     startFriendsNavPolling();
-    startFriendActivityPolling();
     refreshFriendActivity();
   }
 }

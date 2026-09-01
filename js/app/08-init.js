@@ -718,7 +718,6 @@ async function startApp() {
     queueAccountSync();
     refreshFriendsNavBadge();
     startFriendsNavPolling();
-    startFriendActivityPolling();
     refreshFriendActivity();
   }
 }

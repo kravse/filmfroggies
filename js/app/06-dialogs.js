@@ -2422,7 +2422,6 @@ async function onAccountAuth() {
     hydrateActiveList();
     refreshFriendsNavBadge();
     startFriendsNavPolling();
-    startFriendActivityPolling();
     refreshFriendActivity({ force: true });
   } finally {
     accountSubmitBtn.disabled = false;

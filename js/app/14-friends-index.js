@@ -40,6 +40,12 @@ function setFriendsNavData(friends) {
   if (typeof renderFriendActivity === "function") {
     renderFriendActivity();
   }
+  // The roster decides whether the activity rail shows at all, so this is the first
+  // point a read deferred at startup can become due. Unforced, so it is a no-op
+  // when the rail is closed or the items are already in hand.
+  if (typeof refreshFriendActivity === "function") {
+    refreshFriendActivity({ background: true });
+  }
 }
 
 /** Logging out or losing the read drops the cache so the next open really loads. */

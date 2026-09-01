@@ -287,15 +287,15 @@ function onUserStateStorageEvent(event) {
 function onVisibilityRefresh() {
   if (document.visibilityState !== "visible") {
     stopFriendsNavPolling();
-    stopFriendActivityPolling();
     return;
   }
   if (accountSyncEnabled()) {
     queueAccountSync();
     refreshFriendsNavBadge({ quiet: true });
+    // Friend activity has no timer; refocusing is the only thing that refreshes it
+    // without a navigation, and it is a no-op unless the rail is open.
     refreshFriendActivity({ force: true, background: true });
     startFriendsNavPolling();
-    startFriendActivityPolling();
   }
 }
 
@@ -503,7 +503,6 @@ function disconnectAccount() {
   userState = { ...userState, storageMode: "account" };
   writeUserStateToStorage();
   stopFriendsNavPolling();
-  stopFriendActivityPolling();
 }
 
 async function logoutAccount() {

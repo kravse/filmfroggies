@@ -46,4 +46,4 @@ npm run sync-worker-lib   # if scripts/lib synced modules changed
 cd worker && wrangler deploy
 ```
 
-Reload the site after deploy (friend activity polls ~60s).
+Reload the site after deploy (friend activity only refetches on load, navigation, refocus, or opening the rail).
