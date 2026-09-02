@@ -671,6 +671,9 @@ body.view-mode-detail .card-remove-icon {
   color: var(--muted);
   cursor: grab;
   touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
   font-family: var(--ui-font);
   line-height: 1;
   position: absolute;
@@ -683,6 +686,22 @@ body.view-mode-detail .card-remove-icon {
   font-size: 0.85rem;
   opacity: 0;
   transition: opacity 0.12s ease;
+}
+
+/*
+ * The dot itself stays small, but a finger that lands slightly off it must still
+ * start a drag rather than long-press the poster underneath. The target grows
+ * down and right only, since .poster-wrap clips anything past the corner.
+ */
+.card-grip::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 44px;
+  min-height: 44px;
 }
 
 .card:hover .card-grip,
@@ -831,8 +850,24 @@ body.view-mode-detail .card.is-skeleton .card-meta {
 /* --- Drag reorder --- */
 
 body.reorder-active {
+  -webkit-user-select: none;
   user-select: none;
   cursor: grabbing;
+}
+
+/*
+ * A touch drag rests on the poster for as long as it lasts, which iOS otherwise
+ * reads as a long press and answers with the save/copy image sheet.
+ */
+body.reorder-mode .card,
+body.reorder-mode .card img,
+body.reorder-active .card,
+body.reorder-active .card img,
+.movie-card-floating,
+.movie-card-floating img {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .drag-lift-source {

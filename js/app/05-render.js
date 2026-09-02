@@ -90,7 +90,8 @@ function posterHtml(record, size) {
   if (!url) {
     return posterPlaceholderHtml(record);
   }
-  return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async">`;
+  // draggable="false" keeps a reorder drag from turning into a native image drag.
+  return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async" draggable="false">`;
 }
 
 function detailPosterSkeletonHtml() {

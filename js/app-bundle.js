@@ -9874,7 +9874,8 @@ function posterHtml(record, size) {
   if (!url) {
     return posterPlaceholderHtml(record);
   }
-  return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async">`;
+  // draggable="false" keeps a reorder drag from turning into a native image drag.
+  return `<img data-poster-src="${appCardHtml.escapeHtml(url)}" alt="" loading="lazy" decoding="async" draggable="false">`;
 }
 
 function detailPosterSkeletonHtml() {
@@ -14487,6 +14488,23 @@ function onGripPointerDown(event) {
   };
 }
 
+/**
+ * While reordering, a press held on a card is a drag in progress. Browsers that
+ * still raise a context menu for it would cancel the pointer stream mid-drag.
+ */
+function onReorderContextMenu(event) {
+  if (dragState) {
+    event.preventDefault();
+    return;
+  }
+  if (!reorderModeActive || !appLists.isListReorderable(userState.activeListId)) {
+    return;
+  }
+  if (event.target.closest(".movie-row .card")) {
+    event.preventDefault();
+  }
+}
+
 function onGripPointerMove(event) {
   if (!dragState || event.pointerId !== dragState.pointerId) {
     return;
@@ -18750,6 +18768,7 @@ document.addEventListener("pointerup", (event) => finishDrag(event, { commit: tr
 document.addEventListener("pointercancel", (event) =>
   finishDrag(event, { commit: false }),
 );
+document.addEventListener("contextmenu", onReorderContextMenu);
 
 /* --- List tabs --- */
 

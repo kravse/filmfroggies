@@ -90,6 +90,23 @@ function onGripPointerDown(event) {
   };
 }
 
+/**
+ * While reordering, a press held on a card is a drag in progress. Browsers that
+ * still raise a context menu for it would cancel the pointer stream mid-drag.
+ */
+function onReorderContextMenu(event) {
+  if (dragState) {
+    event.preventDefault();
+    return;
+  }
+  if (!reorderModeActive || !appLists.isListReorderable(userState.activeListId)) {
+    return;
+  }
+  if (event.target.closest(".movie-row .card")) {
+    event.preventDefault();
+  }
+}
+
 function onGripPointerMove(event) {
   if (!dragState || event.pointerId !== dragState.pointerId) {
     return;

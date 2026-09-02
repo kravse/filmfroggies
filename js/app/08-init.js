@@ -124,6 +124,7 @@ document.addEventListener("pointerup", (event) => finishDrag(event, { commit: tr
 document.addEventListener("pointercancel", (event) =>
   finishDrag(event, { commit: false }),
 );
+document.addEventListener("contextmenu", onReorderContextMenu);
 
 /* --- List tabs --- */
 
