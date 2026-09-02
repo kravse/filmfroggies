@@ -178,17 +178,16 @@ tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates,added_at
 64690,Drive,watched,Watched,9.0,2011,2018-11-05,2026-09-01T15:24:54.000Z
 492,Being John Malkovich,watched,Watched,8.0,1999,2021-07-20;2023-03-24,2026-09-01T15:25:27.000Z
 1317288,Marty Supreme,watched,Watched,5.0,2025,2026-02-22,2026-09-01T19:56:29.000Z
-643532,The Card Counter,watched,Watched,,2021,2025-10-17,2026-09-01T19:56:30.000Z
+643532,The Card Counter,watched,Watched,6.7,2021,2025-10-17,2026-09-01T19:56:30.000Z
 639933,The Northman,watched,Watched,,2022,2025-03-06,2026-09-01T19:56:30.000Z
 5548,RoboCop,watched,Watched,7.2,1987,2025-03-03,2026-09-01T19:56:31.000Z
 901385,Significant Other,watched,Watched,,2022,2025-02-27,2026-09-01T19:56:31.000Z
 10895,Pinocchio,watched,Watched,,1940,2025-02-11,2026-09-01T19:56:31.000Z
-505600,Booksmart,watched,Watched,,2019,2025-02-07,2026-09-01T19:56:32.000Z
 154400,The Drop,watched,Watched,,2014,2025-01-27,2026-09-01T19:56:32.000Z
 866398,The Beekeeper,watched,Watched,,2024,2025-01-06,2026-09-01T19:56:33.000Z
 812635,Chevalier,watched,Watched,,2023,2024-11-18,2026-09-01T19:56:33.000Z
 1180629,Kneecap,watched,Watched,,2024,2024-11-17,2026-09-01T19:56:33.000Z
-536554,M3GAN,watched,Watched,,2022,2024-10-26,2026-09-01T19:56:34.000Z
+536554,M3GAN,watched,Watched,5.0,2022,2024-10-26,2026-09-01T19:56:34.000Z
 223485,Slow West,watched,Watched,,2015,2024-09-26,2026-09-01T19:56:34.000Z
 1072876,Self Reliance,watched,Watched,,2024,2024-02-27,2026-09-01T19:56:35.000Z
 872585,Oppenheimer,watched,Watched,,2023,2023-12-23,2026-09-01T19:56:35.000Z
@@ -216,7 +215,7 @@ tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates,added_at
 871,Planet of the Apes,watched,Watched,,1968,2023-02-06,2026-09-01T19:56:44.000Z
 567,Rear Window,watched,Watched,8.2,1954,2023-02-03,2026-09-01T19:56:45.000Z
 593643,The Menu,watched,Watched,,2022,2023-01-31,2026-09-01T19:56:45.000Z
-985939,Fall,watched,Watched,,2022,2022-10-26,2026-09-01T19:56:47.000Z
+985939,Fall,watched,Watched,5.3,2022,2022-10-26,2026-09-01T19:56:47.000Z
 503919,The Lighthouse,watched,Watched,9.5,2019,2022-10-22,2026-09-01T19:56:47.000Z
 799876,The Outfit,watched,Watched,,2022,2022-09-20,2026-09-01T19:56:48.000Z
 862965,Emily the Criminal,watched,Watched,,2022,2022-09-20,2026-09-01T19:56:48.000Z
@@ -225,16 +224,16 @@ tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates,added_at
 822099,The Lost Leonardo,watched,Watched,,2021,2022-09-04,2026-09-01T19:56:50.000Z
 565719,Hail Satan?,watched,Watched,,2019,2022-09-02,2026-09-01T19:56:51.000Z
 401847,Can You Ever Forgive Me?,watched,Watched,,2018,2022-01-17,2026-09-01T19:56:51.000Z
-635731,Pig,watched,Watched,,2021,2021-12-28,2026-09-01T19:56:52.000Z
+635731,Pig,watched,Watched,6.7,2021,2021-12-28,2026-09-01T19:56:52.000Z
 772,Home Alone 2: Lost in New York,watched,Watched,,1992,2021-12-25,2026-09-01T19:56:52.000Z
 771,Home Alone,watched,Watched,,1990,2021-12-25,2026-09-01T19:56:52.000Z
 122917,The Hobbit: The Battle of the Five Armies,watched,Watched,,2014,2021-12-23,2026-09-01T19:56:53.000Z
 57158,The Hobbit: The Desolation of Smaug,watched,Watched,,2013,2021-12-22,2026-09-01T19:56:53.000Z
-32568,The Man in the White Suit,watched,Watched,,1951,2021-02-23,2026-09-01T19:56:54.000Z
+32568,The Man in the White Suit,watched,Watched,6.9,1951,2021-02-23,2026-09-01T19:56:54.000Z
 60599,Arbitrage,watched,Watched,,2012,2021-02-02,2026-09-01T19:56:54.000Z
 1592,Primal Fear,watched,Watched,,1996,2021-02-02,2026-09-01T19:56:54.000Z
 10673,Wall Street,watched,Watched,,1987,2021-02-01,2026-09-01T19:56:55.000Z
-207,Dead Poets Society,watched,Watched,,1989,2021-01-31,2026-09-01T19:56:55.000Z
+207,Dead Poets Society,watched,Watched,9.0,1989,2021-01-31,2026-09-01T19:56:55.000Z
 522212,Just Mercy,watched,Watched,,2019,2021-01-16,2026-09-01T19:56:56.000Z
 582014,Promising Young Woman,watched,Watched,,2020,2021-01-14,2026-09-01T19:56:56.000Z
 241848,The Guest,watched,Watched,,2014,2020-12-04,2026-09-01T19:56:56.000Z
@@ -268,7 +267,7 @@ tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates,added_at
 563,Starship Troopers,watched,Watched,,1997,2024-07-16,2026-09-01T20:19:42.000Z
 777270,Belfast,watched,Watched,,2021,2024-02-05,2026-09-01T20:19:44.000Z
 2024,The Patriot,watched,Watched,,2000,2024-01-18,2026-09-01T20:19:44.000Z
-923939,The Wonderful Story of Henry Sugar,watched,Watched,,2023,2023-12-15,2026-09-01T20:19:45.000Z
+923939,The Wonderful Story of Henry Sugar,watched,Watched,8.0,2023,2023-12-15,2026-09-01T20:19:45.000Z
 9631,The Negotiator,watched,Watched,,1998,2023-11-15,2026-09-01T20:19:45.000Z
 7220,The Punisher,watched,Watched,,2004,2023-11-13,2026-09-01T20:19:45.000Z
 156022,The Equalizer,watched,Watched,,2014,2023-11-11,2026-09-01T20:19:46.000Z
@@ -350,10 +349,10 @@ tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates,added_at
 4147,Road to Perdition,watched,Watched,,2002,2019-09-08,2026-09-01T20:20:30.000Z
 209276,Starred Up,watched,Watched,8.8,2014,2019-09-05,2026-09-01T20:20:30.000Z
 396535,Train to Busan,watched,Watched,,2016,2019-08-26,2026-09-01T20:20:30.000Z
-77016,End of Watch,watched,Watched,,2012,2019-07-04,2026-09-01T20:20:31.000Z
+77016,End of Watch,watched,Watched,6.3,2012,2019-07-04,2026-09-01T20:20:31.000Z
 491584,Burning,watched,Watched,8.8,2018,2019-06-23,2026-09-01T20:20:31.000Z
 395992,Life,watched,Watched,,2017,2019-03-09,2026-09-01T20:20:32.000Z
-340666,Nocturnal Animals,watched,Watched,,2016,2019-02-23,2026-09-01T20:20:33.000Z
+340666,Nocturnal Animals,watched,Watched,7.3,2016,2019-02-23,2026-09-01T20:20:33.000Z
 1372,Blood Diamond,watched,Watched,,2006,2019-01-18,2026-09-01T20:20:33.000Z
 220289,Coherence,watched,Watched,,2014,2019-01-12,2026-09-01T20:20:33.000Z
 391713,Lady Bird,watched,Watched,,2017,2018-11-12,2026-09-01T20:20:35.000Z
@@ -375,10 +374,8 @@ tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates,added_at
 280,Terminator 2: Judgment Day,watched,Watched,,1991,2015-02-10,2026-09-01T20:20:50.000Z
 180,Minority Report,watched,Watched,,2002,2015-02-04,2026-09-01T20:20:50.000Z
 169813,Short Term 12,watched,Watched,8.1,2013,2014-10-27,2026-09-01T20:20:52.000Z
-87827,Life of Pi,watched,Watched,,2012,2014-07-09,2026-09-01T20:20:52.000Z
-275,Fargo,watched,Watched,,1996,2014-06-26,2026-09-01T20:20:53.000Z
+275,Fargo,watched,Watched,8.5,1996,2014-06-26,2026-09-01T20:20:53.000Z
 58574,Sherlock Holmes: A Game of Shadows,watched,Watched,,2011,2014-04-10,2026-09-01T20:20:54.000Z
-72570,The Vow,watched,Watched,,2012,2014-03-02,2026-09-01T20:20:54.000Z
 33613,The Girl Who Kicked the Hornet's Nest,watched,Watched,,2009,2013-07-13,2026-09-01T20:20:57.000Z
 10220,Rounders,watched,Watched,,1998,2013-07-11,2026-09-01T20:20:57.000Z
 25376,The Secret in Their Eyes,watched,Watched,,2009,2012-10-04,2026-09-01T20:21:00.000Z
@@ -389,27 +386,179 @@ tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates,added_at
 9366,Donnie Brasco,watched,Watched,,1997,2012-03-08,2026-09-01T20:21:04.000Z
 453,A Beautiful Mind,watched,Watched,,2001,2012-02-24,2026-09-01T20:21:04.000Z
 462,Erin Brockovich,watched,Watched,,2000,2019-11-11,2026-09-01T20:54:31.000Z
-245891,John Wick,watchlist,Watchlist,,2014,,2026-08-21T03:02:08.000Z
+245891,John Wick,watched,Watched,9.8,2014,,2026-08-21T03:02:08.000Z
+324786,Hacksaw Ridge,watched,Watched,8.6,2016,,2026-09-02T00:43:29.000Z
+9383,Hollow Man,watched,Watched,,2000,2026-08-09,2026-09-01T21:17:48.000Z
+1633264,Louis Theroux: Inside the Manosphere,watched,Watched,,2026,2026-03-13,2026-09-01T21:17:49.000Z
+1517772,Unknown Number: The High School Catfish,watched,Watched,9.0,2025,2025-09-07,2026-09-01T21:17:49.000Z
+744653,The Thursday Murder Club,watched,Watched,,2025,2025-09-02,2026-09-01T21:17:50.000Z
+9545,Sniper,watched,Watched,,1993,2025-03-05,2026-09-01T21:17:51.000Z
+227156,The Giver,watched,Watched,,2014,2025-02-09,2026-09-01T21:17:52.000Z
+850028,"Alice, Darling",watched,Watched,8.2,2022,2025-01-31,2026-09-01T21:17:52.000Z
+835113,Woman of the Hour,watched,Watched,7.0,2024,2025-01-17,2026-09-01T21:17:53.000Z
+660353,Ted K,watched,Watched,,2021,2024-12-20,2026-09-01T21:17:54.000Z
+616651,Stillwater,watched,Watched,,2021,2024-11-13,2026-09-01T21:17:55.000Z
+1063877,Don't Move,watched,Watched,,2024,2024-11-03,2026-09-01T21:17:55.000Z
+3049,Ace Ventura: Pet Detective,watched,Watched,,1994,2024-09-08,2026-09-01T21:17:57.000Z
+646097,Rebel Ridge,watched,Watched,,2024,2024-09-07,2026-09-01T21:17:58.000Z
+294963,Bone Tomahawk,watched,Watched,,2015,2024-09-01,2026-09-01T21:17:58.000Z
+466081,The Informer,watched,Watched,,2019,2024-06-17,2026-09-01T21:18:00.000Z
+956262,The Kitchen,watched,Watched,,2023,2024-01-22,2026-09-01T21:18:04.000Z
+717192,Ferry,watched,Watched,,2021,2024-01-03,2026-09-01T21:18:05.000Z
+76544,Man of Tai Chi,watched,Watched,,2013,2023-12-31,2026-09-01T21:18:06.000Z
+1161048,The Conference,watched,Watched,,2023,2023-12-30,2026-09-01T21:18:06.000Z
+68812,The Iceman,watched,Watched,,2012,2023-12-26,2026-09-01T21:18:07.000Z
+64689,Killing Them Softly,watched,Watched,,2012,2023-12-25,2026-09-01T21:18:07.000Z
+726209,Leave the World Behind,watched,Watched,,2023,2023-12-23,2026-09-01T21:18:08.000Z
+800158,The Killer,watched,Watched,,2023,2023-11-11,2026-09-01T21:18:12.000Z
+4349,The Kingdom,watched,Watched,,2007,2023-10-10,2026-09-01T21:18:15.000Z
+866463,Reptile,watched,Watched,,2023,2023-10-05,2026-09-01T21:18:16.000Z
+1172675,The Swan,watched,Watched,,2023,2023-10-01,2026-09-01T21:18:16.000Z
+337170,American Made,watched,Watched,,2017,2023-09-07,2026-09-01T21:18:17.000Z
+531876,The Outpost,watched,Watched,,2020,2023-06-19,2026-09-01T21:18:19.000Z
+618219,Mosul,watched,Watched,,2019,2023-06-14,2026-09-01T21:18:19.000Z
+440161,The Sisters Brothers,watched,Watched,,2018,2023-01-11,2026-09-01T21:18:25.000Z
+800815,The Pale Blue Eye,watched,Watched,,2022,2023-01-08,2026-09-01T21:18:25.000Z
+574396,Calm with Horses,watched,Watched,,2020,2022-12-06,2026-09-01T21:18:27.000Z
+615115,The Secrets We Keep,watched,Watched,,2020,2022-10-18,2026-09-01T21:18:28.000Z
+988046,Girl in the Picture,watched,Watched,,2022,2022-10-01,2026-09-01T21:18:30.000Z
+435615,Possessor,watched,Watched,,2020,2022-09-15,2026-09-01T21:18:33.000Z
+755566,Day Shift,watched,Watched,,2022,2022-08-17,2026-09-01T21:18:36.000Z
+384521,The Cloverfield Paradox,watched,Watched,,2018,2022-08-05,2026-09-01T21:18:38.000Z
+293970,The Final Girls,watched,Watched,,2015,2022-07-30,2026-09-01T21:18:40.000Z
+587496,The Rental,watched,Watched,,2020,2022-07-24,2026-09-01T21:18:41.000Z
+647581,Heart of Champions,watched,Watched,,2021,2022-07-14,2026-09-01T21:18:43.000Z
+661231,Operation Mincemeat,watched,Watched,,2022,2022-05-14,2026-09-01T21:18:47.000Z
+618162,The Harder They Fall,watched,Watched,,2021,2022-05-10,2026-09-01T21:18:47.000Z
+11439,The Ghost Writer,watched,Watched,,2010,2022-04-16,2026-09-01T21:18:49.000Z
+9944,The Pelican Brief,watched,Watched,,1993,2022-03-22,2026-09-01T21:18:52.000Z
+12160,Wyatt Earp,watched,Watched,,1994,2021-10-11,2026-09-01T21:18:53.000Z
+59967,Looper,watched,Watched,,2012,2021-08-22,2026-09-01T21:18:54.000Z
+12113,Body of Lies,watched,Watched,,2008,2021-08-06,2026-09-01T21:18:58.000Z
+240832,Lucy,watched,Watched,,2014,2021-07-14,2026-09-01T21:18:58.000Z
+8271,Disturbia,watched,Watched,,2007,2021-07-11,2026-09-01T21:18:59.000Z
+3036,Mary Shelley's Frankenstein,watched,Watched,,1994,2021-06-16,2026-09-01T21:19:00.000Z
+12706,Croupier,watched,Watched,,1998,2021-06-07,2026-09-01T21:19:01.000Z
+9476,A Knight's Tale,watched,Watched,,2001,2021-04-17,2026-09-01T21:19:03.000Z
+522098,Babyteeth,watched,Watched,,2020,2021-04-16,2026-09-01T21:19:04.000Z
+509635,Alone,watched,Watched,,2020,2021-03-16,2026-09-01T21:19:05.000Z
+527660,"Yes, God, Yes",watched,Watched,,2020,2021-03-08,2026-09-01T21:19:06.000Z
+472451,Boy Erased,watched,Watched,,2018,2021-02-12,2026-09-01T21:19:08.000Z
+452507,1922,watched,Watched,,2017,2021-01-11,2026-09-01T21:19:09.000Z
+818,Austin Powers in Goldmember,watched,Watched,,2002,2020-12-09,2026-09-01T21:19:09.000Z
+8699,Anchorman: The Legend of Ron Burgundy,watched,Watched,,2004,2020-09-23,2026-09-01T21:19:12.000Z
+500840,I'm Thinking of Ending Things,watched,Watched,,2020,2020-09-08,2026-09-01T21:19:13.000Z
+548473,Color Out of Space,watched,Watched,,2020,2020-07-14,2026-09-01T21:19:14.000Z
+400535,Sicario: Day of the Soldado,watched,Watched,,2018,2020-06-18,2026-09-01T21:19:15.000Z
+109414,This Is the End,watched,Watched,,2013,2020-06-04,2026-09-01T21:19:16.000Z
+9558,King of New York,watched,Watched,,1990,2020-06-02,2026-09-01T21:19:16.000Z
+59440,Warrior,watched,Watched,,2011,2020-05-31,2026-09-01T21:19:16.000Z
+443463,Leave No Trace,watched,Watched,,2018,2020-05-19,2026-09-01T21:19:17.000Z
+668195,Ultras,watched,Watched,,2020,2020-05-10,2026-09-01T21:19:18.000Z
+384680,Hostiles,watched,Watched,,2017,2020-04-13,2026-09-01T21:19:19.000Z
+816,Austin Powers: International Man of Mystery,watched,Watched,,1997,2020-04-10,2026-09-01T21:19:19.000Z
+359871,My Scientology Movie,watched,Watched,,2016,2020-04-10,2026-09-01T21:19:20.000Z
+9894,The Cable Guy,watched,Watched,,1996,2020-04-10,2026-09-01T21:19:20.000Z
+34016,She's Out of My League,watched,Watched,,2010,2020-04-09,2026-09-01T21:19:21.000Z
+27581,The Other Guys,watched,Watched,,2010,2020-04-09,2026-09-01T21:19:21.000Z
+619264,The Platform,watched,Watched,,2019,2020-03-24,2026-09-01T21:19:23.000Z
+653601,Horse Girl,watched,Watched,,2020,2020-03-08,2026-09-01T21:19:25.000Z
+238636,The Purge: Anarchy,watched,Watched,,2014,2020-02-28,2026-09-01T21:19:25.000Z
+158015,The Purge,watched,Watched,,2013,2020-02-28,2026-09-01T21:19:25.000Z
+399170,Logan Lucky,watched,Watched,,2017,2019-08-29,2026-09-01T21:19:33.000Z
+9870,Forgetting Sarah Marshall,watched,Watched,,2008,2019-08-18,2026-09-01T21:19:34.000Z
+126889,Alien: Covenant,watched,Watched,,2017,2019-07-21,2026-09-01T21:19:35.000Z
+505948,I Am Mother,watched,Watched,,2019,2019-06-21,2026-09-01T21:19:38.000Z
+339692,Shot Caller,watched,Watched,,2017,2019-04-22,2026-09-01T21:19:40.000Z
+180863,T2 Trainspotting,watched,Watched,,2017,2019-03-20,2026-09-01T21:19:42.000Z
+346685,The Girl on the Train,watched,Watched,,2016,2019-03-09,2026-09-01T21:19:43.000Z
+313922,Green Room,watched,Watched,8.0,2016,2019-03-05,2026-09-01T21:19:43.000Z
+9522,Wedding Crashers,watched,Watched,,2005,2018-12-06,2026-09-01T21:19:46.000Z
+324668,Jason Bourne,watched,Watched,,2016,2018-11-04,2026-09-01T21:19:48.000Z
+11322,Public Enemies,watched,Watched,,2009,2018-09-11,2026-09-01T21:19:52.000Z
+166426,Pirates of the Caribbean: Dead Men Tell No Tales,watched,Watched,,2017,2018-09-08,2026-09-01T21:19:54.000Z
+300668,Annihilation,watched,Watched,,2018,2018-08-15,2026-09-01T21:19:55.000Z
+97,Tron,watched,Watched,,1982,2018-07-26,2026-09-01T21:19:58.000Z
+6538,Charlie Wilson's War,watched,Watched,,2007,2018-07-24,2026-09-01T21:19:59.000Z
+394537,The Pirates of Somalia,watched,Watched,,2017,2018-07-19,2026-09-01T21:19:59.000Z
+474051,Calibre,watched,Watched,,2018,2018-07-05,2026-09-01T21:20:00.000Z
+425972,Cargo,watched,Watched,,2017,2018-07-05,2026-09-01T21:20:01.000Z
+375366,The Girl with All the Gifts,watched,Watched,,2016,2018-06-24,2026-09-01T21:20:01.000Z
+17431,Moon,watched,Watched,,2009,2018-06-18,2026-09-01T21:20:01.000Z
+68724,Elysium,watched,Watched,,2013,2018-05-13,2026-09-01T21:20:02.000Z
+379832,Eddie: Strongman,watched,Watched,,2015,2018-03-22,2026-09-01T21:20:06.000Z
+162903,The Fifth Estate,watched,Watched,,2013,2016-01-13,2026-09-01T21:20:17.000Z
+318256,Hot Girls Wanted,watched,Watched,,2015,2015-12-08,2026-09-01T21:20:19.000Z
+241239,A Most Violent Year,watched,Watched,,2014,2015-08-18,2026-09-01T21:20:20.000Z
+97367,The Place Beyond the Pines,watched,Watched,8.0,2013,2015-07-10,2026-09-01T21:20:20.000Z
+127846,A Hijacking,watched,Watched,,2012,2015-07-09,2026-09-01T21:20:21.000Z
+75612,Oblivion,watched,Watched,,2013,2015-07-06,2026-09-01T21:20:21.000Z
+82682,Gangster Squad,watched,Watched,,2013,2015-03-04,2026-09-01T21:20:22.000Z
+4964,Knocked Up,watched,Watched,,2007,2014-11-24,2026-09-01T21:20:24.000Z
+77987,Only God Forgives,watched,Watched,,2013,2014-08-02,2026-09-01T21:20:25.000Z
+1685,Beneath the Planet of the Apes,watched,Watched,,1970,2014-07-30,2026-09-01T21:20:25.000Z
+41154,Men in Black 3,watched,Watched,,2012,2014-07-29,2026-09-01T21:20:25.000Z
+11820,Mona Lisa Smile,watched,Watched,,2003,2014-06-01,2026-09-01T21:20:27.000Z
+2059,National Treasure,watched,Watched,,2004,2014-05-10,2026-09-01T21:20:29.000Z
+86838,Seven Psychopaths,watched,Watched,,2012,2014-01-31,2026-09-01T21:20:30.000Z
+8005,Robin Hood: Men in Tights,watched,Watched,,1993,2013-12-17,2026-09-01T21:20:31.000Z
+77663,Killing Season,watched,Watched,,2013,2013-12-11,2026-09-01T21:20:32.000Z
+44249,The Legend Is Born: Ip Man,watched,Watched,,2010,2013-11-30,2026-09-01T21:20:33.000Z
+10719,Elf,watched,Watched,,2003,2013-11-26,2026-09-01T21:20:34.000Z
+84332,Safety Not Guaranteed,watched,Watched,,2012,2013-09-27,2026-09-01T21:20:35.000Z
+58767,Sniper: Reloaded,watched,Watched,,2011,2013-08-23,2026-09-01T21:20:36.000Z
+76726,Chronicle,watched,Watched,,2012,2013-07-08,2026-09-01T21:20:41.000Z
+49530,In Time,watched,Watched,,2011,2013-07-05,2026-09-01T21:20:44.000Z
+23514,The Rum Diary,watched,Watched,,2011,2013-04-13,2026-09-01T21:20:46.000Z
+398,Capote,watched,Watched,,2005,2013-02-28,2026-09-01T21:20:48.000Z
+10632,The Hunted,watched,Watched,,2003,2013-02-21,2026-09-01T21:20:49.000Z
+27576,Salt,watched,Watched,,2010,2013-02-09,2026-09-01T21:20:50.000Z
+37233,The Firm,watched,Watched,,1993,2013-02-03,2026-09-01T21:20:50.000Z
+18533,Bronson,watched,Watched,,2009,2012-10-12,2026-09-01T21:20:54.000Z
+9257,S.W.A.T.,watched,Watched,,2003,2012-08-12,2026-09-01T21:20:56.000Z
+9772,Air Force One,watched,Watched,,1997,2012-07-26,2026-09-01T21:20:58.000Z
+4824,The Jackal,watched,Watched,,1997,2012-07-24,2026-09-01T21:20:59.000Z
+8872,Wayne's World,watched,Watched,,1992,2012-06-11,2026-09-01T21:21:01.000Z
+9481,The Bone Collector,watched,Watched,,1999,2012-05-06,2026-09-01T21:21:02.000Z
+13137,A Very British Gangster,watched,Watched,,2007,2012-03-07,2026-09-01T21:21:04.000Z
+11855,Pecker,watched,Watched,,1998,2012-02-18,2026-09-01T21:21:07.000Z
+8961,Bad Boys II,watched,Watched,,2003,2012-02-11,2026-09-01T21:21:08.000Z
+9737,Bad Boys,watched,Watched,,1995,2012-02-11,2026-09-01T21:21:08.000Z
+1535,Spy Game,watched,Watched,,2001,2012-01-20,2026-09-01T21:21:09.000Z
+510388,Villains,watched,Watched,,2019,2022-09-25,2026-09-01T21:30:04.000Z
+487611,Conviction,watched,Watched,,2019,2012-05-21,2026-09-02T00:12:16.000Z
+296524,Deepwater Horizon,watched,Watched,,2016,2017-05-14,2026-09-02T00:21:16.000Z
+520777,Behind the Curve,watched,Watched,,2018,2019-03-04,2026-09-02T00:27:27.000Z
+457799,"Extremely Wicked, Shockingly Evil and Vile",watched,Watched,6.2,2019,2019-05-06,2026-09-02T00:28:27.000Z
+407806,13th,watched,Watched,,2016,2020-06-08,2026-09-02T00:32:32.000Z
+158011,The Call,watched,Watched,,2013,2021-03-24,2026-09-02T00:34:12.000Z
+567748,The Guilty,watched,Watched,,2021,2020-04-20;2021-10-11,2026-09-02T00:35:45.000Z
+600583,The Power of the Dog,watched,Watched,,2021,2021-12-05,2026-09-02T00:36:09.000Z
+544431,The Clovehitch Killer,watched,Watched,,2018,2022-04-08,2026-09-02T00:36:26.000Z
+823766,The Wonder,watched,Watched,,2022,2022-11-23,2026-09-02T00:39:35.000Z
+11460,Red Eye,watched,Watched,,2005,2024-09-16,2026-09-02T00:45:22.000Z
 1398,Stalker,watchlist,Watchlist,,1979,,2026-08-12T01:41:36.000Z
-838209,Exhuma,watchlist,Watchlist,,2024,,2026-08-16T01:41:36.000Z
-696506,Mickey 17,watchlist,Watchlist,,2025,,2026-08-19T02:10:48.000Z
-10774,Network,watchlist,Watchlist,,1976,,2026-08-18T01:41:36.000Z
-410051,Stranger Than Paradise,watchlist,Watchlist,,1983,,2026-08-13T01:41:36.000Z
+922,Dead Man,watchlist,Watchlist,,1995,,2026-08-19T11:46:41.000Z
+1375441,Primetime,watchlist,Watchlist,,2026,,2026-08-31T18:55:40.000Z
+469,Stranger Than Paradise,watchlist,Watchlist,,1984,,2026-09-01T23:30:09.000Z
 11305,Mystery Train,watchlist,Watchlist,,1989,,2026-08-14T01:41:36.000Z
+696506,Mickey 17,watchlist,Watchlist,,2025,,2026-08-19T02:10:48.000Z
+838209,Exhuma,watchlist,Watchlist,,2024,,2026-08-16T01:41:36.000Z
+10774,Network,watchlist,Watchlist,,1976,,2026-08-18T01:41:36.000Z
 157845,The Rover,watchlist,Watchlist,,2014,,2026-08-19T01:41:36.000Z
 549509,The Brutalist,watchlist,Watchlist,,2024,,2026-08-15T01:41:36.000Z
 159770,The Dirties,watchlist,Watchlist,,2013,,2026-08-19T11:29:28.000Z
-922,Dead Man,watchlist,Watchlist,,1995,,2026-08-19T11:46:41.000Z
-1083381,Backrooms,watchlist,Watchlist,,2026,,2026-08-19T21:49:53.000Z
 1408208,Exit 8,watchlist,Watchlist,,2025,,2026-08-19T22:56:05.000Z
 310131,The Witch,watchlist,Watchlist,,2016,,2026-08-21T01:43:26.000Z
 46738,Incendies,watchlist,Watchlist,,2010,,2026-08-21T01:43:32.000Z
+1083381,Backrooms,watchlist,Watchlist,,2026,,2026-08-19T21:49:53.000Z
 829,Chinatown,watchlist,Watchlist,,1974,,2026-08-21T01:44:53.000Z
 16138,R-Point,watchlist,Watchlist,,2004,,2026-08-22T01:36:28.000Z
-288463,The Guvnors,watchlist,Watchlist,,2014,,2026-08-31T03:01:22.000Z
-1375441,Primetime,watchlist,Watchlist,,2026,,2026-08-31T18:55:40.000Z
 792307,Poor Things,watchlist,Watchlist,,2023,,2026-09-01T02:32:10.000Z
 13939,Death Wish,watchlist,Watchlist,,1974,,2026-09-01T11:29:18.000Z
+1198360,The Line,watchlist,Watchlist,,2023,,2026-09-02T00:14:13.000Z
+417812,Wildlife,watchlist,Watchlist,,2018,2019-07-23,2026-09-02T00:29:21.000Z
+496967,Atlantics,watchlist,Watchlist,,2019,2020-09-18,2026-09-02T00:33:02.000Z
 1554,Down by Law,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.0,1986,2026-08-15,2026-08-19T19:36:21.000Z
 8337,They Live,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.3,1988,,2026-07-17T01:36:48.000Z
 2322,Sneakers,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.0,1992,,2026-08-19T01:47:40.000Z
@@ -429,7 +578,7 @@ tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates,added_at
 640,Catch Me If You Can,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.0,2002,2021-03-13,2026-08-20T02:34:43.000Z
 38,Eternal Sunshine of the Spotless Mind,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.1,2004,2018-08-03,2026-08-20T02:35:31.000Z
 401,Garden State,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.2,2004,,2026-08-20T02:36:38.000Z
-245891,John Wick,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,,2014,,2026-08-21T03:02:08.000Z
+245891,John Wick,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.8,2014,,2026-08-21T03:02:08.000Z
 100,"Lock, Stock and Two Smoking Barrels",custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.0,1998,2021-07-15;2023-01-19,2026-08-20T02:41:42.000Z
 107,Snatch,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.0,2000,2020-03-21,2026-08-20T02:42:59.000Z
 8193,Napoleon Dynamite,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.5,2004,,2026-08-20T02:45:34.000Z
@@ -455,6 +604,8 @@ tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates,added_at
 270303,It Follows,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.0,2015,2022-09-09,2026-09-01T19:56:50.000Z
 807356,Watcher,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.3,2022,2022-09-09,2026-09-01T19:56:49.000Z
 503919,The Lighthouse,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,9.5,2019,2022-10-22,2026-09-01T19:56:47.000Z
+169813,Short Term 12,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.1,2013,2014-10-27,2026-09-01T20:20:52.000Z
+324786,Hacksaw Ridge,custom-5ae4b5ed-ee0c-4919-8934-d47de507a5bc,favourites,8.6,2016,,2026-09-02T00:43:29.000Z
 429200,Good Time,custom-24b4531f-38e0-4156-80b1-f904fb334ea0,to rewatch,7.9,2017,2019-07-13,2026-08-01T01:36:48.000Z
 59678,Attack the Block,custom-24b4531f-38e0-4156-80b1-f904fb334ea0,to rewatch,7.2,2011,,2026-07-22T01:36:48.000Z
 16869,Inglourious Basterds,custom-24b4531f-38e0-4156-80b1-f904fb334ea0,to rewatch,8.3,2009,2020-04-27,2026-08-19T03:37:09.000Z
@@ -464,6 +615,8 @@ tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates,added_at
 100,"Lock, Stock and Two Smoking Barrels",custom-24b4531f-38e0-4156-80b1-f904fb334ea0,to rewatch,9.0,1998,2021-07-15;2023-01-19,2026-08-20T02:41:42.000Z
 1443,The Virgin Suicides,custom-24b4531f-38e0-4156-80b1-f904fb334ea0,to rewatch,8.8,2000,,2026-08-20T02:56:24.000Z
 7270,Matchstick Men,custom-24b4531f-38e0-4156-80b1-f904fb334ea0,to rewatch,8.0,2003,,2026-08-20T03:13:49.000Z
+169813,Short Term 12,custom-24b4531f-38e0-4156-80b1-f904fb334ea0,to rewatch,8.1,2013,2014-10-27,2026-09-01T20:20:52.000Z
+68730,Silence,custom-24b4531f-38e0-4156-80b1-f904fb334ea0,to rewatch,8.1,2016,2018-03-26,2026-09-01T20:20:41.000Z
 28070,Surf Nazis Must Die,custom-bff41a02-0092-463a-ad25-b70371422878,the best worst movies,,1987,,
 1946,eXistenZ,custom-bff41a02-0092-463a-ad25-b70371422878,the best worst movies,5.9,1999,2023-02-22,2026-07-19T01:36:48.000Z
 8852,Prince of Darkness,custom-bff41a02-0092-463a-ad25-b70371422878,the best worst movies,6.2,1987,,2026-07-18T01:36:48.000Z
@@ -491,3 +644,4 @@ tmdb_id,title,list_id,list_name,my_rating,release_year,watch_dates,added_at
 6977,No Country for Old Men,custom-a74bb2d8-9cf7-46ff-91b8-6cc4fe6d3fc3,the movie is better than the book,9.5,2007,2021-08-06,2026-08-20T03:02:43.000Z
 10315,Fantastic Mr. Fox,custom-a74bb2d8-9cf7-46ff-91b8-6cc4fe6d3fc3,the movie is better than the book,9.1,2009,2026-02-16,2026-09-01T15:04:17.000Z
 694,The Shining,custom-a74bb2d8-9cf7-46ff-91b8-6cc4fe6d3fc3,the movie is better than the book,7.7,1980,,2026-08-20T02:51:53.000Z
+1477104,Shaun the Sheep: The Beast of Mossy Bottom,custom-e54a5e5b-5e1d-4733-984b-f19a35004c87,for the kiddos,,2026,,
