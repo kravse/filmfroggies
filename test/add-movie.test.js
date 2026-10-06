@@ -89,11 +89,17 @@ test("applyAddMovie can combine a preset with custom lists", () => {
   const listId = state.customLists[0].id;
   const { state: next } = applyAddMovie(
     state,
-    { movieId: 44, presetListId: WATCHLIST_ID, customListIds: [listId] },
+    {
+      movieId: 44,
+      presetListId: WATCHED_ID,
+      customListIds: [listId],
+      watchedOn: "2026-08-18",
+    },
     NOW,
   );
-  assert.equal(isOnWatchlist(next.lists, 44), true);
+  assert.equal(isWatched(next.lists, 44), true);
   assert.equal(customListsForMovie(next.customLists, 44).length, 1);
+  assert.equal(viewingEntries(next.viewingHistory, 44)[0].watchedOn, "2026-08-18");
 });
 
 test("applyAddMovie restamps addedAt when re-adding a removed movie", () => {

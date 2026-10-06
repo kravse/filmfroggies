@@ -9,7 +9,6 @@ let suggestResults = [];
 let suggestIndex = -1;
 let pendingAddResult = null;
 let selectedAddListId = null;
-let addMovieWatchDateActive = false;
 let addMoviePickTab = "add";
 let searchDirectorMode = false;
 
@@ -58,9 +57,8 @@ function resetAddMovieRatingControls() {
 }
 
 function resetAddMovieWatchDate() {
-  addMovieWatchDateActive = false;
   if (addMovieWatchDate) {
-    addMovieWatchDate.value = appViewingHistory.today();
+    addMovieWatchDate.value = "";
     addMovieWatchDate.max = appViewingHistory.today();
   }
   syncAddMovieWatchDateUi();
@@ -72,22 +70,22 @@ function showAddMovieRatingAndWatchDate() {
 
 function syncAddMovieWatchDateUi() {
   const showWrap = showAddMovieRatingAndWatchDate();
+  const hasDate = Boolean(addMovieWatchDate?.value);
   if (addMovieWatchDateWrap) {
     addMovieWatchDateWrap.hidden = !showWrap;
   }
-  if (!showWrap) {
-    addMovieWatchDateActive = false;
-  }
   if (addMovieWatchDateToggle) {
-    addMovieWatchDateToggle.hidden = !showWrap || addMovieWatchDateActive;
+    addMovieWatchDateToggle.hidden = !showWrap || hasDate;
   }
   if (addMovieWatchDateField) {
-    addMovieWatchDateField.hidden = !showWrap || !addMovieWatchDateActive;
+    addMovieWatchDateField.hidden = !showWrap || !hasDate;
   }
 }
 
 function onAddMovieWatchDateToggleClick() {
-  addMovieWatchDateActive = true;
+  if (addMovieWatchDate) {
+    addMovieWatchDate.value = appViewingHistory.today();
+  }
   syncAddMovieWatchDateUi();
   addMovieWatchDate?.focus({ preventScroll: true });
 }
@@ -121,7 +119,7 @@ function syncAddMoviePickStep() {
   }
   if (!showExtras) {
     resetAddMovieRatingControls();
-    resetAddMovieWatchDate();
+    syncAddMovieWatchDateUi();
     return;
   }
   syncAddMovieWatchDateUi();
@@ -499,6 +497,7 @@ function showAddPickStep(result) {
   // turns one stray keystroke into a silent Watched entry.
   selectedAddListId = null;
   resetAddMovieRatingControls();
+  resetAddMovieWatchDate();
   resetAddMovieCustomListSelection();
   if (addMoviePickTabs) {
     addMoviePickTabs.hidden = false;
@@ -543,8 +542,7 @@ function confirmAddMovie() {
     presetListId: selectedAddListId,
     customListIds: [...selectedAddCustomListIds],
     rating: includeExtras ? addMovieRatingController.getValue() : null,
-    watchedOn:
-      includeExtras && addMovieWatchDateActive ? addMovieWatchDate?.value : null,
+    watchedOn: includeExtras ? addMovieWatchDate?.value || null : null,
   });
   if (next === userState) {
     notifyCustomListMovieCaps(cappedCustomLists);
