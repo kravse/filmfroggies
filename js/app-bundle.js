@@ -1335,15 +1335,6 @@ const appMovieRemap = (function () {
 (function mountViewingDatePickers() {
   const pickers = [
     {
-      rootId: "add-movie-viewing-date-picker",
-      toggleId: "add-movie-watch-date-toggle",
-      fieldId: "add-movie-watch-date-field",
-      inputId: "add-movie-watch-date",
-      clearId: "add-movie-watch-date-clear",
-      toggleClass: "ghost-btn add-movie-watch-date-toggle",
-      fieldClass: "add-movie-watch-date",
-    },
-    {
       rootId: "watch-confirm-viewing-date-picker",
       toggleId: "watch-confirm-date-toggle",
       fieldId: "watch-confirm-date-field",
@@ -1361,10 +1352,6 @@ const appMovieRemap = (function () {
   }
 })();
 
-const addMovieWatchDateToggle = document.getElementById("add-movie-watch-date-toggle");
-const addMovieWatchDateField = document.getElementById("add-movie-watch-date-field");
-const addMovieWatchDate = document.getElementById("add-movie-watch-date");
-const addMovieWatchDateClear = document.getElementById("add-movie-watch-date-clear");
 const watchConfirmDateToggle = document.getElementById("watch-confirm-date-toggle");
 const watchConfirmDateField = document.getElementById("watch-confirm-date-field");
 const watchConfirmDate = document.getElementById("watch-confirm-date");
@@ -5297,7 +5284,7 @@ const appSyncMerge = (function () {
 const appAddMovie = (function () {
   /**
    * Apply an add-movie choice to user state: optional preset, custom lists,
-   * and Watched-only rating / viewing date.
+   * and Watched-only rating / viewing dates.
    *
    * Callers persist. This function does not bump `updatedAt`.
    */
@@ -5381,7 +5368,9 @@ const appAddMovie = (function () {
       ? options.customListIds
       : [];
     const rating = options.rating;
-    const watchedOn = options.watchedOn || null;
+    const viewingDates = Array.isArray(options.viewingDates)
+      ? options.viewingDates
+      : [];
 
     if (!Number.isInteger(movieId) || movieId <= 0) {
       return empty;
@@ -5462,7 +5451,10 @@ const appAddMovie = (function () {
           changed = true;
         }
       }
-      if (watchedOn) {
+      for (const watchedOn of viewingDates) {
+        if (viewingLib.hasActiveViewingOnDate(next.viewingHistory, movieId, watchedOn)) {
+          continue;
+        }
         const nextHistory = viewingLib.addViewing(
           next.viewingHistory,
           movieId,
@@ -9094,9 +9086,10 @@ let suggestResults = [];
 let suggestIndex = -1;
 let pendingAddResult = null;
 let selectedAddListId = null;
-let addMovieWatchDateActive = false;
 let addMoviePickTab = "add";
 let searchDirectorMode = false;
+let addMovieWatchDateActive = false;
+const addMovieViewingDates = new Set();
 
 const ADD_MOVIE_TMDB_URL = "https://www.themoviedb.org/movie/";
 
@@ -9142,13 +9135,33 @@ function resetAddMovieRatingControls() {
   addMovieRatingController.reset();
 }
 
+function addMovieViewingEntriesForDisplay() {
+  return [...addMovieViewingDates]
+    .sort()
+    .map((watchedOn) => ({ id: `pending:${watchedOn}`, watchedOn, pending: true }));
+}
+
+function renderAddMovieWatchDate() {
+  if (!addMovieWatchDateWrap) {
+    return;
+  }
+  addMovieWatchDateWrap.innerHTML = watchDateFieldHtml(
+    viewingHistoryPanelHtml(addMovieViewingEntriesForDisplay(), {
+      inputId: "add-movie-viewing-new-date",
+      addId: "add-movie-viewing-add",
+    }),
+    {
+      toggleId: "add-movie-watch-date-toggle",
+      panelId: "add-movie-watch-date-panel",
+    },
+  );
+  syncAddMovieWatchDateUi();
+}
+
 function resetAddMovieWatchDate() {
   addMovieWatchDateActive = false;
-  if (addMovieWatchDate) {
-    addMovieWatchDate.value = appViewingHistory.today();
-    addMovieWatchDate.max = appViewingHistory.today();
-  }
-  syncAddMovieWatchDateUi();
+  addMovieViewingDates.clear();
+  renderAddMovieWatchDate();
 }
 
 function showAddMovieRatingAndWatchDate() {
@@ -9157,28 +9170,64 @@ function showAddMovieRatingAndWatchDate() {
 
 function syncAddMovieWatchDateUi() {
   const showWrap = showAddMovieRatingAndWatchDate();
-  if (addMovieWatchDateWrap) {
-    addMovieWatchDateWrap.hidden = !showWrap;
-  }
   if (!showWrap) {
     addMovieWatchDateActive = false;
   }
-  if (addMovieWatchDateToggle) {
-    addMovieWatchDateToggle.hidden = !showWrap || addMovieWatchDateActive;
+  if (addMovieWatchDateWrap) {
+    addMovieWatchDateWrap.hidden = !showWrap;
   }
-  if (addMovieWatchDateField) {
-    addMovieWatchDateField.hidden = !showWrap || !addMovieWatchDateActive;
+  const toggle = document.getElementById("add-movie-watch-date-toggle");
+  const panel = document.getElementById("add-movie-watch-date-panel");
+  if (toggle) {
+    toggle.hidden = !showWrap || addMovieWatchDateActive;
+  }
+  if (panel) {
+    panel.hidden = !showWrap || !addMovieWatchDateActive;
   }
 }
 
 function onAddMovieWatchDateToggleClick() {
+  if (!showAddMovieRatingAndWatchDate()) {
+    return;
+  }
   addMovieWatchDateActive = true;
   syncAddMovieWatchDateUi();
-  addMovieWatchDate?.focus({ preventScroll: true });
+  document.getElementById("add-movie-viewing-new-date")?.focus({ preventScroll: true });
 }
 
-function clearAddMovieWatchDate() {
-  resetAddMovieWatchDate();
+function addAddMovieViewing() {
+  const input = document.getElementById("add-movie-viewing-new-date");
+  if (!pendingAddResult || !input?.value) return;
+  if (!showAddMovieRatingAndWatchDate()) return;
+  if (
+    addMovieViewingDates.has(input.value) ||
+    appViewingHistory.hasActiveViewingOnDate(userState.viewingHistory, pendingAddResult.id, input.value)
+  ) {
+    notifyDuplicateViewingDate(input.value);
+    return;
+  }
+  addMovieViewingDates.add(input.value);
+  renderAddMovieWatchDate();
+}
+
+function removeAddMoviePendingViewing(watchedOn) {
+  addMovieViewingDates.delete(watchedOn);
+  renderAddMovieWatchDate();
+}
+
+function onAddMovieWatchDateClick(event) {
+  if (event.target.closest("#add-movie-watch-date-toggle")) {
+    onAddMovieWatchDateToggleClick();
+    return;
+  }
+  if (event.target.closest("#add-movie-viewing-add")) {
+    addAddMovieViewing();
+    return;
+  }
+  const removePendingViewingBtn = event.target.closest("[data-viewing-remove-pending-date]");
+  if (removePendingViewingBtn) {
+    removeAddMoviePendingViewing(removePendingViewingBtn.dataset.viewingRemovePendingDate);
+  }
 }
 
 function syncAddMovieRatingDisplay() {
@@ -9584,6 +9633,7 @@ function showAddPickStep(result) {
   // turns one stray keystroke into a silent Watched entry.
   selectedAddListId = null;
   resetAddMovieRatingControls();
+  resetAddMovieWatchDate();
   resetAddMovieCustomListSelection();
   if (addMoviePickTabs) {
     addMoviePickTabs.hidden = false;
@@ -9628,8 +9678,7 @@ function confirmAddMovie() {
     presetListId: selectedAddListId,
     customListIds: [...selectedAddCustomListIds],
     rating: includeExtras ? addMovieRatingController.getValue() : null,
-    watchedOn:
-      includeExtras && addMovieWatchDateActive ? addMovieWatchDate?.value : null,
+    viewingDates: includeExtras ? [...addMovieViewingDates] : [],
   });
   if (next === userState) {
     notifyCustomListMovieCaps(cappedCustomLists);
@@ -12119,8 +12168,11 @@ function detailViewingSummaryText(count) {
   return `Viewed ${count} times`;
 }
 
-function detailViewingHistoryPanelHtml(movieId) {
-  const entries = detailViewingEntriesForDisplay(movieId);
+/**
+ * Viewing list with pending rows and an add-date row. Shared by the detail
+ * overlay and the add-movie dialog; each passes its own input and button ids.
+ */
+function viewingHistoryPanelHtml(entries, { inputId, addId }) {
   const rows = entries.map((entry) => {
     const removeButton = entry.pending
       ? `<button type="button" data-viewing-remove-pending-date="${appCardHtml.escapeHtml(entry.watchedOn)}" aria-label="Remove viewing on ${appCardHtml.escapeHtml(formatViewingDate(entry.watchedOn))}">Remove</button>`
@@ -12139,10 +12191,17 @@ function detailViewingHistoryPanelHtml(movieId) {
     </div>
     ${listHtml}
     <div class="detail-viewing-add">
-      <input type="date" id="detail-viewing-new-date" value="${appViewingHistory.today()}" max="${appViewingHistory.today()}" aria-label="New viewing date">
-      <button type="button" id="detail-viewing-add">Add viewing</button>
+      <input type="date" id="${inputId}" value="${appViewingHistory.today()}" max="${appViewingHistory.today()}" aria-label="New viewing date">
+      <button type="button" id="${addId}">Add viewing</button>
     </div>
   </section>`;
+}
+
+function detailViewingHistoryPanelHtml(movieId) {
+  return viewingHistoryPanelHtml(detailViewingEntriesForDisplay(movieId), {
+    inputId: "detail-viewing-new-date",
+    addId: "detail-viewing-add",
+  });
 }
 
 function detailViewingHistoryHtml(movieId) {
@@ -12733,12 +12792,20 @@ const detailAddRatingRefs = {
 };
 let detailAddRatingController = null;
 
-function detailAddWatchDateFieldHtml(movieId) {
+/** "Add viewing date" toggle that reveals a viewing history panel. */
+function watchDateFieldHtml(panelHtml, { toggleId, panelId }) {
   const icon = appCardHtml.viewingDateIconHtml();
-  return `<button type="button" class="ghost-btn add-movie-watch-date-toggle" id="detail-add-watch-date-toggle">${icon}Add viewing date</button>
-<div id="detail-add-watch-date-panel" hidden>
-${detailViewingHistoryPanelHtml(movieId)}
+  return `<button type="button" class="ghost-btn add-movie-watch-date-toggle" id="${toggleId}">${icon}Add viewing date</button>
+<div id="${panelId}" hidden>
+${panelHtml}
 </div>`;
+}
+
+function detailAddWatchDateFieldHtml(movieId) {
+  return watchDateFieldHtml(detailViewingHistoryPanelHtml(movieId), {
+    toggleId: "detail-add-watch-date-toggle",
+    panelId: "detail-add-watch-date-panel",
+  });
 }
 
 function detailAddRatingFieldHtml() {
@@ -18709,8 +18776,7 @@ addMovieSubmit.addEventListener("click", confirmAddMovie);
 bindRangeSliderLiveInput(addMovieRatingSlider, onAddMovieRatingSliderInput);
 addMovieRatingSelect?.addEventListener("change", onAddMovieRatingSelectChange);
 addMovieRatingClear?.addEventListener("click", clearAddMovieRating);
-addMovieWatchDateToggle?.addEventListener("click", onAddMovieWatchDateToggleClick);
-addMovieWatchDateClear?.addEventListener("click", clearAddMovieWatchDate);
+addMovieWatchDateWrap?.addEventListener("click", onAddMovieWatchDateClick);
 
 /* --- Grid --- */
 

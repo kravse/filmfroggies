@@ -522,8 +522,11 @@ function detailViewingSummaryText(count) {
   return `Viewed ${count} times`;
 }
 
-function detailViewingHistoryPanelHtml(movieId) {
-  const entries = detailViewingEntriesForDisplay(movieId);
+/**
+ * Viewing list with pending rows and an add-date row. Shared by the detail
+ * overlay and the add-movie dialog; each passes its own input and button ids.
+ */
+function viewingHistoryPanelHtml(entries, { inputId, addId }) {
   const rows = entries.map((entry) => {
     const removeButton = entry.pending
       ? `<button type="button" data-viewing-remove-pending-date="${appCardHtml.escapeHtml(entry.watchedOn)}" aria-label="Remove viewing on ${appCardHtml.escapeHtml(formatViewingDate(entry.watchedOn))}">Remove</button>`
@@ -542,10 +545,17 @@ function detailViewingHistoryPanelHtml(movieId) {
     </div>
     ${listHtml}
     <div class="detail-viewing-add">
-      <input type="date" id="detail-viewing-new-date" value="${appViewingHistory.today()}" max="${appViewingHistory.today()}" aria-label="New viewing date">
-      <button type="button" id="detail-viewing-add">Add viewing</button>
+      <input type="date" id="${inputId}" value="${appViewingHistory.today()}" max="${appViewingHistory.today()}" aria-label="New viewing date">
+      <button type="button" id="${addId}">Add viewing</button>
     </div>
   </section>`;
+}
+
+function detailViewingHistoryPanelHtml(movieId) {
+  return viewingHistoryPanelHtml(detailViewingEntriesForDisplay(movieId), {
+    inputId: "detail-viewing-new-date",
+    addId: "detail-viewing-add",
+  });
 }
 
 function detailViewingHistoryHtml(movieId) {
@@ -1136,12 +1146,20 @@ const detailAddRatingRefs = {
 };
 let detailAddRatingController = null;
 
-function detailAddWatchDateFieldHtml(movieId) {
+/** "Add viewing date" toggle that reveals a viewing history panel. */
+function watchDateFieldHtml(panelHtml, { toggleId, panelId }) {
   const icon = appCardHtml.viewingDateIconHtml();
-  return `<button type="button" class="ghost-btn add-movie-watch-date-toggle" id="detail-add-watch-date-toggle">${icon}Add viewing date</button>
-<div id="detail-add-watch-date-panel" hidden>
-${detailViewingHistoryPanelHtml(movieId)}
+  return `<button type="button" class="ghost-btn add-movie-watch-date-toggle" id="${toggleId}">${icon}Add viewing date</button>
+<div id="${panelId}" hidden>
+${panelHtml}
 </div>`;
+}
+
+function detailAddWatchDateFieldHtml(movieId) {
+  return watchDateFieldHtml(detailViewingHistoryPanelHtml(movieId), {
+    toggleId: "detail-add-watch-date-toggle",
+    panelId: "detail-add-watch-date-panel",
+  });
 }
 
 function detailAddRatingFieldHtml() {

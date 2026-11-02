@@ -65,8 +65,7 @@ addMovieSubmit.addEventListener("click", confirmAddMovie);
 bindRangeSliderLiveInput(addMovieRatingSlider, onAddMovieRatingSliderInput);
 addMovieRatingSelect?.addEventListener("change", onAddMovieRatingSelectChange);
 addMovieRatingClear?.addEventListener("click", clearAddMovieRating);
-addMovieWatchDateToggle?.addEventListener("click", onAddMovieWatchDateToggleClick);
-addMovieWatchDateClear?.addEventListener("click", clearAddMovieWatchDate);
+addMovieWatchDateWrap?.addEventListener("click", onAddMovieWatchDateClick);
 
 /* --- Grid --- */
 

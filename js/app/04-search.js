@@ -11,6 +11,8 @@ let pendingAddResult = null;
 let selectedAddListId = null;
 let addMoviePickTab = "add";
 let searchDirectorMode = false;
+let addMovieWatchDateActive = false;
+const addMovieViewingDates = new Set();
 
 const ADD_MOVIE_TMDB_URL = "https://www.themoviedb.org/movie/";
 
@@ -56,12 +58,33 @@ function resetAddMovieRatingControls() {
   addMovieRatingController.reset();
 }
 
-function resetAddMovieWatchDate() {
-  if (addMovieWatchDate) {
-    addMovieWatchDate.value = "";
-    addMovieWatchDate.max = appViewingHistory.today();
+function addMovieViewingEntriesForDisplay() {
+  return [...addMovieViewingDates]
+    .sort()
+    .map((watchedOn) => ({ id: `pending:${watchedOn}`, watchedOn, pending: true }));
+}
+
+function renderAddMovieWatchDate() {
+  if (!addMovieWatchDateWrap) {
+    return;
   }
+  addMovieWatchDateWrap.innerHTML = watchDateFieldHtml(
+    viewingHistoryPanelHtml(addMovieViewingEntriesForDisplay(), {
+      inputId: "add-movie-viewing-new-date",
+      addId: "add-movie-viewing-add",
+    }),
+    {
+      toggleId: "add-movie-watch-date-toggle",
+      panelId: "add-movie-watch-date-panel",
+    },
+  );
   syncAddMovieWatchDateUi();
+}
+
+function resetAddMovieWatchDate() {
+  addMovieWatchDateActive = false;
+  addMovieViewingDates.clear();
+  renderAddMovieWatchDate();
 }
 
 function showAddMovieRatingAndWatchDate() {
@@ -70,28 +93,64 @@ function showAddMovieRatingAndWatchDate() {
 
 function syncAddMovieWatchDateUi() {
   const showWrap = showAddMovieRatingAndWatchDate();
-  const hasDate = Boolean(addMovieWatchDate?.value);
+  if (!showWrap) {
+    addMovieWatchDateActive = false;
+  }
   if (addMovieWatchDateWrap) {
     addMovieWatchDateWrap.hidden = !showWrap;
   }
-  if (addMovieWatchDateToggle) {
-    addMovieWatchDateToggle.hidden = !showWrap || hasDate;
+  const toggle = document.getElementById("add-movie-watch-date-toggle");
+  const panel = document.getElementById("add-movie-watch-date-panel");
+  if (toggle) {
+    toggle.hidden = !showWrap || addMovieWatchDateActive;
   }
-  if (addMovieWatchDateField) {
-    addMovieWatchDateField.hidden = !showWrap || !hasDate;
+  if (panel) {
+    panel.hidden = !showWrap || !addMovieWatchDateActive;
   }
 }
 
 function onAddMovieWatchDateToggleClick() {
-  if (addMovieWatchDate) {
-    addMovieWatchDate.value = appViewingHistory.today();
+  if (!showAddMovieRatingAndWatchDate()) {
+    return;
   }
+  addMovieWatchDateActive = true;
   syncAddMovieWatchDateUi();
-  addMovieWatchDate?.focus({ preventScroll: true });
+  document.getElementById("add-movie-viewing-new-date")?.focus({ preventScroll: true });
 }
 
-function clearAddMovieWatchDate() {
-  resetAddMovieWatchDate();
+function addAddMovieViewing() {
+  const input = document.getElementById("add-movie-viewing-new-date");
+  if (!pendingAddResult || !input?.value) return;
+  if (!showAddMovieRatingAndWatchDate()) return;
+  if (
+    addMovieViewingDates.has(input.value) ||
+    appViewingHistory.hasActiveViewingOnDate(userState.viewingHistory, pendingAddResult.id, input.value)
+  ) {
+    notifyDuplicateViewingDate(input.value);
+    return;
+  }
+  addMovieViewingDates.add(input.value);
+  renderAddMovieWatchDate();
+}
+
+function removeAddMoviePendingViewing(watchedOn) {
+  addMovieViewingDates.delete(watchedOn);
+  renderAddMovieWatchDate();
+}
+
+function onAddMovieWatchDateClick(event) {
+  if (event.target.closest("#add-movie-watch-date-toggle")) {
+    onAddMovieWatchDateToggleClick();
+    return;
+  }
+  if (event.target.closest("#add-movie-viewing-add")) {
+    addAddMovieViewing();
+    return;
+  }
+  const removePendingViewingBtn = event.target.closest("[data-viewing-remove-pending-date]");
+  if (removePendingViewingBtn) {
+    removeAddMoviePendingViewing(removePendingViewingBtn.dataset.viewingRemovePendingDate);
+  }
 }
 
 function syncAddMovieRatingDisplay() {
@@ -119,7 +178,7 @@ function syncAddMoviePickStep() {
   }
   if (!showExtras) {
     resetAddMovieRatingControls();
-    syncAddMovieWatchDateUi();
+    resetAddMovieWatchDate();
     return;
   }
   syncAddMovieWatchDateUi();
@@ -542,7 +601,7 @@ function confirmAddMovie() {
     presetListId: selectedAddListId,
     customListIds: [...selectedAddCustomListIds],
     rating: includeExtras ? addMovieRatingController.getValue() : null,
-    watchedOn: includeExtras ? addMovieWatchDate?.value || null : null,
+    viewingDates: includeExtras ? [...addMovieViewingDates] : [],
   });
   if (next === userState) {
     notifyCustomListMovieCaps(cappedCustomLists);

@@ -3,7 +3,7 @@
 const appAddMovie = (function () {
   /**
    * Apply an add-movie choice to user state: optional preset, custom lists,
-   * and Watched-only rating / viewing date.
+   * and Watched-only rating / viewing dates.
    *
    * Callers persist. This function does not bump `updatedAt`.
    */
@@ -87,7 +87,9 @@ const appAddMovie = (function () {
       ? options.customListIds
       : [];
     const rating = options.rating;
-    const watchedOn = options.watchedOn || null;
+    const viewingDates = Array.isArray(options.viewingDates)
+      ? options.viewingDates
+      : [];
 
     if (!Number.isInteger(movieId) || movieId <= 0) {
       return empty;
@@ -168,7 +170,10 @@ const appAddMovie = (function () {
           changed = true;
         }
       }
-      if (watchedOn) {
+      for (const watchedOn of viewingDates) {
+        if (viewingLib.hasActiveViewingOnDate(next.viewingHistory, movieId, watchedOn)) {
+          continue;
+        }
         const nextHistory = viewingLib.addViewing(
           next.viewingHistory,
           movieId,

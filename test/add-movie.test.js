@@ -41,7 +41,7 @@ test("applyAddMovie to watched records status, addedAt, rating, and viewing", ()
       movieId: 12,
       presetListId: WATCHED_ID,
       rating: 8.5,
-      watchedOn: "2026-08-18",
+      viewingDates: ["2026-08-18"],
     },
     NOW,
   );
@@ -54,6 +54,22 @@ test("applyAddMovie to watched records status, addedAt, rating, and viewing", ()
   assert.equal(viewingEntries(next.viewingHistory, 12)[0].watchedOn, "2026-08-18");
 });
 
+test("applyAddMovie to watched records every viewing date once", () => {
+  const { state: next } = applyAddMovie(
+    defaultUserState(),
+    {
+      movieId: 12,
+      presetListId: WATCHED_ID,
+      viewingDates: ["2026-08-18", "2025-03-02", "2026-08-18"],
+    },
+    NOW,
+  );
+  assert.deepEqual(
+    viewingEntries(next.viewingHistory, 12).map((entry) => entry.watchedOn),
+    ["2025-03-02", "2026-08-18"],
+  );
+});
+
 test("applyAddMovie to watchlist ignores rating and viewing date", () => {
   const { state: next } = applyAddMovie(
     defaultUserState(),
@@ -61,7 +77,7 @@ test("applyAddMovie to watchlist ignores rating and viewing date", () => {
       movieId: 12,
       presetListId: WATCHLIST_ID,
       rating: 9,
-      watchedOn: "2026-08-18",
+      viewingDates: ["2026-08-18"],
     },
     NOW,
   );
@@ -93,7 +109,7 @@ test("applyAddMovie can combine a preset with custom lists", () => {
       movieId: 44,
       presetListId: WATCHED_ID,
       customListIds: [listId],
-      watchedOn: "2026-08-18",
+      viewingDates: ["2026-08-18"],
     },
     NOW,
   );

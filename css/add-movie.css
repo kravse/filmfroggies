@@ -448,7 +448,6 @@
   width: 100%;
 }
 
-.add-movie-watch-date,
 .watch-confirm-date {
   display: grid;
   gap: 0.45rem;
@@ -458,7 +457,6 @@
   color: var(--muted);
 }
 
-.add-movie-watch-date input,
 .watch-confirm-date input {
   width: 100%;
   box-sizing: border-box;
@@ -471,7 +469,6 @@
   color-scheme: dark;
 }
 
-.add-movie-watch-date .user-rating-clear-btn,
 .watch-confirm-date .user-rating-clear-btn {
   justify-self: start;
 }
