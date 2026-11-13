@@ -193,8 +193,9 @@ function hasAddMovieDestinations() {
 
 /**
  * Saved Watched / Watchlist membership for the staged movie, or null when it is
- * uncollected. A saved preset makes both preset pickers no-ops, so the dialog
- * shows this status instead and leaves promotion to the detail overlay.
+ * uncollected. A Watched movie hides the preset pickers (both choices would be
+ * no-ops or a demotion); a Watchlist movie keeps only the Watched choice so it
+ * can be marked watched straight from the add flow.
  */
 function addMovieSavedPresetStatus() {
   if (!pendingAddResult || !userState) {
@@ -202,6 +203,21 @@ function addMovieSavedPresetStatus() {
   }
   const status = detailPresetStatusForMovie(pendingAddResult.id);
   return status.state === "none" ? null : status;
+}
+
+/** A Watchlist movie can still be promoted to Watched from the add dialog. */
+function addMovieCanMarkWatched(status) {
+  return status?.state === "watchlist";
+}
+
+function syncAddMoviePresetOptions(canMarkWatched) {
+  for (const root of [addMovieListPicker, addMoviePresetChips]) {
+    root
+      ?.querySelectorAll(`[data-list-id="${appLists.WATCHLIST_ID}"]`)
+      .forEach((button) => {
+        button.hidden = canMarkWatched;
+      });
+  }
 }
 
 function syncAddMoviePresetStatus(status) {
@@ -219,19 +235,22 @@ function syncAddMovieDialogChrome() {
   const customDetail = isCustomListDetailActive();
   const listName = customDetail ? getActiveDisplayContext().listName : "";
   const savedPreset = addMovieSavedPresetStatus();
+  const canMarkWatched = addMovieCanMarkWatched(savedPreset);
+  const hidePresets = savedPreset != null && !canMarkWatched;
 
   if (addMovieTitle) {
     addMovieTitle.textContent = customDetail ? `Add a movie to ${listName}` : "Add a movie";
   }
   syncAddMoviePresetStatus(savedPreset);
+  syncAddMoviePresetOptions(canMarkWatched);
   if (addMoviePresetSection) {
-    addMoviePresetSection.hidden = customDetail || savedPreset != null;
+    addMoviePresetSection.hidden = customDetail || hidePresets;
   }
   if (addMovieAlsoAddSection) {
-    addMovieAlsoAddSection.hidden = !customDetail || savedPreset != null;
+    addMovieAlsoAddSection.hidden = !customDetail || hidePresets;
   }
   if (addMoviePresetLabel) {
-    addMoviePresetLabel.textContent = "Add to";
+    addMoviePresetLabel.textContent = canMarkWatched ? "Move to" : "Add to";
   }
   if (addMovieCustomListsLabel) {
     addMovieCustomListsLabel.textContent = customDetail ? "Lists" : "Also add to";
@@ -580,7 +599,7 @@ function showAddPickStep(result) {
 function focusAddMoviePickStep() {
   const presetOption = addMoviePresetSection?.hidden
     ? null
-    : addMovieListPicker?.querySelector("[data-list-id]");
+    : addMovieListPicker?.querySelector("[data-list-id]:not([hidden])");
   // With no preset to choose, custom lists are the only remaining destination —
   // and Add is disabled until one is picked, so it cannot take focus.
   const collectedOption = addMovieSavedPresetStatus()
@@ -740,7 +759,7 @@ function onSearchKeydown(event) {
 
 function onAddListOptionClick(event) {
   const button = event.target.closest(".add-list-option");
-  if (!button || !pendingAddResult) {
+  if (!button || button.hidden || !pendingAddResult) {
     return;
   }
   const listId = button.dataset.listId;

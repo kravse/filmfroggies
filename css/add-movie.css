@@ -524,6 +524,10 @@
     border-color 0.15s ease;
 }
 
+.add-list-option[hidden] {
+  display: none;
+}
+
 .add-list-option:hover {
   border-color: var(--accent-border);
   background: var(--accent-dim);
